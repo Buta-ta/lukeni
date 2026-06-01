@@ -19,7 +19,6 @@ const nextConfig = {
       { protocol: 'https', hostname: '**.wiktionary.org', port: '', pathname: '/**' },
       { protocol: 'https', hostname: 'covers.openlibrary.org', port: '', pathname: '/**' },
       { protocol: 'https', hostname: 'openlibrary.org', port: '', pathname: '/**' },
-      // ✅ LibGen covers
       { protocol: 'https', hostname: 'libgen.is', port: '', pathname: '/**' },
       { protocol: 'https', hostname: 'libgen.st', port: '', pathname: '/**' },
     ],
@@ -36,11 +35,7 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-
-              // Scripts
               "script-src 'unsafe-eval' 'self' 'unsafe-inline' https://www.google.com https://apis.google.com https://ssl.gstatic.com https://www.gstatic.com https://www.googletagmanager.com https://www.google-analytics.com https://*.youtube.com https://*.google.com https://*.gstatic.com https://youtube.com https://www.youtube.com https://google.com https://*.doubleclick.net https://*.googleapis.com https://www.googleadservices.com https://tpc.googlesyndication.com https://www.youtubekids.com https://www.youtube-nocookie.com https://www.youtubeeducation.com https://www-onepick-opensocial.googleusercontent.com https://upload-widget.cloudinary.com https://translate.google.com https://translate.googleapis.com blob:",
-
-              // ✅ frame-src — archive.org + openlibrary.org ajoutés
               [
                 "frame-src",
                 "'self'",
@@ -61,11 +56,7 @@ const nextConfig = {
                 "https://translate.google.com",
                 "https://translate.googleapis.com",
               ].join(' '),
-
-              // Objects
               "object-src 'self' https://res.cloudinary.com data:",
-
-              // ✅ connect-src — libgen ajouté
               [
                 "connect-src",
                 "'self'",
@@ -103,12 +94,10 @@ const nextConfig = {
                 "https://*.wiktionary.org",
                 "https://openlibrary.org",
                 "https://covers.openlibrary.org",
-                // ✅ LibGen
                 "https://libgen.is",
                 "https://libgen.st",
                 "https://libgen.rs",
               ].join(' '),
-
               "img-src 'self' data: blob: https: http:",
               "media-src 'self' blob: https: http: https://res.cloudinary.com https://api.dictionaryapi.dev",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://translate.googleapis.com https://translate.google.com",
@@ -156,11 +145,12 @@ const nextConfig = {
     ];
   },
 
-  async rewrites() {
-    return [
-      { source: '/api/cron/:path*', destination: '/api/cron/:path*' },
-    ];
-  },
+  // ❌ SUPPRIMEZ CETTE SECTION COMPLÈTEMENT
+  // async rewrites() {
+  //   return [
+  //     { source: '/api/cron/:path*', destination: '/api/cron/:path*' },
+  //   ];
+  // },
 
   poweredByHeader: false,
   compress: true,

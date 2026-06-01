@@ -39,11 +39,17 @@ export function LayoutClient({
 
   return (
     <>
+      {/* ✅ PWA Components (UNE SEULE FOIS) */}
       <PWARegister />   
-      <PWAInstallButton />    
+      <PWAInstallButton />
+      
+      {/* ✅ Tracking Provider (UNE SEULE FOIS) */}
       <TrackingProvider>
+        {/* ✅ UN SEUL {children} */}
         {children}
       </TrackingProvider>
+      
+      {/* ✅ Footer (UNE SEULE FOIS) */}
       <Footer />
     </>
   );

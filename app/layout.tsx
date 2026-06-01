@@ -2,10 +2,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Footer from '@/components/Footer';
-import { TrackingProvider } from '@/components/TrackingProvider';
-import { PWARegister } from '@/components/PWARegister';
-import { PWAInstallButton } from '@/components/PWAInstallButton';
 import { LayoutClient } from './layout-client';
 
 const geistSans = Geist({
@@ -132,51 +128,28 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        {/* ═══════════════════════════════════════════════════════════ */}
-        {/* 📱 PWA Meta Tags */}
-        {/* ═══════════════════════════════════════════════════════════ */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Lukeni" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="application-name" content="Lukeni" />
-        
-        {/* ═══════════════════════════════════════════════════════════ */}
-        {/* 🎨 Theme & Colors */}
-        {/* ═══════════════════════════════════════════════════════════ */}
         <meta name="theme-color" content="#D4AF37" media="(prefers-color-scheme: light)" />
         <meta name="theme-color" content="#020111" media="(prefers-color-scheme: dark)" />
         <meta name="msapplication-TileColor" content="#D4AF37" />
         <meta name="msapplication-TileImage" content="/icon-144x144.png" />
         <meta name="msapplication-config" content="/browserconfig.xml" />
-        
-        {/* ═══════════════════════════════════════════════════════════ */}
-        {/* 🔗 Links */}
-        {/* ═══════════════════════════════════════════════════════════ */}
         <link rel="icon" href="/favicon.ico" />
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
         <link rel="mask-icon" href="/icon-192x192.png" color="#D4AF37" />
         <link rel="alternate" hrefLang="fr" href="https://lukeni.app" />
-        
-        {/* ═══════════════════════════════════════════════════════════ */}
-        {/* 📊 Analytics & Tracking */}
-        {/* ═══════════════════════════════════════════════════════════ */}
         <meta name="google-site-verification" content="" />
       </head>
       
       <body className="min-h-full flex flex-col bg-[#020111] text-white">
-        {/* ═══════════════════════════════════════════════════════════ */}
-        {/* 🎯 Main Layout */}
-        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* ✅ UN SEUL PASSAGE DE {children} */}
         <LayoutClient>
           {children}
         </LayoutClient>
-        
-        {/* ═══════════════════════════════════════════════════════════ */}
-        {/* 🔧 PWA & Tracking */}
-        {/* ═══════════════════════════════════════════════════════════ */}
-        <PWARegister />
-        <TrackingProvider>{children}</TrackingProvider>
       </body>
     </html>
   );

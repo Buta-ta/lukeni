@@ -16,7 +16,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// ✅ HANDLER POUR LES PUSH NOTIFICATIONS
+// ✅ PUSH NOTIFICATIONS
 self.addEventListener('push', (event) => {
   console.log('[SW] Push event received');
   try {
@@ -27,8 +27,8 @@ self.addEventListener('push', (event) => {
     event.waitUntil(
       self.registration.showNotification(data.title || 'Lukeni', {
         body: data.body || 'Nouvelle notification',
-        icon: data.icon || '/icons/icon-192x192.png',
-        badge: data.badge || '/icons/badge-72x72.png',
+        icon: data.icon || '/icon-192x192.png',
+        badge: data.badge || '/badge-72x72.png',
         tag: data.tag || 'default',
         requireInteraction: data.requireInteraction || false,
         data: { 
@@ -43,13 +43,13 @@ self.addEventListener('push', (event) => {
     event.waitUntil(
       self.registration.showNotification('Lukeni', {
         body: 'Une nouvelle notification est disponible',
-        icon: '/icons/icon-192x192.png',
+        icon: '/icon-192x192.png',
       })
     );
   }
 });
 
-// ✅ HANDLER POUR LES CLICS SUR LES NOTIFICATIONS
+// ✅ NOTIFICATION CLICK
 self.addEventListener('notificationclick', (event) => {
   console.log('[SW] Notification clicked:', event.notification.tag);
   event.notification.close();
@@ -58,14 +58,12 @@ self.addEventListener('notificationclick', (event) => {
   
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // Vérifier si une fenêtre est déjà ouverte
       for (const client of clientList) {
         if (client.url === urlToOpen && 'focus' in client) {
           console.log('[SW] Focus existing client');
           return client.focus();
         }
       }
-      // Sinon, ouvrir une nouvelle fenêtre
       if (clients.openWindow) {
         console.log('[SW] Opening new window:', urlToOpen);
         return clients.openWindow(urlToOpen);
@@ -74,27 +72,32 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-// ✅ HANDLER POUR L'ANNULATION DES NOTIFICATIONS
+// ✅ NOTIFICATION CLOSE
 self.addEventListener('notificationclose', (event) => {
   console.log('[SW] Notification closed:', event.notification.tag);
 });
 
-// ✅ HANDLER POUR LES REQUÊTES
+// ✅ FETCH HANDLER (CORRIGÉ POUR ÉVITER L'ERREUR 206)
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   
-  // Ne pas intercepter les domaines externes
+  // Ignorer les domaines externes
   if (url.origin !== self.location.origin) return;
   
-  // Ne pas intercepter les API
+  // Ignorer les API
   if (url.pathname.startsWith('/api/')) return;
   
-  // Ne pas intercepter Supabase
+  // Ignorer Supabase
   if (url.hostname.includes('supabase')) return;
 
   event.respondWith(
     fetch(event.request)
       .then((response) => {
+        // ✅ NE PAS CACHER LES RÉPONSES PARTIELLES (206) OU LES ERREURS
+        if (!response || response.status !== 200 || response.type === 'opaque') {
+          return response;
+        }
+        
         // Cloner la réponse
         const clonedResponse = response.clone();
         
