@@ -1,4 +1,4 @@
-// /middleware.ts (VERSION OPTIMISÉE)
+// middleware.ts (VERSION CORRIGÉE)
 import { NextResponse, NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
@@ -12,6 +12,7 @@ const PUBLIC_PREFIXES = [
   '/sw.js',
   '/icon-',
   '/screenshot',
+  '/apple-touch-icon',
 ];
 
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes
@@ -26,14 +27,13 @@ function isPublicPath(pathname: string): boolean {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // ✅ Early return pour les chemins publics
+  // ✅ Early return pour les chemins publics (SANS créer de client Supabase)
   if (isPublicPath(pathname)) {
     return NextResponse.next();
   }
 
-  const res = NextResponse.next({
-    request: { headers: req.headers },
-  });
+  // ✅ Créer une seule réponse
+  const res = NextResponse.next();
 
   try {
     const supabase = createServerClient(
@@ -45,10 +45,7 @@ export async function middleware(req: NextRequest) {
             return req.cookies.getAll();
           },
           setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              req.cookies.set(name, value);
-              res.cookies.set(name, value, options);
-            });
+            cookiesToSet.forEach(({ name, value, options }) => res.cookies.set(name, value, options));
           },
         },
       }
@@ -63,7 +60,6 @@ export async function middleware(req: NextRequest) {
       const elapsed = Date.now() - parseInt(lastActivity, 10);
       
       if (elapsed > INACTIVITY_TIMEOUT) {
-        // Invalider la session
         await supabase.auth.signOut();
         
         const redirectUrl = new URL('/auth', req.url);
@@ -76,7 +72,7 @@ export async function middleware(req: NextRequest) {
       }
     }
 
-    // ✅ Mettre à jour l'activité si session valide
+    // ✅ Mettre à jour l'activité
     if (session) {
       res.cookies.set('last_activity', String(Date.now()), {
         httpOnly: false,
@@ -87,34 +83,41 @@ export async function middleware(req: NextRequest) {
       });
     }
 
-    // ✅ Logs UNIQUEMENT en développement
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🛡️ Middleware:', pathname, '| Session:', !!session);
-    }
-
     // Routes /admin/*
-    if (pathname.startsWith('/admin')) {
+    if (pathname.startsWith('/admin') && pathname !== '/admin/auth') {
       if (!session) {
         return NextResponse.redirect(new URL('/admin/auth', req.url));
       }
       return res;
     }
 
-    // Autres routes protégées
-    if (!session) {
-      const redirectUrl = req.nextUrl.clone();
-      redirectUrl.pathname = '/auth';
+    // ✅ IMPORTANT : Retourner NextResponse.next() pour les routes publiques comme /explore, /encyclopedie, etc.
+    const protectedPrefixes = ['/profil', '/bibliotheque', '/voyage-musical/contribuer'];
+    const isProtected = protectedPrefixes.some(prefix => pathname.startsWith(prefix));
+
+    if (isProtected && !session) {
+      const redirectUrl = new URL('/auth', req.url);
       redirectUrl.searchParams.set('redirect', pathname);
       return NextResponse.redirect(redirectUrl);
     }
 
     return res;
+
   } catch (error) {
-    console.error('Middleware error:', error);
+    console.error('❌ Middleware error:', error);
     return NextResponse.next();
   }
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: [
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public files (manifest, icons, etc.)
+     */
+    '/((?!_next/static|_next/image|favicon.ico|manifest.json|sw.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)).*)',
+  ],
 };
