@@ -24,3 +24,163 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ──────────────────────────────────────────────────────────
+   LEAFLET STYLES — ISOLÉS STRICTEMENT
+   ────────────────────────────────────────────────────────── */
+
+@import 'leaflet/dist/leaflet.css';
+
+/* Container principal — ne pas toucher au contexte global */
+.leaflet-container {
+  background: #020111 !important;
+  font-family: inherit;
+  z-index: 1;
+}
+
+/* Tiles avec filtre sombre */
+.leaflet-pane {
+  z-index: inherit;
+}
+
+.leaflet-tile-pane {
+  filter: brightness(0.5) saturate(0.7) hue-rotate(180deg);
+}
+
+/* Popups — isolés */
+.leaflet-popup-content-wrapper {
+  background: rgba(2, 1, 17, 0.98) !important;
+  border: 1px solid rgba(212, 175, 55, 0.3) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 0 40px rgba(212, 175, 55, 0.2) !important;
+  backdrop-filter: blur(20px) !important;
+  color: white !important;
+}
+
+.leaflet-popup-tip {
+  background: rgba(212, 175, 55, 0.3) !important;
+  border: none !important;
+}
+
+.leaflet-popup-close-button {
+  color: rgba(255, 255, 255, 0.5) !important;
+  opacity: 1 !important;
+  font-size: 20px !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: #D4AF37 !important;
+}
+
+/* Contrôles */
+.leaflet-control {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.leaflet-control-zoom {
+  background: transparent !important;
+}
+
+.leaflet-control-zoom a {
+  background: rgba(2, 1, 17, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #D4AF37 !important;
+  font-weight: bold !important;
+  width: 36px !important;
+  height: 36px !important;
+  line-height: 36px !important;
+  border-radius: 8px !important;
+  margin-bottom: 8px !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: rgba(212, 175, 55, 0.2) !important;
+  border-color: rgba(212, 175, 55, 0.3) !important;
+}
+
+/* Attribution */
+.leaflet-control-attribution {
+  background: rgba(2, 1, 17, 0.7) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: rgba(255, 255, 255, 0.3) !important;
+  font-size: 9px !important;
+  border-radius: 8px !important;
+}
+
+.leaflet-control-attribution a {
+  color: rgba(212, 175, 55, 0.5) !important;
+  text-decoration: none !important;
+}
+
+.leaflet-control-attribution a:hover {
+  color: #D4AF37 !important;
+}
+
+/* Curseur */
+.leaflet-interactive {
+  cursor: pointer !important;
+}
+
+.leaflet-container a.leaflet-popup-close-button {
+  background: transparent !important;
+  border: none !important;
+  font-size: 22px !important;
+  width: auto !important;
+  height: auto !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+}
+
+/* ──────────────────────────────────────────────────────────
+   RESET — Éviter les conflits globaux
+   ────────────────────────────────────────────────────────── */
+
+/* Pas de modification des éléments globaux */
+.leaflet-pane canvas,
+.leaflet-pane svg {
+  position: absolute;
+  z-index: inherit;
+}
+
+/* Éviter les conflits de padding/margin */
+.leaflet-container .leaflet-control {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+
+.wiki-content * {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.wiki-content table {
+  table-layout: auto;
+  width: 100%;
+}
+
+.wiki-content img {
+  height: auto;
+  max-width: 100%;
+}
+
+/* Scroll custom pour les tables */
+.wiki-content .overflow-x-auto::-webkit-scrollbar {
+  height: 6px;
+}
+
+.wiki-content .overflow-x-auto::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.05);
+  border-radius: 3px;
+}
+
+.wiki-content .overflow-x-auto::-webkit-scrollbar-thumb {
+  background: rgba(212,175,55,0.3);
+  border-radius: 3px;
+}
+
+.wiki-content .overflow-x-auto::-webkit-scrollbar-thumb:hover {
+  background: rgba(212,175,55,0.5);
+}

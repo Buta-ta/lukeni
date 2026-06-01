@@ -1,0 +1,33 @@
+
+> lukeni@0.1.0 build
+> next build
+
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/buta242/pnpm-lock.yaml as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /Users/buta242/lukeni/package-lock.json
+
+▲ Next.js 16.2.5 (Turbopack)
+- Environments: .env.local
+- Experiments (use with caution):
+  · optimizePackageImports
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 7.6s
+  Running TypeScript ...
+Failed to type check.
+
+./components/MusicViewer.tsx:15:3
+Type error: Type '{ country_code: string; country_name_fr: string; country_name_en: string; lat: number; lng: number; track_count: number; dominant_color: string; genres: string[]; eras: number[]; }' is missing the following properties from type 'CountryMusicData': city, is_cluster, cluster_name
+
+  [90m13 |[0m [90m// ✅ Données exemple (remplacer par vos données Supabase)[0m
+  [90m14 |[0m [36mconst[0m [33mEXAMPLE_COUNTRIES[0m: [33mCountryMusicData[0m[] = [
+[31m[1m>[0m [90m15 |[0m   {
+  [90m   |[0m   [31m[1m^[0m
+  [90m16 |[0m     country_code: [32m"SEN"[0m,
+  [90m17 |[0m     country_name_fr: [32m"Sénégal"[0m,
+  [90m18 |[0m     country_name_en: [32m"Senegal"[0m,
+Next.js build worker exited with code: 1 and signal: null
