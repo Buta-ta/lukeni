@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
-const PUBLIC_PATHS = ['/', '/auth', '/admin/auth', '/qui-sommes-nous', '/presse'];
+const PUBLIC_PATHS = ['/', '/auth', '/admin/auth', '/qui-sommes-nous'];
 const PUBLIC_PREFIXES = ['/auth/', '/api/', '/_next/', '/favicon.ico', '/manifest.json', '/sw.js', '/icon-', '/screenshot', '/apple-touch-icon'];
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
 
@@ -76,8 +76,16 @@ export async function middleware(req: NextRequest) {
       return res;
     }
 
-    // Protection des routes utilisateur
-    const protectedPrefixes = ['/profil', '/bibliotheque', '/voyage-musical/contribuer'];
+    // ✅ Protection des routes utilisateur
+    const protectedPrefixes = [
+      '/profil',
+      '/bibliotheque',      // ✅ Ajouter
+      '/presse',            // ✅ Ajouter
+      '/voyage-musical/contribuer',
+      '/explore',
+      '/encyclopedie',
+      '/voyage-musical',
+    ];
     const isProtected = protectedPrefixes.some(prefix => pathname.startsWith(prefix));
 
     if (isProtected && !session) {

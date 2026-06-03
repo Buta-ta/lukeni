@@ -103,13 +103,24 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://translate.googleapis.com https://translate.google.com",
               "font-src 'self' data: https://fonts.gstatic.com https://fonts.openmaptiles.org",
               "manifest-src 'self'",
+              // ✅ MODIFIÉ — blob: requis pour pdfjs-dist worker
               "worker-src 'self' blob:",
             ].join('; '),
           },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
+          // ✅ MODIFIÉ — DENY → SAMEORIGIN pour permettre nos propres iframes internes
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
           { key: 'X-XSS-Protection', value: '1; mode=block' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        ],
+      },
+      // ✅ AJOUTÉ — Headers spécifiques pour le proxy PDF
+      {
+        source: '/api/pdf-proxy',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET, OPTIONS' },
+          { key: 'Cache-Control', value: 'public, max-age=3600, stale-while-revalidate=86400' },
         ],
       },
       {
@@ -144,13 +155,6 @@ const nextConfig = {
       },
     ];
   },
-
-  // ❌ SUPPRIMEZ CETTE SECTION COMPLÈTEMENT
-  // async rewrites() {
-  //   return [
-  //     { source: '/api/cron/:path*', destination: '/api/cron/:path*' },
-  //   ];
-  // },
 
   poweredByHeader: false,
   compress: true,

@@ -474,7 +474,6 @@ function stripFormatting(text: string): string {
 // ============================================================================
 // CATEGORY FILTER BAR
 // ============================================================================
-
 const CategoryFilterBar = memo(({ categories, activeCategory, onSelect, lang, activeView }: {
   categories: Category[];
   activeCategory: string;
@@ -483,25 +482,25 @@ const CategoryFilterBar = memo(({ categories, activeCategory, onSelect, lang, ac
   activeView: 'articles' | 'events' | 'timeline';
 }) => (
   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.4, duration: 0.4 }}
-    className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2 mb-8"
+    className="flex items-center gap-1.5 md:gap-2 overflow-x-auto scrollbar-hide pb-2 mb-8 -mx-4 px-4 md:mx-0 md:px-0"
     style={{ scrollbarWidth: 'none' }}>
 
     {/* Tout */}
     <button onClick={() => onSelect('all')}
-      className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 border ${activeCategory === 'all'
+      className={`flex-shrink-0 flex items-center gap-1 px-2.5 md:px-3.5 py-2 rounded-lg md:rounded-xl text-[11px] md:text-xs font-bold transition-all duration-200 border whitespace-nowrap ${activeCategory === 'all'
           ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
           : 'bg-white/[0.03] text-gray-500 border-white/[0.08] hover:border-white/20 hover:text-gray-300'
         }`}>
-      <Globe size={12} />
+      <Globe size={11} className="md:w-3 md:h-3" />
       {lang === 'fr' ? 'Tout' : 'All'}
     </button>
 
     {categories.map(cat => (
-      <div key={cat.id} className="flex items-center gap-1 flex-shrink-0">
+      <div key={cat.id} className="flex items-center gap-0.5 flex-shrink-0">
         <motion.button
           onClick={() => onSelect(cat.id)}
           whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 border whitespace-nowrap ${activeCategory === cat.id
+          className={`px-2.5 md:px-3.5 py-2 rounded-lg md:rounded-xl text-[11px] md:text-xs font-bold transition-all duration-200 border whitespace-nowrap ${activeCategory === cat.id
               ? 'text-black border-transparent'
               : 'bg-white/[0.03] text-gray-500 border-white/[0.08] hover:border-white/20 hover:text-gray-300'
             }`}
@@ -740,10 +739,11 @@ const TimelineView = memo(({ events, lang, eventLinksMap }: {
     <div className="relative">
       <div className="flex items-center gap-2 mb-6 text-gray-600 text-xs">
         <motion.div animate={{ x: [0, 6, 0] }} transition={{ duration: 1.5, repeat: Infinity }}><ArrowRight size={14} /></motion.div>
-        <span className="tracking-wider uppercase text-[10px]">{lang === 'fr' ? 'Naviguez dans le temps' : 'Navigate through time'}</span>
+        <span className="tracking-wider uppercase text-[9px] md:text-[10px]">{lang === 'fr' ? 'Naviguez dans le temps' : 'Navigate through time'}</span>
       </div>
-      <div className="overflow-x-auto pb-6" style={{ scrollbarWidth: 'none' }}>
+      <div className="overflow-x-auto pb-6 -mx-4 px-4 md:mx-0 md:px-0" style={{ scrollbarWidth: 'none' }}>
         <div className="flex gap-0 min-w-max relative">
+
           <div className="absolute top-[52px] left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#D4AF37]/40 to-transparent" />
           {grouped.map((group, gi) => (
             <div key={group.label} className="flex flex-col items-center" style={{ minWidth: 200 }}>
@@ -1031,10 +1031,10 @@ export default function EncyclopediePage() {
 />
         </motion.div>
 
-        {/* VIEW TABS */}
+                {/* VIEW TABS */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.3, duration: 0.4 }}
-          className="flex items-center justify-center mb-8">
-          <div className="flex items-center gap-1 bg-white/[0.03] border border-white/[0.08] rounded-2xl p-1.5">
+          className="flex items-center justify-center mb-8 overflow-x-auto scrollbar-hide pb-2">
+          <div className="flex items-center gap-1 bg-white/[0.03] border border-white/[0.08] rounded-2xl p-1.5 min-w-max md:min-w-0">
             {[
               { key: 'articles', icon: BookOpen, label_fr: 'Articles', label_en: 'Articles', count: articles.length },
               { key: 'events', icon: Flag, label_fr: 'Événements', label_en: 'Events', count: events.length },
@@ -1042,17 +1042,17 @@ export default function EncyclopediePage() {
             ].map(({ key, icon: Icon, label_fr, label_en, count }) => (
               <motion.button key={key} onClick={() => setActiveView(key as typeof activeView)}
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                className={`relative flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${activeView === key ? 'text-black' : 'text-gray-500 hover:text-gray-300'}`}>
+                className={`relative flex items-center gap-1.5 md:gap-2 px-3 md:px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all duration-200 whitespace-nowrap ${activeView === key ? 'text-black' : 'text-gray-500 hover:text-gray-300'}`}>
                 {activeView === key && (
                   <motion.div layoutId="activeTab" className="absolute inset-0 rounded-xl bg-[#D4AF37]"
                     style={{ boxShadow: '0 0 20px rgba(212,175,55,0.4)' }}
                     transition={{ type: 'spring', stiffness: 400, damping: 30 }} />
                 )}
-                <span className="relative z-10 flex items-center gap-2">
-                  <Icon size={15} />
+                <span className="relative z-10 flex items-center gap-1.5">
+                  <Icon size={14} className="md:w-[15px] md:h-[15px]" />
                   {lang === 'fr' ? label_fr : label_en}
                   {count !== null && (
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${activeView === key ? 'bg-black/20 text-black' : 'bg-white/10 text-gray-500'}`}>{count}</span>
+                    <span className={`text-[7px] md:text-[9px] px-1 md:px-1.5 py-0.5 rounded-full font-mono ${activeView === key ? 'bg-black/20 text-black' : 'bg-white/10 text-gray-500'}`}>{count}</span>
                   )}
                 </span>
               </motion.button>

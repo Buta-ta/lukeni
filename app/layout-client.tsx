@@ -3,6 +3,7 @@
 
 import { useActivityTimeout } from '@/lib/hooks/useActivityTimeout';
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase-browser';
 import { TrackingProvider } from '@/components/TrackingProvider';
 import { PWARegister } from '@/components/PWARegister';
@@ -13,6 +14,7 @@ export function LayoutClient({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const supabase = createClient();
+  const pathname = usePathname();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -35,8 +37,7 @@ export function LayoutClient({
     } : undefined
   );
 
-  if (isLoading) return null;
-
+  // ✅ Ne pas bloquer le rendu
   return (
     <>
       {/* ✅ PWA Components (UNE SEULE FOIS) */}

@@ -1,5 +1,8 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
+
 import React, { useState, useEffect, useMemo, useRef, memo, useCallback } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -16,7 +19,7 @@ import FavoriteButton from '@/components/FavoriteButton';
 import { useOpenLibrary, useLibGen } from '@/lib/hooks/useOpenLibrary';
 import type { EnrichedOLBook } from '@/lib/hooks/useOpenLibrary';
 import { NotesplitContainer } from '@/components/NotesplitContainer';
-
+import CloudinaryPDFReader from '@/components/CloudinaryPDFReader';
 
 // ============================================================================
 // TYPES
@@ -409,7 +412,7 @@ const OpenLibraryReader = memo(({ book, lang, userId, onClose }: OpenLibraryRead
           {readStatus === 'public' && embedUrl && (
             <>
               {!iframeLoaded && (
-                <div className="absolute inset-0 flex items-center justify-center z-10 bg-[#020111]">
+                <div className="absolute inset-0 flex items-center justify-center z-10 bg-[#020111] backdrop-blur-sm">
                   <div className="flex flex-col items-center gap-4">
                     <Loader2 size={28} className="animate-spin text-emerald-500" />
                     <p className="text-gray-500 text-xs">
@@ -425,6 +428,10 @@ const OpenLibraryReader = memo(({ book, lang, userId, onClose }: OpenLibraryRead
                 loading="lazy"
                 allow="fullscreen"
                 onLoad={() => setIframeLoaded(true)}
+                onError={() => {
+                  setIframeLoaded(false);
+                  setReadStatus('unknown');
+                }}
                 style={{ background: '#1a1a2e' }}
               />
             </>
@@ -839,6 +846,7 @@ AudioPlayer.displayName = 'AudioPlayer';
 const BookDetailModal = memo(({ book, lang, user, onClose }: {
   book: Book; lang: 'fr' | 'en'; user: User | null; onClose: () => void;
 }) => {
+
   const [userRating, setUserRating] = useState(0);
   const [avgRating, setAvgRating] = useState(0);
   const [likeCount, setLikeCount] = useState(0);
@@ -846,23 +854,56 @@ const BookDetailModal = memo(({ book, lang, user, onClose }: {
   const [comments, setComments] = useState<BookComment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
-  const [showReader, setShowReader] = useState(false);
-  const [readerMode, setReaderMode] = useState<'pdf' | 'audio'>('pdf');
+  // ✅ Auto-ouvrir si c'est un livre Lukeni avec PDF
+  const [showReader, setShowReader] = useState(!!book.file_url && book.access_type !== 'external_link');
+  const [readerMode, setReaderMode] = useState<'pdf' | 'audio'>(book.file_url ? 'pdf' : 'audio');
+  const [iframeLoadError, setIframeLoadError] = useState(false);
+  const [isIframeLoading, setIsIframeLoading] = useState(true);
 
   const title = lang === 'fr' ? book.title_fr : book.title_en;
   const author = lang === 'fr' ? book.author_fr : book.author_en;
   const desc = lang === 'fr' ? book.description_fr : book.description_en;
   const catColor = book.categories?.color || '#10B981';
 
+  // ✅ Valider l'URL du PDF
+  const isValidPdfUrl = useCallback((url: string) => {
+    if (!url) return false;
+    try {
+      const urlObj = new URL(url);
+      // Vérifier que c'est un PDF ou une URL valide
+      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }, []);
+
+
+  // ✅ NOUVEAU — à placer juste après isValidPdfUrl
+  const getPdfDisplayUrl = useCallback((originalUrl: string) => {
+    if (!originalUrl) return '';
+    const isCloudinary = originalUrl.includes('cloudinary.com');
+    if (isCloudinary) {
+      return `/api/pdf-proxy?url=${encodeURIComponent(originalUrl)}`;
+    }
+    return originalUrl;
+  }, []);
+
   useEffect(() => {
     loadBookData();
+
+    // ✅ Vérifier si le PDF est accessible
+    if (book.file_url && !isValidPdfUrl(book.file_url)) {
+      setIframeLoadError(true);
+      setIsIframeLoading(false);
+    }
+
     (async () => {
       try {
         const { error } = await supabase.rpc('increment_book_views', { book_id: book.id });
         if (error) console.warn('View count:', error.message);
       } catch (err) { console.warn('View count error:', err); }
     })();
-  }, [book.id, user?.id]);
+  }, [book.id, user?.id, isValidPdfUrl, book.file_url]);
 
   const loadBookData = useCallback(async () => {
     try {
@@ -978,25 +1019,11 @@ const BookDetailModal = memo(({ book, lang, user, onClose }: {
           </div>
           <div className="flex-1 overflow-hidden">
             {readerMode === 'pdf' && book.file_url ? (
-              <div className="w-full h-full flex flex-col bg-black">
-                <iframe
-                  src={book.file_url}
-                  className="w-full flex-1 border-0"
-                  title={title}
-                  loading="lazy"
-                />
-                <div className="flex items-center justify-center gap-4 p-4 bg-[#0a0a14] border-t border-white/10">
-                  <a
-                    href={book.file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 bg-emerald-500 text-black px-4 py-2 rounded-lg font-bold text-xs hover:bg-white transition-colors"
-                  >
-                    <BookOpen size={14} />
-                    {lang === 'fr' ? 'Ouvrir le PDF' : 'Open PDF'}
-                  </a>
-                </div>
-              </div>
+              <CloudinaryPDFReader
+                url={getPdfDisplayUrl(book.file_url)}
+                title={title}
+                lang={lang}
+              />
             ) : readerMode === 'audio' && book.audio_url ? (
               <AudioPlayer url={book.audio_url} title={title} cover={book.cover_url} />
             ) : null}
@@ -1005,22 +1032,20 @@ const BookDetailModal = memo(({ book, lang, user, onClose }: {
             <div className="h-12 flex items-center justify-center gap-4 border-t border-white/10 bg-[#0a0a14]">
               <button
                 onClick={() => setReaderMode('pdf')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                  readerMode === 'pdf'
-                    ? 'bg-emerald-500/20 text-emerald-400'
-                    : 'text-gray-500 hover:text-white'
-                }`}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${readerMode === 'pdf'
+                  ? 'bg-emerald-500/20 text-emerald-400'
+                  : 'text-gray-500 hover:text-white'
+                  }`}
               >
                 <BookOpen size={14} />
                 {lang === 'fr' ? 'Document' : 'Document'}
               </button>
               <button
                 onClick={() => setReaderMode('audio')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                  readerMode === 'audio'
-                    ? 'bg-purple-500/20 text-purple-400'
-                    : 'text-gray-500 hover:text-white'
-                }`}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${readerMode === 'audio'
+                  ? 'bg-purple-500/20 text-purple-400'
+                  : 'text-gray-500 hover:text-white'
+                  }`}
               >
                 <Headphones size={14} />
                 {lang === 'fr' ? 'Audio' : 'Audio'}

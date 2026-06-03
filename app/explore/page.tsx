@@ -103,6 +103,7 @@ function useStoredState<T>(key: string, initialValue: T): [T, (value: T) => void
   return [val, setValue];
 }
 
+
 // ─── Nebulae statiques (pas d'animation lourde) ───────────────────────────────
 
 const CosmosBackground = memo(({ mousePos }: { mousePos: { x: number; y: number } }) => {

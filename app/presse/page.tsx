@@ -260,9 +260,9 @@ const ArticleCard = ({ article, lang, index, onClick, variant = 'standard' }: {
         viewport={{ once: true, margin: '-30px' }}
         transition={{ delay: index * 0.05, duration: 0.5 }}
         onClick={onClick}
-        className="group flex items-center gap-4 p-4 rounded-2xl border border-white/6 bg-white/[0.01] cursor-pointer hover:border-[#D4AF37]/30 hover:bg-white/[0.03] transition-all"
+        className="group flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-2xl border border-white/6 bg-white/[0.01] cursor-pointer hover:border-[#D4AF37]/30 hover:bg-white/[0.03] transition-all"
       >
-        <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden flex-shrink-0 border border-white/8">
+        <div className="relative w-full sm:w-24 sm:h-24 h-40 rounded-xl overflow-hidden flex-shrink-0 border border-white/8 order-first sm:order-none">
           <motion.img src={article.cover_url} alt={title} className="w-full h-full object-cover"
             whileHover={{ scale: 1.08 }} transition={{ duration: 0.5 }} />
           {article.audio_url && (
@@ -271,22 +271,23 @@ const ArticleCard = ({ article, lang, index, onClick, variant = 'standard' }: {
             </div>
           )}
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 w-full sm:w-auto">
           <div className="flex items-center gap-2 mb-1.5">
             <motion.div className="w-1.5 h-1.5 rounded-full flex-shrink-0"
               style={{ backgroundColor: starColor, boxShadow: `0 0 5px 1px ${starColor}60` }}
               animate={{ scale: [1, 1.4, 1] }} transition={{ duration: 2, repeat: Infinity }} />
             <span className="text-[8px] font-black uppercase tracking-[0.2em]" style={{ color: starColor }}>{cat}</span>
           </div>
-          <h3 className="font-serif text-white text-sm sm:text-base leading-snug group-hover:text-[#D4AF37] transition-colors line-clamp-2 mb-2">{title}</h3>
+          <h3 className="font-serif text-white text-base sm:text-base leading-snug group-hover:text-[#D4AF37] transition-colors line-clamp-2 sm:line-clamp-2 mb-2">{title}</h3>
+          <p className="text-white/40 text-xs line-clamp-2 mb-3 block sm:hidden">{summary}</p>
           <p className="text-white/40 text-xs line-clamp-1 mb-2 hidden sm:block">{summary}</p>
-          <div className="flex items-center gap-3 text-white/25 text-[9px]">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-white/25 text-[9px]">
             <span className="flex items-center gap-1"><Clock size={8} /> {readTime} min</span>
-            {dateStr && <span className="flex items-center gap-1"><Calendar size={8} /> {dateStr}</span>}
+            {dateStr && <span className="flex items-center gap-1 hidden md:flex"><Calendar size={8} /> {dateStr}</span>}
             {article.location_city && <span className="flex items-center gap-1"><MapPin size={8} /> {article.location_city}</span>}
           </div>
         </div>
-        <ChevronRight size={16} className="flex-shrink-0 text-white/20 group-hover:text-[#D4AF37] group-hover:translate-x-1 transition-all" />
+        <ChevronRight size={16} className="flex-shrink-0 text-white/20 group-hover:text-[#D4AF37] group-hover:translate-x-1 transition-all hidden sm:block" />
       </motion.article>
     );
   }
@@ -417,8 +418,8 @@ const NewsTicker = ({ articles, lang, onSelect }: {
                 style={{ backgroundColor: color, boxShadow: `0 0 6px 2px ${color}60` }}
                 animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 2, repeat: Infinity }} />
               <img src={article.cover_url} className="w-7 h-7 rounded-full object-cover border border-white/10" alt="" />
-              <span className="text-white/40 text-xs font-medium group-hover:text-[#D4AF37] transition-colors whitespace-nowrap">
-                {title?.slice(0, 45)}{(title?.length ?? 0) > 45 ? '…' : ''}
+                            <span className="text-white/40 text-[10px] sm:text-xs font-medium group-hover:text-[#D4AF37] transition-colors whitespace-nowrap">
+                {title?.slice(0, window.innerWidth < 640 ? 25 : 45)}{(title?.length ?? 0) > (window.innerWidth < 640 ? 25 : 45) ? '…' : ''}
               </span>
               <ChevronRight size={10} className="text-[#D4AF37]/30 flex-shrink-0" />
             </button>
@@ -940,7 +941,7 @@ export default function PressePage() {
                   <p className="text-[#D4AF37] text-[9px] tracking-[0.6em] uppercase font-black mb-6 opacity-60">
                     {lang === 'fr' ? "Chroniques de l'Héritage" : 'Heritage Chronicles'}
                   </p>
-                  <h1 className="text-7xl md:text-[110px] font-serif italic text-white tracking-tighter mb-3 leading-none drop-shadow-[0_0_30px_rgba(212,175,55,0.2)]">
+                                    <h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-[90px] xl:text-[110px] font-serif italic text-white tracking-tighter mb-3 leading-none drop-shadow-[0_0_30px_rgba(212,175,55,0.2)]">
                     {lang === 'fr' ? 'Presse' : 'Press'}
                   </h1>
                   <p className="text-white/20 text-sm tracking-[0.3em] uppercase mb-12">
@@ -1010,20 +1011,20 @@ export default function PressePage() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
+                              <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2 -mx-4 px-4 md:mx-0 md:px-0">
                   <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                     onClick={() => setActiveCategory('all')}
-                    className={`px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${
+                    className={`flex-shrink-0 px-4 md:px-5 py-2 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap ${
                       activeCategory === 'all' ? 'bg-[#D4AF37] text-black shadow-[0_0_20px_rgba(212,175,55,0.3)]' : 'bg-white/5 border border-white/10 text-white/40 hover:text-white/70'
                     }`}>
                     {lang === 'fr' ? 'Tout' : 'All'}
                   </motion.button>
                   {categories.map(cat => (
-                    <div key={cat.id} className="flex items-center bg-white/5 border border-white/8 rounded-full overflow-hidden hover:border-[#D4AF37]/20 transition-colors">
-                      <div className="w-2 h-2 rounded-full mx-3 flex-shrink-0"
+                    <div key={cat.id} className="flex-shrink-0 flex items-center bg-white/5 border border-white/8 rounded-full overflow-hidden hover:border-[#D4AF37]/20 transition-colors">
+                      <div className="w-2 h-2 rounded-full mx-2.5 md:mx-3 flex-shrink-0"
                         style={{ backgroundColor: cat.color || '#D4AF37', boxShadow: `0 0 6px 2px ${cat.color || '#D4AF37'}50` }} />
                       <motion.button whileTap={{ scale: 0.95 }} onClick={() => setActiveCategory(cat.id)}
-                        className={`pr-3 py-2 text-[10px] font-bold uppercase tracking-wider transition-all ${
+                        className={`pr-2 md:pr-3 py-2 text-[9px] md:text-[10px] font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
                           activeCategory === cat.id ? 'text-white' : 'text-white/40 hover:text-white/70'
                         }`}>
                         {lang === 'fr' ? cat.name_fr : cat.name_en}

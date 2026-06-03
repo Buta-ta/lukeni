@@ -1320,32 +1320,76 @@ export default function ProfilePage() {
     router.push('/');
   }, [router]);
 
-  const handleDeleteAccount = useCallback(async () => {
-    if (!user) return;
-    setIsDeleting(true);
-    try {
-      await Promise.all([
-        supabase.from('user_favorites').delete().eq('user_id', user.id),
-        supabase.from('user_notes').delete().eq('user_id', user.id),
-        supabase.from('user_subscriptions').delete().eq('user_id', user.id),
-        supabase.from('profiles').delete().eq('id', user.id),
-      ]);
-      const res = await fetch('/api/auth/delete-account', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id }),
-      });
-      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Delete failed'); }
-      await supabase.auth.signOut();
-      router.push('/?deleted=true');
-    } catch (err) {
-      console.error('Delete account error:', err);
-      alert(lang === 'fr' ? 'Erreur lors de la suppression. Contactez le support.' : 'Error during deletion. Contact support.');
-    } finally {
-      setIsDeleting(false);
-      setShowDeleteModal(false);
+   const handleDeleteAccount = useCallback(async () => {
+  if (!user) return;
+  setIsDeleting(true);
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session?.access_token) {
+      throw new Error(
+        lang === 'fr'
+          ? 'Session expirée. Reconnectez-vous.'
+          : 'Session expired. Please sign in again.'
+      );
     }
-  }, [user, lang, router]);
+
+    const res = await fetch('/api/auth/delete-account', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ userId: user.id }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(
+        data.error || (
+          lang === 'fr'
+            ? 'Échec de la suppression du compte'
+            : 'Account deletion failed'
+        )
+      );
+    }
+
+    // Nettoyage
+    await supabase.auth.signOut({ scope: 'global' });
+
+    const keysToRemove = [
+      'lukeni_lang',
+      'lukeni_pwa_dismissed',
+      'lukeni_pwa_installed',
+      'sb-access-token',
+      'sb-refresh-token',
+      'last_activity', // ✅ Ajouter pour nettoyer le middleware
+    ];
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+
+    // ✅ REDIRECTION VERS /auth AU LIEU DE /
+    router.push('/auth?deleted=true');
+    
+    setTimeout(() => {
+      window.location.href = '/auth';
+    }, 200);
+
+  } catch (err: any) {
+    console.error('Delete account error:', err);
+    alert(
+      err.message || (
+        lang === 'fr'
+          ? 'Erreur lors de la suppression. Veuillez contacter le support.'
+          : 'Error during deletion. Please contact support.'
+      )
+    );
+  } finally {
+    setIsDeleting(false);
+    setShowDeleteModal(false);
+  }
+}, [user, lang, router]);
 
   if (isLoading) return (
     <div className="min-h-screen bg-[#020111] flex items-center justify-center">
