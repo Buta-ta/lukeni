@@ -26,6 +26,9 @@ const nextConfig = {
     formats: ['image/avif', 'image/webp'],
   },
 
+  // ✅ Désactiver le pre-rendering pour les pages avec Framer Motion
+  staticPageGenerationTimeout: 120,
+
   async headers() {
     return [
       {
@@ -103,18 +106,46 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://translate.googleapis.com https://translate.google.com",
               "font-src 'self' data: https://fonts.gstatic.com https://fonts.openmaptiles.org",
               "manifest-src 'self'",
-              // ✅ MODIFIÉ — blob: requis pour pdfjs-dist worker
               "worker-src 'self' blob:",
             ].join('; '),
           },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
-          // ✅ MODIFIÉ — DENY → SAMEORIGIN pour permettre nos propres iframes internes
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
           { key: 'X-XSS-Protection', value: '1; mode=block' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
         ],
       },
-      // ✅ AJOUTÉ — Headers spécifiques pour le proxy PDF
+      // ✅ Cache ISR pour les pages avec animations
+      {
+        source: '/bibliotheque/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400' },
+        ],
+      },
+      {
+        source: '/encyclopedie/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400' },
+        ],
+      },
+      {
+        source: '/presse/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400' },
+        ],
+      },
+      {
+        source: '/explore/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400' },
+        ],
+      },
+      {
+        source: '/voyage-musical/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400' },
+        ],
+      },
       {
         source: '/api/pdf-proxy',
         headers: [
