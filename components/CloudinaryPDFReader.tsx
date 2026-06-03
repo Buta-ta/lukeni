@@ -1,14 +1,13 @@
-// components/CloudinaryPDFReader.tsx
 "use client";
 
 import { useState, useCallback } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
-import { ChevronLeft, ChevronRight, Loader2, AlertCircle, ZoomIn, ZoomOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, AlertCircle, ZoomIn, ZoomOut, Download } from 'lucide-react';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
-// Configurer le worker PDF.js
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+// ✅ Configurer le worker avec version stable
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface CloudinaryPDFReaderProps {
   url: string;
@@ -23,11 +22,12 @@ export default function CloudinaryPDFReader({ url, title, lang }: CloudinaryPDFR
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  // ✅ Convertir l'URL Cloudinary en URL de téléchargement direct
-  // Cloudinary bloque les iframes mais autorise le chargement direct via fetch/blob
+  // ✅ Utiliser le proxy pour contourner CORS Cloudinary
   const getPdfUrl = useCallback((originalUrl: string) => {
-    // Ajouter fl_attachment:false pour forcer le mode inline si nécessaire
-    // Ou utiliser l'URL telle quelle - pdfjs la fetche directement
+    // Si URL Cloudinary, passer par le proxy
+    if (originalUrl.includes('cloudinary.com')) {
+      return `/api/pdf-proxy?url=${encodeURIComponent(originalUrl)}`;
+    }
     return originalUrl;
   }, []);
 
@@ -43,21 +43,49 @@ export default function CloudinaryPDFReader({ url, title, lang }: CloudinaryPDFR
     setError(true);
   }, []);
 
+  const handleDownload = useCallback(() => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${title}.pdf`;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }, [url, title]);
+
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4 p-8 text-center">
-        <AlertCircle size={32} className="text-red-400" />
-        <p className="text-white font-bold">
-          {lang === 'fr' ? 'Impossible de charger le PDF' : 'Unable to load PDF'}
-        </p>
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="bg-emerald-500 text-black px-4 py-2 rounded-lg font-bold text-sm hover:bg-white transition-colors"
-        >
-          {lang === 'fr' ? 'Ouvrir dans un nouvel onglet' : 'Open in new tab'}
-        </a>
+        <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+          <AlertCircle size={32} className="text-red-400" />
+        </div>
+        <div>
+          <p className="text-white font-bold mb-2">
+            {lang === 'fr' ? 'Impossible de charger le PDF' : 'Unable to load PDF'}
+          </p>
+          <p className="text-gray-400 text-sm max-w-md">
+            {lang === 'fr' 
+              ? 'Le fichier PDF ne peut pas être affiché. Téléchargez-le pour le lire.'
+              : 'The PDF file cannot be displayed. Download it to read.'}
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={handleDownload}
+            className="flex items-center gap-2 bg-emerald-500 text-black px-6 py-3 rounded-xl font-bold text-sm hover:bg-white transition-colors"
+          >
+            <Download size={16} />
+            {lang === 'fr' ? 'Télécharger' : 'Download'}
+          </button>
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 bg-blue-500 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-blue-400 transition-colors"
+          >
+            {lang === 'fr' ? 'Ouvrir' : 'Open'}
+          </a>
+        </div>
       </div>
     );
   }
@@ -87,30 +115,42 @@ export default function CloudinaryPDFReader({ url, title, lang }: CloudinaryPDFR
           </button>
         </div>
 
-        {/* Zoom */}
-        <div className="flex items-center gap-2">
+        {/* Zoom + Download */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setScale(s => Math.max(0.5, s - 0.2))}
+              className="p-1.5 text-gray-400 hover:text-white transition-colors"
+            >
+              <ZoomOut size={16} />
+            </button>
+            <span className="text-xs text-gray-500 w-12 text-center">
+              {Math.round(scale * 100)}%
+            </span>
+            <button
+              onClick={() => setScale(s => Math.min(3, s + 0.2))}
+              className="p-1.5 text-gray-400 hover:text-white transition-colors"
+            >
+              <ZoomIn size={16} />
+            </button>
+          </div>
+          
+          <div className="w-px h-4 bg-white/10" />
+          
           <button
-            onClick={() => setScale(s => Math.max(0.5, s - 0.2))}
-            className="p-1.5 text-gray-400 hover:text-white transition-colors"
+            onClick={handleDownload}
+            className="p-1.5 text-gray-400 hover:text-emerald-400 transition-colors"
+            title={lang === 'fr' ? 'Télécharger' : 'Download'}
           >
-            <ZoomOut size={16} />
-          </button>
-          <span className="text-xs text-gray-500 w-12 text-center">
-            {Math.round(scale * 100)}%
-          </span>
-          <button
-            onClick={() => setScale(s => Math.min(3, s + 0.2))}
-            className="p-1.5 text-gray-400 hover:text-white transition-colors"
-          >
-            <ZoomIn size={16} />
+            <Download size={16} />
           </button>
         </div>
       </div>
 
       {/* PDF View */}
-      <div className="flex-1 overflow-auto flex justify-center p-4">
+      <div className="flex-1 overflow-auto flex justify-center items-start p-4">
         {isLoading && (
-          <div className="flex items-center justify-center w-full">
+          <div className="flex items-center justify-center w-full h-full">
             <div className="flex flex-col items-center gap-3">
               <Loader2 size={28} className="animate-spin text-emerald-500" />
               <p className="text-gray-500 text-sm">
@@ -124,11 +164,10 @@ export default function CloudinaryPDFReader({ url, title, lang }: CloudinaryPDFR
           onLoadSuccess={onDocumentLoadSuccess}
           onLoadError={onDocumentLoadError}
           loading=""
-          // ✅ Options CORS pour Cloudinary
           options={{
-            httpHeaders: {
-              'Access-Control-Allow-Origin': '*',
-            },
+            cMapUrl: `https://unpkg.com/pdfjs-dist@${pdfjs.version}/cmaps/`,
+            cMapPacked: true,
+            standardFontDataUrl: `https://unpkg.com/pdfjs-dist@${pdfjs.version}/standard_fonts/`,
           }}
         >
           <Page
@@ -151,7 +190,7 @@ export default function CloudinaryPDFReader({ url, title, lang }: CloudinaryPDFR
             max={numPages}
             value={pageNumber}
             onChange={e => setPageNumber(Number(e.target.value))}
-            className="w-32 h-1 bg-white/10 rounded-full appearance-none cursor-pointer"
+            className="w-full max-w-xs h-1 bg-white/10 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-emerald-500"
           />
         </div>
       )}

@@ -1,78 +1,83 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { NextRequest, NextResponse } from 'next/server';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  }
+  { auth: { persistSession: false } }
 );
 
 export async function DELETE(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { userId } = body;
-
-    if (!userId || typeof userId !== 'string') {
-      return NextResponse.json(
-        { error: 'userId manquant' },
-        { status: 400 }
-      );
-    }
-
-    // ── 1. Vérifier le token de l'appelant ──────────────────────────────
     const authHeader = request.headers.get('Authorization');
-    if (authHeader) {
-      const token = authHeader.replace('Bearer ', '');
-      const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
-      if (error || !user || user.id !== userId) {
-        return NextResponse.json({ error: 'Non autorisé' }, { status: 403 });
-      }
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // ── 2. Supprimer les données utilisateur ────────────────────────────
-    const tables: Array<{ table: string; column: string }> = [
-      { table: 'user_favorites',     column: 'user_id' },
-      { table: 'user_notes',         column: 'user_id' },
-      { table: 'user_subscriptions', column: 'user_id' },
-      { table: 'book_ratings',       column: 'user_id' },
-      { table: 'book_comments',      column: 'user_id' },
-      { table: 'profiles',           column: 'id' },      // ← profiles utilise 'id'
+    const token = authHeader.substring(7);
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+
+    if (userError || !user) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    const { userId } = await request.json();
+    if (userId !== user.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    console.log(`🗑️ Deleting account for user: ${userId}`);
+
+    // ✅ 1. Supprimer les données utilisateur dans l'ORDRE
+    const tablesToClean = [
+      'page_visits',          // ← AJOUT (contrainte FK)
+      'user_favorites',
+      'user_notes',
+      'user_subscriptions',
+      'book_ratings',
+      'book_comments',
+      'article_ratings',
+      'article_comments',
+      'press_ratings',
+      'press_comments',
+      'event_registrations',
+      'profiles',
     ];
 
-    for (const { table, column } of tables) {
+    for (const table of tablesToClean) {
       const { error } = await supabaseAdmin
         .from(table)
         .delete()
-        .eq(column, userId);
+        .eq('user_id', userId);
 
       if (error) {
-        console.warn(`[delete-account] ${table}:`, error.message);
-        // On continue même si une table échoue
+        console.warn(`⚠️ Error deleting from ${table}:`, error.message);
+        // Continue même en cas d'erreur (certaines tables peuvent ne pas exister)
       }
     }
 
-    // ── 3. Supprimer le compte Auth ──────────────────────────────────────
+    // ✅ 2. Supprimer l'utilisateur Auth
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
     if (deleteError) {
-      console.error('[delete-account] Auth delete failed:', deleteError);
+      console.error('❌ Auth deletion error:', deleteError);
       return NextResponse.json(
-        { error: deleteError.message },
+        { error: `Auth deletion failed: ${deleteError.message}` },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ success: true }, { status: 200 });
+    console.log('✅ Account successfully deleted');
 
-  } catch (err: any) {
-    console.error('[delete-account] Unexpected error:', err);
+    return NextResponse.json({
+      success: true,
+      message: 'Account deleted successfully',
+    });
+
+  } catch (error: any) {
+    console.error('💥 Delete account error:', error);
     return NextResponse.json(
-      { error: err.message || 'Erreur serveur' },
+      { error: error.message || 'Internal server error' },
       { status: 500 }
     );
   }
