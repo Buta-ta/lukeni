@@ -26,7 +26,24 @@ const nextConfig = {
     formats: ['image/avif', 'image/webp'],
   },
 
-  // ✅ Désactiver le pre-rendering pour les pages avec Framer Motion
+  // ✅ IMPORTANT — Exclure les routes du pre-rendering
+  exportPathMap: async (defaultPathMap) => {
+    return Object.keys(defaultPathMap).reduce((paths, path) => {
+      // Exclure les pages problématiques
+      if (
+        path === '/bibliotheque' ||
+        path === '/encyclopedie' ||
+        path === '/presse' ||
+        path === '/explore' ||
+        path === '/voyage-musical'
+      ) {
+        return paths; // Ne pas pré-générer
+      }
+      paths[path] = defaultPathMap[path];
+      return paths;
+    }, {});
+  },
+
   staticPageGenerationTimeout: 120,
 
   async headers() {
@@ -115,7 +132,6 @@ const nextConfig = {
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
         ],
       },
-      // ✅ Cache ISR pour les pages avec animations
       {
         source: '/bibliotheque/:path*',
         headers: [
