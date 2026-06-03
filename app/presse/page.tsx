@@ -1,6 +1,7 @@
 // /presse/page.tsx
 "use client";
 
+
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence, useScroll, useSpring } from 'framer-motion';
