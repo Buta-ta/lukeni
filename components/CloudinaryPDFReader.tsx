@@ -1,13 +1,7 @@
 "use client";
 
-import { useState, useCallback } from 'react';
-import { Document, Page, pdfjs } from 'react-pdf';
-import { ChevronLeft, ChevronRight, Loader2, AlertCircle, ZoomIn, ZoomOut, Download } from 'lucide-react';
-import 'react-pdf/dist/Page/AnnotationLayer.css';
-import 'react-pdf/dist/Page/TextLayer.css';
-
-// ✅ Configurer le worker avec version stable
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+import { useState, useRef } from 'react';
+import { Loader2, AlertCircle, Download, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface CloudinaryPDFReaderProps {
   url: string;
@@ -16,34 +10,19 @@ interface CloudinaryPDFReaderProps {
 }
 
 export default function CloudinaryPDFReader({ url, title, lang }: CloudinaryPDFReaderProps) {
-  const [numPages, setNumPages] = useState<number>(0);
-  const [pageNumber, setPageNumber] = useState(1);
-  const [scale, setScale] = useState(1.0);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  // ✅ Utiliser le proxy pour contourner CORS Cloudinary
-  const getPdfUrl = useCallback((originalUrl: string) => {
-    // Si URL Cloudinary, passer par le proxy
-    if (originalUrl.includes('cloudinary.com')) {
-      return `/api/pdf-proxy?url=${encodeURIComponent(originalUrl)}`;
-    }
-    return originalUrl;
-  }, []);
+  // Utiliser le proxy pour éviter CORS
+  const proxyUrl = url.includes('cloudinary.com') 
+    ? `/api/pdf-proxy?url=${encodeURIComponent(url)}`
+    : url;
 
-  const onDocumentLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {
-    setNumPages(numPages);
-    setIsLoading(false);
-    setError(false);
-  }, []);
+  const pdfViewerUrl = `${proxyUrl}#toolbar=1&navpanes=0&scrollbar=1&view=FitH&page=1`;
 
-  const onDocumentLoadError = useCallback((err: Error) => {
-    console.error('PDF load error:', err);
-    setIsLoading(false);
-    setError(true);
-  }, []);
-
-  const handleDownload = useCallback(() => {
+  const handleDownload = () => {
     const link = document.createElement('a');
     link.href = url;
     link.download = `${title}.pdf`;
@@ -51,149 +30,108 @@ export default function CloudinaryPDFReader({ url, title, lang }: CloudinaryPDFR
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  }, [url, title]);
+  };
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 p-8 text-center">
-        <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center">
-          <AlertCircle size={32} className="text-red-400" />
-        </div>
-        <div>
-          <p className="text-white font-bold mb-2">
-            {lang === 'fr' ? 'Impossible de charger le PDF' : 'Unable to load PDF'}
-          </p>
-          <p className="text-gray-400 text-sm max-w-md">
-            {lang === 'fr' 
-              ? 'Le fichier PDF ne peut pas être affiché. Téléchargez-le pour le lire.'
-              : 'The PDF file cannot be displayed. Download it to read.'}
+  return (
+    <div className="relative w-full h-full bg-[#1a1a2e] flex flex-col">
+      {/* Loading */}
+      {isLoading && !hasError && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#020111] z-10">
+          <Loader2 size={32} className="animate-spin text-emerald-500" />
+          <p className="text-gray-500 text-sm">
+            {lang === 'fr' ? 'Chargement du PDF...' : 'Loading PDF...'}
           </p>
         </div>
-        <div className="flex gap-3">
+      )}
+
+      {/* Error State */}
+      {hasError && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 p-8 text-center z-10 bg-[#020111]">
+          <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+            <AlertCircle size={28} className="text-red-400" />
+          </div>
+          <div>
+            <h3 className="text-white text-lg font-bold mb-2">
+              {lang === 'fr' ? 'Erreur de chargement' : 'Loading error'}
+            </h3>
+            <p className="text-gray-400 text-sm max-w-md mb-4">
+              {lang === 'fr'
+                ? "Impossible de charger le PDF. Téléchargez-le directement ou ouvrez-le dans un nouvel onglet."
+                : 'Unable to load the PDF. Download it directly or open it in a new tab.'}
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={handleDownload}
+              className="inline-flex items-center justify-center gap-2 bg-emerald-500 text-black px-6 py-3 rounded-xl font-bold text-sm hover:bg-white transition-colors"
+            >
+              <Download size={16} />
+              {lang === 'fr' ? 'Télécharger' : 'Download'}
+            </button>
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 bg-blue-500 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-blue-400 transition-colors"
+            >
+              <ExternalLink size={16} />
+              {lang === 'fr' ? 'Ouvrir dans un nouvel onglet' : 'Open in new tab'}
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* Toolbar */}
+      <div className="flex items-center justify-between px-4 py-2 bg-[#0a0a14] border-b border-white/10 flex-shrink-0 z-20">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-400">
+            {lang === 'fr' ? 'Aperçu PDF' : 'PDF Preview'}
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
           <button
             onClick={handleDownload}
-            className="flex items-center gap-2 bg-emerald-500 text-black px-6 py-3 rounded-xl font-bold text-sm hover:bg-white transition-colors"
+            className="p-1.5 text-gray-400 hover:text-emerald-400 transition-colors"
+            title={lang === 'fr' ? 'Télécharger le PDF' : 'Download PDF'}
           >
             <Download size={16} />
-            {lang === 'fr' ? 'Télécharger' : 'Download'}
           </button>
           <a
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 bg-blue-500 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-blue-400 transition-colors"
+            className="p-1.5 text-gray-400 hover:text-blue-400 transition-colors"
+            title={lang === 'fr' ? 'Ouvrir dans un nouvel onglet' : 'Open in new tab'}
           >
-            {lang === 'fr' ? 'Ouvrir' : 'Open'}
+            <ExternalLink size={16} />
           </a>
         </div>
       </div>
-    );
-  }
 
-  return (
-    <div className="flex flex-col h-full bg-[#1a1a2e]">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-[#0a0a14] border-b border-white/10 flex-shrink-0">
-        {/* Navigation pages */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setPageNumber(p => Math.max(1, p - 1))}
-            disabled={pageNumber <= 1}
-            className="p-1.5 text-gray-400 hover:text-white disabled:opacity-30 transition-colors"
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <span className="text-xs text-gray-400 min-w-[80px] text-center">
-            {pageNumber} / {numPages || '—'}
-          </span>
-          <button
-            onClick={() => setPageNumber(p => Math.min(numPages, p + 1))}
-            disabled={pageNumber >= numPages}
-            className="p-1.5 text-gray-400 hover:text-white disabled:opacity-30 transition-colors"
-          >
-            <ChevronRight size={18} />
-          </button>
-        </div>
-
-        {/* Zoom + Download */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setScale(s => Math.max(0.5, s - 0.2))}
-              className="p-1.5 text-gray-400 hover:text-white transition-colors"
-            >
-              <ZoomOut size={16} />
-            </button>
-            <span className="text-xs text-gray-500 w-12 text-center">
-              {Math.round(scale * 100)}%
-            </span>
-            <button
-              onClick={() => setScale(s => Math.min(3, s + 0.2))}
-              className="p-1.5 text-gray-400 hover:text-white transition-colors"
-            >
-              <ZoomIn size={16} />
-            </button>
-          </div>
-          
-          <div className="w-px h-4 bg-white/10" />
-          
-          <button
-            onClick={handleDownload}
-            className="p-1.5 text-gray-400 hover:text-emerald-400 transition-colors"
-            title={lang === 'fr' ? 'Télécharger' : 'Download'}
-          >
-            <Download size={16} />
-          </button>
-        </div>
-      </div>
-
-      {/* PDF View */}
-      <div className="flex-1 overflow-auto flex justify-center items-start p-4">
-        {isLoading && (
-          <div className="flex items-center justify-center w-full h-full">
-            <div className="flex flex-col items-center gap-3">
-              <Loader2 size={28} className="animate-spin text-emerald-500" />
-              <p className="text-gray-500 text-sm">
-                {lang === 'fr' ? 'Chargement du PDF...' : 'Loading PDF...'}
-              </p>
-            </div>
-          </div>
-        )}
-        <Document
-          file={getPdfUrl(url)}
-          onLoadSuccess={onDocumentLoadSuccess}
-          onLoadError={onDocumentLoadError}
-          loading=""
-          options={{
-            cMapUrl: `https://unpkg.com/pdfjs-dist@${pdfjs.version}/cmaps/`,
-            cMapPacked: true,
-            standardFontDataUrl: `https://unpkg.com/pdfjs-dist@${pdfjs.version}/standard_fonts/`,
+      {/* PDF Viewer - iframe natif */}
+      <div className="flex-1 overflow-hidden">
+        <iframe
+          ref={iframeRef}
+          src={pdfViewerUrl}
+          className="w-full h-full border-0"
+          title={title}
+          onLoad={() => {
+            setIsLoading(false);
+            setHasError(false);
           }}
-        >
-          <Page
-            pageNumber={pageNumber}
-            scale={scale}
-            loading=""
-            renderTextLayer={true}
-            renderAnnotationLayer={true}
-            className="shadow-2xl"
-          />
-        </Document>
+          onError={() => {
+            setIsLoading(false);
+            setHasError(true);
+          }}
+          sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+          allow="fullscreen"
+        />
       </div>
 
-      {/* Footer navigation rapide */}
-      {numPages > 1 && (
-        <div className="flex items-center justify-center gap-2 py-2 px-4 bg-[#0a0a14] border-t border-white/10 flex-shrink-0">
-          <input
-            type="range"
-            min={1}
-            max={numPages}
-            value={pageNumber}
-            onChange={e => setPageNumber(Number(e.target.value))}
-            className="w-full max-w-xs h-1 bg-white/10 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-emerald-500"
-          />
-        </div>
-      )}
+      {/* Footer Info */}
+      <div className="bg-[#0a0a14] border-t border-white/10 px-4 py-2 text-center text-[10px] text-gray-600 flex-shrink-0">
+        {lang === 'fr' ? 'Utilisez les contrôles PDF pour naviguer' : 'Use PDF controls to navigate'}
+      </div>
     </div>
   );
 }
