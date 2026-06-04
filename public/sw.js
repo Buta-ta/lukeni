@@ -24,57 +24,67 @@ self.addEventListener('push', (event) => {
     
     console.log('[SW] Push data:', data);
 
+    const options = {
+      body: data.body || 'Nouvelle notification',
+      icon: data.icon || 'https://lukeni.vercel.app/icons/icon-192x192.png',
+      badge: data.badge || 'https://lukeni.vercel.app/icons/badge-72x72.png',
+      tag: data.tag || 'default',
+      requireInteraction: data.requireInteraction || false,
+      sound: data.sound || undefined,
+      vibrate: data.vibrate || undefined,
+      data: { 
+        url: data.url || 'https://lukeni.vercel.app/encyclopedie',
+        title: data.title,
+        body: data.body,
+      },
+    };
+
     event.waitUntil(
-      self.registration.showNotification(data.title || 'Lukeni', {
-        body: data.body || 'Nouvelle notification',
-        icon: data.icon || 'https://lukeni.app/icons/icon-192x192.png',
-        badge: data.badge || 'https://lukeni.app/icons/badge-72x72.png',
-        tag: data.tag || 'default',
-        requireInteraction: data.requireInteraction || false,
-        sound: data.sound || undefined,
-        vibrate: data.vibrate || undefined,
-        data: { 
-          url: data.url || 'https://lukeni.app/',
-          title: data.title,
-          body: data.body,
-        },
-      })
+      self.registration.showNotification(data.title || 'Lukeni', options)
     );
   } catch (error) {
     console.error('[SW] Push event error:', error);
     event.waitUntil(
       self.registration.showNotification('Lukeni', {
         body: 'Une nouvelle notification est disponible',
-        icon: 'https://lukeni.app/icons/icon-192x192.png',
-        data: { url: 'https://lukeni.app/' }
+        icon: 'https://lukeni.vercel.app/icons/icon-192x192.png',
+        badge: 'https://lukeni.vercel.app/icons/badge-72x72.png',
+        data: { url: 'https://lukeni.vercel.app/encyclopedie' }
       })
     );
   }
 });
 
-// ✅ NOTIFICATION CLICK (CORRIGÉ)
+// ✅ NOTIFICATION CLICK (ROBUSTE)
 self.addEventListener('notificationclick', (event) => {
   console.log('[SW] Notification clicked:', event.notification.tag);
   event.notification.close();
   
-  let urlToOpen = event.notification.data?.url || 'https://lukeni.app/';
+  let urlToOpen = event.notification.data?.url || 'https://lukeni.vercel.app/encyclopedie';
   
   console.log('[SW] URL to open:', urlToOpen);
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // Chercher une fenêtre existante
+      // ✅ Chercher une fenêtre existante
       for (const client of clientList) {
-        // Comparer les URLs proprement
-        if (new URL(client.url).pathname === new URL(urlToOpen, 'https://lukeni.app').pathname) {
-          console.log('[SW] Focus existing client:', client.url);
-          return client.focus();
+        try {
+          const clientUrl = new URL(client.url);
+          const targetUrl = new URL(urlToOpen);
+          
+          // Comparer les pathname
+          if (clientUrl.pathname === targetUrl.pathname) {
+            console.log('[SW] Focus existing client:', client.url);
+            return client.focus();
+          }
+        } catch (e) {
+          console.warn('[SW] URL parsing error:', e);
         }
       }
       
-      // Convertir en URL absolue si nécessaire
+      // ✅ S'assurer que l'URL est absolue
       if (!urlToOpen.startsWith('http')) {
-        urlToOpen = `https://lukeni.app${urlToOpen}`;
+        urlToOpen = `https://lukeni.vercel.app${urlToOpen}`;
       }
       
       console.log('[SW] Opening new window:', urlToOpen);
@@ -94,33 +104,89 @@ self.addEventListener('notificationclose', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   
-  // Ignorer les domaines externes
+  // ✅ Ignorer les domaines externes
   if (url.origin !== self.location.origin) return;
   
-  // Ignorer les API
+  // ✅ Ignorer les API (toujours fetch du réseau)
   if (url.pathname.startsWith('/api/')) return;
   
-  // Ignorer Supabase
-  if (url.hostname.includes('supabase')) return;
+  // ✅ Ignorer Supabase et googleapis
+  if (url.hostname.includes('supabase') || url.hostname.includes('googleapis')) return;
 
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        if (!response || response.status !== 200 || response.type === 'opaque') {
+  // ✅ NETWORK FIRST pour les pages HTML
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (!response || response.status !== 200 || response.type === 'opaque') {
+            return response;
+          }
+          
+          const clonedResponse = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, clonedResponse);
+          });
+          
           return response;
+        })
+        .catch(() => {
+          return caches.match(event.request)
+            .then((cached) => cached || caches.match('/'))
+            .catch(() => new Response('Offline - Page not available', { status: 503 }));
+        })
+    );
+    return;
+  }
+
+  // ✅ CACHE FIRST pour les assets (CSS, JS, images)
+  event.respondWith(
+    caches.match(event.request)
+      .then((cached) => {
+        if (cached) {
+          // Mettre à jour le cache en arrière-plan
+          fetch(event.request).then((response) => {
+            if (response && response.status === 200) {
+              caches.open(CACHE_NAME).then((cache) => {
+                cache.put(event.request, response);
+              });
+            }
+          }).catch(() => {});
+          
+          return cached;
         }
-        
-        const clonedResponse = response.clone();
-        
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, clonedResponse);
-        });
-        
-        return response;
-      })
-      .catch(() => {
-        return caches.match(event.request)
-          .then((cached) => cached || new Response('Offline', { status: 503 }));
+
+        return fetch(event.request)
+          .then((response) => {
+            if (!response || response.status !== 200 || response.type === 'opaque') {
+              return response;
+            }
+            
+            const clonedResponse = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, clonedResponse);
+            });
+            
+            return response;
+          })
+          .catch(() => {
+            if (event.request.destination === 'image') {
+              return new Response('Image not available', { status: 503 });
+            }
+            return new Response('Resource not available', { status: 503 });
+          });
       })
   );
+});
+
+// ✅ BACKGROUND SYNC (optionnel - pour les actions offline)
+self.addEventListener('sync', (event) => {
+  console.log('[SW] Background sync event:', event.tag);
+  
+  if (event.tag === 'sync-data') {
+    event.waitUntil(
+      fetch('/api/sync').catch(() => {
+        console.warn('[SW] Sync failed - will retry later');
+      })
+    );
+  }
 });
