@@ -79,18 +79,7 @@ interface Article {
 }
 
 
-interface ArticleTimelineEntry {
-  id: string;
-  article_id: string;
-  year: number;
-  month?: number | null;
-  day?: number | null;
-  title_fr: string;
-  title_en: string;
-  description_fr?: string | null;
-  description_en?: string | null;
-  order: number;
-}
+
 // ============================================================================
 // CAURIS ICON
 // ============================================================================
@@ -1268,7 +1257,7 @@ export default function ArticleDetailPage() {
   const [relatedArticles, setRelatedArticles] = useState<RelatedArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const [articleTimeline, setArticleTimeline] = useState<ArticleTimelineEntry[]>([]);
+  
   const [mounted, setMounted] = useState(false);
   const [heroY, setHeroY] = useState('0%');
   const [heroOpacity, setHeroOpacity] = useState(1);
