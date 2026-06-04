@@ -26,6 +26,7 @@ interface Recipient {
   status: 'sent' | 'failed' | 'expired';
   error_message?: string;
   sent_at: string;
+  user_name?: string; // ✅ NOUVEAU
 }
 
 interface PushSubscriber {
@@ -34,6 +35,7 @@ interface PushSubscriber {
   created_at: string;
   is_active: boolean;
   user_id?: string;
+  user_name?: string; // ✅ NOUVEAU
 }
 
 export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: string) => void }) {
@@ -44,6 +46,7 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
   const [pushTitle, setPushTitle] = useState('');
   const [pushBody, setPushBody] = useState('');
   const [pushUrl, setPushUrl] = useState('https://lukeni.app/encyclopedie');
+  const [pushIcon, setPushIcon] = useState('https://lukeni.app/icons/icon-192x192.png'); // ✅ NOUVEAU
   const [isSending, setIsSending] = useState(false);
   const [activeSubCount, setActiveSubCount] = useState(0);
 
@@ -64,8 +67,10 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
   const [subscribers, setSubscribers] = useState<PushSubscriber[]>([]);
   const [subsLoading, setSubsLoading] = useState(false);
 
+  // ── Search ────────────────────────────────────────────────────────────────
+  const [searchQuery, setSearchQuery] = useState('');
+
   useEffect(() => {
-    // Compter les abonnés actifs pour l'onglet "Envoyer"
     supabase.from('push_subscriptions').select('id', { count: 'exact', head: true }).eq('is_active', true)
       .then(({ count }) => setActiveSubCount(count || 0));
 
@@ -88,10 +93,26 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
     setRecipientsLoading(true);
     const { data, error } = await supabase
       .from('notification_recipients')
-      .select('*')
+      .select(`
+        *,
+        profiles:user_id (
+          first_name,
+          last_name
+        )
+      `)
       .eq('notification_log_id', logId)
       .order('sent_at', { ascending: false });
-    if (data) setRecipients(data as any);
+
+    if (data) {
+      // ✅ Enrichir avec le nom complet
+      const enriched = data.map((r: any) => ({
+        ...r,
+        user_name: r.profiles 
+          ? `${r.profiles.first_name || ''} ${r.profiles.last_name || ''}`.trim() 
+          : 'Utilisateur inconnu'
+      }));
+      setRecipients(enriched);
+    }
     setRecipientsLoading(false);
   }
 
@@ -99,13 +120,28 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
     setSubsLoading(true);
     const { data, error } = await supabase
       .from('push_subscriptions')
-      .select('*')
+      .select(`
+        *,
+        profiles:user_id (
+          first_name,
+          last_name
+        )
+      `)
       .order('created_at', { ascending: false });
-    if (data) setSubscribers(data as PushSubscriber[]);
+
+    if (data) {
+      // ✅ Enrichir avec le nom complet
+      const enriched = data.map((s: any) => ({
+        ...s,
+        user_name: s.profiles 
+          ? `${s.profiles.first_name || ''} ${s.profiles.last_name || ''}`.trim() 
+          : null
+      }));
+      setSubscribers(enriched as PushSubscriber[]);
+    }
     setSubsLoading(false);
   }
 
-  // ── ENVOYER PUSH MANUEL ────────────────────────────────────────────────────
   // ── ENVOYER PUSH MANUEL ────────────────────────────────────────────────────
   async function sendManualPush() {
     if (!pushTitle.trim() || !pushBody.trim()) {
@@ -115,9 +151,6 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
 
     setIsSending(true);
     try {
-      // 💡 ON A SUPPRIMÉ LA VÉRIFICATION FRONTEND QUI BLOQUAIT ICI.
-      // C'est maintenant la Edge Function qui va lire la base de données en toute sécurité.
-
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/notify`,
         {
@@ -129,7 +162,9 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
           body: JSON.stringify({
             type: 'manual_push',
             title: pushTitle,
-            body: pushBody
+            body: pushBody,
+            icon: pushIcon, // ✅ NOUVEAU
+            url: pushUrl,
           }),
         }
       );
@@ -137,11 +172,11 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
       const result = await response.json();
 
       if (response.ok) {
-        showMsg('success', `${result.notifications_sent || 0} notifications envoyées avec succès !`);
+        showMsg('success', `${result.notifications_sent || 0} notification(s) envoyée(s) !`);
         setPushTitle('');
         setPushBody('');
         setPushUrl('https://lukeni.app/encyclopedie');
-        // Refresh logs
+        setPushIcon('https://lukeni.app/icons/icon-192x192.png');
         setTimeout(() => fetchLogs(), 1000);
       } else {
         showMsg('error', result.message || result.error || 'Erreur lors de l\'envoi');
@@ -191,7 +226,21 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
 
   const filteredRecipients = recipients.filter(r =>
     filterStatus === 'all' || r.status === filterStatus
-  );
+  ).filter(r => {
+    if (!searchQuery) return true;
+    return (
+      r.user_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.endpoint.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
+
+  const filteredSubscribers = subscribers.filter(s => {
+    if (!searchQuery) return true;
+    return (
+      s.user_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.endpoint.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
 
   return (
     <div className="space-y-6">
@@ -269,7 +318,36 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
             </div>
 
             <div>
-              <label className="block text-xs text-gray-400 mb-1 font-mono">🔗 URL (optionnel)</label>
+              <label className="block text-xs text-gray-400 mb-1 font-mono">🎨 Icône (URL)</label>
+              <input
+                type="url" value={pushIcon} onChange={(e) => setPushIcon(e.target.value)}
+                placeholder="https://lukeni.app/icons/icon-192x192.png"
+                className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-blue-500/50"
+              />
+              <div className="flex gap-2 mt-2">
+                {[
+                  { url: 'https://lukeni.app/icons/icon-192x192.png', label: '📱 Défaut' },
+                  { url: 'https://lukeni.app/icons/bell.png', label: '🔔 Cloche' },
+                  { url: 'https://lukeni.app/icons/calendar.png', label: '📅 Calendrier' },
+                  { url: 'https://lukeni.app/icons/newspaper.png', label: '📰 Journal' },
+                ].map(preset => (
+                  <button
+                    key={preset.url}
+                    onClick={() => setPushIcon(preset.url)}
+                    className={`text-xs px-3 py-1 rounded-lg transition-all ${
+                      pushIcon === preset.url 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-400 mb-1 font-mono">🔗 URL de destination</label>
               <input
                 type="url" value={pushUrl} onChange={(e) => setPushUrl(e.target.value)}
                 className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-blue-500/50"
@@ -287,7 +365,6 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
 
           {/* Email */}
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-[#0f0f0f] border border-white/5 rounded-xl p-6 space-y-4">
-             {/* ... Identique à ton code original Email ... */}
             <div className="flex items-center gap-2 mb-4">
               <Mail size={20} className="text-green-400" />
               <h3 className="text-lg font-bold text-white">Email Manuel</h3>
@@ -312,7 +389,7 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
       )}
 
       {/* ════════════════════════════════════════════════════════════ */}
-      {/* SUBSCRIBERS TAB (NOUVEAU) */}
+      {/* SUBSCRIBERS TAB */}
       {/* ════════════════════════════════════════════════════════════ */}
       {activeTab === 'subscribers' && (
         <div className="space-y-4">
@@ -327,16 +404,28 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
             </div>
           </div>
 
+          {/* ✅ Barre de recherche */}
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Rechercher par nom ou endpoint..."
+              className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-white text-sm outline-none focus:border-blue-500/50"
+            />
+          </div>
+
           {subsLoading ? (
             <div className="flex justify-center py-12"><Loader2 className="animate-spin text-blue-400" size={32} /></div>
-          ) : subscribers.length === 0 ? (
+          ) : filteredSubscribers.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               <Smartphone size={48} className="mx-auto mb-4 opacity-30" />
-              <p>Aucun appareil enregistré dans la base.</p>
+              <p>Aucun résultat</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {subscribers.map((sub) => (
+              {filteredSubscribers.map((sub) => (
                 <motion.div key={sub.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-xl gap-3 ${sub.is_active ? 'bg-[#0f0f0f] border-white/10' : 'bg-red-500/5 border-red-500/10'}`}>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
@@ -344,14 +433,19 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
                       <span className={`text-xs font-bold ${sub.is_active ? 'text-green-400' : 'text-red-400'}`}>
                         {sub.is_active ? 'Actif' : 'Inactif'}
                       </span>
-                      {sub.user_id && <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded-full text-gray-400 flex items-center gap-1"><User size={10} /> Connecté</span>}
+                      {/* ✅ Afficher le nom */}
+                      {sub.user_name && (
+                        <span className="text-xs bg-blue-500/20 px-2 py-0.5 rounded-full text-blue-400 flex items-center gap-1">
+                          <User size={10} /> {sub.user_name}
+                        </span>
+                      )}
                     </div>
                     <p className="text-gray-400 font-mono text-[10px] truncate" title={sub.endpoint}>
                       {sub.endpoint.replace('https://fcm.googleapis.com/fcm/send/', '...')}
                     </p>
                   </div>
                   <div className="text-xs text-gray-500 flex items-center gap-1 whitespace-nowrap">
-                    <Clock size={12} /> Ajouté le {new Date(sub.created_at).toLocaleDateString('fr-FR')}
+                    <Clock size={12} /> {new Date(sub.created_at).toLocaleDateString('fr-FR')}
                   </div>
                 </motion.div>
               ))}
@@ -405,7 +499,7 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
           {!selectedLog ? (
             <div className="text-center py-12 text-gray-500">
               <Users size={48} className="mx-auto mb-4 opacity-30" />
-              <p>Sélectionnez un log ci-dessus pour voir les destinataires</p>
+              <p>Sélectionnez un log dans l'onglet "Historique" pour voir les destinataires</p>
             </div>
           ) : (
             <>
@@ -425,17 +519,35 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
                 ))}
               </div>
 
+              {/* ✅ Barre de recherche */}
+              <div className="relative mb-4">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Rechercher par nom..."
+                  className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-white text-sm outline-none focus:border-blue-500/50"
+                />
+              </div>
+
               {recipientsLoading ? (
                 <div className="flex justify-center py-12"><Loader2 className="animate-spin text-blue-400" size={32} /></div>
               ) : filteredRecipients.length === 0 ? (
-                <div className="text-center py-12 text-gray-500"><Users size={32} className="mx-auto mb-2 opacity-30" /><p>Aucun destinataire avec ce statut</p></div>
+                <div className="text-center py-12 text-gray-500"><Users size={32} className="mx-auto mb-2 opacity-30" /><p>Aucun résultat</p></div>
               ) : (
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {filteredRecipients.map(r => (
                     <motion.div key={r.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className={`flex items-center justify-between p-3 rounded-lg text-xs ${r.status === 'sent' ? 'bg-green-500/10 border border-green-500/20' : r.status === 'expired' ? 'bg-orange-500/10 border border-orange-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
                       <div className="flex-1 min-w-0">
-                        <p className="text-gray-300 font-mono truncate">{r.endpoint.slice(0, 50)}...</p>
-                        {r.error_message && <p className="text-[10px] text-gray-500 mt-0.5">{r.error_message}</p>}
+                        {/* ✅ Afficher le nom */}
+                        {r.user_name && (
+                          <p className="text-white font-bold mb-1 flex items-center gap-1">
+                            <User size={12} /> {r.user_name}
+                          </p>
+                        )}
+                        <p className="text-gray-400 font-mono truncate text-[10px]">{r.endpoint.slice(0, 60)}...</p>
+                        {r.error_message && <p className="text-[10px] text-red-400 mt-0.5">{r.error_message}</p>}
                       </div>
                       <div className="flex items-center gap-2">
                         <span className={`px-2 py-1 rounded font-bold ${r.status === 'sent' ? 'bg-green-500/20 text-green-400' : r.status === 'expired' ? 'bg-orange-500/20 text-orange-400' : 'bg-red-500/20 text-red-400'}`}>
