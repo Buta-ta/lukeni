@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Loader2, FileText, PlusCircle, Edit2, Trash2, X,
-  Languages, SpellCheck, CheckCircle, Globe, Link2,Calendar
+  Languages, SpellCheck, CheckCircle, Globe, Link2, Calendar
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { autoTranslate, autoCorrect } from '@/lib/lingua';
@@ -11,7 +11,7 @@ import ImageUploader from '@/components/admin/ImageUploader';
 import { Image as ImageIcon } from 'lucide-react';
 import FormatToolbar from '@/components/admin/FormatToolbar';
 
-interface Category { id: string; name_fr: string; name_en: string; }
+interface Category { id: string; name_fr: string; name_en: string;color?: string; }
 interface EventOption { id: string; title_fr: string; year: number; }
 interface Article {
   id: string; title_fr: string; title_en: string;
@@ -20,6 +20,148 @@ interface Article {
   image_url: string; category_id: string; status: string;
   slug: string; wikipedia_url: string; reading_time: number;
   categories: Category;
+  timeline?: Array<{
+    year: string;
+    title_fr: string;
+    title_en: string;
+    description_fr: string;
+    description_en: string;
+  }>;
+}
+
+// ============================================================================
+// STRIP FORMATTING — Nettoie le texte du formatage
+// ============================================================================
+
+function stripFormatting(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/\*\*([\s\S]+?)\*\*/g, '$1')
+    .replace(/\*([\s\S]+?)\*/g, '$1')
+    .replace(/~~([\s\S]+?)~~/g, '$1')
+    .replace(/==([\s\S]+?)==/g, '$1')
+    .replace(/\{#[^}]+\}([\s\S]+?)\{\/\}/g, '$1')
+    .replace(/\{\+[^}]+\}([\s\S]+?)\{\/\+\}/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+}
+
+// ============================================================================
+// PARSE INLINE — Rend le formatage visible
+// ============================================================================
+
+function parseInline(text: string, catColor: string = '#D4AF37'): React.ReactNode[] {
+  if (!text) return [];
+
+  const result: React.ReactNode[] = [];
+  let remaining = text;
+  let key = 0;
+
+  while (remaining.length > 0) {
+    const boldMatch = remaining.match(/^([\s\S]*?)\*\*([\s\S]+?)\*\*/);
+    const italicMatch = remaining.match(/^([\s\S]*?)\*(?!\*)([\s\S]+?)\*(?!\*)/);
+    const strikeMatch = remaining.match(/^([\s\S]*?)~~([\s\S]+?)~~/);
+    const highlightMatch = remaining.match(/^([\s\S]*?)==([\s\S]+?)==/);
+    const colorMatch = remaining.match(/^([\s\S]*?)\{#([^}]+)\}([\s\S]+?)\{\/\}/);
+    const sizeMatch = remaining.match(/^([\s\S]*?)\{\+([^}]+)\}([\s\S]+?)\{\/\+\}/);
+    const linkMatch = remaining.match(/^([\s\S]*?)\[([^\]]+)\]\(([^)]+)\)/);
+    const codeMatch = remaining.match(/^([\s\S]*?)`([^`]+)`/);
+
+    const candidates = [
+      { type: 'bold', match: boldMatch, before: boldMatch?.[1] },
+      { type: 'italic', match: italicMatch, before: italicMatch?.[1] },
+      { type: 'strike', match: strikeMatch, before: strikeMatch?.[1] },
+      { type: 'highlight', match: highlightMatch, before: highlightMatch?.[1] },
+      { type: 'color', match: colorMatch, before: colorMatch?.[1] },
+      { type: 'size', match: sizeMatch, before: sizeMatch?.[1] },
+      { type: 'link', match: linkMatch, before: linkMatch?.[1] },
+      { type: 'code', match: codeMatch, before: codeMatch?.[1] },
+    ].filter(c => c.match !== null && c.before !== undefined) as {
+      type: string;
+      match: RegExpMatchArray;
+      before: string;
+    }[];
+
+    if (candidates.length === 0) {
+      result.push(<span key={key++}>{remaining}</span>);
+      break;
+    }
+
+    const best = candidates.reduce((a, b) =>
+      a.before.length <= b.before.length ? a : b
+    );
+
+    if (best.before.length > 0) {
+      result.push(<span key={key++}>{best.before}</span>);
+    }
+
+    const m = best.match;
+
+    switch (best.type) {
+      case 'bold':
+        result.push(<strong key={key++} className="text-white font-bold">{parseInline(m[2], catColor)}</strong>);
+        remaining = remaining.slice(best.before.length + 2 + m[2].length + 2);
+        break;
+      case 'italic':
+        result.push(<em key={key++} className="text-gray-200 italic">{parseInline(m[2], catColor)}</em>);
+        remaining = remaining.slice(best.before.length + 1 + m[2].length + 1);
+        break;
+      case 'strike':
+        result.push(<s key={key++} className="text-gray-500 line-through">{parseInline(m[2], catColor)}</s>);
+        remaining = remaining.slice(best.before.length + 2 + m[2].length + 2);
+        break;
+      case 'highlight':
+        result.push(
+          <mark key={key++} className="rounded px-1.5 py-0.5"
+            style={{ backgroundColor: `${catColor}30`, color: catColor }}>
+            {parseInline(m[2], catColor)}
+          </mark>
+        );
+        remaining = remaining.slice(best.before.length + 2 + m[2].length + 2);
+        break;
+      case 'color':
+        result.push(<span key={key++} style={{ color: `#${m[2]}` }}>{parseInline(m[3], catColor)}</span>);
+        remaining = remaining.slice(best.before.length + 2 + m[2].length + 1 + m[3].length + 3);
+        break;
+      case 'size': {
+        const sizeMap: Record<string, string> = {
+          xs: 'text-[11px]', sm: 'text-sm', base: 'text-base',
+          lg: 'text-lg', xl: 'text-xl', '2xl': 'text-2xl',
+          '3xl': 'text-3xl', '4xl': 'text-4xl',
+        };
+        result.push(
+          <span key={key++} className={sizeMap[m[2]] || 'text-base'}>
+            {parseInline(m[3], catColor)}
+          </span>
+        );
+        remaining = remaining.slice(best.before.length + 2 + m[2].length + 1 + m[3].length + 4);
+        break;
+      }
+      case 'link':
+        result.push(
+          <a key={key++} href={m[3]} target="_blank" rel="noopener noreferrer"
+            className="underline underline-offset-2 hover:opacity-80 transition-opacity"
+            style={{ color: catColor }}>
+            {m[2]}
+          </a>
+        );
+        remaining = remaining.slice(best.before.length + 1 + m[2].length + 2 + m[3].length + 1);
+        break;
+      case 'code':
+        result.push(
+          <code key={key++} className="bg-white/10 text-gray-300 px-1.5 py-0.5 rounded text-[13px] font-mono">
+            {m[2]}
+          </code>
+        );
+        remaining = remaining.slice(best.before.length + 1 + m[2].length + 1);
+        break;
+      default:
+        result.push(<span key={key++}>{remaining}</span>);
+        remaining = '';
+    }
+  }
+
+  return result;
 }
 
 export default function ArticlesTab({ showMsg }: {
@@ -50,7 +192,7 @@ export default function ArticlesTab({ showMsg }: {
   const [sources, setSources] = useState<string[]>([]);
   const [newSource, setNewSource] = useState('');
 
-    // ✅ CHRONOLOGIE DE L'ARTICLE
+  // ✅ CHRONOLOGIE DE L'ARTICLE
   const [timeline, setTimeline] = useState<Array<{
     year: string;
     title_fr: string;
@@ -96,6 +238,7 @@ export default function ArticlesTab({ showMsg }: {
     setNewTimelineDescFr('');
     setNewTimelineDescEn('');
   };
+
   const handleEdit = async (art: Article) => {
     setEditingId(art.id);
     setTitleFr(art.title_fr); setTitleEn(art.title_en);
@@ -107,8 +250,8 @@ export default function ArticlesTab({ showMsg }: {
     setCatId(art.category_id || ''); setStatus(art.status);
     setGalleryImages((art as any).gallery_images || []);
     setSources((art as any).sources || []);
+    // ✅ CHARGER LA CHRONOLOGIE
     setTimeline((art as any).timeline || []);
-
 
     const { data: linked } = await supabase
       .from('article_events').select('event_id').eq('article_id', art.id);
@@ -129,6 +272,11 @@ export default function ArticlesTab({ showMsg }: {
       if (action === 'translate-content-fr') setContentFr(await autoTranslate(contentEn, 'en'));
       if (action === 'correct-content-fr') setContentFr(await autoCorrect(contentFr, 'fr'));
       if (action === 'correct-content-en') setContentEn(await autoCorrect(contentEn, 'en'));
+      // ✅ TRADUCTION CHRONOLOGIE
+      if (action === 'translate-timeline-en') setNewTimelineTitleEn(await autoTranslate(newTimelineTitleFr, 'fr'));
+      if (action === 'translate-timeline-fr') setNewTimelineTitleFr(await autoTranslate(newTimelineTitleEn, 'en'));
+      if (action === 'translate-timeline-desc-en') setNewTimelineDescEn(await autoTranslate(newTimelineDescFr, 'fr'));
+      if (action === 'translate-timeline-desc-fr') setNewTimelineDescFr(await autoTranslate(newTimelineDescEn, 'en'));
     } catch { showMsg('error', 'Erreur API'); }
     setIsProcessing(null);
   };
@@ -146,9 +294,7 @@ export default function ArticlesTab({ showMsg }: {
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     try {
-
-
-           const payload = {
+      const payload = {
         title_fr: titleFr, title_en: titleEn,
         summary_fr: summaryFr, summary_en: summaryEn,
         content_fr: contentFr, content_en: contentEn,
@@ -159,9 +305,8 @@ export default function ArticlesTab({ showMsg }: {
         status, slug,
         gallery_images: galleryImages,
         sources,
-        timeline: timeline.length > 0 ? timeline : null,  // ✅ FIX : JSON string ou null
+        timeline: timeline.length > 0 ? timeline : null,
       };
-
 
       let articleId = editingId;
       if (editingId) {
@@ -233,138 +378,136 @@ export default function ArticlesTab({ showMsg }: {
         </div>
 
         {/* ── Titres ── */}
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-  <div>
-    <label className="block text-xs text-gray-400 mb-1 font-mono">🇫🇷 Titre FR</label>
-    <FormatToolbar
-      fieldId="title-fr"
-      value={titleFr}
-      onChange={setTitleFr}
-      minimal
-    />
-    <input
-      id="title-fr"
-      type="text"
-      value={titleFr}
-      onChange={e => setTitleFr(e.target.value)}
-      className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg rounded-t-none px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]"
-    />
-    <div className="flex gap-1 mt-1">
-      <button
-        onClick={() => handleLingua('correct-fr')}
-        disabled={isProcessing === 'correct-fr'}
-        className="p-1 text-[10px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
-      >
-        <SpellCheck size={10} /> Corriger
-      </button>
-      <button
-        onClick={() => handleLingua('translate-fr')}
-        disabled={isProcessing === 'translate-fr'}
-        className="p-1 text-[10px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
-      >
-        <Languages size={10} /> EN→FR
-      </button>
-    </div>
-  </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs text-gray-400 mb-1 font-mono">🇫🇷 Titre FR</label>
+            <FormatToolbar
+              fieldId="title-fr"
+              value={titleFr}
+              onChange={setTitleFr}
+              minimal
+            />
+            <input
+              id="title-fr"
+              type="text"
+              value={titleFr}
+              onChange={e => setTitleFr(e.target.value)}
+              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg rounded-t-none px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]"
+            />
+            <div className="flex gap-1 mt-1">
+              <button
+                onClick={() => handleLingua('correct-fr')}
+                disabled={isProcessing === 'correct-fr'}
+                className="p-1 text-[10px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
+              >
+                <SpellCheck size={10} /> Corriger
+              </button>
+              <button
+                onClick={() => handleLingua('translate-fr')}
+                disabled={isProcessing === 'translate-fr'}
+                className="p-1 text-[10px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
+              >
+                <Languages size={10} /> EN→FR
+              </button>
+            </div>
+          </div>
 
-  <div>
-    <label className="block text-xs text-gray-400 mb-1 font-mono">🇬🇧 Titre EN</label>
-    <FormatToolbar
-      fieldId="title-en"
-      value={titleEn}
-      onChange={setTitleEn}
-      minimal
-    />
-    <input
-      id="title-en"
-      type="text"
-      value={titleEn}
-      onChange={e => setTitleEn(e.target.value)}
-      className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg rounded-t-none px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]"
-    />
-    <div className="flex gap-1 mt-1">
-      <button
-        onClick={() => handleLingua('correct-en')}
-        disabled={isProcessing === 'correct-en'}
-        className="p-1 text-[10px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
-      >
-        <SpellCheck size={10} /> Correct
-      </button>
-      <button
-        onClick={() => handleLingua('translate-en')}
-        disabled={isProcessing === 'translate-en'}
-        className="p-1 text-[10px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
-      >
-        <Languages size={10} /> FR→EN
-      </button>
-    </div>
-  </div>
-</div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1 font-mono">🇬🇧 Titre EN</label>
+            <FormatToolbar
+              fieldId="title-en"
+              value={titleEn}
+              onChange={setTitleEn}
+              minimal
+            />
+            <input
+              id="title-en"
+              type="text"
+              value={titleEn}
+              onChange={e => setTitleEn(e.target.value)}
+              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg rounded-t-none px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]"
+            />
+            <div className="flex gap-1 mt-1">
+              <button
+                onClick={() => handleLingua('correct-en')}
+                disabled={isProcessing === 'correct-en'}
+                className="p-1 text-[10px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
+              >
+                <SpellCheck size={10} /> Correct
+              </button>
+              <button
+                onClick={() => handleLingua('translate-en')}
+                disabled={isProcessing === 'translate-en'}
+                className="p-1 text-[10px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
+              >
+                <Languages size={10} /> FR→EN
+              </button>
+            </div>
+          </div>
+        </div>
 
-{/* ── Résumés ── */}
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-  <div>
-    <label className="block text-xs text-gray-400 mb-1 font-mono">🇫🇷 Résumé FR</label>
-    <FormatToolbar
-      fieldId="summary-fr"
-      value={summaryFr}
-      onChange={setSummaryFr}
-      minimal
-    />
-    <textarea
-      id="summary-fr"
-      value={summaryFr}
-      onChange={e => setSummaryFr(e.target.value)}
-      rows={2}
-      placeholder="Résumé accrocheur affiché sur la carte..."
-      className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg rounded-t-none px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37] resize-none"
-    />
-    <button
-      onClick={() => handleLingua('summary-en')}
-      disabled={isProcessing === 'summary-en'}
-      className="mt-1 p-1 text-[10px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
-    >
-      <Languages size={10} /> Traduire en EN
-    </button>
-  </div>
+        {/* ── Résumés ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs text-gray-400 mb-1 font-mono">🇫🇷 Résumé FR</label>
+            <FormatToolbar
+              fieldId="summary-fr"
+              value={summaryFr}
+              onChange={setSummaryFr}
+              minimal
+            />
+            <textarea
+              id="summary-fr"
+              value={summaryFr}
+              onChange={e => setSummaryFr(e.target.value)}
+              rows={2}
+              placeholder="Résumé accrocheur affiché sur la carte..."
+              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg rounded-t-none px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37] resize-none"
+            />
+            <button
+              onClick={() => handleLingua('summary-en')}
+              disabled={isProcessing === 'summary-en'}
+              className="mt-1 p-1 text-[10px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
+            >
+              <Languages size={10} /> Traduire en EN
+            </button>
+          </div>
 
-  <div>
-    <label className="block text-xs text-gray-400 mb-1 font-mono">🇬🇧 Summary EN</label>
-    <FormatToolbar
-      fieldId="summary-en"
-      value={summaryEn}
-      onChange={setSummaryEn}
-      minimal
-    />
-    <textarea
-      id="summary-en"
-      value={summaryEn}
-      onChange={e => setSummaryEn(e.target.value)}
-      rows={2}
-      placeholder="Catchy summary shown on the card..."
-      className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg rounded-t-none px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37] resize-none"
-    />
-    <button
-      onClick={() => handleLingua('summary-fr')}
-      disabled={isProcessing === 'summary-fr'}
-      className="mt-1 p-1 text-[10px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
-    >
-      <Languages size={10} /> Traduire en FR
-    </button>
-  </div>
-</div>
-
-        
+          <div>
+            <label className="block text-xs text-gray-400 mb-1 font-mono">🇬🇧 Summary EN</label>
+            <FormatToolbar
+              fieldId="summary-en"
+              value={summaryEn}
+              onChange={setSummaryEn}
+              minimal
+            />
+            <textarea
+              id="summary-en"
+              value={summaryEn}
+              onChange={e => setSummaryEn(e.target.value)}
+              rows={2}
+              placeholder="Catchy summary shown on the card..."
+              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg rounded-t-none px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37] resize-none"
+            />
+            <button
+              onClick={() => handleLingua('summary-fr')}
+              disabled={isProcessing === 'summary-fr'}
+              className="mt-1 p-1 text-[10px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
+            >
+              <Languages size={10} /> Traduire en FR
+            </button>
+          </div>
+        </div>
 
         {/* Contenus avec toolbar */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs text-gray-400 mb-1 font-mono">🇫🇷 Contenu FR</label>
             <FormatToolbar
-  fieldId="content-fr"
-  value={contentFr}
-  onChange={setContentFr}
-/>
+              fieldId="content-fr"
+              value={contentFr}
+              onChange={setContentFr}
+            />
             <textarea
               id="content-fr"
               value={contentFr}
@@ -386,10 +529,10 @@ export default function ArticlesTab({ showMsg }: {
           <div>
             <label className="block text-xs text-gray-400 mb-1 font-mono">🇬🇧 Content EN</label>
             <FormatToolbar
-  fieldId="content-en"
-  value={contentEn}
-  onChange={setContentEn}
-/>
+              fieldId="content-en"
+              value={contentEn}
+              onChange={setContentEn}
+            />
             <textarea
               id="content-en"
               value={contentEn}
@@ -460,8 +603,7 @@ export default function ArticlesTab({ showMsg }: {
           <ImageUploader label="Uploader l'image principale" currentUrl={imageUrl} onUpload={setImageUrl} />
         </div>
 
-
-                {/* ✅ CHRONOLOGIE DE L'ARTICLE */}
+        {/* ✅ CHRONOLOGIE DE L'ARTICLE */}
         <div className="p-4 bg-[#1a1a1a] rounded-lg border border-white/10">
           <div className="flex items-center gap-2 mb-3">
             <Calendar size={14} className="text-[#D4AF37]" />
@@ -486,6 +628,16 @@ export default function ArticlesTab({ showMsg }: {
                 className="bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37]"
               />
             </div>
+            <div className="flex items-center gap-1 mt-1">
+              <button
+                onClick={() => handleLingua('translate-timeline-en')}
+                disabled={isProcessing === 'translate-timeline-en' || !newTimelineTitleFr}
+                className="p-1 text-[9px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
+                title="Traduire le titre FR → EN"
+              >
+                <Languages size={9} /> FR→EN
+              </button>
+            </div>
             <input
               type="text"
               value={newTimelineTitleEn}
@@ -493,6 +645,16 @@ export default function ArticlesTab({ showMsg }: {
               placeholder="Titre EN"
               className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37]"
             />
+            <div className="flex items-center gap-1 mt-1">
+              <button
+                onClick={() => handleLingua('translate-timeline-fr')}
+                disabled={isProcessing === 'translate-timeline-fr' || !newTimelineTitleEn}
+                className="p-1 text-[9px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
+                title="Traduire le titre EN → FR"
+              >
+                <Languages size={9} /> EN→FR
+              </button>
+            </div>
             <textarea
               value={newTimelineDescFr}
               onChange={e => setNewTimelineDescFr(e.target.value)}
@@ -500,6 +662,16 @@ export default function ArticlesTab({ showMsg }: {
               rows={2}
               className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37] resize-none"
             />
+            <div className="flex items-center gap-1 mt-1">
+              <button
+                onClick={() => handleLingua('translate-timeline-desc-en')}
+                disabled={isProcessing === 'translate-timeline-desc-en' || !newTimelineDescFr}
+                className="p-1 text-[9px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
+                title="Traduire la description FR → EN"
+              >
+                <Languages size={9} /> Desc FR→EN
+              </button>
+            </div>
             <textarea
               value={newTimelineDescEn}
               onChange={e => setNewTimelineDescEn(e.target.value)}
@@ -507,6 +679,16 @@ export default function ArticlesTab({ showMsg }: {
               rows={2}
               className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37] resize-none"
             />
+            <div className="flex items-center gap-1 mt-1">
+              <button
+                onClick={() => handleLingua('translate-timeline-desc-fr')}
+                disabled={isProcessing === 'translate-timeline-desc-fr' || !newTimelineDescEn}
+                className="p-1 text-[9px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
+                title="Traduire la description EN → FR"
+              >
+                <Languages size={9} /> Desc EN→FR
+              </button>
+            </div>
             <button
               onClick={() => {
                 if (newTimelineYear && newTimelineTitleFr && newTimelineTitleEn) {
@@ -543,6 +725,7 @@ export default function ArticlesTab({ showMsg }: {
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-[#D4AF37] font-mono text-xs font-bold">{entry.year}</span>
                       <span className="text-white text-xs font-bold truncate">{entry.title_fr}</span>
+                      <span className="text-gray-500 text-[10px] truncate">/ {entry.title_en}</span>
                     </div>
                     {entry.description_fr && (
                       <p className="text-gray-500 text-[10px] line-clamp-2">{entry.description_fr}</p>
@@ -705,7 +888,7 @@ export default function ArticlesTab({ showMsg }: {
                   <img src={art.image_url} alt="" className="w-full h-full object-cover" />
                 </div>
               )}
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                     art.status === 'published' ? 'bg-green-500/20 text-green-400' :
@@ -723,8 +906,13 @@ export default function ArticlesTab({ showMsg }: {
                     </span>
                   )}
                 </div>
-                <p className="text-white text-sm font-medium truncate">{art.title_fr}</p>
-                <p className="text-gray-500 text-xs italic truncate">{art.title_en}</p>
+                {/* ✅ AFFICHAGE FORMATÉ DES TITRES */}
+                <p className="text-white text-sm font-medium mb-0.5 line-clamp-1">
+                  {parseInline(art.title_fr, art.categories?.color || '#D4AF37')}
+                </p>
+                <p className="text-gray-500 text-xs italic line-clamp-1">
+                  {parseInline(art.title_en, art.categories?.color || '#D4AF37')}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
