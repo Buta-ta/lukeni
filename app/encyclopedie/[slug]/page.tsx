@@ -69,8 +69,28 @@ interface Article {
   categories: Category;
   linked_events?: LinkedEvent[];
   sources?: string[];
+  timeline?: Array<{  // ✅ AJOUT
+    year: string;
+    title_fr: string;
+    title_en: string;
+    description_fr?: string;
+    description_en?: string;
+  }>;
 }
 
+
+interface ArticleTimelineEntry {
+  id: string;
+  article_id: string;
+  year: number;
+  month?: number | null;
+  day?: number | null;
+  title_fr: string;
+  title_en: string;
+  description_fr?: string | null;
+  description_en?: string | null;
+  order: number;
+}
 // ============================================================================
 // CAURIS ICON
 // ============================================================================
@@ -698,6 +718,69 @@ const ContentRenderer = memo(({ text, lang, catColor }: {
 });
 ContentRenderer.displayName = 'ContentRenderer';
 
+
+// ============================================================================
+// ARTICLE TIMELINE ENTRY
+// ============================================================================
+
+const TimelineEntry = memo(({ entry, lang, catColor }: {
+  entry: {
+    year: string;
+    title_fr: string;
+    title_en: string;
+    description_fr?: string;
+    description_en?: string;
+  };
+  lang: 'fr' | 'en';
+  catColor: string;
+}) => {
+  const title = lang === 'fr' ? entry.title_fr : entry.title_en;
+  const description = lang === 'fr' ? entry.description_fr : entry.description_en;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -12 }}
+      whileInView={{ opacity: 1, x: 0 }}
+      viewport={{ once: true }}
+      className="relative flex gap-4 group"
+    >
+      {/* Point timeline */}
+      <div className="flex flex-col items-center">
+        <div
+          className="w-3 h-3 rounded-full border-2 border-black flex-shrink-0"
+          style={{ backgroundColor: catColor, boxShadow: `0 0 10px ${catColor}` }}
+        />
+        <div
+          className="flex-1 w-px mt-2"
+          style={{ backgroundColor: `${catColor}30` }}
+        />
+      </div>
+
+      {/* Contenu */}
+      <div className="flex-1 pb-6">
+        <div className="flex items-center gap-2 mb-1">
+          <span
+            className="font-mono font-bold text-sm"
+            style={{ color: catColor }}
+          >
+            {entry.year}
+          </span>
+        </div>
+        <h4 className="text-white font-bold text-sm mb-1 group-hover:text-[color:var(--cat)] transition-colors"
+          style={{ '--cat': catColor } as React.CSSProperties}>
+          {title}
+        </h4>
+        {description && (
+          <p className="text-gray-500 text-xs leading-relaxed">
+            {description}
+          </p>
+        )}
+      </div>
+    </motion.div>
+  );
+});
+TimelineEntry.displayName = 'TimelineEntry';
+
 // ============================================================================
 // LINKED EVENT CARD
 // ============================================================================
@@ -1185,6 +1268,7 @@ export default function ArticleDetailPage() {
   const [relatedArticles, setRelatedArticles] = useState<RelatedArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [articleTimeline, setArticleTimeline] = useState<ArticleTimelineEntry[]>([]);
   const [mounted, setMounted] = useState(false);
   const [heroY, setHeroY] = useState('0%');
   const [heroOpacity, setHeroOpacity] = useState(1);
@@ -1194,6 +1278,7 @@ export default function ArticleDetailPage() {
   const heroRef = useRef<HTMLDivElement>(null);
   const [enrichmentMode, setEnrichmentMode] = useState(false);
 
+  
 
   const [user, setUser] = useState<any>(null);
 
@@ -1308,6 +1393,9 @@ export default function ArticleDetailPage() {
 
     fetchArticle();
   }, [slug]);
+
+
+  
 
   const handleLangToggle = useCallback(() => {
     const newLang = lang === 'fr' ? 'en' : 'fr';
@@ -1632,6 +1720,37 @@ export default function ArticleDetailPage() {
                 <ContentRenderer text={content} lang={lang} catColor={catColor} />
               )}
             </motion.article>
+
+
+                        {/* ── Chronologie de l'article ── */}
+            {article.timeline && article.timeline.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="mt-12 pt-8 border-t border-white/[0.06]"
+              >
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="h-px flex-1 bg-gradient-to-r from-transparent to-white/10" />
+                  <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-gray-600 flex items-center gap-2">
+                    <Calendar size={11} />
+                    {lang === 'fr' ? 'Chronologie' : 'Timeline'}
+                  </span>
+                  <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/10" />
+                </div>
+
+                <div className="space-y-0">
+                  {article.timeline.map((entry, i) => (
+                    <TimelineEntry
+                      key={i}
+                      entry={entry}
+                      lang={lang}
+                      catColor={catColor}
+                    />
+                  ))}
+                </div>
+              </motion.div>
+            )}
 
             {/* ── Sources & Références ── */}
             {article.sources && article.sources.length > 0 && (

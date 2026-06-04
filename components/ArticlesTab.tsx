@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Loader2, FileText, PlusCircle, Edit2, Trash2, X,
-  Languages, SpellCheck, CheckCircle, Globe, Link2
+  Languages, SpellCheck, CheckCircle, Globe, Link2,Calendar
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { autoTranslate, autoCorrect } from '@/lib/lingua';
@@ -50,6 +50,20 @@ export default function ArticlesTab({ showMsg }: {
   const [sources, setSources] = useState<string[]>([]);
   const [newSource, setNewSource] = useState('');
 
+    // ✅ CHRONOLOGIE DE L'ARTICLE
+  const [timeline, setTimeline] = useState<Array<{
+    year: string;
+    title_fr: string;
+    title_en: string;
+    description_fr: string;
+    description_en: string;
+  }>>([]);
+  const [newTimelineYear, setNewTimelineYear] = useState('');
+  const [newTimelineTitleFr, setNewTimelineTitleFr] = useState('');
+  const [newTimelineTitleEn, setNewTimelineTitleEn] = useState('');
+  const [newTimelineDescFr, setNewTimelineDescFr] = useState('');
+  const [newTimelineDescEn, setNewTimelineDescEn] = useState('');
+
   useEffect(() => {
     async function fetchData() {
       setIsLoading(true);
@@ -74,8 +88,14 @@ export default function ArticlesTab({ showMsg }: {
     setCatId(''); setStatus('draft'); setLinkedEventIds([]);
     setEventSearch(''); setSources([]); setNewSource('');
     setGalleryImages([]);
+    // ✅ RESET CHRONOLOGIE
+    setTimeline([]);
+    setNewTimelineYear('');
+    setNewTimelineTitleFr('');
+    setNewTimelineTitleEn('');
+    setNewTimelineDescFr('');
+    setNewTimelineDescEn('');
   };
-
   const handleEdit = async (art: Article) => {
     setEditingId(art.id);
     setTitleFr(art.title_fr); setTitleEn(art.title_en);
@@ -87,6 +107,9 @@ export default function ArticlesTab({ showMsg }: {
     setCatId(art.category_id || ''); setStatus(art.status);
     setGalleryImages((art as any).gallery_images || []);
     setSources((art as any).sources || []);
+    setTimeline((art as any).timeline || []);
+
+
     const { data: linked } = await supabase
       .from('article_events').select('event_id').eq('article_id', art.id);
     if (linked) setLinkedEventIds(linked.map(l => l.event_id));
@@ -134,7 +157,10 @@ export default function ArticlesTab({ showMsg }: {
         status, slug,
         gallery_images: galleryImages,
         sources,
+        timeline,
       };
+
+
       let articleId = editingId;
       if (editingId) {
         const { error } = await supabase.from('articles').update(payload).eq('id', editingId);
@@ -430,6 +456,108 @@ export default function ArticlesTab({ showMsg }: {
 
         <div>
           <ImageUploader label="Uploader l'image principale" currentUrl={imageUrl} onUpload={setImageUrl} />
+        </div>
+
+
+                {/* ✅ CHRONOLOGIE DE L'ARTICLE */}
+        <div className="p-4 bg-[#1a1a1a] rounded-lg border border-white/10">
+          <div className="flex items-center gap-2 mb-3">
+            <Calendar size={14} className="text-[#D4AF37]" />
+            <span className="text-xs font-bold text-gray-300">Chronologie de l'article</span>
+          </div>
+
+          {/* Formulaire d'ajout */}
+          <div className="space-y-2 mb-3 p-3 bg-[#0f0f0f] rounded-lg border border-white/5">
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                value={newTimelineYear}
+                onChange={e => setNewTimelineYear(e.target.value)}
+                placeholder="Année (ex: 1492)"
+                className="bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37]"
+              />
+              <input
+                type="text"
+                value={newTimelineTitleFr}
+                onChange={e => setNewTimelineTitleFr(e.target.value)}
+                placeholder="Titre FR"
+                className="bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37]"
+              />
+            </div>
+            <input
+              type="text"
+              value={newTimelineTitleEn}
+              onChange={e => setNewTimelineTitleEn(e.target.value)}
+              placeholder="Titre EN"
+              className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37]"
+            />
+            <textarea
+              value={newTimelineDescFr}
+              onChange={e => setNewTimelineDescFr(e.target.value)}
+              placeholder="Description FR (optionnel)"
+              rows={2}
+              className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37] resize-none"
+            />
+            <textarea
+              value={newTimelineDescEn}
+              onChange={e => setNewTimelineDescEn(e.target.value)}
+              placeholder="Description EN (optionnel)"
+              rows={2}
+              className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37] resize-none"
+            />
+            <button
+              onClick={() => {
+                if (newTimelineYear && newTimelineTitleFr && newTimelineTitleEn) {
+                  setTimeline([...timeline, {
+                    year: newTimelineYear,
+                    title_fr: newTimelineTitleFr,
+                    title_en: newTimelineTitleEn,
+                    description_fr: newTimelineDescFr,
+                    description_en: newTimelineDescEn,
+                  }]);
+                  setNewTimelineYear('');
+                  setNewTimelineTitleFr('');
+                  setNewTimelineTitleEn('');
+                  setNewTimelineDescFr('');
+                  setNewTimelineDescEn('');
+                }
+              }}
+              disabled={!newTimelineYear || !newTimelineTitleFr || !newTimelineTitleEn}
+              className="w-full px-4 py-2 bg-[#D4AF37] text-black rounded-lg text-xs font-bold hover:bg-white transition-colors disabled:opacity-50"
+            >
+              Ajouter une étape
+            </button>
+          </div>
+
+          {/* Liste des entrées */}
+          {timeline.length > 0 ? (
+            <div className="space-y-2">
+              {timeline.map((entry, i) => (
+                <div
+                  key={i}
+                  className="flex items-start justify-between p-3 bg-[#0f0f0f] rounded-lg border border-white/10 group"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[#D4AF37] font-mono text-xs font-bold">{entry.year}</span>
+                      <span className="text-white text-xs font-bold truncate">{entry.title_fr}</span>
+                    </div>
+                    {entry.description_fr && (
+                      <p className="text-gray-500 text-[10px] line-clamp-2">{entry.description_fr}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setTimeline(timeline.filter((_, idx) => idx !== i))}
+                    className="p-1.5 text-gray-600 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-600 text-xs text-center py-4">Aucune étape chronologique ajoutée</p>
+          )}
         </div>
 
         {/* Galerie */}
