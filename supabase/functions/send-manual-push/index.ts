@@ -2,6 +2,13 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import webpush from 'https://esm.sh/web-push@3.6.7'
 
+// ✅ DÉFINITION DES HEADERS CORS (Indispensable pour éviter l'erreur sur Vercel)
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey',
+};
+
 // Configuration web-push avec ta clé privée
 const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY');
 const VAPID_PUBLIC_KEY = 'BKPE1Su7art9Se7kdRmCOLK8xKelmtv2223SzHCcoipMlFfGLjoKM1ToupD0JkJjPyF26e36UX6_NqkpxopcCgs';
@@ -17,16 +24,9 @@ webpush.setVapidDetails(
 );
 
 serve(async (req) => {
-  // CORS (Pour autoriser ton site web à appeler cette fonction)
+  // ✅ GESTION DU PREFLIGHT CORS (Pour autoriser ton site web à appeler cette fonction)
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      },
-    });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   const supabase = createClient(
@@ -81,16 +81,26 @@ serve(async (req) => {
 
       if (logId) await supabase.from('notification_logs').update({ recipients_count: sent, errors_count: errors, status: errors === 0 ? 'sent' : 'partially_sent' }).eq('id', logId);
 
-      return new Response(JSON.stringify({ success: true, type: 'manual_push', sent, errors, failed: failedEndpoints.slice(0, 5), log_id: logId }), { status: 200, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+      // ✅ AJOUT DES HEADERS CORS ICI
+      return new Response(
+        JSON.stringify({ success: true, type: 'manual_push', sent, errors, failed: failedEndpoints.slice(0, 5), log_id: logId }), 
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Autres types de notifications (anniversaires, etc.) non spécifiés ici pour alléger,
-    // (Ajoute tes conditions type === 'anniversary' ici si besoin de les déclencher via URL)
-    
-    return new Response(JSON.stringify({ error: 'Payload invalide' }), { status: 400, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+    // ✅ AJOUT DES HEADERS CORS ICI
+    return new Response(
+      JSON.stringify({ error: 'Payload invalide' }), 
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
 
   } catch (error: any) {
     console.error('[ERROR]', error.message);
-    return new Response(JSON.stringify({ error: error.message || 'Internal server error' }), { status: 500, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+    // ✅ AJOUT DES HEADERS CORS ICI
+    return new Response(
+      JSON.stringify({ error: error.message || 'Internal server error' }), 
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 });
