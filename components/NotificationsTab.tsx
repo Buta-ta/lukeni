@@ -7,7 +7,7 @@ import {
   Loader2, Send, Bell, Mail, AlertCircle, CheckCircle,
   Eye, Users, Clock, TrendingUp, Filter, Search,
   Zap, MessageSquare, X, Smartphone, Wifi, WifiOff, User,
-  Trash2, Archive
+  Trash2, Archive, Volume2, Vibrate
 } from 'lucide-react';
 
 interface NotificationLog {
@@ -57,6 +57,8 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
   const [pushBody, setPushBody] = useState('');
   const [pushUrl, setPushUrl] = useState('https://lukeni.app/encyclopedie');
   const [pushIcon, setPushIcon] = useState('https://lukeni.app/icons/icon-192x192.png');
+  const [enableSound, setEnableSound] = useState(true);
+  const [enableVibration, setEnableVibration] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [activeSubCount, setActiveSubCount] = useState(0);
 
@@ -117,7 +119,6 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
       .order('sent_at', { ascending: false });
 
     if (data) {
-      // ✅ Les user_name sont déjà dans la BD
       setRecipients(data as any);
     }
     setRecipientsLoading(false);
@@ -151,13 +152,11 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
   async function deleteLog(logId: string) {
     setIsDeleting(true);
     try {
-      // Supprimer d'abord les destinataires
       const { error: err1 } = await supabase
         .from('notification_recipients')
         .delete()
         .eq('notification_log_id', logId);
 
-      // Puis le log
       const { error: err2 } = await supabase
         .from('notification_logs')
         .delete()
@@ -180,13 +179,11 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
   async function deleteAllLogs() {
     setIsDeleting(true);
     try {
-      // Supprimer tous les destinataires
       const { error: err1 } = await supabase
         .from('notification_recipients')
         .delete()
         .neq('id', 'null');
 
-      // Puis tous les logs
       const { error: err2 } = await supabase
         .from('notification_logs')
         .delete()
@@ -269,6 +266,8 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
             body: pushBody,
             icon: pushIcon,
             url: pushUrl,
+            sound: enableSound,
+            vibrate: enableVibration,
           }),
         }
       );
@@ -281,6 +280,8 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
         setPushBody('');
         setPushUrl('https://lukeni.app/encyclopedie');
         setPushIcon('https://lukeni.app/icons/icon-192x192.png');
+        setEnableSound(true);
+        setEnableVibration(true);
         setTimeout(() => fetchLogs(), 1000);
       } else {
         showMsg('error', result.message || result.error || 'Erreur lors de l\'envoi');
@@ -314,7 +315,6 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
       const result = await response.json();
 
       if (response.ok) {
-        // ✅ Enregistrer dans email_logs
         await supabase
           .from('email_logs')
           .insert({
@@ -427,8 +427,11 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
             <div>
               <label className="block text-xs text-gray-400 mb-1 font-mono">📢 Titre</label>
               <input
-                type="text" value={pushTitle} onChange={(e) => setPushTitle(e.target.value)}
-                placeholder="Ex: 🌍 Nouvel événement historique" maxLength={100}
+                type="text" 
+                value={pushTitle} 
+                onChange={(e) => setPushTitle(e.target.value)}
+                placeholder="Ex: 🌍 Nouvel événement historique" 
+                maxLength={100}
                 className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-blue-500/50"
               />
             </div>
@@ -436,8 +439,11 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
             <div>
               <label className="block text-xs text-gray-400 mb-1 font-mono">📝 Contenu</label>
               <textarea
-                value={pushBody} onChange={(e) => setPushBody(e.target.value)}
-                placeholder="Message à afficher..." maxLength={240} rows={3}
+                value={pushBody} 
+                onChange={(e) => setPushBody(e.target.value)}
+                placeholder="Message à afficher..." 
+                maxLength={240} 
+                rows={3}
                 className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-blue-500/50 resize-none"
               />
             </div>
@@ -445,7 +451,9 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
             <div>
               <label className="block text-xs text-gray-400 mb-1 font-mono">🎨 Icône (URL)</label>
               <input
-                type="url" value={pushIcon} onChange={(e) => setPushIcon(e.target.value)}
+                type="url" 
+                value={pushIcon} 
+                onChange={(e) => setPushIcon(e.target.value)}
                 placeholder="https://lukeni.app/icons/icon-192x192.png"
                 className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-blue-500/50"
               />
@@ -474,9 +482,38 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
             <div>
               <label className="block text-xs text-gray-400 mb-1 font-mono">🔗 URL de destination</label>
               <input
-                type="url" value={pushUrl} onChange={(e) => setPushUrl(e.target.value)}
+                type="url" 
+                value={pushUrl} 
+                onChange={(e) => setPushUrl(e.target.value)}
                 className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-blue-500/50"
               />
+            </div>
+
+            {/* ✅ SON ET VIBRATION */}
+            <div className="space-y-3 pt-2 border-t border-white/5">
+              <label className="block text-xs text-gray-400 font-mono">🔊 Options Audio & Vibration</label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={enableSound} 
+                    onChange={(e) => setEnableSound(e.target.checked)}
+                    className="rounded w-4 h-4 accent-blue-500"
+                  />
+                  <Volume2 size={14} className={enableSound ? 'text-blue-400' : 'text-gray-500'} />
+                  <span className="text-xs text-gray-300">Son activé</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={enableVibration} 
+                    onChange={(e) => setEnableVibration(e.target.checked)}
+                    className="rounded w-4 h-4 accent-blue-500"
+                  />
+                  <Vibrate size={14} className={enableVibration ? 'text-blue-400' : 'text-gray-500'} />
+                  <span className="text-xs text-gray-300">Vibration activée</span>
+                </label>
+              </div>
             </div>
 
             <button
@@ -496,17 +533,38 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
             </div>
             <div>
               <label className="block text-xs text-gray-400 mb-1 font-mono">📧 Destinataire</label>
-              <input type="email" value={emailTo} onChange={(e) => setEmailTo(e.target.value)} placeholder="utilisateur@example.com" className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-green-500/50" />
+              <input 
+                type="email" 
+                value={emailTo} 
+                onChange={(e) => setEmailTo(e.target.value)} 
+                placeholder="utilisateur@example.com" 
+                className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-green-500/50" 
+              />
             </div>
             <div>
               <label className="block text-xs text-gray-400 mb-1 font-mono">📌 Sujet</label>
-              <input type="text" value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} placeholder="Sujet de l'email" className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-green-500/50" />
+              <input 
+                type="text" 
+                value={emailSubject} 
+                onChange={(e) => setEmailSubject(e.target.value)} 
+                placeholder="Sujet de l'email" 
+                className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-green-500/50" 
+              />
             </div>
             <div>
               <label className="block text-xs text-gray-400 mb-1 font-mono">✉️ Contenu (HTML)</label>
-              <textarea value={emailBody} onChange={(e) => setEmailBody(e.target.value)} placeholder="<p>Votre message HTML ici...</p>" rows={4} className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-green-500/50 resize-none font-mono text-xs" />
+              <textarea 
+                value={emailBody} 
+                onChange={(e) => setEmailBody(e.target.value)} 
+                placeholder="<p>Votre message HTML ici...</p>" 
+                rows={4} 
+                className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-green-500/50 resize-none font-mono text-xs" 
+              />
             </div>
-            <button onClick={sendManualEmail} disabled={isSendingEmail || !emailTo.trim() || !emailSubject.trim() || !emailBody.trim()} className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-500 disabled:opacity-50 transition-all">
+            <button 
+              onClick={sendManualEmail} 
+              disabled={isSendingEmail || !emailTo.trim() || !emailSubject.trim() || !emailBody.trim()} 
+              className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-500 disabled:opacity-50 transition-all">
               {isSendingEmail ? <><Loader2 size={16} className="animate-spin" /> Envoi...</> : <><Mail size={16} /> Envoyer l'email</>}
             </button>
           </motion.div>
@@ -628,7 +686,6 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
                   </div>
                 </div>
 
-                {/* ✅ Confirmation de suppression */}
                 {deleteConfirm === log.id && (
                   <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex gap-3">
                     <div className="flex-1">
@@ -656,7 +713,6 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
             ))
           )}
 
-          {/* ✅ Confirmation de suppression globale */}
           {deleteConfirm === 'all-logs' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex gap-3">
               <div className="flex-1">
@@ -819,7 +875,6 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
             </div>
           )}
 
-          {/* ✅ Confirmation globale emails */}
           {deleteConfirm === 'all-emails' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex gap-3">
               <div className="flex-1">
@@ -844,7 +899,6 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
             </motion.div>
           )}
 
-          {/* ✅ Confirmation individuelle emails */}
           {emailLogs.map(email => (
             deleteConfirm === email.id && (
               <motion.div key={email.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex gap-3">
