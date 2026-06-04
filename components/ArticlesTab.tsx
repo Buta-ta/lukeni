@@ -146,7 +146,9 @@ export default function ArticlesTab({ showMsg }: {
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     try {
-      const payload = {
+
+
+           const payload = {
         title_fr: titleFr, title_en: titleEn,
         summary_fr: summaryFr, summary_en: summaryEn,
         content_fr: contentFr, content_en: contentEn,
@@ -157,7 +159,7 @@ export default function ArticlesTab({ showMsg }: {
         status, slug,
         gallery_images: galleryImages,
         sources,
-        timeline,
+        timeline: timeline.length > 0 ? timeline : null,  // ✅ FIX : JSON string ou null
       };
 
 
