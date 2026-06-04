@@ -743,7 +743,24 @@ export default function PressePage() {
   const [currentTime, setCurrentTime] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('magazine');
+  const [viewMode, setViewMode] = useState<ViewMode>('magazine'); // Valeur par défaut temporaire
+
+  // ✅ Détection mobile : mode liste par défaut
+useEffect(() => {
+  if (typeof window === 'undefined') return;
+  
+  const isMobile = window.innerWidth < 768; // md breakpoint
+  const savedMode = localStorage.getItem('lukeni_press_view') as ViewMode | null;
+  
+  if (savedMode) {
+    setViewMode(savedMode);
+  } else if (isMobile) {
+    setViewMode('list'); // 📱 Mode liste par défaut sur mobile
+  } else {
+    setViewMode('magazine'); // 🖥️ Mode magazine par défaut sur desktop
+  }
+}, []);
+
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
   // ✅ Fetch profil utilisateur
@@ -992,7 +1009,14 @@ export default function PressePage() {
                   <div className="mt-6 flex justify-center">
                     <SuggestButton space="presse" lang={lang} />
                   </div>
-                </motion.div>
+                </motion.div><ViewSwitcher 
+  current={viewMode} 
+  onChange={(v) => {
+    setViewMode(v);
+    localStorage.setItem('lukeni_press_view', v);
+  }} 
+  lang={lang} 
+/>
               </header>
 
               {/* Filtres */}
@@ -1003,7 +1027,7 @@ export default function PressePage() {
                     {lang === 'fr' ? 'Filtrer par univers' : 'Filter by universe'}
                   </h3>
                   <div className="flex items-center gap-3">
-                    <ViewSwitcher current={viewMode} onChange={setViewMode} lang={lang} />
+                    
                     <motion.button whileHover={{ scale: 1.05 }} onClick={() => setIsNewsletterOpen(true)}
                       className="flex items-center gap-2 text-[#D4AF37] text-[9px] font-black uppercase tracking-widest hover:opacity-60 transition-opacity">
                       <Bell size={11} />

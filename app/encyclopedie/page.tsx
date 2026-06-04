@@ -1003,12 +1003,12 @@ export default function EncyclopediePage() {
 
         {/* ANCIEN : Bouton Suggérer un sujet */}
         <motion.button onClick={() => setShowSuggestionModal(true)}
-  className="flex items-center gap-2 bg-[#D4AF37] text-black px-4 py-3 rounded-full font-bold text-sm shadow-[0_0_30px_rgba(212,175,55,0.4)] hover:bg-white transition-colors"
+  className="flex items-center gap-2 bg-[#D4AF37] text-black px-3 sm:px-4 py-3 rounded-full font-bold text-sm shadow-[0_0_30px_rgba(212,175,55,0.4)] hover:bg-white transition-colors"
   whileHover={{ scale: 1.05, boxShadow: '0 0 50px rgba(212,175,55,0.6)' }}
   whileTap={{ scale: 0.95 }} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 2.5 }}>
   <Plus size={18} />
-  {/* ✅ SUPPRESSION DU hidden sm:inline */}
-  <span className="text-sm">
+  {/* ✅ Masqué sur mobile, visible sur desktop */}
+  <span className="hidden sm:inline text-sm">
     {lang === 'fr' ? 'Suggérer un sujet' : 'Suggest a topic'}
   </span>
 </motion.button>

@@ -1061,7 +1061,7 @@ export default function LandingPage() {
       </motion.div>
 
       {/* ── BARRE DE RECHERCHE ── */}
-      <div className="z-20 w-full max-w-3xl px-4 md:px-6 relative">
+      <div className="z-[60] w-full max-w-3xl px-4 md:px-6 relative">
         <motion.form
           onSubmit={handleSearch}
           initial={{ scale: 0.9, opacity: 0 }}
