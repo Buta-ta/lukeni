@@ -160,59 +160,65 @@ function AuthContent() {
     }
   };
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setIsLoading(true);
+const handleRegister = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setError(null);
+  setIsLoading(true);
 
-    try {
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          password,
-          fullName,
-        }),
-      });
+  try {
+    const response = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        password,
+        fullName,
+      }),
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (!response.ok) {
-        if (data.error === 'already_registered') {
-          setError(lang === 'fr' ? 'Cet email est déjà utilisé. Connecte-toi !' : 'This email is already registered. Please log in!');
-        } else {
-          setError(data.error || (lang === 'fr' ? 'Impossible de créer le compte.' : 'Unable to create account.'));
-        }
-        return;
-      }
-
-      if (data.session) {
-        setSuccess(lang === 'fr' ? '✅ Compte créé ! Connexion...' : '✅ Account created! Logging in...');
-        await supabase.auth.setSession(data.session);
-
-        setTimeout(() => {
-          window.location.href = getRedirectPath();
-        }, 1000);
+    if (!response.ok) {
+      if (data.error === 'already_registered') {
+        setError(lang === 'fr' ? 'Cet email est déjà utilisé. Connecte-toi !' : 'This email is already registered. Please log in!');
       } else {
-        setSuccess(lang === 'fr' ? '✅ Compte créé ! Connecte-toi.' : '✅ Account created! Please log in.');
-        setTimeout(() => {
-          setView('login');
-        }, 2000);
+        setError(data.error || (lang === 'fr' ? 'Impossible de créer le compte.' : 'Unable to create account.'));
       }
-
-      fetch('/api/send-welcome', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, fullName }),
-      }).catch(() => {});
-    } catch (err: any) {
-      console.error('Registration error:', err.message);
-      setError(lang === 'fr' ? 'Erreur de connexion au serveur.' : 'Server connection error.');
-    } finally {
-      setIsLoading(false);
+      return;
     }
-  };
+
+    // ✅ ENVOYER L'EMAIL DE BIENVENUE IMMÉDIATEMENT (sans attendre la réponse)
+    // C'est une requête "fire and forget"
+    fetch('/api/send-welcome', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        email, 
+        fullName,
+        lang: lang // ✅ NOUVEAU : Envoyer la langue
+      }),
+    }).catch(err => console.warn('Welcome email error (non-blocking):', err));
+
+    if (data.session) {
+      setSuccess(lang === 'fr' ? '✅ Compte créé ! Connexion...' : '✅ Account created! Logging in...');
+      await supabase.auth.setSession(data.session);
+
+      setTimeout(() => {
+        window.location.href = getRedirectPath();
+      }, 1000);
+    } else {
+      setSuccess(lang === 'fr' ? '✅ Compte créé ! Connecte-toi.' : '✅ Account created! Please log in.');
+      setTimeout(() => {
+        setView('login');
+      }, 2000);
+    }
+  } catch (err: any) {
+    console.error('Registration error:', err.message);
+    setError(lang === 'fr' ? 'Erreur de connexion au serveur.' : 'Server connection error.');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleGoogleAuth = async () => {
     setError(null);
