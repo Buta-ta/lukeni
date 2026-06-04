@@ -1061,7 +1061,7 @@ export default function LandingPage() {
       </motion.div>
 
       {/* ── BARRE DE RECHERCHE ── */}
-      <div className="z-[60] w-full max-w-3xl px-4 md:px-6 relative mt-8">
+      <div className="z-[60] w-full max-w-3xl px-4 md:px-6 relative">
   <motion.form
           onSubmit={handleSearch}
           initial={{ scale: 0.9, opacity: 0 }}
@@ -1236,7 +1236,7 @@ export default function LandingPage() {
       </AnimatePresence>
 
       {/* ── BOUTONS BAS ── */}
-      <div className={`absolute bottom-20 md:bottom-24 flex flex-col items-center gap-4 md:gap-6 z-30 transition-opacity duration-300 ${isFocused ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+      <div className={`absolute bottom-6 md:bottom-12 flex flex-col items-center gap-4 md:gap-6 z-30 transition-opacity duration-300 ${isFocused ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         <Link href={userSession ? '/explore' : '/auth?redirect=/explore'}>
           <motion.button
             whileHover={{ scale: 1.05 }}
