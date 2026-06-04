@@ -8,6 +8,7 @@ import {
   Loader2, Globe, Users, Eye, MapPin,
   Monitor, Smartphone, RefreshCw, User, UserX,
   BarChart3, ArrowUpRight, Activity, Mail, X,
+  Trash2, AlertTriangle, CheckCircle,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -140,6 +141,86 @@ function StatCard({
   );
 }
 
+// ─── Modal de confirmation de suppression ──────────────────────────────────────
+
+function DeleteConfirmModal({
+  onConfirm,
+  onCancel,
+  type,
+  count,
+}: {
+  onConfirm: () => void;
+  onCancel: () => void;
+  type: 'single' | 'all' | 'period';
+  count?: number;
+}) {
+  const messages = {
+    single: {
+      title: 'Supprimer cette visite ?',
+      description: 'Cette action est irréversible.',
+    },
+    all: {
+      title: 'Supprimer TOUTES les visites ?',
+      description: `Vous êtes sur le point de supprimer ${count || 0} visites. Cette action est irréversible et supprimera définitivement toutes les données de tracking.`,
+    },
+    period: {
+      title: 'Supprimer les visites de cette période ?',
+      description: `${count || 0} visites seront supprimées définitivement.`,
+    },
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+      onClick={onCancel}
+    >
+      <motion.div
+        initial={{ scale: 0.9, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.9, y: 20 }}
+        onClick={e => e.stopPropagation()}
+        className="bg-[#0f0f0f] border border-red-500/30 rounded-2xl p-6 w-full max-w-md shadow-2xl"
+      >
+        {/* Icon + Title */}
+        <div className="flex items-center gap-4 mb-4">
+          <div className="p-3 bg-red-500/20 rounded-xl">
+            <AlertTriangle size={24} className="text-red-400" />
+          </div>
+          <div>
+            <h3 className="text-white font-bold text-lg">{messages[type].title}</h3>
+            <p className="text-gray-400 text-xs">Action irréversible</p>
+          </div>
+        </div>
+
+        {/* Description */}
+        <p className="text-gray-300 text-sm leading-relaxed mb-6">
+          {messages[type].description}
+        </p>
+
+        {/* Actions */}
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-xl font-medium transition-all"
+          >
+            Annuler
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2"
+          >
+            <Trash2 size={16} />
+            Supprimer
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 // ─── Composant principal ──────────────────────────────────────────────────────
 
 export default function VisitorsTab({
@@ -157,6 +238,10 @@ export default function VisitorsTab({
   const [isRefreshing, setIsRefreshing]       = useState(false);
   const [activeSection, setActiveSection]     = useState<'overview' | 'live' | 'geo' | 'pages'>('overview');
   const [selectedVisit, setSelectedVisit]     = useState<Visit | null>(null);
+
+  // Suppression
+  const [deleteModal, setDeleteModal]         = useState<{ type: 'single' | 'all' | 'period'; id?: string; count?: number } | null>(null);
+  const [isDeleting, setIsDeleting]           = useState(false);
 
   // Filtres
   const [period, setPeriod]         = useState<'1h' | '24h' | '7d' | '30d' | 'all'>('24h');
@@ -301,6 +386,78 @@ export default function VisitorsTab({
     return () => clearInterval(interval);
   }, [activeSection, fetchData]);
 
+  // ── Suppression ───────────────────────────────────────────────────────────
+  const handleDeleteSingle = useCallback(async (id: string) => {
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('page_visits')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      showMsg('success', '✓ Visite supprimée');
+      setDeleteModal(null);
+      setSelectedVisit(null);
+      await fetchData(true);
+    } catch (err: any) {
+      showMsg('error', err.message || 'Erreur de suppression');
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [fetchData, showMsg]);
+
+  const handleDeletePeriod = useCallback(async () => {
+    setIsDeleting(true);
+    try {
+      const now = new Date();
+      let startDate: string | null = null;
+
+      if (period === '1h')  startDate = new Date(now.getTime() - 3_600_000).toISOString();
+      if (period === '24h') startDate = new Date(now.getTime() - 86_400_000).toISOString();
+      if (period === '7d')  startDate = new Date(now.getTime() - 7  * 86_400_000).toISOString();
+      if (period === '30d') startDate = new Date(now.getTime() - 30 * 86_400_000).toISOString();
+
+      let query = supabase.from('page_visits').delete();
+
+      if (startDate) query = query.gte('created_at', startDate);
+      if (filterType === 'known') query = query.not('user_id', 'is', null);
+      if (filterType === 'anonymous') query = query.is('user_id', null);
+
+      const { error } = await query;
+      if (error) throw error;
+
+      showMsg('success', '✓ Visites supprimées');
+      setDeleteModal(null);
+      await fetchData(true);
+    } catch (err: any) {
+      showMsg('error', err.message || 'Erreur de suppression');
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [period, filterType, fetchData, showMsg]);
+
+  const handleDeleteAll = useCallback(async () => {
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('page_visits')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+
+      if (error) throw error;
+
+      showMsg('success', '✓ Toutes les visites ont été supprimées');
+      setDeleteModal(null);
+      await fetchData(true);
+    } catch (err: any) {
+      showMsg('error', err.message || 'Erreur de suppression');
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [fetchData, showMsg]);
+
   // ── Loading ───────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
@@ -364,14 +521,39 @@ export default function VisitorsTab({
             ))}
           </div>
 
-          {/* Refresh */}
-          <button
-            onClick={() => fetchData(true)}
-            disabled={isRefreshing}
-            className="p-2 bg-white/5 rounded-lg text-gray-400 hover:text-white transition-all"
-          >
-            <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
-          </button>
+          {/* Actions */}
+          <div className="flex gap-1">
+            {/* Supprimer période */}
+            {visits.length > 0 && (
+              <button
+                onClick={() => setDeleteModal({ type: 'period', count: visits.length })}
+                className="p-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg text-red-400 transition-all"
+                title="Supprimer les visites de cette période"
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
+
+            {/* Supprimer tout */}
+            {stats && stats.totalVisits > 0 && (
+              <button
+                onClick={() => setDeleteModal({ type: 'all', count: stats.totalVisits })}
+                className="p-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-lg text-red-400 transition-all"
+                title="Supprimer TOUTES les visites"
+              >
+                <Trash2 size={14} className="animate-pulse" />
+              </button>
+            )}
+
+            {/* Refresh */}
+            <button
+              onClick={() => fetchData(true)}
+              disabled={isRefreshing}
+              className="p-2 bg-white/5 rounded-lg text-gray-400 hover:text-white transition-all"
+            >
+              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -828,12 +1010,21 @@ export default function VisitorsTab({
               {/* Header modal */}
               <div className="flex items-center justify-between mb-5">
                 <h3 className="text-white font-bold text-lg">Détail du visiteur</h3>
-                <button
-                  onClick={() => setSelectedVisit(null)}
-                  className="p-1.5 text-gray-500 hover:text-white transition-colors"
-                >
-                  <X size={18} />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setDeleteModal({ type: 'single', id: selectedVisit.id })}
+                    className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all"
+                    title="Supprimer cette visite"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                  <button
+                    onClick={() => setSelectedVisit(null)}
+                    className="p-1.5 text-gray-500 hover:text-white transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
               </div>
 
               {/* Identité */}
@@ -920,6 +1111,26 @@ export default function VisitorsTab({
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── MODAL CONFIRMATION SUPPRESSION ────────────────────────────────────── */}
+      <AnimatePresence>
+        {deleteModal && (
+          <DeleteConfirmModal
+            type={deleteModal.type}
+            count={deleteModal.count}
+            onConfirm={() => {
+              if (deleteModal.type === 'single' && deleteModal.id) {
+                handleDeleteSingle(deleteModal.id);
+              } else if (deleteModal.type === 'period') {
+                handleDeletePeriod();
+              } else if (deleteModal.type === 'all') {
+                handleDeleteAll();
+              }
+            }}
+            onCancel={() => setDeleteModal(null)}
+          />
         )}
       </AnimatePresence>
     </div>
