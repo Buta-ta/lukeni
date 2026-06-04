@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Bell, Mail, Clock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import PushSubscribeButton from './PushSubscribeButton';
 
 export default function SubscribeModal({ isOpen, onClose, isOrganic }: { isOpen: boolean; onClose: () => void; isOrganic: boolean }) {
   const [email, setEmail] = useState('');
@@ -95,6 +96,13 @@ export default function SubscribeModal({ isOpen, onClose, isOrganic }: { isOpen:
                 >
                   {status === 'loading' ? 'Enregistrement...' : "S'abonner gratuitement"}
                 </button>
+
+                                <div className="mt-6 pt-6 border-t border-white/10 text-center">
+                  <p className="text-white/50 text-xs mb-4">Ou recevez les alertes directement sur votre appareil sans email :</p>
+                  <div className="flex justify-center">
+                    <PushSubscribeButton isOrganic={isOrganic} />
+                  </div>
+                </div>
               </>
             )}
           </motion.div>

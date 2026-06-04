@@ -688,7 +688,7 @@ const AddBookModal = memo(({ isOpen, onClose, lang, user }: {
                     <div className="grid grid-cols-3 gap-3">
                       {['cover', ...(submissionType === 'full_book' ? ['file'] : []), 'audio'].map(field => {
                         const url = field === 'cover' ? coverUrl : field === 'file' ? fileUrl : audioUrl;
-                        const resourceType = field === 'cover' ? 'image' : field === 'audio' ? 'audio' : 'auto';
+                        const resourceType = field === 'cover' ? 'image' : field === 'audio' ? 'video' : 'auto';
                         const icons: Record<string, string> = { cover: '🖼️', file: '📄', audio: '🎵' };
                         return (
                           <button key={field} type="button"
@@ -853,8 +853,15 @@ const BookDetailModal = memo(({ book, lang, user, onClose }: {
   const [newComment, setNewComment] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   // ✅ Auto-ouvrir si c'est un livre Lukeni avec PDF
-  const [showReader, setShowReader] = useState(!!book.file_url && book.access_type !== 'external_link');
+  const [showReader, setShowReader] = useState(false);
   const [readerMode, setReaderMode] = useState<'pdf' | 'audio'>(book.file_url ? 'pdf' : 'audio');
+
+  useEffect(() => {
+    setShowReader(false);
+    setReaderMode(book.file_url ? 'pdf' : 'audio');
+  }, [book.id, book.file_url]);
+
+
   const [iframeLoadError, setIframeLoadError] = useState(false);
   const [isIframeLoading, setIsIframeLoading] = useState(true);
 
@@ -1018,9 +1025,10 @@ const BookDetailModal = memo(({ book, lang, user, onClose }: {
           <div className="flex-1 overflow-hidden">
             {readerMode === 'pdf' && book.file_url ? (
               <CloudinaryPDFReader
-                url={getPdfDisplayUrl(book.file_url)}
+                url={book.file_url}
                 title={title}
                 lang={lang}
+                onClose={() => setShowReader(false)}
               />
             ) : readerMode === 'audio' && book.audio_url ? (
               <AudioPlayer url={book.audio_url} title={title} cover={book.cover_url} />
