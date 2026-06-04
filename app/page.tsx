@@ -1043,12 +1043,15 @@ export default function LandingPage() {
         </div>
       )}
 
-      {/* ── LOGO ── */}
+      {/* ── LOGO + SLOGAN ── */}
       <motion.div
-  initial={{ opacity: 0, y: -30 }} animate={{ opacity: 1, y: 0 }}
-  transition={{ duration: 1, delay: 0.3 }}
-  className="absolute top-16 md:top-20 text-center z-10 flex flex-col items-center gap-2 md:gap-3 pb-96"
->
+        initial={{ opacity: 0, y: -30 }} 
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 1, delay: 0.3 }}
+        className="absolute text-center z-10 flex flex-col items-center gap-2 md:gap-3
+          top-16 md:top-20
+          mb-0 md:mb-0"
+      >
         <motion.div animate={{ scale: [1, 1.05, 1], opacity: isMobile ? 0.8 : 1 }} transition={{ duration: 3, repeat: Infinity }}>
           <CaurisIcon className="w-10 h-10 md:w-20 md:h-20 text-[#D4AF37]" />
         </motion.div>
@@ -1060,9 +1063,9 @@ export default function LandingPage() {
         </p>
       </motion.div>
 
-      {/* ── BARRE DE RECHERCHE ── */}
+      {/* ── BARRE DE RECHERCHE (centrée verticalement) ── */}
       <div className="z-[60] w-full max-w-3xl px-4 md:px-6 relative">
-  <motion.form
+        <motion.form
           onSubmit={handleSearch}
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -1184,13 +1187,13 @@ export default function LandingPage() {
                 <p className="text-gray-400 text-sm line-clamp-4 mb-5 font-light leading-relaxed">
                   {lang === 'fr' ? activeStar.short_bio_fr : activeStar.short_bio_en}
                 </p>
-               <div className="flex flex-col gap-2.5">
-  <Link href={`/encyclopedie?q=${encodeURIComponent(lang === 'fr' ? activeStar.name_fr : activeStar.name_en)}`}
-    className="flex items-center justify-between w-full px-5 py-3 bg-gradient-to-r from-[#D4AF37] to-[#E5C158] text-black rounded-xl font-bold hover:shadow-lg hover:shadow-[#D4AF37]/30 transition-all group">
-    <span className="flex items-center gap-2"><BookOpen size={13} />{lang === 'fr' ? 'Voir dans l\'encyclopédie' : 'View in encyclopedia'}</span>
-    <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-  </Link>
-</div>
+                <div className="flex flex-col gap-2.5">
+                  <Link href={`/encyclopedie?q=${encodeURIComponent(lang === 'fr' ? activeStar.name_fr : activeStar.name_en)}`}
+                    className="flex items-center justify-between w-full px-5 py-3 bg-gradient-to-r from-[#D4AF37] to-[#E5C158] text-black rounded-xl font-bold hover:shadow-lg hover:shadow-[#D4AF37]/30 transition-all group">
+                    <span className="flex items-center gap-2"><BookOpen size={13} />{lang === 'fr' ? 'Voir dans l\'encyclopédie' : 'View in encyclopedia'}</span>
+                    <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                  </Link>
+                </div>
               </div>
             </motion.div>
           </motion.div>
