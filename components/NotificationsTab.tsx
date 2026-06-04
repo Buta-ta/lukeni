@@ -52,7 +52,6 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
   const [activeTab, setActiveTab] = useState<'send' | 'logs' | 'recipients' | 'subscribers' | 'emails'>('send');
   const [isLoading, setIsLoading] = useState(false);
 
-  // ── Send Manual Push ──────────────────────────────────────────────────────
   const [pushTitle, setPushTitle] = useState('');
   const [pushBody, setPushBody] = useState('');
   const [pushUrl, setPushUrl] = useState('https://lukeni.app/encyclopedie');
@@ -62,31 +61,25 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
   const [isSending, setIsSending] = useState(false);
   const [activeSubCount, setActiveSubCount] = useState(0);
 
-  // ── Send Email ────────────────────────────────────────────────────────────
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
   const [emailTo, setEmailTo] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
-  // ── Logs & Recipients ─────────────────────────────────────────────────────
   const [logs, setLogs] = useState<NotificationLog[]>([]);
   const [selectedLog, setSelectedLog] = useState<NotificationLog | null>(null);
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [recipientsLoading, setRecipientsLoading] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'all' | 'sent' | 'failed' | 'expired'>('all');
 
-  // ── Subscribers ───────────────────────────────────────────────────────────
   const [subscribers, setSubscribers] = useState<PushSubscriber[]>([]);
   const [subsLoading, setSubsLoading] = useState(false);
 
-  // ── Email Logs ────────────────────────────────────────────────────────────
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
   const [emailLogsLoading, setEmailLogsLoading] = useState(false);
 
-  // ── Search ────────────────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
 
-  // ── Delete ────────────────────────────────────────────────────────────────
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
@@ -148,7 +141,6 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
     setEmailLogsLoading(false);
   }
 
-  // ── SUPPRIMER UN LOG ──────────────────────────────────────────────────────
   async function deleteLog(logId: string) {
     setIsDeleting(true);
     try {
@@ -175,19 +167,16 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
     }
   }
 
-  // ── SUPPRIMER TOUS LES LOGS ───────────────────────────────────────────────
   async function deleteAllLogs() {
     setIsDeleting(true);
     try {
       const { error: err1 } = await supabase
         .from('notification_recipients')
-        .delete()
-        .neq('id', 'null');
+        .delete(); 
 
       const { error: err2 } = await supabase
         .from('notification_logs')
-        .delete()
-        .neq('id', 'null');
+        .delete(); 
 
       if (err1 || err2) throw new Error('Erreur lors de la suppression');
 
@@ -201,7 +190,6 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
     }
   }
 
-  // ── SUPPRIMER UN LOG EMAIL ────────────────────────────────────────────────
   async function deleteEmailLog(logId: string) {
     setIsDeleting(true);
     try {
@@ -222,14 +210,12 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
     }
   }
 
-  // ── SUPPRIMER TOUS LES LOGS EMAILS ────────────────────────────────────────
   async function deleteAllEmailLogs() {
     setIsDeleting(true);
     try {
       const { error } = await supabase
         .from('email_logs')
-        .delete()
-        .neq('id', 'null');
+        .delete(); 
 
       if (error) throw error;
 
@@ -243,7 +229,6 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
     }
   }
 
-  // ── ENVOYER PUSH MANUEL ────────────────────────────────────────────────────
   async function sendManualPush() {
     if (!pushTitle.trim() || !pushBody.trim()) {
       showMsg('error', 'Titre et contenu requis');
@@ -293,7 +278,6 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
     }
   }
 
-  // ── ENVOYER EMAIL MANUEL ───────────────────────────────────────────────────
   async function sendManualEmail() {
     if (!emailSubject.trim() || !emailBody.trim() || !emailTo.trim()) {
       showMsg('error', 'Tous les champs requis');
@@ -408,9 +392,7 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
         })}
       </div>
 
-      {/* ════════════════════════════════════════════════════════════ */}
       {/* SEND TAB */}
-      {/* ════════════════════════════════════════════════════════════ */}
       {activeTab === 'send' && (
         <div className="space-y-6">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-[#0f0f0f] border border-white/5 rounded-xl p-6 space-y-4">
@@ -489,7 +471,7 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
               />
             </div>
 
-            {/* ✅ SON ET VIBRATION */}
+            {/* SON ET VIBRATION */}
             <div className="space-y-3 pt-2 border-t border-white/5">
               <label className="block text-xs text-gray-400 font-mono">🔊 Options Audio & Vibration</label>
               <div className="flex gap-4">
@@ -571,9 +553,7 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════════════ */}
       {/* SUBSCRIBERS TAB */}
-      {/* ════════════════════════════════════════════════════════════ */}
       {activeTab === 'subscribers' && (
         <div className="space-y-4">
           <div className="flex gap-4 mb-6">
@@ -635,9 +615,7 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════════════ */}
       {/* LOGS TAB (PUSH) */}
-      {/* ════════════════════════════════════════════════════════════ */}
       {activeTab === 'logs' && (
         <div className="space-y-4">
           {logs.length > 0 && (
@@ -739,9 +717,7 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════════════ */}
       {/* RECIPIENTS TAB */}
-      {/* ════════════════════════════════════════════════════════════ */}
       {activeTab === 'recipients' && (
         <div className="space-y-4">
           {!selectedLog ? (
@@ -804,9 +780,7 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════════════ */}
       {/* EMAILS TAB */}
-      {/* ════════════════════════════════════════════════════════════ */}
       {activeTab === 'emails' && (
         <div className="space-y-4">
           <div className="flex gap-4 mb-6">
