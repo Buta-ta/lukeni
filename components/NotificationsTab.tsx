@@ -106,6 +106,7 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
   }
 
   // ── ENVOYER PUSH MANUEL ────────────────────────────────────────────────────
+  // ── ENVOYER PUSH MANUEL ────────────────────────────────────────────────────
   async function sendManualPush() {
     if (!pushTitle.trim() || !pushBody.trim()) {
       showMsg('error', 'Titre et contenu requis');
@@ -114,25 +115,8 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
 
     setIsSending(true);
     try {
-      const { data: subscriptions } = await supabase
-        .from('push_subscriptions')
-        .select('endpoint, p256dh, auth_key, auth, user_id')
-        .eq('is_active', true);
-
-      if (!subscriptions || subscriptions.length === 0) {
-        showMsg('error', 'Aucun abonné push');
-        setIsSending(false);
-        return;
-      }
-
-      const payload = JSON.stringify({
-        title: pushTitle,
-        body: pushBody,
-        icon: 'https://lukeni.app/icons/icon-192x192.png',
-        badge: 'https://lukeni.app/icons/badge-72x72.png',
-        url: pushUrl,
-        tag: `manual-${Date.now()}`,
-      });
+      // 💡 ON A SUPPRIMÉ LA VÉRIFICATION FRONTEND QUI BLOQUAIT ICI.
+      // C'est maintenant la Edge Function qui va lire la base de données en toute sécurité.
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/notify`,
@@ -153,12 +137,14 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
       const result = await response.json();
 
       if (response.ok) {
-        showMsg('success', `${result.notifications_sent || 0} notifications envoyées`);
+        showMsg('success', `${result.notifications_sent || 0} notifications envoyées avec succès !`);
         setPushTitle('');
         setPushBody('');
         setPushUrl('https://lukeni.app/encyclopedie');
+        // Refresh logs
+        setTimeout(() => fetchLogs(), 1000);
       } else {
-        showMsg('error', result.error || 'Erreur lors de l\'envoi');
+        showMsg('error', result.message || result.error || 'Erreur lors de l\'envoi');
       }
     } catch (err: any) {
       showMsg('error', err.message);
