@@ -1,11 +1,17 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion'; // <-- CORRECTION : Ajout de l'import manquant
+import { motion } from 'framer-motion';
 import { Bell, BellOff } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
-export default function PushSubscribeButton({ isOrganic }: { isOrganic: boolean }) {
+export default function PushSubscribeButton({ 
+  isOrganic, 
+  lang = 'fr' 
+}: { 
+  isOrganic: boolean;
+  lang?: 'fr' | 'en';
+}) {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -30,7 +36,11 @@ export default function PushSubscribeButton({ isOrganic }: { isOrganic: boolean 
       // 2. Demander la permission
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
-        alert('Vous avez bloqué les notifications. Veuillez les autoriser dans les paramètres de votre navigateur.');
+        alert(
+          lang === 'fr'
+            ? 'Vous avez bloqué les notifications. Veuillez les autoriser dans les paramètres de votre navigateur.'
+            : 'You have blocked notifications. Please allow them in your browser settings.'
+        );
         setIsLoading(false);
         return;
       }
@@ -53,12 +63,12 @@ export default function PushSubscribeButton({ isOrganic }: { isOrganic: boolean 
 
       if (!error) {
         setIsSubscribed(true);
-      } else if (error.code === '23505') { 
+      } else if (error.code === '23505') {
         // Erreur de doublon (déjà abonné)
         setIsSubscribed(true);
       }
     } catch (error) {
-      console.error('Erreur abonnement push:', error);
+      console.error(lang === 'fr' ? 'Erreur abonnement push:' : 'Push subscription error:', error);
     }
     setIsLoading(false);
   };
@@ -68,7 +78,7 @@ export default function PushSubscribeButton({ isOrganic }: { isOrganic: boolean 
     try {
       const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.getSubscription();
-      
+
       if (subscription) {
         await subscription.unsubscribe();
         // Supprimer de Supabase
@@ -78,7 +88,7 @@ export default function PushSubscribeButton({ isOrganic }: { isOrganic: boolean 
       }
       setIsSubscribed(false);
     } catch (error) {
-      console.error('Erreur désabonnement:', error);
+      console.error(lang === 'fr' ? 'Erreur désabonnement:' : 'Unsubscribe error:', error);
     }
     setIsLoading(false);
   };
@@ -100,19 +110,28 @@ export default function PushSubscribeButton({ isOrganic }: { isOrganic: boolean 
       whileTap={{ scale: 0.9 }}
       onClick={isSubscribed ? unsubscribeUser : subscribeUser}
       disabled={isLoading}
-      className={`p-2 rounded-full flex items-center gap-1 transition-colors ${
-        isSubscribed 
-          ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-          : 'bg-[#D4AF37] text-black'
-      } ${isLoading ? 'opacity-50' : ''}`}
-      aria-label={isSubscribed ? 'Désactiver les rappels' : 'Activer les rappels'}
+      className={`p-2 sm:px-3 sm:py-2.5 rounded-full flex items-center gap-2 transition-colors ${
+        isSubscribed
+          ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+          : isOrganic
+            ? 'bg-[#D4AF37] text-black border border-[#D4AF37]'
+            : 'bg-[#D4AF37] text-black border border-[#D4AF37]'
+      } ${isLoading ? 'opacity-50' : 'hover:shadow-lg'}`}
+      aria-label={
+        isSubscribed
+          ? (lang === 'fr' ? 'Désactiver les rappels' : 'Disable reminders')
+          : (lang === 'fr' ? 'Activer les rappels' : 'Enable reminders')
+      }
     >
       {isSubscribed ? <BellOff size={16} /> : <Bell size={16} />}
-      <span className="hidden sm:inline text-xs font-bold">
-        {isSubscribed 
-          ? (isLoading ? '...' : 'Activé') 
-          : (isLoading ? '...' : 'Rappels')
-        }
+      <span className="hidden sm:inline text-xs font-bold whitespace-nowrap">
+        {isSubscribed
+          ? (isLoading
+            ? (lang === 'fr' ? 'Désabonnement...' : 'Unsubscribing...')
+            : (lang === 'fr' ? 'Activé' : 'Enabled'))
+          : (isLoading
+            ? (lang === 'fr' ? 'Abonnement...' : 'Subscribing...')
+            : (lang === 'fr' ? 'Rappels' : 'Reminders'))}
       </span>
     </motion.button>
   );

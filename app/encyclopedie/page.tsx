@@ -999,7 +999,7 @@ export default function EncyclopediePage() {
       <div className="fixed bottom-8 right-6 z-30 flex flex-col gap-3 items-end">
         
         {/* NOUVEAU : LE BOUTON PUSH */}
-        <PushSubscribeButton isOrganic={false} />
+        <PushSubscribeButton isOrganic={false} lang={lang} />
 
         {/* ANCIEN : Bouton Suggérer un sujet */}
         <motion.button onClick={() => setShowSuggestionModal(true)}

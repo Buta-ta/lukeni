@@ -1061,8 +1061,8 @@ export default function LandingPage() {
       </motion.div>
 
       {/* ── BARRE DE RECHERCHE ── */}
-      <div className="z-[60] w-full max-w-3xl px-4 md:px-6 relative">
-        <motion.form
+      <div className="z-[60] w-full max-w-3xl px-4 md:px-6 relative mt-8">
+  <motion.form
           onSubmit={handleSearch}
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -1184,18 +1184,13 @@ export default function LandingPage() {
                 <p className="text-gray-400 text-sm line-clamp-4 mb-5 font-light leading-relaxed">
                   {lang === 'fr' ? activeStar.short_bio_fr : activeStar.short_bio_en}
                 </p>
-                <div className="flex flex-col gap-2.5">
-                  <Link href={`/personnalites/${activeStar.slug}`}
-                    className="flex items-center justify-between w-full px-5 py-3 bg-gradient-to-r from-[#D4AF37] to-[#E5C158] text-black rounded-xl font-bold hover:shadow-lg hover:shadow-[#D4AF37]/30 transition-all group">
-                    <span>{lang === 'fr' ? 'Découvrir son histoire' : 'Explore their story'}</span>
-                    <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-                  </Link>
-                  <Link href={`/encyclopedie?q=${encodeURIComponent(lang === 'fr' ? activeStar.name_fr : activeStar.name_en)}`}
-                    className="flex items-center justify-between w-full px-5 py-3 bg-white/5 border border-white/10 hover:border-[#D4AF37]/40 text-white/70 hover:text-[#D4AF37] rounded-xl font-medium text-sm transition-all group">
-                    <span className="flex items-center gap-2"><BookOpen size={13} />{lang === 'fr' ? 'Voir dans l\'encyclopédie' : 'View in encyclopedia'}</span>
-                    <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform opacity-50 group-hover:opacity-100" />
-                  </Link>
-                </div>
+               <div className="flex flex-col gap-2.5">
+  <Link href={`/encyclopedie?q=${encodeURIComponent(lang === 'fr' ? activeStar.name_fr : activeStar.name_en)}`}
+    className="flex items-center justify-between w-full px-5 py-3 bg-gradient-to-r from-[#D4AF37] to-[#E5C158] text-black rounded-xl font-bold hover:shadow-lg hover:shadow-[#D4AF37]/30 transition-all group">
+    <span className="flex items-center gap-2"><BookOpen size={13} />{lang === 'fr' ? 'Voir dans l\'encyclopédie' : 'View in encyclopedia'}</span>
+    <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+  </Link>
+</div>
               </div>
             </motion.div>
           </motion.div>
@@ -1241,7 +1236,7 @@ export default function LandingPage() {
       </AnimatePresence>
 
       {/* ── BOUTONS BAS ── */}
-      <div className={`absolute bottom-8 md:bottom-12 flex flex-col items-center gap-4 md:gap-6 z-30 transition-opacity duration-300 ${isFocused ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+      <div className={`absolute bottom-20 md:bottom-24 flex flex-col items-center gap-4 md:gap-6 z-30 transition-opacity duration-300 ${isFocused ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         <Link href={userSession ? '/explore' : '/auth?redirect=/explore'}>
           <motion.button
             whileHover={{ scale: 1.05 }}
