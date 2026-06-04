@@ -953,10 +953,10 @@ const ShareButton = memo(({ title, lang }: { title: string; lang: 'fr' | 'en' })
 
   const handleShare = useCallback(async () => {
     const url = window.location.href;
-
+    
     // ✅ Nettoie la mise en forme du titre
     const cleanTitle = stripFormatting(title);
-
+    
     if (navigator.share) {
       await navigator.share({ title: cleanTitle, url });
     } else {
@@ -1257,7 +1257,7 @@ export default function ArticleDetailPage() {
   const [relatedArticles, setRelatedArticles] = useState<RelatedArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-
+  
   const [mounted, setMounted] = useState(false);
   const [heroY, setHeroY] = useState('0%');
   const [heroOpacity, setHeroOpacity] = useState(1);
@@ -1267,7 +1267,7 @@ export default function ArticleDetailPage() {
   const heroRef = useRef<HTMLDivElement>(null);
   const [enrichmentMode, setEnrichmentMode] = useState(false);
 
-
+  
 
   const [user, setUser] = useState<any>(null);
 
@@ -1319,19 +1319,18 @@ export default function ArticleDetailPage() {
       if (!slug) return;
       setIsLoading(true);
 
-      const { data, error } = await supabase
-        .from('articles')
-        .select(`
+     const { data, error } = await supabase
+  .from('articles')
+  .select(`
     id, title_fr, title_en, content_fr, content_en,
     summary_fr, summary_en, image_url, category_id,
     created_at, slug, view_count, reading_time, wikipedia_url,
-    sources,
-    timeline,  // ✅ AJOUT
+    sources, timeline,
     categories(id, name_fr, name_en, color)
   `)
-        .eq('slug', slug)
-        .eq('status', 'published')
-        .single();
+  .eq('slug', slug)
+  .eq('status', 'published')
+  .single();
 
       if (!error && data) {
         setArticle(data as unknown as Article);
@@ -1385,7 +1384,7 @@ export default function ArticleDetailPage() {
   }, [slug]);
 
 
-
+  
 
   const handleLangToggle = useCallback(() => {
     const newLang = lang === 'fr' ? 'en' : 'fr';
@@ -1495,81 +1494,82 @@ export default function ArticleDetailPage() {
       </header>
 
       {article.image_url && (
-        <div ref={heroRef} className="relative h-[50vh] md:h-[65vh] overflow-hidden">
-          <img
-            src={article.image_url}
-            alt={title}
-            loading="eager"
-            className="absolute inset-0 w-full h-full object-cover"
-            style={{ transform: `translateY(${heroY}) scale(1.1)` }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#020111] via-[#020111]/50 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#020111]/30 via-transparent to-[#020111]/30" />
+  <div ref={heroRef} className="relative h-[50vh] md:h-[65vh] overflow-hidden">
+    <img
+      src={article.image_url}
+      alt={title}
+      loading="eager"
+      className="absolute inset-0 w-full h-full object-cover"
+      style={{ transform: `translateY(${heroY}) scale(1.1)` }}
+    />
+    <div className="absolute inset-0 bg-gradient-to-t from-[#020111] via-[#020111]/50 to-transparent" />
+    <div className="absolute inset-0 bg-gradient-to-r from-[#020111]/30 via-transparent to-[#020111]/30" />
 
-          {/* Catégorie */}
-          {article.categories && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="absolute top-6 left-6 z-20"
-            >
-              <span
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-sm"
-                style={{
-                  backgroundColor: `${catColor}25`,
-                  color: catColor,
-                  border: `1px solid ${catColor}40`,
-                }}
-              >
-                <Tag size={10} />
-                {categoryName}
-              </span>
-            </motion.div>
-          )}
+    {/* Catégorie */}
+    {article.categories && (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="absolute top-6 left-6 z-20"
+      >
+        <span
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-sm"
+          style={{
+            backgroundColor: `${catColor}25`,
+            color: catColor,
+            border: `1px solid ${catColor}40`,
+          }}
+        >
+          <Tag size={10} />
+          {categoryName}
+        </span>
+      </motion.div>
+    )}
 
-          {/* Boutons verticaux sur la photo (haut droite) */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.4 }}
-            className="absolute top-6 right-6 z-20 flex flex-col gap-2"
-          >
-            <ShareButton title={title} lang={lang} />
+    {/* Boutons verticaux sur la photo (haut droite) */}
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: 0.4 }}
+      className="absolute top-6 right-6 z-20 flex flex-col gap-2"
+    >
+      <ShareButton title={title} lang={lang} />
 
-            <button
-              onClick={() => setEnrichmentMode(!enrichmentMode)}
-              className={`px-4 py-2 text-xs font-bold rounded-xl backdrop-blur-md transition-all ${enrichmentMode
-                  ? 'bg-[#D4AF37] text-black border border-[#D4AF37]'
-                  : 'bg-white/[0.06] border border-white/10 text-gray-300 hover:border-[#D4AF37]/50'
-                }`}
-              title={lang === 'fr' ? 'Mode dictionnaire — cliquez sur les mots' : 'Dictionary mode — click on words'}
-            >
-              Dict
-            </button>
+      <button
+        onClick={() => setEnrichmentMode(!enrichmentMode)}
+        className={`px-4 py-2 text-xs font-bold rounded-xl backdrop-blur-md transition-all ${
+          enrichmentMode
+            ? 'bg-[#D4AF37] text-black border border-[#D4AF37]'
+            : 'bg-white/[0.06] border border-white/10 text-gray-300 hover:border-[#D4AF37]/50'
+        }`}
+        title={lang === 'fr' ? 'Mode dictionnaire — cliquez sur les mots' : 'Dictionary mode — click on words'}
+      >
+        Dict
+      </button>
 
-            <FavoriteButton itemType="article" itemId={article.id} size={17} />
-          </motion.div>
+      <FavoriteButton itemType="article" itemId={article.id} size={17} />
+    </motion.div>
 
-          {/* Titre en bas */}
-          <div
-            style={{ opacity: heroOpacity }}
-            className="absolute bottom-0 left-0 right-0 p-6 md:p-10 z-10"
-          >
-            <div className="max-w-4xl mx-auto">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="flex items-center gap-1.5 bg-[#D4AF37] px-2.5 py-1 rounded-full">
-                  <CaurisIcon className="w-3 h-3 text-black" />
-                  <span className="text-[9px] font-bold text-black tracking-[0.2em] uppercase">Lukeni</span>
-                </span>
-              </div>
-              <h1 className="text-3xl md:text-5xl font-serif font-bold text-white leading-tight drop-shadow-[0_2px_20px_rgba(0,0,0,0.8)]">
-                {parseInline(title, catColor)}
-              </h1>
-            </div>
-          </div>
+    {/* Titre en bas */}
+    <div
+      style={{ opacity: heroOpacity }}
+      className="absolute bottom-0 left-0 right-0 p-6 md:p-10 z-10"
+    >
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="flex items-center gap-1.5 bg-[#D4AF37] px-2.5 py-1 rounded-full">
+            <CaurisIcon className="w-3 h-3 text-black" />
+            <span className="text-[9px] font-bold text-black tracking-[0.2em] uppercase">Lukeni</span>
+          </span>
         </div>
-      )}
+        <h1 className="text-3xl md:text-5xl font-serif font-bold text-white leading-tight drop-shadow-[0_2px_20px_rgba(0,0,0,0.8)]">
+          {parseInline(title, catColor)}
+        </h1>
+      </div>
+    </div>
+  </div>
+)}
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-10">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-10">
@@ -1711,7 +1711,7 @@ export default function ArticleDetailPage() {
             </motion.article>
 
 
-            {/* ── Chronologie de l'article ── */}
+                        {/* ── Chronologie de l'article ── */}
             {article.timeline && article.timeline.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 12 }}
