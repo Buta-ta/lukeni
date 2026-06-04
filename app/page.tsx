@@ -1045,10 +1045,10 @@ export default function LandingPage() {
 
       {/* ── LOGO ── */}
       <motion.div
-        initial={{ opacity: 0, y: -30 }} animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 1, delay: 0.3 }}
-        className="absolute top-16 md:top-20 text-center z-10 flex flex-col items-center gap-2 md:gap-3"
-      >
+  initial={{ opacity: 0, y: -30 }} animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 1, delay: 0.3 }}
+  className="absolute top-16 md:top-20 text-center z-10 flex flex-col items-center gap-2 md:gap-3 pb-96"
+>
         <motion.div animate={{ scale: [1, 1.05, 1], opacity: isMobile ? 0.8 : 1 }} transition={{ duration: 3, repeat: Infinity }}>
           <CaurisIcon className="w-10 h-10 md:w-20 md:h-20 text-[#D4AF37]" />
         </motion.div>
