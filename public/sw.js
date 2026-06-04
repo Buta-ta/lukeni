@@ -24,49 +24,71 @@ self.addEventListener('push', (event) => {
     
     console.log('[SW] Push data:', data);
 
+    const options = {
+      body: data.body || 'Nouvelle notification',
+      icon: data.icon || '/icons/icon-192x192.png',
+      badge: data.badge || '/icons/badge-72x72.png',
+      tag: data.tag || 'default',
+      requireInteraction: data.requireInteraction || false,
+      // ✅ SON ET VIBRATION
+      sound: data.sound || undefined,
+      vibrate: data.vibrate || undefined,
+      // ✅ DATA PERSISTENTE
+      data: { 
+        url: data.url || '/',
+        title: data.title,
+        body: data.body,
+      },
+    };
+
     event.waitUntil(
-      self.registration.showNotification(data.title || 'Lukeni', {
-        body: data.body || 'Nouvelle notification',
-        icon: data.icon || '/icon-192x192.png',
-        badge: data.badge || '/badge-72x72.png',
-        tag: data.tag || 'default',
-        requireInteraction: data.requireInteraction || false,
-        data: { 
-          url: data.url || '/',
-          title: data.title,
-          body: data.body,
-        },
-      })
+      self.registration.showNotification(data.title || 'Lukeni', options)
     );
   } catch (error) {
     console.error('[SW] Push event error:', error);
     event.waitUntil(
       self.registration.showNotification('Lukeni', {
         body: 'Une nouvelle notification est disponible',
-        icon: '/icon-192x192.png',
+        icon: '/icons/icon-192x192.png',
+        data: { url: '/' }
       })
     );
   }
 });
 
-// ✅ NOTIFICATION CLICK
+// ✅ NOTIFICATION CLICK (CORRIGÉ)
 self.addEventListener('notificationclick', (event) => {
   console.log('[SW] Notification clicked:', event.notification.tag);
+  
+  // ✅ Fermer la notification
   event.notification.close();
   
+  // ✅ Récupérer l'URL depuis data (avec fallback)
   const urlToOpen = event.notification.data?.url || '/';
   
+  console.log('[SW] Opening URL:', urlToOpen);
+
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      for (const client of clientList) {
-        if (client.url === urlToOpen && 'focus' in client) {
-          console.log('[SW] Focus existing client');
+    // ✅ Chercher une fenêtre existante avec cet URL
+    clients.matchAll({ 
+      type: 'window', 
+      includeUncontrolled: true 
+    }).then((clientList) => {
+      // ✅ Vérifier si une fenêtre est déjà ouverte
+      for (let i = 0; i < clientList.length; i++) {
+        const client = clientList[i];
+        // Chercher une fenêtre avec l'URL exact ou le domaine
+        if (client.url === urlToOpen || client.url.includes(new URL(urlToOpen, self.location.href).hostname)) {
+          console.log('[SW] Focus existing client:', client.url);
           return client.focus();
         }
       }
+      
+      // ✅ Si pas de fenêtre existante, en ouvrir une nouvelle
       if (clients.openWindow) {
-        console.log('[SW] Opening new window:', urlToOpen);
-        return clients.openWindow(urlToOpen);
+        const fullUrl = new URL(urlToOpen, self.location.href).href;
+        console.log('[SW] Opening new window:', fullUrl);
+        return clients.openWindow(fullUrl);
       }
     })
   );
@@ -77,41 +99,95 @@ self.addEventListener('notificationclose', (event) => {
   console.log('[SW] Notification closed:', event.notification.tag);
 });
 
-// ✅ FETCH HANDLER (CORRIGÉ POUR ÉVITER L'ERREUR 206)
+// ✅ FETCH HANDLER (CACHE FIRST POUR LES ASSETS)
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   
-  // Ignorer les domaines externes
+  // ✅ Ignorer les domaines externes
   if (url.origin !== self.location.origin) return;
   
-  // Ignorer les API
+  // ✅ Ignorer les API (toujours fetch du réseau)
   if (url.pathname.startsWith('/api/')) return;
   
-  // Ignorer Supabase
-  if (url.hostname.includes('supabase')) return;
+  // ✅ Ignorer Supabase et externes
+  if (url.hostname.includes('supabase') || url.hostname.includes('googleapis')) return;
 
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        // ✅ NE PAS CACHER LES RÉPONSES PARTIELLES (206) OU LES ERREURS
-        if (!response || response.status !== 200 || response.type === 'opaque') {
+  // ✅ NETWORK FIRST pour les pages HTML
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (!response || response.status !== 200 || response.type === 'opaque') {
+            return response;
+          }
+          
+          const clonedResponse = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, clonedResponse);
+          });
+          
           return response;
+        })
+        .catch(() => {
+          return caches.match(event.request)
+            .then((cached) => cached || caches.match('/'))
+            .catch(() => new Response('Offline - Page not available', { status: 503 }));
+        })
+    );
+    return;
+  }
+
+  // ✅ CACHE FIRST pour les assets (CSS, JS, images)
+  event.respondWith(
+    caches.match(event.request)
+      .then((cached) => {
+        if (cached) {
+          // Mettre à jour le cache en arrière-plan
+          fetch(event.request).then((response) => {
+            if (response && response.status === 200) {
+              caches.open(CACHE_NAME).then((cache) => {
+                cache.put(event.request, response);
+              });
+            }
+          }).catch(() => {});
+          
+          return cached;
         }
-        
-        // Cloner la réponse
-        const clonedResponse = response.clone();
-        
-        // Sauvegarder dans le cache
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, clonedResponse);
-        });
-        
-        return response;
-      })
-      .catch(() => {
-        // Si offline, retourner du cache
-        return caches.match(event.request)
-          .then((cached) => cached || new Response('Offline', { status: 503 }));
+
+        return fetch(event.request)
+          .then((response) => {
+            if (!response || response.status !== 200 || response.type === 'opaque') {
+              return response;
+            }
+            
+            const clonedResponse = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, clonedResponse);
+            });
+            
+            return response;
+          })
+          .catch(() => {
+            // Fallback pour les assets manquants
+            if (event.request.destination === 'image') {
+              return new Response('Image not available', { status: 503 });
+            }
+            return new Response('Resource not available', { status: 503 });
+          });
       })
   );
+});
+
+// ✅ BACKGROUND SYNC (optionnel - pour les actions offline)
+self.addEventListener('sync', (event) => {
+  console.log('[SW] Background sync event:', event.tag);
+  
+  if (event.tag === 'sync-data') {
+    event.waitUntil(
+      // Retenter une action si elle a échoué en offline
+      fetch('/api/sync').catch(() => {
+        console.warn('[SW] Sync failed - will retry later');
+      })
+    );
+  }
 });
