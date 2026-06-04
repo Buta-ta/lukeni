@@ -596,7 +596,7 @@ const FeaturedEventsBar = ({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 1.1 }}
-      className="mt-4 flex flex-wrap justify-center gap-2"
+      className="flex flex-wrap justify-center gap-2"
     >
       {events.map((event, i) => {
         const yearsAgo = new Date().getFullYear() - event.year;
@@ -1043,31 +1043,33 @@ export default function LandingPage() {
         </div>
       )}
 
-      {/* ── LOGO ── */}
-      <motion.div
-  initial={{ opacity: 0, y: -30 }} animate={{ opacity: 1, y: 0 }}
-  transition={{ duration: 1, delay: 0.3 }}
-  className="absolute top-16 md:top-20 text-center z-10 flex flex-col items-center gap-2 md:gap-3 pb-96"
->
-        <motion.div animate={{ scale: [1, 1.05, 1], opacity: isMobile ? 0.8 : 1 }} transition={{ duration: 3, repeat: Infinity }}>
-          <CaurisIcon className="w-10 h-10 md:w-20 md:h-20 text-[#D4AF37]" />
+      {/* ── CONTENEUR CENTRAL : LOGO + RECHERCHE + ÉVÉNEMENTS ── */}
+      <div className="relative z-10 w-full max-w-3xl px-4 md:px-6 flex flex-col items-center gap-6">
+        
+        {/* ── LOGO ── */}
+        <motion.div
+          initial={{ opacity: 0, y: -30 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1, delay: 0.3 }}
+          className="text-center flex flex-col items-center gap-2 md:gap-3"
+        >
+          <motion.div animate={{ scale: [1, 1.05, 1], opacity: isMobile ? 0.8 : 1 }} transition={{ duration: 3, repeat: Infinity }}>
+            <CaurisIcon className="w-10 h-10 md:w-20 md:h-20 text-[#D4AF37]" />
+          </motion.div>
+          <h1 className="text-2xl md:text-4xl font-serif tracking-[0.4em] md:tracking-[0.5em] text-[#D4AF37] drop-shadow-[0_0_20px_rgba(212,175,55,0.6)]">
+            LUKENI
+          </h1>
+          <p className="text-white/40 text-[9px] md:text-[10px] tracking-[0.2em] md:tracking-[0.3em] uppercase">
+            {lang === 'fr' ? 'Mémoire • Musique • Genèse' : 'Memory • Music • Genesis'}
+          </p>
         </motion.div>
-        <h1 className="text-2xl md:text-4xl font-serif tracking-[0.4em] md:tracking-[0.5em] text-[#D4AF37] drop-shadow-[0_0_20px_rgba(212,175,55,0.6)]">
-          LUKENI
-        </h1>
-        <p className="text-white/40 text-[9px] md:text-[10px] tracking-[0.2em] md:tracking-[0.3em] uppercase">
-          {lang === 'fr' ? 'Mémoire • Musique • Genèse' : 'Memory • Music • Genesis'}
-        </p>
-      </motion.div>
 
-      {/* ── BARRE DE RECHERCHE ── */}
-      <div className="z-[60] w-full max-w-3xl px-4 md:px-6 relative">
-  <motion.form
+        {/* ── BARRE DE RECHERCHE ── */}
+        <motion.form
           onSubmit={handleSearch}
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 0.8, ease: 'easeOut', delay: 0.5 }}
-          className={`relative flex items-center backdrop-blur-3xl border p-1.5 md:p-3 transition-all duration-500 group ${isOrganic ? 'bg-[#2d1e13]/90 border-[#D4AF37]/40 rounded-2xl shadow-[0_10px_60px_rgba(212,175,55,0.15)]' : 'bg-white/[0.03] border-white/10 rounded-full shadow-[0_0_40px_rgba(212,175,55,0.1)]'} ${isFocused ? 'ring-2 ring-[#D4AF37]/50 scale-105 shadow-[0_0_80px_rgba(212,175,55,0.3)]' : ''}`}
+          className={`z-[60] relative w-full flex items-center backdrop-blur-3xl border p-1.5 md:p-3 transition-all duration-500 group ${isOrganic ? 'bg-[#2d1e13]/90 border-[#D4AF37]/40 rounded-2xl shadow-[0_10px_60px_rgba(212,175,55,0.15)]' : 'bg-white/[0.03] border-white/10 rounded-full shadow-[0_0_40px_rgba(212,175,55,0.1)]'} ${isFocused ? 'ring-2 ring-[#D4AF37]/50 scale-105 shadow-[0_0_80px_rgba(212,175,55,0.3)]' : ''}`}
         >
           <div className={`pl-4 md:pl-5 transition-all duration-300 ${isFocused ? 'text-[#D4AF37] scale-110' : 'text-[#D4AF37]/70'}`}>
             <Search size={20} strokeWidth={1.5} />
@@ -1143,6 +1145,7 @@ export default function LandingPage() {
           />
         </motion.form>
 
+        {/* ── ÉVÉNEMENTS FEATURED ── */}
         <FeaturedEventsBar events={featuredEvents} lang={lang} onEventClick={setActiveFeaturedEvent} />
       </div>
 
@@ -1185,12 +1188,12 @@ export default function LandingPage() {
                   {lang === 'fr' ? activeStar.short_bio_fr : activeStar.short_bio_en}
                 </p>
                <div className="flex flex-col gap-2.5">
-  <Link href={`/encyclopedie?q=${encodeURIComponent(lang === 'fr' ? activeStar.name_fr : activeStar.name_en)}`}
-    className="flex items-center justify-between w-full px-5 py-3 bg-gradient-to-r from-[#D4AF37] to-[#E5C158] text-black rounded-xl font-bold hover:shadow-lg hover:shadow-[#D4AF37]/30 transition-all group">
-    <span className="flex items-center gap-2"><BookOpen size={13} />{lang === 'fr' ? 'Voir dans l\'encyclopédie' : 'View in encyclopedia'}</span>
-    <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-  </Link>
-</div>
+                  <Link href={`/encyclopedie?q=${encodeURIComponent(lang === 'fr' ? activeStar.name_fr : activeStar.name_en)}`}
+                    className="flex items-center justify-between w-full px-5 py-3 bg-gradient-to-r from-[#D4AF37] to-[#E5C158] text-black rounded-xl font-bold hover:shadow-lg hover:shadow-[#D4AF37]/30 transition-all group">
+                    <span className="flex items-center gap-2"><BookOpen size={13} />{lang === 'fr' ? 'Voir dans l\'encyclopédie' : 'View in encyclopedia'}</span>
+                    <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                  </Link>
+                </div>
               </div>
             </motion.div>
           </motion.div>
