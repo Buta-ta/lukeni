@@ -18,8 +18,9 @@ export default function CloudinaryPDFReader({
 }: CloudinaryPDFReaderProps) {
   const [isLoading, setIsLoading] = useState(true);
 
-  // ✅ On utilise bien l'URL Cloudinary native avec les paramètres de visualisation
-  const cloudinaryViewerUrl = `${url}?rawTransformation=%5B%7B%22flags%22%3A%22immutable%22%7D%5D`;
+  // 🔥 LA CORRECTION MAGIQUE POUR LE MOBILE EST ICI 🔥
+  // On demande aux serveurs de Google de lire le PDF Cloudinary et de le renvoyer en HTML compatible mobile
+  const viewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
 
   const handleDownload = () => {
     const link = document.createElement('a');
@@ -73,14 +74,13 @@ export default function CloudinaryPDFReader({
         </div>
       </div>
 
-      {/* PDF Viewer - Cloudinary native */}
+      {/* PDF Viewer - Passé par Google Docs pour la compatibilité Mobile */}
       <div className="absolute inset-0 pt-14 bg-[#1a1a2e]">
         <iframe
-          src={cloudinaryViewerUrl} // 👈 CORRECTION: Utilise la bonne variable
+          src={viewerUrl} 
           className="w-full h-full border-0"
           title={title}
           onLoad={() => setIsLoading(false)}
-          // 👈 CORRECTION: Suppression de l'attribut sandbox qui bloque le lecteur PDF natif de Chrome
           allow="fullscreen"
         />
       </div>
