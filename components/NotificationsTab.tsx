@@ -6,7 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Loader2, Send, Bell, Mail, AlertCircle, CheckCircle,
   Eye, Users, Clock, TrendingUp, Filter, Search,
-  Zap, MessageSquare, X, Smartphone, Wifi, WifiOff, User
+  Zap, MessageSquare, X, Smartphone, Wifi, WifiOff, User,
+  Trash2, Archive
 } from 'lucide-react';
 
 interface NotificationLog {
@@ -26,7 +27,7 @@ interface Recipient {
   status: 'sent' | 'failed' | 'expired';
   error_message?: string;
   sent_at: string;
-  user_name?: string; // ✅ NOUVEAU
+  user_name?: string;
 }
 
 interface PushSubscriber {
@@ -35,18 +36,27 @@ interface PushSubscriber {
   created_at: string;
   is_active: boolean;
   user_id?: string;
-  user_name?: string; // ✅ NOUVEAU
+  user_name?: string;
+}
+
+interface EmailLog {
+  id: string;
+  recipient_email: string;
+  subject: string;
+  status: 'sent' | 'failed' | 'bounced';
+  error_message?: string;
+  sent_at: string;
 }
 
 export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: string) => void }) {
-  const [activeTab, setActiveTab] = useState<'send' | 'logs' | 'recipients' | 'subscribers'>('send');
+  const [activeTab, setActiveTab] = useState<'send' | 'logs' | 'recipients' | 'subscribers' | 'emails'>('send');
   const [isLoading, setIsLoading] = useState(false);
 
   // ── Send Manual Push ──────────────────────────────────────────────────────
   const [pushTitle, setPushTitle] = useState('');
   const [pushBody, setPushBody] = useState('');
   const [pushUrl, setPushUrl] = useState('https://lukeni.app/encyclopedie');
-  const [pushIcon, setPushIcon] = useState('https://lukeni.app/icons/icon-192x192.png'); // ✅ NOUVEAU
+  const [pushIcon, setPushIcon] = useState('https://lukeni.app/icons/icon-192x192.png');
   const [isSending, setIsSending] = useState(false);
   const [activeSubCount, setActiveSubCount] = useState(0);
 
@@ -67,8 +77,16 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
   const [subscribers, setSubscribers] = useState<PushSubscriber[]>([]);
   const [subsLoading, setSubsLoading] = useState(false);
 
+  // ── Email Logs ────────────────────────────────────────────────────────────
+  const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
+  const [emailLogsLoading, setEmailLogsLoading] = useState(false);
+
   // ── Search ────────────────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
+
+  // ── Delete ────────────────────────────────────────────────────────────────
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.from('push_subscriptions').select('id', { count: 'exact', head: true }).eq('is_active', true)
@@ -76,6 +94,7 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
 
     if (activeTab === 'logs') fetchLogs();
     if (activeTab === 'subscribers') fetchSubscribers();
+    if (activeTab === 'emails') fetchEmailLogs();
   }, [activeTab]);
 
   async function fetchLogs() {
@@ -84,7 +103,7 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
       .from('notification_logs')
       .select('*')
       .order('sent_at', { ascending: false })
-      .limit(50);
+      .limit(100);
     if (data) setLogs(data as any);
     setIsLoading(false);
   }
@@ -93,25 +112,13 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
     setRecipientsLoading(true);
     const { data, error } = await supabase
       .from('notification_recipients')
-      .select(`
-        *,
-        profiles:user_id (
-          first_name,
-          last_name
-        )
-      `)
+      .select('*')
       .eq('notification_log_id', logId)
       .order('sent_at', { ascending: false });
 
     if (data) {
-      // ✅ Enrichir avec le nom complet
-      const enriched = data.map((r: any) => ({
-        ...r,
-        user_name: r.profiles 
-          ? `${r.profiles.first_name || ''} ${r.profiles.last_name || ''}`.trim() 
-          : 'Utilisateur inconnu'
-      }));
-      setRecipients(enriched);
+      // ✅ Les user_name sont déjà dans la BD
+      setRecipients(data as any);
     }
     setRecipientsLoading(false);
   }
@@ -120,26 +127,123 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
     setSubsLoading(true);
     const { data, error } = await supabase
       .from('push_subscriptions')
-      .select(`
-        *,
-        profiles:user_id (
-          first_name,
-          last_name
-        )
-      `)
+      .select('id, endpoint, created_at, is_active, user_id, user_name')
       .order('created_at', { ascending: false });
 
     if (data) {
-      // ✅ Enrichir avec le nom complet
-      const enriched = data.map((s: any) => ({
-        ...s,
-        user_name: s.profiles 
-          ? `${s.profiles.first_name || ''} ${s.profiles.last_name || ''}`.trim() 
-          : null
-      }));
-      setSubscribers(enriched as PushSubscriber[]);
+      setSubscribers(data as PushSubscriber[]);
     }
     setSubsLoading(false);
+  }
+
+  async function fetchEmailLogs() {
+    setEmailLogsLoading(true);
+    const { data, error } = await supabase
+      .from('email_logs')
+      .select('*')
+      .order('sent_at', { ascending: false })
+      .limit(100);
+    if (data) setEmailLogs(data as EmailLog[]);
+    setEmailLogsLoading(false);
+  }
+
+  // ── SUPPRIMER UN LOG ──────────────────────────────────────────────────────
+  async function deleteLog(logId: string) {
+    setIsDeleting(true);
+    try {
+      // Supprimer d'abord les destinataires
+      const { error: err1 } = await supabase
+        .from('notification_recipients')
+        .delete()
+        .eq('notification_log_id', logId);
+
+      // Puis le log
+      const { error: err2 } = await supabase
+        .from('notification_logs')
+        .delete()
+        .eq('id', logId);
+
+      if (err1 || err2) throw new Error('Erreur lors de la suppression');
+
+      showMsg('success', 'Log supprimé avec succès');
+      setSelectedLog(null);
+      setDeleteConfirm(null);
+      fetchLogs();
+    } catch (err: any) {
+      showMsg('error', err.message);
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  // ── SUPPRIMER TOUS LES LOGS ───────────────────────────────────────────────
+  async function deleteAllLogs() {
+    setIsDeleting(true);
+    try {
+      // Supprimer tous les destinataires
+      const { error: err1 } = await supabase
+        .from('notification_recipients')
+        .delete()
+        .neq('id', 'null');
+
+      // Puis tous les logs
+      const { error: err2 } = await supabase
+        .from('notification_logs')
+        .delete()
+        .neq('id', 'null');
+
+      if (err1 || err2) throw new Error('Erreur lors de la suppression');
+
+      showMsg('success', 'Tous les logs ont été supprimés');
+      setLogs([]);
+      setDeleteConfirm(null);
+    } catch (err: any) {
+      showMsg('error', err.message);
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  // ── SUPPRIMER UN LOG EMAIL ────────────────────────────────────────────────
+  async function deleteEmailLog(logId: string) {
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('email_logs')
+        .delete()
+        .eq('id', logId);
+
+      if (error) throw error;
+
+      showMsg('success', 'Email supprimé');
+      setDeleteConfirm(null);
+      fetchEmailLogs();
+    } catch (err: any) {
+      showMsg('error', err.message);
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  // ── SUPPRIMER TOUS LES LOGS EMAILS ────────────────────────────────────────
+  async function deleteAllEmailLogs() {
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('email_logs')
+        .delete()
+        .neq('id', 'null');
+
+      if (error) throw error;
+
+      showMsg('success', 'Tous les logs email supprimés');
+      setEmailLogs([]);
+      setDeleteConfirm(null);
+    } catch (err: any) {
+      showMsg('error', err.message);
+    } finally {
+      setIsDeleting(false);
+    }
   }
 
   // ── ENVOYER PUSH MANUEL ────────────────────────────────────────────────────
@@ -163,7 +267,7 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
             type: 'manual_push',
             title: pushTitle,
             body: pushBody,
-            icon: pushIcon, // ✅ NOUVEAU
+            icon: pushIcon,
             url: pushUrl,
           }),
         }
@@ -210,10 +314,21 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
       const result = await response.json();
 
       if (response.ok) {
+        // ✅ Enregistrer dans email_logs
+        await supabase
+          .from('email_logs')
+          .insert({
+            recipient_email: emailTo,
+            subject: emailSubject,
+            status: 'sent',
+            sent_at: new Date().toISOString(),
+          });
+
         showMsg('success', 'Email envoyé !');
         setEmailSubject('');
         setEmailBody('');
         setEmailTo('');
+        fetchEmailLogs();
       } else {
         showMsg('error', result.error || 'Erreur lors de l\'envoi');
       }
@@ -228,17 +343,22 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
     filterStatus === 'all' || r.status === filterStatus
   ).filter(r => {
     if (!searchQuery) return true;
-    return (
-      r.user_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.endpoint.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    return r.endpoint.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
   const filteredSubscribers = subscribers.filter(s => {
     if (!searchQuery) return true;
     return (
-      s.user_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (s.user_name?.toLowerCase().includes(searchQuery.toLowerCase())) ||
       s.endpoint.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
+
+  const filteredEmailLogs = emailLogs.filter(e => {
+    if (!searchQuery) return true;
+    return (
+      e.recipient_email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      e.subject.toLowerCase().includes(searchQuery.toLowerCase())
     );
   });
 
@@ -262,14 +382,19 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
         {[
           { id: 'send' as const, label: '📤 Envoyer', icon: Send },
           { id: 'subscribers' as const, label: '📱 Abonnés', icon: Smartphone },
-          { id: 'logs' as const, label: '📊 Historique', icon: TrendingUp },
+          { id: 'logs' as const, label: '📊 Push', icon: TrendingUp },
           { id: 'recipients' as const, label: '👥 Destinataires', icon: Users },
+          { id: 'emails' as const, label: '📧 Emails', icon: Mail },
         ].map(tab => {
           const Icon = tab.icon;
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id);
+                setSearchQuery('');
+                setSelectedLog(null);
+              }}
               className={`flex items-center gap-2 px-4 py-3 text-sm font-bold border-b-2 transition-all whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'border-blue-400 text-blue-400'
@@ -324,7 +449,7 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
                 placeholder="https://lukeni.app/icons/icon-192x192.png"
                 className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-blue-500/50"
               />
-              <div className="flex gap-2 mt-2">
+              <div className="flex gap-2 mt-2 flex-wrap">
                 {[
                   { url: 'https://lukeni.app/icons/icon-192x192.png', label: '📱 Défaut' },
                   { url: 'https://lukeni.app/icons/bell.png', label: '🔔 Cloche' },
@@ -404,7 +529,6 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
             </div>
           </div>
 
-          {/* ✅ Barre de recherche */}
           <div className="relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
             <input
@@ -433,7 +557,6 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
                       <span className={`text-xs font-bold ${sub.is_active ? 'text-green-400' : 'text-red-400'}`}>
                         {sub.is_active ? 'Actif' : 'Inactif'}
                       </span>
-                      {/* ✅ Afficher le nom */}
                       {sub.user_name && (
                         <span className="text-xs bg-blue-500/20 px-2 py-0.5 rounded-full text-blue-400 flex items-center gap-1">
                           <User size={10} /> {sub.user_name}
@@ -455,38 +578,107 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
       )}
 
       {/* ════════════════════════════════════════════════════════════ */}
-      {/* LOGS TAB */}
+      {/* LOGS TAB (PUSH) */}
       {/* ════════════════════════════════════════════════════════════ */}
       {activeTab === 'logs' && (
         <div className="space-y-4">
+          {logs.length > 0 && (
+            <button
+              onClick={() => setDeleteConfirm('all-logs')}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600/20 text-red-400 rounded-lg text-xs font-bold hover:bg-red-600/30 transition-all"
+            >
+              <Trash2 size={14} /> Supprimer tout l'historique
+            </button>
+          )}
+
           {isLoading ? (
             <div className="flex justify-center py-20"><Loader2 className="animate-spin text-blue-400" size={40} /></div>
           ) : logs.length === 0 ? (
-            <div className="text-center py-12 text-gray-500"><Bell size={48} className="mx-auto mb-4 opacity-30" /><p>Aucun historique de notifications</p></div>
+            <div className="text-center py-12 text-gray-500"><Bell size={48} className="mx-auto mb-4 opacity-30" /><p>Aucun historique</p></div>
           ) : (
             logs.map(log => (
-              <motion.div key={log.id} layout onClick={() => { setSelectedLog(log); fetchRecipients(log.id); }} className="bg-[#0f0f0f] border border-white/5 rounded-xl p-4 cursor-pointer hover:border-blue-500/30 transition-all">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className={`p-2.5 rounded-lg ${log.status === 'sent' ? 'bg-green-500/20' : log.status === 'partially_sent' ? 'bg-yellow-500/20' : 'bg-red-500/20'}`}>
-                      {log.status === 'sent' ? <CheckCircle className="text-green-400" size={18} /> : <AlertCircle className="text-yellow-400" size={18} />}
+              <motion.div key={log.id} layout className="space-y-2">
+                <div onClick={() => { setSelectedLog(log); fetchRecipients(log.id); }} className="bg-[#0f0f0f] border border-white/5 rounded-xl p-4 cursor-pointer hover:border-blue-500/30 transition-all">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className={`p-2.5 rounded-lg ${log.status === 'sent' ? 'bg-green-500/20' : log.status === 'partially_sent' ? 'bg-yellow-500/20' : 'bg-red-500/20'}`}>
+                        {log.status === 'sent' ? <CheckCircle className="text-green-400" size={18} /> : <AlertCircle className="text-yellow-400" size={18} />}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white capitalize">{log.notification_type}</span>
+                          <span className="text-[10px] px-2 py-1 rounded-full bg-white/5 text-gray-400">{log.status}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
+                          <span className="flex items-center gap-1"><Users size={12} /> {log.recipients_count} envoyés</span>
+                          {log.errors_count > 0 && <span className="flex items-center gap-1 text-red-400"><AlertCircle size={12} /> {log.errors_count} erreurs</span>}
+                          <span className="flex items-center gap-1"><Clock size={12} /> {new Date(log.sent_at).toLocaleString('fr-FR')}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-white capitalize">{log.notification_type}</span>
-                        <span className="text-[10px] px-2 py-1 rounded-full bg-white/5 text-gray-400">{log.status}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
-                        <span className="flex items-center gap-1"><Users size={12} /> {log.recipients_count} envoyés</span>
-                        {log.errors_count > 0 && <span className="flex items-center gap-1 text-red-400"><AlertCircle size={12} /> {log.errors_count} erreurs</span>}
-                        <span className="flex items-center gap-1"><Clock size={12} /> {new Date(log.sent_at).toLocaleString('fr-FR')}</span>
-                      </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteConfirm(log.id);
+                      }}
+                      className="p-2 hover:bg-red-500/20 rounded-lg text-red-400"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* ✅ Confirmation de suppression */}
+                {deleteConfirm === log.id && (
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex gap-3">
+                    <div className="flex-1">
+                      <p className="text-sm text-red-400 font-bold mb-2">Êtes-vous sûr ?</p>
+                      <p className="text-xs text-gray-400">Cette action est irréversible.</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setDeleteConfirm(null)}
+                        className="px-3 py-2 bg-white/5 text-gray-400 rounded-lg text-xs font-bold hover:bg-white/10"
+                      >
+                        Annuler
+                      </button>
+                      <button
+                        onClick={() => deleteLog(log.id)}
+                        disabled={isDeleting}
+                        className="px-3 py-2 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-500 disabled:opacity-50"
+                      >
+                        {isDeleting ? 'Suppression...' : 'Supprimer'}
+                      </button>
                     </div>
                   </div>
-                  <Eye size={16} className="text-gray-600" />
-                </div>
+                )}
               </motion.div>
             ))
+          )}
+
+          {/* ✅ Confirmation de suppression globale */}
+          {deleteConfirm === 'all-logs' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex gap-3">
+              <div className="flex-1">
+                <p className="text-sm text-red-400 font-bold mb-2">Supprimer tout l'historique ?</p>
+                <p className="text-xs text-gray-400">{logs.length} logs seront supprimés définitivement.</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setDeleteConfirm(null)}
+                  className="px-3 py-2 bg-white/5 text-gray-400 rounded-lg text-xs font-bold hover:bg-white/10"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={deleteAllLogs}
+                  disabled={isDeleting}
+                  className="px-3 py-2 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-500 disabled:opacity-50"
+                >
+                  {isDeleting ? 'Suppression...' : 'Tout supprimer'}
+                </button>
+              </div>
+            </motion.div>
           )}
         </div>
       )}
@@ -499,7 +691,7 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
           {!selectedLog ? (
             <div className="text-center py-12 text-gray-500">
               <Users size={48} className="mx-auto mb-4 opacity-30" />
-              <p>Sélectionnez un log dans l'onglet "Historique" pour voir les destinataires</p>
+              <p>Sélectionnez un log dans l'onglet "Push" pour voir les destinataires</p>
             </div>
           ) : (
             <>
@@ -519,14 +711,13 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
                 ))}
               </div>
 
-              {/* ✅ Barre de recherche */}
               <div className="relative mb-4">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Rechercher par nom..."
+                  placeholder="Rechercher..."
                   className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-white text-sm outline-none focus:border-blue-500/50"
                 />
               </div>
@@ -540,12 +731,6 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
                   {filteredRecipients.map(r => (
                     <motion.div key={r.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className={`flex items-center justify-between p-3 rounded-lg text-xs ${r.status === 'sent' ? 'bg-green-500/10 border border-green-500/20' : r.status === 'expired' ? 'bg-orange-500/10 border border-orange-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
                       <div className="flex-1 min-w-0">
-                        {/* ✅ Afficher le nom */}
-                        {r.user_name && (
-                          <p className="text-white font-bold mb-1 flex items-center gap-1">
-                            <User size={12} /> {r.user_name}
-                          </p>
-                        )}
                         <p className="text-gray-400 font-mono truncate text-[10px]">{r.endpoint.slice(0, 60)}...</p>
                         {r.error_message && <p className="text-[10px] text-red-400 mt-0.5">{r.error_message}</p>}
                       </div>
@@ -553,8 +738,6 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
                         <span className={`px-2 py-1 rounded font-bold ${r.status === 'sent' ? 'bg-green-500/20 text-green-400' : r.status === 'expired' ? 'bg-orange-500/20 text-orange-400' : 'bg-red-500/20 text-red-400'}`}>
                           {r.status === 'sent' ? '✓' : r.status === 'expired' ? '⏰' : '✗'}
                         </span>
-                        <Clock size={10} className="text-gray-600" />
-                        <span className="text-gray-600">{new Date(r.sent_at).toLocaleTimeString('fr-FR')}</span>
                       </div>
                     </motion.div>
                   ))}
@@ -562,6 +745,131 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
               )}
             </>
           )}
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════ */}
+      {/* EMAILS TAB */}
+      {/* ════════════════════════════════════════════════════════════ */}
+      {activeTab === 'emails' && (
+        <div className="space-y-4">
+          <div className="flex gap-4 mb-6">
+            <div className="flex-1 bg-green-500/10 border border-green-500/20 p-4 rounded-xl">
+              <p className="text-green-400 text-xs font-bold mb-1">Emails Envoyés</p>
+              <p className="text-2xl font-bold text-white">{emailLogs.filter(e => e.status === 'sent').length}</p>
+            </div>
+            <div className="flex-1 bg-red-500/10 border border-red-500/20 p-4 rounded-xl">
+              <p className="text-red-400 text-xs font-bold mb-1">Erreurs</p>
+              <p className="text-2xl font-bold text-white">{emailLogs.filter(e => e.status !== 'sent').length}</p>
+            </div>
+          </div>
+
+          {emailLogs.length > 0 && (
+            <button
+              onClick={() => setDeleteConfirm('all-emails')}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600/20 text-red-400 rounded-lg text-xs font-bold hover:bg-red-600/30 transition-all"
+            >
+              <Trash2 size={14} /> Supprimer tous les emails
+            </button>
+          )}
+
+          <div className="relative mb-4">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Rechercher par email ou sujet..."
+              className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-white text-sm outline-none focus:border-blue-500/50"
+            />
+          </div>
+
+          {emailLogsLoading ? (
+            <div className="flex justify-center py-12"><Loader2 className="animate-spin text-blue-400" size={32} /></div>
+          ) : emailLogs.length === 0 ? (
+            <div className="text-center py-12 text-gray-500"><Mail size={48} className="mx-auto mb-4 opacity-30" /><p>Aucun email envoyé</p></div>
+          ) : (
+            <div className="space-y-2">
+              {filteredEmailLogs.map(email => (
+                <motion.div key={email.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`flex items-center justify-between p-4 border rounded-xl gap-3 ${email.status === 'sent' ? 'bg-[#0f0f0f] border-white/10' : 'bg-red-500/5 border-red-500/10'}`}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      {email.status === 'sent' ? <CheckCircle size={14} className="text-green-400" /> : <AlertCircle size={14} className="text-red-400" />}
+                      <span className={`text-xs font-bold ${email.status === 'sent' ? 'text-green-400' : 'text-red-400'}`}>
+                        {email.status === 'sent' ? 'Envoyé' : 'Erreur'}
+                      </span>
+                    </div>
+                    <p className="text-white font-bold text-sm">{email.subject}</p>
+                    <p className="text-gray-400 text-xs mt-1">{email.recipient_email}</p>
+                    {email.error_message && <p className="text-red-400 text-[10px] mt-1">{email.error_message}</p>}
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-xs text-gray-500 whitespace-nowrap">
+                      {new Date(email.sent_at).toLocaleString('fr-FR')}
+                    </span>
+                    <button
+                      onClick={() => setDeleteConfirm(email.id)}
+                      className="p-2 hover:bg-red-500/20 rounded-lg text-red-400"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+
+          {/* ✅ Confirmation globale emails */}
+          {deleteConfirm === 'all-emails' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex gap-3">
+              <div className="flex-1">
+                <p className="text-sm text-red-400 font-bold mb-2">Supprimer tous les logs emails ?</p>
+                <p className="text-xs text-gray-400">{emailLogs.length} emails seront supprimés.</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setDeleteConfirm(null)}
+                  className="px-3 py-2 bg-white/5 text-gray-400 rounded-lg text-xs font-bold hover:bg-white/10"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={deleteAllEmailLogs}
+                  disabled={isDeleting}
+                  className="px-3 py-2 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-500 disabled:opacity-50"
+                >
+                  {isDeleting ? 'Suppression...' : 'Tout supprimer'}
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ✅ Confirmation individuelle emails */}
+          {emailLogs.map(email => (
+            deleteConfirm === email.id && (
+              <motion.div key={email.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex gap-3">
+                <div className="flex-1">
+                  <p className="text-sm text-red-400 font-bold mb-2">Supprimer cet email ?</p>
+                  <p className="text-xs text-gray-400">{email.subject}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setDeleteConfirm(null)}
+                    className="px-3 py-2 bg-white/5 text-gray-400 rounded-lg text-xs font-bold hover:bg-white/10"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={() => deleteEmailLog(email.id)}
+                    disabled={isDeleting}
+                    className="px-3 py-2 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-500 disabled:opacity-50"
+                  >
+                    {isDeleting ? 'Suppression...' : 'Supprimer'}
+                  </button>
+                </div>
+              </motion.div>
+            )
+          ))}
         </div>
       )}
     </div>
