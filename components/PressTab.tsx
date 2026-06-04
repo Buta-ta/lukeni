@@ -7,7 +7,7 @@ import {
   Eye, Calendar, User, Tag, FileText, Sparkles, Clock, TrendingUp,
   Link as LinkIcon, Video, ExternalLink, BookOpen, Type, Code,
   List, ListOrdered, Quote, Bold, Italic, Heading, Save, Mic, Play,
-  MapPin, Globe, Map, Navigation
+  MapPin, Globe, Map, Navigation,  AlertTriangle
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { autoTranslate, autoCorrect } from '@/lib/lingua';
@@ -106,6 +106,69 @@ const parseMarkdown = (text: string): string => {
   return html;
 };
 
+
+// ─── DELETE CONFIRMATION MODAL ────────────────────────────────────────────────
+
+function DeleteSuggestionModal({
+  onConfirm,
+  onCancel,
+  suggestion,
+}: {
+  onConfirm: () => void;
+  onCancel: () => void;
+  suggestion: PressSuggestion;
+}) {
+  return (
+    <div 
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+      onClick={onCancel}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        className="bg-[#0f0f0f] border border-red-500/30 rounded-2xl p-6 w-full max-w-md shadow-2xl"
+      >
+        <div className="flex items-center gap-4 mb-4">
+          <div className="p-3 bg-red-500/20 rounded-xl">
+            <AlertTriangle size={24} className="text-red-400" />
+          </div>
+          <div>
+            <h3 className="text-white font-bold text-lg">Supprimer la suggestion ?</h3>
+            <p className="text-gray-400 text-xs">Cette action est irréversible</p>
+          </div>
+        </div>
+
+        <div className="mb-6 p-4 bg-white/[0.02] rounded-xl border border-white/10">
+          <p className="text-white text-sm font-medium mb-2">{suggestion.suggested_topic}</p>
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <User size={10} />
+            <span>{suggestion.user_email}</span>
+          </div>
+        </div>
+
+        <p className="text-gray-300 text-sm leading-relaxed mb-6">
+          Cette suggestion sera définitivement supprimée de la base de données.
+        </p>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-xl font-medium transition-all"
+          >
+            Annuler
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2"
+          >
+            <Trash2 size={16} />
+            Supprimer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: string) => void }) {
   const [view, setView] = useState<'articles' | 'suggestions'>('articles');
   const [articles, setArticles] = useState<PressArticle[]>([]);
@@ -154,6 +217,11 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
   const [sourceUrl, setSourceUrl] = useState('');
   const [sourceAuthor, setSourceAuthor] = useState('');
   const [sourceDate, setSourceDate] = useState('');
+
+  
+  const [suggestionToDelete, setSuggestionToDelete] = useState<PressSuggestion | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
 
   useEffect(() => { fetchData(); }, []);
 
@@ -616,6 +684,30 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
     if (!error) { 
       setSuggestions(suggestions.map(s => s.id === id ? { ...s, status: 'used' } : s)); 
       showMsg('success', '✅ Suggestion marquée comme utilisée'); 
+    }
+  };
+
+    // ─── DELETE SUGGESTION ────────────────────────────────────────────────────
+
+  const handleDeleteSuggestion = async () => {
+    if (!suggestionToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('press_suggestions')
+        .delete()
+        .eq('id', suggestionToDelete.id);
+
+      if (error) throw error;
+
+      setSuggestions(suggestions.filter(s => s.id !== suggestionToDelete.id));
+      showMsg('success', '🗑️ Suggestion supprimée');
+      setSuggestionToDelete(null);
+    } catch (err: any) {
+      showMsg('error', err.message || 'Erreur lors de la suppression');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
