@@ -10,6 +10,7 @@ interface CloudinaryPDFReaderProps {
   onClose: () => void;
 }
 
+
 export default function CloudinaryPDFReader({ 
   url, 
   title, 
