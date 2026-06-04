@@ -146,13 +146,11 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
 async function deleteLog(logId: string) {
   setIsDeleting(true);
   try {
-    // ✅ Supprimer d'abord les destinataires
     const { error: err1 } = await supabase
       .from('notification_recipients')
       .delete()
       .eq('notification_log_id', logId);
 
-    // Puis le log
     const { error: err2 } = await supabase
       .from('notification_logs')
       .delete()
@@ -175,29 +173,45 @@ async function deleteLog(logId: string) {
 async function deleteAllLogs() {
   setIsDeleting(true);
   try {
-    // ✅ CORRECTION : Utiliser gt('id') pour matcher TOUS les enregistrements
-    // UUID commence toujours par un caractère, donc 'id' > '' est toujours true
+    // Step 1: Récupérer tous les IDs des logs
+    const { data: allLogs, error: fetchError } = await supabase
+      .from('notification_logs')
+      .select('id');
+
+    if (fetchError) throw fetchError;
+
+    if (!allLogs || allLogs.length === 0) {
+      showMsg('success', 'Aucun log à supprimer');
+      setDeleteConfirm(null);
+      setIsDeleting(false);
+      return;
+    }
+
+    const logIds = allLogs.map((log: any) => log.id);
+
+    // Step 2: Supprimer les recipients
     const { error: err1 } = await supabase
       .from('notification_recipients')
       .delete()
-      .gt('id', ''); // Condition qui match tous les UUIDs
+      .in('notification_log_id', logIds);
 
+    if (err1) throw err1;
+
+    // Step 3: Supprimer les logs
     const { error: err2 } = await supabase
       .from('notification_logs')
       .delete()
-      .gt('id', ''); // Condition qui match tous les UUIDs
+      .in('id', logIds);
 
-    if (err1 || err2) {
-      console.error('Erreur suppression logs:', err1, err2);
-      throw new Error('Erreur lors de la suppression');
-    }
+    if (err2) throw err2;
 
-    showMsg('success', 'Tous les logs ont été supprimés');
+    showMsg('success', `${logIds.length} logs supprimés avec succès`);
     setLogs([]);
     setDeleteConfirm(null);
     fetchLogs();
   } catch (err: any) {
-    showMsg('error', err.message);
+    console.error('Erreur suppression logs:', err);
+    showMsg('error', `Erreur: ${err.message}`);
   } finally {
     setIsDeleting(false);
   }
@@ -228,23 +242,37 @@ async function deleteEmailLog(logId: string) {
 async function deleteAllEmailLogs() {
   setIsDeleting(true);
   try {
-    // ✅ CORRECTION : Utiliser gt('id') pour matcher TOUS les enregistrements
+    // Step 1: Récupérer tous les IDs des emails
+    const { data: allEmails, error: fetchError } = await supabase
+      .from('email_logs')
+      .select('id');
+
+    if (fetchError) throw fetchError;
+
+    if (!allEmails || allEmails.length === 0) {
+      showMsg('success', 'Aucun email à supprimer');
+      setDeleteConfirm(null);
+      setIsDeleting(false);
+      return;
+    }
+
+    const emailIds = allEmails.map((email: any) => email.id);
+
+    // Step 2: Supprimer les emails
     const { error } = await supabase
       .from('email_logs')
       .delete()
-      .gt('id', ''); // Condition qui match tous les UUIDs
+      .in('id', emailIds);
 
-    if (error) {
-      console.error('Erreur suppression emails:', error);
-      throw error;
-    }
+    if (error) throw error;
 
-    showMsg('success', 'Tous les logs email supprimés');
+    showMsg('success', `${emailIds.length} emails supprimés avec succès`);
     setEmailLogs([]);
     setDeleteConfirm(null);
     fetchEmailLogs();
   } catch (err: any) {
-    showMsg('error', err.message);
+    console.error('Erreur suppression emails:', err);
+    showMsg('error', `Erreur: ${err.message}`);
   } finally {
     setIsDeleting(false);
   }
