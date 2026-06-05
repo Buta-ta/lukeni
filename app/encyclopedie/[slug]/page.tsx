@@ -1636,6 +1636,7 @@ export default function ArticleDetailPage() {
       userId={user?.id}
       catColor={catColor}
       lang={lang}
+      
     >
 
 
@@ -1763,7 +1764,7 @@ export default function ArticleDetailPage() {
   </div>
 )}
 
-      <div className="relative z-10 mx-auto px-4 sm:px-6 py-10" style={{ maxWidth: '1400px' }}>
+      <div className="relative z-10 w-full mx-auto px-4 sm:px-6 py-10" style={{ maxWidth: '1400px' }}>
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8 lg:gap-12">
 
           <div>
