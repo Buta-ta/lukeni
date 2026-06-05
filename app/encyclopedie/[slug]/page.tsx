@@ -1028,7 +1028,7 @@ function getDomain(url: string): string {
 
 
 // ============================================================================
-// AUDIO PLAYER
+// AUDIO PLAYER - VERSION CORRIGÉE
 // ============================================================================
 
 const AudioPlayer = memo(({ text, lang, catColor }: {
@@ -1040,37 +1040,100 @@ const AudioPlayer = memo(({ text, lang, catColor }: {
   const [isPaused, setIsPaused] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isSupported, setIsSupported] = useState(false);
+  const [voicesLoaded, setVoicesLoaded] = useState(false);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const totalCharsRef = useRef(0);
 
+  // ✅ Nettoie TOUT le markdown du texte
+  const cleanText = useMemo(() => {
+    return text
+      // Enlève les balises de formatage
+      .replace(/\*\*([^\*]+)\*\*/g, '$1') // gras
+      .replace(/\*([^\*]+)\*/g, '$1')     // italique
+      .replace(/~~([^~]+)~~/g, '$1')      // barré
+      .replace(/==([^=]+)==/g, '$1')      // surligné
+      .replace(/\{#[^}]+\}([^{]+)\{\/\}/g, '$1')  // couleur
+      .replace(/\{\+[^}]+\}([^{]+)\{\/\+\}/g, '$1') // taille
+      .replace(/`([^`]+)`/g, '$1')        // code
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // liens
+      // Enlève les titres markdown
+      .replace(/^#{1,6}\s+/gm, '')
+      // Enlève les listes
+      .replace(/^\s*[-*+]\s+/gm, '')
+      // Enlève les blockquotes
+      .replace(/^\s*>\s+/gm, '')
+      // Enlève les images
+      .replace(/!\[[^\]]*\]\([^)]+\)/g, '')
+      // Enlève les URLs seules
+      .replace(/https?:\/\/[^\s]+/g, '')
+      // Nettoie les espaces multiples
+      .replace(/\s+/g, ' ')
+      .trim();
+  }, [text]);
+
   useEffect(() => {
     setIsSupported(typeof window !== 'undefined' && 'speechSynthesis' in window);
+    
+    // ✅ Attend que les voix soient chargées
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      const loadVoices = () => {
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0) {
+          setVoicesLoaded(true);
+        }
+      };
+
+      // Charge immédiatement si disponible
+      loadVoices();
+      
+      // Sinon attend l'événement
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+
     return () => {
-      if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
+      if (typeof window !== 'undefined') {
+        window.speechSynthesis?.cancel();
+      }
     };
   }, []);
 
+  // ✅ Reset quand la langue change
   useEffect(() => {
-    if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
+    if (typeof window !== 'undefined') {
+      window.speechSynthesis?.cancel();
+    }
     setIsPlaying(false);
     setIsPaused(false);
     setProgress(0);
     utteranceRef.current = null;
   }, [lang]);
 
+  // ✅ Fonction améliorée pour obtenir la meilleure voix
   const getVoice = useCallback((): SpeechSynthesisVoice | null => {
     const voices = window.speechSynthesis.getVoices();
     const langCode = lang === 'fr' ? 'fr' : 'en';
-    const preferred = voices.find(v =>
-      v.lang.startsWith(langCode) &&
-      (v.name.includes('Google') || v.name.includes('Premium') || v.name.includes('Enhanced'))
-    );
-    return preferred || voices.find(v => v.lang.startsWith(langCode)) || null;
+    
+    // Essaie de trouver une voix premium dans l'ordre de préférence
+    const priorities = [
+      (v: SpeechSynthesisVoice) => v.lang.startsWith(langCode) && v.name.includes('Google'),
+      (v: SpeechSynthesisVoice) => v.lang.startsWith(langCode) && v.name.includes('Premium'),
+      (v: SpeechSynthesisVoice) => v.lang.startsWith(langCode) && v.name.includes('Enhanced'),
+      (v: SpeechSynthesisVoice) => v.lang.startsWith(langCode) && v.localService === false,
+      (v: SpeechSynthesisVoice) => v.lang.startsWith(langCode),
+    ];
+
+    for (const priority of priorities) {
+      const voice = voices.find(priority);
+      if (voice) return voice;
+    }
+
+    return null;
   }, [lang]);
 
   const handlePlay = useCallback(() => {
-    if (!isSupported) return;
+    if (!isSupported || !voicesLoaded) return;
 
+    // ✅ Si en pause, reprendre
     if (isPaused) {
       window.speechSynthesis.resume();
       setIsPlaying(true);
@@ -1078,33 +1141,38 @@ const AudioPlayer = memo(({ text, lang, catColor }: {
       return;
     }
 
+    // ✅ Arrête toute lecture en cours
     window.speechSynthesis.cancel();
-    totalCharsRef.current = text.length;
+    
+    totalCharsRef.current = cleanText.length;
     setProgress(0);
 
-    const utterance = new SpeechSynthesisUtterance(text);
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    
+    // ✅ Configuration optimale
     utterance.lang = lang === 'fr' ? 'fr-FR' : 'en-US';
-    utterance.rate = 0.92;
-    utterance.pitch = 1;
-    utterance.volume = 1;
+    utterance.rate = 0.95;  // Légèrement plus lent pour meilleure compréhension
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
 
-    const applyVoice = () => {
-      const voice = getVoice();
-      if (voice) utterance.voice = voice;
-    };
-
-    if (window.speechSynthesis.getVoices().length > 0) {
-      applyVoice();
+    // ✅ Applique la voix AVANT de parler
+    const voice = getVoice();
+    if (voice) {
+      utterance.voice = voice;
+      console.log('🎤 Voix sélectionnée:', voice.name, voice.lang);
     } else {
-      window.speechSynthesis.onvoiceschanged = applyVoice;
+      console.warn('⚠️ Aucune voix trouvée pour', lang);
     }
 
+    // ✅ Gestion de la progression
     utterance.onboundary = (e) => {
       if (e.name === 'word' && totalCharsRef.current > 0) {
-        setProgress(Math.min((e.charIndex / totalCharsRef.current) * 100, 100));
+        const newProgress = Math.min((e.charIndex / totalCharsRef.current) * 100, 100);
+        setProgress(newProgress);
       }
     };
 
+    // ✅ Fin de lecture
     utterance.onend = () => {
       setIsPlaying(false);
       setIsPaused(false);
@@ -1112,17 +1180,22 @@ const AudioPlayer = memo(({ text, lang, catColor }: {
       setTimeout(() => setProgress(0), 2000);
     };
 
-    utterance.onerror = () => {
+    // ✅ Gestion des erreurs
+    utterance.onerror = (e) => {
+      console.error('❌ Erreur TTS:', e.error);
       setIsPlaying(false);
       setIsPaused(false);
       setProgress(0);
     };
 
     utteranceRef.current = utterance;
+    
+    // ✅ Lance la lecture
     window.speechSynthesis.speak(utterance);
     setIsPlaying(true);
     setIsPaused(false);
-  }, [isSupported, isPaused, text, lang, getVoice]);
+
+  }, [isSupported, voicesLoaded, isPaused, cleanText, lang, getVoice]);
 
   const handlePause = useCallback(() => {
     if (!isSupported) return;
@@ -1157,20 +1230,25 @@ const AudioPlayer = memo(({ text, lang, catColor }: {
         whileHover={{ scale: 1.12 }}
         whileTap={{ scale: 0.9 }}
         onClick={isPlaying ? handlePause : handlePlay}
+        disabled={!voicesLoaded}
         title={
-          isPlaying
-            ? (lang === 'fr' ? 'Pause' : 'Pause')
-            : isPaused
-              ? (lang === 'fr' ? 'Reprendre' : 'Resume')
-              : (lang === 'fr' ? 'Écouter l\'article' : 'Listen to article')
+          !voicesLoaded
+            ? 'Chargement...'
+            : isPlaying
+              ? (lang === 'fr' ? 'Pause' : 'Pause')
+              : isPaused
+                ? (lang === 'fr' ? 'Reprendre' : 'Resume')
+                : (lang === 'fr' ? 'Écouter l\'article' : 'Listen to article')
         }
-        className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all"
+        className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         style={{
           backgroundColor: catColor,
           boxShadow: isPlaying ? `0 0 14px ${catColor}60` : 'none',
         }}
       >
-        {isPlaying ? (
+        {!voicesLoaded ? (
+          <Loader2 className="w-3.5 h-3.5 text-black animate-spin" />
+        ) : isPlaying ? (
           <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-black">
             <rect x="6" y="4" width="4" height="16" rx="1" />
             <rect x="14" y="4" width="4" height="16" rx="1" />
@@ -1188,11 +1266,13 @@ const AudioPlayer = memo(({ text, lang, catColor }: {
           className="text-[10px] font-bold tracking-[0.2em] uppercase leading-none"
           style={{ color: catColor }}
         >
-          {isPlaying
-            ? (lang === 'fr' ? 'Lecture en cours...' : 'Playing...')
-            : isPaused
-              ? (lang === 'fr' ? 'En pause' : 'Paused')
-              : (lang === 'fr' ? 'Écouter l\'article' : 'Listen to article')}
+          {!voicesLoaded
+            ? 'Chargement...'
+            : isPlaying
+              ? (lang === 'fr' ? 'Lecture en cours...' : 'Playing...')
+              : isPaused
+                ? (lang === 'fr' ? 'En pause' : 'Paused')
+                : (lang === 'fr' ? 'Écouter l\'article' : 'Listen to article')}
         </span>
         <span className="text-[9px] text-gray-600 mt-0.5">
           {lang === 'fr' ? 'Français' : 'English'} · TTS
@@ -1222,7 +1302,7 @@ const AudioPlayer = memo(({ text, lang, catColor }: {
         )}
       </div>
 
-      {/* Bouton Stop (visible seulement si actif) */}
+      {/* Bouton Stop */}
       <AnimatePresence>
         {(isPlaying || isPaused) && (
           <motion.button
