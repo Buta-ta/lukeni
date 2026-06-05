@@ -413,18 +413,18 @@ export default function ArticlesTab({ showMsg }: {
   );
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-full overflow-x-hidden px-2 sm:px-0">
-      <div className="flex items-center gap-2 sm:gap-3">
+    <div className="space-y-4 sm:space-y-6 w-full min-w-0 px-2 sm:px-0">
+      <div className="flex items-center gap-2 sm:gap-3 w-full min-w-0">
         <FileText className="text-[#D4AF37] flex-shrink-0" size={20} />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h2 className="text-lg sm:text-xl md:text-2xl font-serif truncate">Articles (Encyclopédie)</h2>
           <p className="text-gray-400 text-xs">{articles.length} articles</p>
         </div>
       </div>
 
-      <div className="bg-[#0f0f0f] p-3 sm:p-4 md:p-6 rounded-lg border border-white/5 space-y-3 sm:space-y-4">
-        <div className="flex items-center justify-between mb-3 sm:mb-4">
-          <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+      <div className="bg-[#0f0f0f] p-3 sm:p-4 md:p-6 rounded-lg border border-white/5 space-y-3 sm:space-y-4 w-full min-w-0">
+        <div className="flex items-center justify-between mb-3 sm:mb-4 min-w-0">
+          <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2 min-w-0">
             {editingId ? <Edit2 size={16} className="text-[#D4AF37] flex-shrink-0" /> : <PlusCircle size={16} className="text-[#D4AF37] flex-shrink-0" />}
             <span className="truncate">{editingId ? 'Modifier' : 'Nouvel Article'}</span>
           </h3>
@@ -436,8 +436,8 @@ export default function ArticlesTab({ showMsg }: {
         </div>
 
         {/* ── Titres ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-          <div className="min-w-0">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 w-full min-w-0">
+          <div className="min-w-0 w-full">
             <label className="block text-xs text-gray-400 mb-1 font-mono">🇫🇷 Titre FR</label>
             <FormatToolbar
               fieldId="title-fr"
@@ -450,7 +450,7 @@ export default function ArticlesTab({ showMsg }: {
               type="text"
               value={titleFr}
               onChange={e => setTitleFr(e.target.value)}
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg rounded-t-none px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]"
+              className="w-full min-w-0 bg-[#1a1a1a] border border-white/20 rounded-b-lg rounded-t-none px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]"
             />
             <div className="flex flex-wrap gap-1 mt-1">
               <button
@@ -470,7 +470,7 @@ export default function ArticlesTab({ showMsg }: {
             </div>
           </div>
 
-          <div className="min-w-0">
+          <div className="min-w-0 w-full">
             <label className="block text-xs text-gray-400 mb-1 font-mono">🇬🇧 Titre EN</label>
             <FormatToolbar
               fieldId="title-en"
@@ -483,7 +483,7 @@ export default function ArticlesTab({ showMsg }: {
               type="text"
               value={titleEn}
               onChange={e => setTitleEn(e.target.value)}
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg rounded-t-none px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]"
+              className="w-full min-w-0 bg-[#1a1a1a] border border-white/20 rounded-b-lg rounded-t-none px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]"
             />
             <div className="flex flex-wrap gap-1 mt-1">
               <button
@@ -505,8 +505,8 @@ export default function ArticlesTab({ showMsg }: {
         </div>
 
         {/* ── Résumés ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-          <div className="min-w-0">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 w-full min-w-0">
+          <div className="min-w-0 w-full">
             <label className="block text-xs text-gray-400 mb-1 font-mono">🇫🇷 Résumé FR</label>
             <FormatToolbar
               fieldId="summary-fr"
@@ -520,7 +520,7 @@ export default function ArticlesTab({ showMsg }: {
               onChange={e => setSummaryFr(e.target.value)}
               rows={2}
               placeholder="Résumé accrocheur affiché sur la carte..."
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg rounded-t-none px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37] resize-none"
+              className="w-full min-w-0 bg-[#1a1a1a] border border-white/20 rounded-b-lg rounded-t-none px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37] resize-none"
             />
             <button
               onClick={() => handleLingua('summary-en')}
@@ -531,7 +531,7 @@ export default function ArticlesTab({ showMsg }: {
             </button>
           </div>
 
-          <div className="min-w-0">
+          <div className="min-w-0 w-full">
             <label className="block text-xs text-gray-400 mb-1 font-mono">🇬🇧 Summary EN</label>
             <FormatToolbar
               fieldId="summary-en"
@@ -545,7 +545,7 @@ export default function ArticlesTab({ showMsg }: {
               onChange={e => setSummaryEn(e.target.value)}
               rows={2}
               placeholder="Catchy summary shown on the card..."
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg rounded-t-none px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37] resize-none"
+              className="w-full min-w-0 bg-[#1a1a1a] border border-white/20 rounded-b-lg rounded-t-none px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37] resize-none"
             />
             <button
               onClick={() => handleLingua('summary-fr')}
@@ -558,8 +558,8 @@ export default function ArticlesTab({ showMsg }: {
         </div>
 
         {/* Contenus avec toolbar */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-          <div className="min-w-0">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 w-full min-w-0">
+          <div className="min-w-0 w-full">
             <label className="block text-xs text-gray-400 mb-1 font-mono">🇫🇷 Contenu FR</label>
             <FormatToolbar
               fieldId="content-fr"
@@ -571,7 +571,7 @@ export default function ArticlesTab({ showMsg }: {
               value={contentFr}
               onChange={e => setContentFr(e.target.value)}
               rows={8}
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37] resize-none font-mono rounded-t-none"
+              className="w-full min-w-0 bg-[#1a1a1a] border border-white/20 rounded-b-lg px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37] resize-none font-mono rounded-t-none"
             />
             <div className="flex flex-wrap gap-1 mt-1">
               <button onClick={() => handleLingua('correct-content-fr')} disabled={isProcessing === 'correct-content-fr'}
@@ -584,7 +584,7 @@ export default function ArticlesTab({ showMsg }: {
               </button>
             </div>
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 w-full">
             <label className="block text-xs text-gray-400 mb-1 font-mono">🇬🇧 Content EN</label>
             <FormatToolbar
               fieldId="content-en"
@@ -596,7 +596,7 @@ export default function ArticlesTab({ showMsg }: {
               value={contentEn}
               onChange={e => setContentEn(e.target.value)}
               rows={8}
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37] resize-none font-mono rounded-t-none"
+              className="w-full min-w-0 bg-[#1a1a1a] border border-white/20 rounded-b-lg px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37] resize-none font-mono rounded-t-none"
             />
             <div className="flex flex-wrap gap-1 mt-1">
               <button onClick={() => handleLingua('correct-content-en')} disabled={isProcessing === 'correct-content-en'}
@@ -612,31 +612,31 @@ export default function ArticlesTab({ showMsg }: {
         </div>
 
         {/* Métadonnées */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <div className="min-w-0">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 w-full min-w-0">
+          <div className="min-w-0 w-full">
             <label className="block text-xs text-gray-400 mb-1 font-mono">🏷️ Catégorie</label>
             <select value={catId} onChange={e => setCatId(e.target.value)}
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]">
+              className="w-full min-w-0 bg-[#1a1a1a] border border-white/20 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]">
               <option value="">Aucune</option>
               {categories.map(c => <option key={c.id} value={c.id}>{c.name_fr}</option>)}
             </select>
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 w-full">
             <label className="block text-xs text-gray-400 mb-1 font-mono">⏱️ Temps (min)</label>
             <input type="number" value={readingTime} onChange={e => setReadingTime(e.target.value)}
               placeholder="5"
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]" />
+              className="w-full min-w-0 bg-[#1a1a1a] border border-white/20 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]" />
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 w-full">
             <label className="block text-xs text-gray-400 mb-1 font-mono">🌐 Wikipedia</label>
             <input type="text" value={wikipediaUrl} onChange={e => setWikipediaUrl(e.target.value)}
               placeholder="https://..."
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]" />
+              className="w-full min-w-0 bg-[#1a1a1a] border border-white/20 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]" />
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 w-full">
             <label className="block text-xs text-gray-400 mb-1 font-mono">📊 Statut</label>
             <select value={status} onChange={e => setStatus(e.target.value)}
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]">
+              className="w-full min-w-0 bg-[#1a1a1a] border border-white/20 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]">
               <option value="draft">Brouillon</option>
               <option value="pending_review">En attente</option>
               <option value="published">Publié</option>
@@ -645,12 +645,12 @@ export default function ArticlesTab({ showMsg }: {
         </div>
 
         {/* Image principale */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-          <div className="min-w-0">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 w-full min-w-0">
+          <div className="min-w-0 w-full">
             <label className="block text-xs text-gray-400 mb-1 font-mono">🖼️ Image principale</label>
             <input type="text" value={imageUrl} onChange={e => setImageUrl(e.target.value)}
               placeholder="https://..."
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]" />
+              className="w-full min-w-0 bg-[#1a1a1a] border border-white/20 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]" />
             {imageUrl && (
               <div className="mt-2 w-full h-20 rounded-lg overflow-hidden border border-white/10">
                 <img src={imageUrl} alt="" className="w-full h-full object-cover" />
@@ -658,26 +658,26 @@ export default function ArticlesTab({ showMsg }: {
             )}
           </div>
 
-          <div className="min-w-0">
+          <div className="min-w-0 w-full">
             <ImageUploader label="Uploader l'image principale" currentUrl={imageUrl} onUpload={setImageUrl} />
           </div>
         </div>
 
         {/* ── Audio ── */}
-        <div className="p-3 sm:p-4 bg-[#1a1a1a] rounded-lg border border-white/10">
+        <div className="p-3 sm:p-4 bg-[#1a1a1a] rounded-lg border border-white/10 w-full min-w-0">
           <div className="flex items-center gap-2 mb-3">
             <Music size={14} className="text-[#D4AF37] flex-shrink-0" />
             <span className="text-xs font-bold text-gray-300">Fichier Audio (optionnel)</span>
           </div>
 
           {audioUrl ? (
-            <div className="space-y-2">
+            <div className="space-y-2 w-full min-w-0">
               <audio
                 src={audioUrl}
                 controls
                 className="w-full h-8"
               />
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full min-w-0">
                 <code className="flex-1 text-[10px] text-gray-500 bg-black/40 px-2 py-1 rounded break-all min-w-0">
                   {audioUrl}
                 </code>
@@ -718,31 +718,31 @@ export default function ArticlesTab({ showMsg }: {
         </div>
 
         {/* ✅ CHRONOLOGIE DE L'ARTICLE */}
-        <div className="p-3 sm:p-4 bg-[#1a1a1a] rounded-lg border border-white/10">
+        <div className="p-3 sm:p-4 bg-[#1a1a1a] rounded-lg border border-white/10 w-full min-w-0">
           <div className="flex items-center gap-2 mb-3">
             <Calendar size={14} className="text-[#D4AF37] flex-shrink-0" />
             <span className="text-xs font-bold text-gray-300">Chronologie de l&apos;article</span>
           </div>
 
           {/* Formulaire d'ajout */}
-          <div className="space-y-2 mb-3 p-2 sm:p-3 bg-[#0f0f0f] rounded-lg border border-white/5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="space-y-2 mb-3 p-2 sm:p-3 bg-[#0f0f0f] rounded-lg border border-white/5 w-full min-w-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full min-w-0">
               <input
                 type="text"
                 value={newTimelineYear}
                 onChange={e => setNewTimelineYear(e.target.value)}
                 placeholder="Année (ex: 1492)"
-                className="bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37]"
+                className="w-full min-w-0 bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37]"
               />
               <input
                 type="text"
                 value={newTimelineTitleFr}
                 onChange={e => setNewTimelineTitleFr(e.target.value)}
                 placeholder="Titre FR"
-                className="bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37]"
+                className="w-full min-w-0 bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37]"
               />
             </div>
-            <div className="flex items-center gap-1 flex-wrap">
+            <div className="flex items-center gap-1 flex-wrap w-full">
               <button
                 onClick={() => handleLingua('translate-timeline-en')}
                 disabled={isProcessing === 'translate-timeline-en' || !newTimelineTitleFr}
@@ -756,9 +756,9 @@ export default function ArticlesTab({ showMsg }: {
               value={newTimelineTitleEn}
               onChange={e => setNewTimelineTitleEn(e.target.value)}
               placeholder="Titre EN"
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37]"
+              className="w-full min-w-0 bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37]"
             />
-            <div className="flex items-center gap-1 flex-wrap">
+            <div className="flex items-center gap-1 flex-wrap w-full">
               <button
                 onClick={() => handleLingua('translate-timeline-fr')}
                 disabled={isProcessing === 'translate-timeline-fr' || !newTimelineTitleEn}
@@ -772,9 +772,9 @@ export default function ArticlesTab({ showMsg }: {
               onChange={e => setNewTimelineDescFr(e.target.value)}
               placeholder="Description FR (optionnel)"
               rows={2}
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37] resize-none"
+              className="w-full min-w-0 bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37] resize-none"
             />
-            <div className="flex items-center gap-1 flex-wrap">
+            <div className="flex items-center gap-1 flex-wrap w-full">
               <button
                 onClick={() => handleLingua('translate-timeline-desc-en')}
                 disabled={isProcessing === 'translate-timeline-desc-en' || !newTimelineDescFr}
@@ -788,9 +788,9 @@ export default function ArticlesTab({ showMsg }: {
               onChange={e => setNewTimelineDescEn(e.target.value)}
               placeholder="Description EN (optionnel)"
               rows={2}
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37] resize-none"
+              className="w-full min-w-0 bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37] resize-none"
             />
-            <div className="flex items-center gap-1 flex-wrap">
+            <div className="flex items-center gap-1 flex-wrap w-full">
               <button
                 onClick={() => handleLingua('translate-timeline-desc-fr')}
                 disabled={isProcessing === 'translate-timeline-desc-fr' || !newTimelineDescEn}
@@ -817,7 +817,7 @@ export default function ArticlesTab({ showMsg }: {
                 }
               }}
               disabled={!newTimelineYear || !newTimelineTitleFr || !newTimelineTitleEn}
-              className="w-full px-4 py-2 bg-[#D4AF37] text-black rounded-lg text-xs font-bold hover:bg-white transition-colors disabled:opacity-50"
+              className="w-full min-w-0 px-4 py-2 bg-[#D4AF37] text-black rounded-lg text-xs font-bold hover:bg-white transition-colors disabled:opacity-50"
             >
               Ajouter une étape
             </button>
@@ -825,16 +825,16 @@ export default function ArticlesTab({ showMsg }: {
 
           {/* Liste des entrées */}
           {timeline.length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-2 w-full min-w-0">
               {timeline.map((entry, i) => (
-                <div key={i} className="rounded-lg border border-white/10 overflow-hidden">
+                <div key={i} className="rounded-lg border border-white/10 overflow-hidden w-full min-w-0">
 
                   {/* ── Mode édition ── */}
                   {editingTimelineIndex === i ? (
-                    <div className="p-2 sm:p-3 bg-[#0f0f0f] space-y-2">
+                    <div className="p-2 sm:p-3 bg-[#0f0f0f] space-y-2 w-full min-w-0">
 
                       {/* En-tête mode édition */}
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center justify-between mb-1 w-full min-w-0">
                         <span className="text-[10px] font-bold text-[#D4AF37] font-mono uppercase tracking-wider">
                           ✏️ Édition #{i + 1}
                         </span>
@@ -847,25 +847,25 @@ export default function ArticlesTab({ showMsg }: {
                       </div>
 
                       {/* Année + Titre FR */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full min-w-0">
                         <input
                           type="text"
                           value={editTimelineYear}
                           onChange={e => setEditTimelineYear(e.target.value)}
                           placeholder="Année"
-                          className="bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37]"
+                          className="w-full min-w-0 bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37]"
                         />
                         <input
                           type="text"
                           value={editTimelineTitleFr}
                           onChange={e => setEditTimelineTitleFr(e.target.value)}
                           placeholder="Titre FR"
-                          className="bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37]"
+                          className="w-full min-w-0 bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37]"
                         />
                       </div>
 
                       {/* Bouton traduction FR→EN titre */}
-                      <div className="flex items-center gap-1 flex-wrap">
+                      <div className="flex items-center gap-1 flex-wrap w-full">
                         <button
                           onClick={() => handleLingua('edit-translate-timeline-en')}
                           disabled={isProcessing === 'edit-translate-timeline-en' || !editTimelineTitleFr}
@@ -888,7 +888,7 @@ export default function ArticlesTab({ showMsg }: {
                         value={editTimelineTitleEn}
                         onChange={e => setEditTimelineTitleEn(e.target.value)}
                         placeholder="Titre EN"
-                        className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37]"
+                        className="w-full min-w-0 bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37]"
                       />
 
                       {/* Description FR */}
@@ -897,11 +897,11 @@ export default function ArticlesTab({ showMsg }: {
                         onChange={e => setEditTimelineDescFr(e.target.value)}
                         placeholder="Description FR (optionnel)"
                         rows={2}
-                        className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37] resize-none"
+                        className="w-full min-w-0 bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37] resize-none"
                       />
 
                       {/* Boutons traduction description */}
-                      <div className="flex items-center gap-1 flex-wrap">
+                      <div className="flex items-center gap-1 flex-wrap w-full">
                         <button
                           onClick={() => handleLingua('edit-translate-timeline-desc-en')}
                           disabled={isProcessing === 'edit-translate-timeline-desc-en' || !editTimelineDescFr}
@@ -924,11 +924,11 @@ export default function ArticlesTab({ showMsg }: {
                         onChange={e => setEditTimelineDescEn(e.target.value)}
                         placeholder="Description EN (optionnel)"
                         rows={2}
-                        className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37] resize-none"
+                        className="w-full min-w-0 bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37] resize-none"
                       />
 
                       {/* Actions */}
-                      <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                      <div className="flex flex-col sm:flex-row gap-2 pt-1 w-full min-w-0">
                         <button
                           onClick={() => {
                             if (!editTimelineYear || !editTimelineTitleFr || !editTimelineTitleEn) return;
@@ -944,13 +944,13 @@ export default function ArticlesTab({ showMsg }: {
                             setEditingTimelineIndex(null);
                           }}
                           disabled={!editTimelineYear || !editTimelineTitleFr || !editTimelineTitleEn}
-                          className="flex-1 px-3 py-1.5 bg-[#D4AF37] text-black rounded-lg text-xs font-bold hover:bg-white transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
+                          className="flex-1 min-w-0 px-3 py-1.5 bg-[#D4AF37] text-black rounded-lg text-xs font-bold hover:bg-white transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
                         >
                           <CheckCircle size={11} /> Enregistrer
                         </button>
                         <button
                           onClick={() => setTimeline(timeline.filter((_, idx) => idx !== i))}
-                          className="px-3 py-1.5 bg-red-500/10 text-red-400 rounded-lg text-xs font-bold hover:bg-red-500/20 transition-colors flex items-center justify-center gap-1"
+                          className="px-3 py-1.5 bg-red-500/10 text-red-400 rounded-lg text-xs font-bold hover:bg-red-500/20 transition-colors flex items-center justify-center gap-1 whitespace-nowrap"
                         >
                           <Trash2 size={11} /> Supprimer
                         </button>
@@ -959,9 +959,9 @@ export default function ArticlesTab({ showMsg }: {
 
                   ) : (
                     /* ── Mode affichage ── */
-                    <div className="flex items-start justify-between p-2 sm:p-3 bg-[#0f0f0f] group">
+                    <div className="flex items-start justify-between p-2 sm:p-3 bg-[#0f0f0f] group w-full min-w-0">
                       <div className="flex-1 min-w-0 pr-2">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1 w-full min-w-0">
                           <span className="text-[#D4AF37] font-mono text-xs font-bold flex-shrink-0">
                             {entry.year}
                           </span>
@@ -973,7 +973,7 @@ export default function ArticlesTab({ showMsg }: {
                           </span>
                         </div>
                         {entry.description_fr && (
-                          <p className="text-gray-500 text-[10px] line-clamp-2 break-words">
+                          <p className="text-gray-500 text-[10px] line-clamp-2 break-words w-full">
                             {entry.description_fr}
                           </p>
                         )}
@@ -1009,14 +1009,14 @@ export default function ArticlesTab({ showMsg }: {
               ))}
             </div>
           ) : (
-            <p className="text-gray-600 text-xs text-center py-4">
+            <p className="text-gray-600 text-xs text-center py-4 w-full">
               Aucune étape chronologique ajoutée
             </p>
           )}
         </div>
 
         {/* Galerie */}
-        <div className="p-3 sm:p-4 bg-[#1a1a1a] rounded-lg border border-white/10">
+        <div className="p-3 sm:p-4 bg-[#1a1a1a] rounded-lg border border-white/10 w-full min-w-0">
           <div className="flex items-center gap-2 mb-3">
             <ImageIcon size={14} className="text-[#D4AF37] flex-shrink-0" />
             <span className="text-xs font-bold text-gray-300">Galerie d&apos;images</span>
@@ -1028,11 +1028,11 @@ export default function ArticlesTab({ showMsg }: {
             onMultipleUpload={setGalleryImages}
           />
           {galleryImages.length > 0 && (
-            <div className="mt-3 p-2 sm:p-3 bg-[#0f0f0f] rounded-lg border border-white/5">
+            <div className="mt-3 p-2 sm:p-3 bg-[#0f0f0f] rounded-lg border border-white/5 w-full min-w-0">
               <p className="text-[10px] text-gray-500 mb-2 font-mono">📋 Copie dans le contenu :</p>
-              <div className="space-y-1">
+              <div className="space-y-1 w-full min-w-0">
                 {galleryImages.map((url, i) => (
-                  <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                  <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full min-w-0">
                     <code className="flex-1 text-[10px] text-gray-400 bg-black/50 px-2 py-1 rounded break-all min-w-0">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(`![légende](${url})`)}
                       className="text-[10px] text-[#D4AF37] hover:text-white transition-colors whitespace-nowrap flex-shrink-0">
@@ -1046,15 +1046,15 @@ export default function ArticlesTab({ showMsg }: {
         </div>
 
         {/* Sources */}
-        <div className="p-3 sm:p-4 bg-[#1a1a1a] rounded-lg border border-white/10">
+        <div className="p-3 sm:p-4 bg-[#1a1a1a] rounded-lg border border-white/10 w-full min-w-0">
           <div className="flex items-center gap-2 mb-3">
             <Globe size={14} className="text-[#D4AF37] flex-shrink-0" />
             <span className="text-xs font-bold text-gray-300">Sources & Références</span>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2 mb-3">
+          <div className="flex flex-col sm:flex-row gap-2 mb-3 w-full min-w-0">
             <input type="text" value={newSource} onChange={e => setNewSource(e.target.value)}
               placeholder="https://..."
-              className="flex-1 bg-[#0f0f0f] border border-white/20 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]"
+              className="flex-1 min-w-0 bg-[#0f0f0f] border border-white/20 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]"
               onKeyDown={e => {
                 if (e.key === 'Enter' && newSource.trim()) {
                   setSources([...sources, newSource.trim()]);
@@ -1069,13 +1069,13 @@ export default function ArticlesTab({ showMsg }: {
             </button>
           </div>
           {sources.length > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-2 w-full min-w-0">
               {sources.map((source, i) => (
-                <div key={i} className="flex items-start sm:items-center justify-between p-2 sm:p-3 bg-[#0f0f0f] rounded-lg border border-white/10 group gap-2">
+                <div key={i} className="flex items-start sm:items-center justify-between p-2 sm:p-3 bg-[#0f0f0f] rounded-lg border border-white/10 group gap-2 w-full min-w-0">
                   <div className="flex items-start sm:items-center gap-2 sm:gap-3 flex-1 min-w-0">
                     <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">#{i + 1}</span>
                     <a href={source} target="_blank" rel="noopener noreferrer"
-                      className="text-gray-400 text-xs hover:text-[#D4AF37] transition-colors break-all flex-1">
+                      className="text-gray-400 text-xs hover:text-[#D4AF37] transition-colors break-all flex-1 min-w-0">
                       {source}
                     </a>
                   </div>
@@ -1088,13 +1088,13 @@ export default function ArticlesTab({ showMsg }: {
             </div>
           )}
           {sources.length === 0 && (
-            <p className="text-gray-600 text-xs text-center py-4">Aucune source ajoutée</p>
+            <p className="text-gray-600 text-xs text-center py-4 w-full">Aucune source ajoutée</p>
           )}
         </div>
 
         {/* Événements liés */}
-        <div className="p-3 sm:p-4 bg-[#1a1a1a] rounded-lg border border-white/10">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
+        <div className="p-3 sm:p-4 bg-[#1a1a1a] rounded-lg border border-white/10 w-full min-w-0">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-3 w-full">
             <div className="flex items-center gap-2">
               <Link2 size={14} className="text-[#D4AF37] flex-shrink-0" />
               <span className="text-xs font-bold text-gray-300">Événements liés</span>
@@ -1106,7 +1106,7 @@ export default function ArticlesTab({ showMsg }: {
             )}
           </div>
           {linkedEventIds.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-3">
+            <div className="flex flex-wrap gap-2 mb-3 w-full">
               {linkedEventIds.map(id => {
                 const evt = eventOptions.find(e => e.id === id);
                 if (!evt) return null;
@@ -1121,11 +1121,11 @@ export default function ArticlesTab({ showMsg }: {
           )}
           <input type="text" value={eventSearch} onChange={e => setEventSearch(e.target.value)}
             placeholder="Rechercher un événement..."
-            className="w-full bg-[#0f0f0f] border border-white/10 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37] mb-2" />
-          <div className="max-h-40 overflow-y-auto space-y-1">
+            className="w-full min-w-0 bg-[#0f0f0f] border border-white/10 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37] mb-2" />
+          <div className="max-h-40 overflow-y-auto space-y-1 w-full">
             {filteredEvents.slice(0, 20).map(evt => (
               <label key={evt.id}
-                className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${linkedEventIds.includes(evt.id) ? 'bg-[#D4AF37]/10 border border-[#D4AF37]/20' : 'hover:bg-white/5'
+                className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors w-full min-w-0 ${linkedEventIds.includes(evt.id) ? 'bg-[#D4AF37]/10 border border-[#D4AF37]/20' : 'hover:bg-white/5'
                   }`}>
                 <input type="checkbox" checked={linkedEventIds.includes(evt.id)}
                   onChange={() => toggleEvent(evt.id)} className="accent-[#D4AF37] flex-shrink-0" />
@@ -1134,12 +1134,12 @@ export default function ArticlesTab({ showMsg }: {
               </label>
             ))}
             {filteredEvents.length === 0 && (
-              <p className="text-gray-600 text-xs text-center py-4">Aucun événement trouvé</p>
+              <p className="text-gray-600 text-xs text-center py-4 w-full">Aucun événement trouvé</p>
             )}
           </div>
         </div>
 
-        <div className="flex justify-end pt-4 border-t border-white/5">
+        <div className="flex justify-end pt-4 border-t border-white/5 w-full">
           <button onClick={handleSave} disabled={isSaving}
             className="flex items-center gap-2 bg-[#D4AF37] text-black px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg font-bold text-sm hover:bg-white disabled:opacity-50 transition-colors whitespace-nowrap">
             {isSaving ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
@@ -1150,10 +1150,10 @@ export default function ArticlesTab({ showMsg }: {
       </div>
 
       {/* Liste articles */}
-      <div className="space-y-3">
+      <div className="space-y-3 w-full min-w-0">
         {articles.map(art => (
           <div key={art.id}
-            className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 bg-white/[0.02] border border-white/10 rounded-lg gap-3">
+            className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 bg-white/[0.02] border border-white/10 rounded-lg gap-3 w-full min-w-0">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               {art.image_url && (
                 <div className="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden">
@@ -1161,7 +1161,7 @@ export default function ArticlesTab({ showMsg }: {
                 </div>
               )}
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <div className="flex items-center gap-2 mb-1 flex-wrap w-full">
                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${art.status === 'published' ? 'bg-green-500/20 text-green-400' :
                     art.status === 'draft' ? 'bg-gray-500/20 text-gray-400' :
                       'bg-yellow-500/20 text-yellow-400'
@@ -1177,15 +1177,15 @@ export default function ArticlesTab({ showMsg }: {
                     </span>
                   )}
                 </div>
-                <p className="text-white text-sm font-medium mb-0.5 line-clamp-1 break-words">
+                <p className="text-white text-sm font-medium mb-0.5 line-clamp-1 break-words w-full">
                   {parseInline(art.title_fr, art.categories?.color || '#D4AF37')}
                 </p>
-                <p className="text-gray-500 text-xs italic line-clamp-1 break-words">
+                <p className="text-gray-500 text-xs italic line-clamp-1 break-words w-full">
                   {parseInline(art.title_en, art.categories?.color || '#D4AF37')}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2 self-end sm:self-auto">
+            <div className="flex items-center gap-2 self-end sm:self-auto flex-shrink-0">
               <button onClick={() => handleEdit(art)}
                 className="p-2 bg-white/5 text-gray-400 hover:text-[#D4AF37] rounded-lg transition-colors flex-shrink-0">
                 <Edit2 size={16} />
@@ -1198,7 +1198,7 @@ export default function ArticlesTab({ showMsg }: {
           </div>
         ))}
         {articles.length === 0 && (
-          <p className="text-center text-gray-500 text-sm py-8">Aucun article.</p>
+          <p className="text-center text-gray-500 text-sm py-8 w-full">Aucun article.</p>
         )}
       </div>
     </div>
