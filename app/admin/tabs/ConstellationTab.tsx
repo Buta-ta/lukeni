@@ -72,7 +72,10 @@ export default function ConstellationTab({
   const [articles, setArticles] = useState<Article[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
+  
+  // NOUVEAU : On sépare l'ID de l'étoile et de la personnalité
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingPersId, setEditingPersId] = useState<string | null>(null);
   
   // Form states
   const [nameFr, setNameFr] = useState('');
@@ -194,15 +197,15 @@ export default function ConstellationTab({
     }
   }, [validateFile]);
 
-  // ─── CHECK DUPLICATES (CORRIGÉ) ───
+  // Check Duplicates
   const checkDuplicates = useCallback(async (nameFr: string, nameEn: string, excludeId?: string): Promise<boolean> => {
     const { data } = await supabase
       .from('personalities')
       .select('id, name_fr, name_en')
-      .or(`name_fr.eq.${nameFr},name_en.eq.${nameEn}`);  // ← Exact match, pas ilike
+      .or(`name_fr.eq.${nameFr},name_en.eq.${nameEn}`); 
     
     if (data && data.length > 0) {
-      const duplicate = data.find(p => p.id !== excludeId);  // ← Exclure ID en édition
+      const duplicate = data.find(p => p.id !== excludeId);
       if (duplicate) {
         showMsg('error', `Cette personnalité existe déjà (${duplicate.name_fr})`);
         return true;
@@ -226,6 +229,7 @@ export default function ConstellationTab({
     setSelectedArticleId(null);
     setArticleSearch('');
     setEditingId(null);
+    setEditingPersId(null); // CORRECTION : Vider le PersId
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, []);
 
@@ -235,8 +239,8 @@ export default function ConstellationTab({
       return showMsg('error', 'Veuillez remplir tous les champs obligatoires.');
     }
 
-    // ← PASSER editingId ici pour exclure de la vérification
-    if (await checkDuplicates(nameFr, nameEn, editingId || undefined)) {
+    // CORRECTION : Passer editingPersId pour exclure l'ID de la personnalité lors du check
+    if (await checkDuplicates(nameFr, nameEn, editingPersId || undefined)) {
       return;
     }
 
@@ -244,7 +248,7 @@ export default function ConstellationTab({
     const slug = nameFr.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     
     try {
-      if (editingId) {
+      if (editingId && editingPersId) {
         // UPDATE
         const { error: persError } = await supabase
           .from('personalities')
@@ -258,7 +262,7 @@ export default function ConstellationTab({
             slug,
             linked_article_id: selectedArticleId || null,
           })
-          .eq('id', editingId);
+          .eq('id', editingPersId); // CORRECTION : Mettre à jour avec l'ID de la personnalité
 
         if (persError) throw persError;
 
@@ -354,6 +358,8 @@ export default function ConstellationTab({
   // Edit star
   const handleEdit = useCallback((star: CosmicStar) => {
     setEditingId(star.id);
+    setEditingPersId(star.personality_id); // CORRECTION : Capture de l'ID de la personnalité
+    
     setNameFr(star.personalities?.name_fr || '');
     setNameEn(star.personalities?.name_en || '');
     setBioFr(star.personalities?.short_bio_fr || '');
@@ -368,7 +374,9 @@ export default function ConstellationTab({
     
     const linkedArticle = articles.find(a => a.id === (star.personalities as any)?.linked_article_id);
     if (linkedArticle) {
-      setArticleSearch(stripFormatting(linkedArticle.title_fr));  // ← Strip formatting
+      setArticleSearch(stripFormatting(linkedArticle.title_fr));
+    } else {
+      setArticleSearch('');
     }
     
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -677,7 +685,7 @@ export default function ConstellationTab({
             </p>
           </div>
 
-          {/* ─── LIEN VERS ARTICLE LUKENI (CORRIGÉ) ─── */}
+          {/* Lien vers Article Lukeni */}
           <div className="pt-4 border-t border-white/5">
             <label className="block text-xs text-gray-400 mb-2 font-mono flex items-center gap-1">
               <BookOpen size={12} /> Lier à un article Lukeni (optionnel)
@@ -714,7 +722,7 @@ export default function ConstellationTab({
                     key={article.id}
                     onClick={() => {
                       setSelectedArticleId(article.id);
-                      setArticleSearch(stripFormatting(article.title_fr));  // ← Strip formatting
+                      setArticleSearch(stripFormatting(article.title_fr)); 
                     }}
                     className={`w-full px-3 py-2 text-left text-sm hover:bg-white/5 transition-colors flex items-center gap-2 ${
                       selectedArticleId === article.id ? 'bg-[#D4AF37]/10 text-[#D4AF37]' : 'text-gray-400'
@@ -722,7 +730,7 @@ export default function ConstellationTab({
                   >
                     {selectedArticleId === article.id && <Check size={12} />}
                     <span className="truncate flex-1">
-                      {stripFormatting(article.title_fr)}  // ← Strip formatting
+                      {stripFormatting(article.title_fr)}
                     </span>
                   </button>
                 ))}
