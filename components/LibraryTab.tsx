@@ -771,12 +771,11 @@ function LibraryTeaserTab({ showMsg }: { showMsg: (type: 'success' | 'error', te
   const handleAutoTranslate = async (direction: 'fr' | 'en') => {
     setAutoTranslating(direction);
     try {
-      const sourceLang = direction === 'en' ? 'fr' : 'en';
       const text = direction === 'en' ? titleFr : titleEn;
       if (!text.trim()) { showMsg('error', 'Texte source vide'); setAutoTranslating(null); return; }
       const res = await fetch('/api/lingua', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'translate', text, lang: sourceLang }),
+        body: JSON.stringify({ action: 'translate', text, lang: direction }), // Lang envoyé comme la cible de la traduction
       });
       const json = await res.json();
       if (json.result) {
@@ -1331,7 +1330,8 @@ export default function LibraryTab({ showMsg }: { showMsg: (type: 'success' | 'e
                   <input type="text" value={titleFr} onChange={e => setTitleFr(e.target.value)} placeholder={PLACEHOLDERS.title_fr} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 placeholder:text-gray-600 transition-colors" />
                   <div className="flex gap-1 mt-1.5">
                     <LinguaButton action="correct-fr-title" label="Corriger" disabled={!titleFr} isProcessing={isProcessing} onClick={() => handleLingua('correct-fr', 'title')} />
-                    <LinguaButton action="translate-fr-title" label="EN→FR" disabled={!titleEn} isProcessing={isProcessing} onClick={() => handleLingua('translate-fr', 'title')} />
+                    {/* LE BOUTON EST MAINTENANT CONFIGURÉ POUR 'POUSSER' LE TEXTE FRANÇAIS VERS L'ANGLAIS */}
+                    <LinguaButton action="translate-en-title" label="FR→EN" disabled={!titleFr} isProcessing={isProcessing} onClick={() => handleLingua('translate-en', 'title')} />
                   </div>
                 </div>
                 <div>
@@ -1339,7 +1339,8 @@ export default function LibraryTab({ showMsg }: { showMsg: (type: 'success' | 'e
                   <input type="text" value={titleEn} onChange={e => setTitleEn(e.target.value)} placeholder={PLACEHOLDERS.title_en} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 placeholder:text-gray-600 transition-colors" />
                   <div className="flex gap-1 mt-1.5">
                     <LinguaButton action="correct-en-title" label="Correct" disabled={!titleEn} isProcessing={isProcessing} onClick={() => handleLingua('correct-en', 'title')} />
-                    <LinguaButton action="translate-en-title" label="FR→EN" disabled={!titleFr} isProcessing={isProcessing} onClick={() => handleLingua('translate-en', 'title')} />
+                    {/* LE BOUTON EST MAINTENANT CONFIGURÉ POUR 'POUSSER' LE TEXTE ANGLAIS VERS LE FRANÇAIS */}
+                    <LinguaButton action="translate-fr-title" label="EN→FR" disabled={!titleEn} isProcessing={isProcessing} onClick={() => handleLingua('translate-fr', 'title')} />
                   </div>
                 </div>
               </div>
@@ -1361,7 +1362,7 @@ export default function LibraryTab({ showMsg }: { showMsg: (type: 'success' | 'e
                   <textarea value={descFr} onChange={e => setDescFr(e.target.value)} rows={4} placeholder={PLACEHOLDERS.desc_fr} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 resize-none placeholder:text-gray-600 transition-colors" />
                   <div className="flex gap-1 mt-1.5">
                     <LinguaButton action="correct-fr-desc" label="Corriger" disabled={!descFr} isProcessing={isProcessing} onClick={() => handleLingua('correct-fr', 'desc')} />
-                    <LinguaButton action="translate-fr-desc" label="EN→FR" disabled={!descEn} isProcessing={isProcessing} onClick={() => handleLingua('translate-fr', 'desc')} />
+                    <LinguaButton action="translate-en-desc" label="FR→EN" disabled={!descFr} isProcessing={isProcessing} onClick={() => handleLingua('translate-en', 'desc')} />
                   </div>
                 </div>
                 <div>
@@ -1369,7 +1370,7 @@ export default function LibraryTab({ showMsg }: { showMsg: (type: 'success' | 'e
                   <textarea value={descEn} onChange={e => setDescEn(e.target.value)} rows={4} placeholder={PLACEHOLDERS.desc_en} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 resize-none placeholder:text-gray-600 transition-colors" />
                   <div className="flex gap-1 mt-1.5">
                     <LinguaButton action="correct-en-desc" label="Correct" disabled={!descEn} isProcessing={isProcessing} onClick={() => handleLingua('correct-en', 'desc')} />
-                    <LinguaButton action="translate-en-desc" label="FR→EN" disabled={!descFr} isProcessing={isProcessing} onClick={() => handleLingua('translate-en', 'desc')} />
+                    <LinguaButton action="translate-fr-desc" label="EN→FR" disabled={!descEn} isProcessing={isProcessing} onClick={() => handleLingua('translate-fr', 'desc')} />
                   </div>
                 </div>
               </div>
@@ -1543,7 +1544,6 @@ export default function LibraryTab({ showMsg }: { showMsg: (type: 'success' | 'e
         confirmText="Supprimer le livre"
       />
 
-      {/* Modal pour supprimer une SUGGESTION (demande) */}
       <DeleteModal
         isOpen={!!deleteSuggTarget}
         title="Supprimer cette demande"
