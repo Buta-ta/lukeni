@@ -1255,6 +1255,7 @@ export default function ArticleDetailPage() {
       if (!heroRef.current) return;
       const rect = heroRef.current.getBoundingClientRect();
       const progress = Math.max(0, Math.min(1, Math.abs(rect.top / rect.height)));
+      // Note: Le parallax (heroY) ne sera appliqué qu'à l'image floutée en arrière-plan, plus à l'image principale
       setHeroY(`${progress * 30}%`);
       setHeroOpacity(1 - Math.min(progress / 0.6, 1));
     };
@@ -1455,32 +1456,32 @@ export default function ArticleDetailPage() {
       </header>
 
       {article.image_url && (
-        <div ref={heroRef} className="relative w-full h-[50vh] md:h-[65vh] overflow-hidden bg-black flex justify-center items-center">
+        <div ref={heroRef} className="relative w-full h-[55vh] md:h-[70vh] overflow-hidden bg-black flex justify-center items-center">
           
-          {/* Fond flouté pour éviter le noir si l'image ne couvre pas tout */}
+          {/* ✅ ARRIÈRE-PLAN FLOUTÉ : Maintient le Parallax pour un bel effet de profondeur */}
           <img
             src={article.image_url}
             alt=""
-            className="absolute inset-0 w-full h-full object-cover opacity-40 blur-3xl scale-110"
+            className="absolute inset-0 w-full h-full object-cover opacity-50 blur-3xl scale-125 pointer-events-none"
             style={{ 
               transform: `translateY(${heroY})`,
             }}
           />
 
-          {/* Image principale bien cadrée, non coupée */}
-          <img
-            src={article.image_url}
-            alt={title}
-            loading="eager"
-            className="absolute inset-0 w-full h-full object-contain"
-            style={{ 
-              transform: `translateY(${heroY})`,
-            }}
-          />
+          {/* ✅ IMAGE PRINCIPALE FIXE : Pas de parallax, marges sécurisées (pt-20, pb-32) pour éviter que le texte ne la couvre */}
+          <div className="absolute inset-0 z-10 flex items-center justify-center px-4 md:px-12 pt-16 md:pt-20 pb-28 md:pb-40 pointer-events-none">
+            <img
+              src={article.image_url}
+              alt={title}
+              loading="eager"
+              className="w-full h-full object-contain pointer-events-auto"
+              style={{ filter: 'drop-shadow(0 15px 25px rgba(0,0,0,0.6))' }}
+            />
+          </div>
           
-          {/* Gradients pour le contraste */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#020111] via-[#020111]/30 to-transparent pointer-events-none" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#020111]/30 via-transparent to-[#020111]/30 pointer-events-none" />
+          {/* Gradients pour le contraste (z-10 pour être entre l'image et le texte) */}
+          <div className="absolute inset-0 z-10 bg-gradient-to-t from-[#020111] via-[#020111]/40 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 z-10 bg-gradient-to-r from-[#020111]/30 via-transparent to-[#020111]/30 pointer-events-none" />
 
           {/* Catégorie */}
           {article.categories && (
@@ -1533,9 +1534,9 @@ export default function ArticleDetailPage() {
           {/* Titre en bas */}
           <div
             style={{ opacity: heroOpacity }}
-            className="absolute bottom-0 left-0 right-0 z-10 w-full"
+            className="absolute bottom-0 left-0 right-0 z-20 w-full"
           >
-            {/* Fond gradient pour lisibilité */}
+            {/* Fond gradient lourd pour garantir que le texte soit lisible */}
             <div className="absolute inset-0 bg-gradient-to-t from-[#020111] via-[#020111]/80 to-transparent pointer-events-none" />
             
             {/* Contenu aligné avec la grille */}
