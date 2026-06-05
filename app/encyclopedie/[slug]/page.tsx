@@ -1485,16 +1485,19 @@ export default function ArticleDetailPage() {
       </header>
 
       {article.image_url && (
-  <div ref={heroRef} className="relative h-[50vh] md:h-[65vh] overflow-hidden">
+  <div ref={heroRef} className="relative h-[50vh] md:h-[65vh] overflow-hidden bg-black">
     <img
       src={article.image_url}
       alt={title}
       loading="eager"
-      className="absolute inset-0 w-full h-full object-cover"
-      style={{ transform: `translateY(${heroY}) scale(1.1)` }}
+      className="absolute inset-0 w-full h-full object-contain"
+      style={{ 
+        transform: `translateY(${heroY})`,
+        filter: 'brightness(0.85)'
+      }}
     />
-    <div className="absolute inset-0 bg-gradient-to-t from-[#020111] via-[#020111]/50 to-transparent" />
-    <div className="absolute inset-0 bg-gradient-to-r from-[#020111]/30 via-transparent to-[#020111]/30" />
+    <div className="absolute inset-0 bg-gradient-to-t from-[#020111] via-[#020111]/30 to-transparent" />
+    <div className="absolute inset-0 bg-gradient-to-r from-[#020111]/20 via-transparent to-[#020111]/20" />
 
     {/* Catégorie */}
     {article.categories && (
@@ -1502,14 +1505,14 @@ export default function ArticleDetailPage() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="absolute top-6 left-6 z-20"
+        className="absolute top-4 sm:top-6 left-4 sm:left-6 z-20"
       >
         <span
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-sm"
+          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-md shadow-lg"
           style={{
-            backgroundColor: `${catColor}25`,
+            backgroundColor: `${catColor}30`,
             color: catColor,
-            border: `1px solid ${catColor}40`,
+            border: `1px solid ${catColor}50`,
           }}
         >
           <Tag size={10} />
@@ -1523,16 +1526,16 @@ export default function ArticleDetailPage() {
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: 0.4 }}
-      className="absolute top-6 right-6 z-20 flex flex-col gap-2"
+      className="absolute top-4 sm:top-6 right-4 sm:right-6 z-20 flex flex-col gap-2"
     >
       <ShareButton title={title} lang={lang} />
 
       <button
         onClick={() => setEnrichmentMode(!enrichmentMode)}
-        className={`px-4 py-2 text-xs font-bold rounded-xl backdrop-blur-md transition-all ${
+        className={`px-3 sm:px-4 py-2 text-xs font-bold rounded-xl backdrop-blur-md transition-all shadow-lg ${
           enrichmentMode
             ? 'bg-[#D4AF37] text-black border border-[#D4AF37]'
-            : 'bg-white/[0.06] border border-white/10 text-gray-300 hover:border-[#D4AF37]/50'
+            : 'bg-white/[0.08] border border-white/20 text-gray-300 hover:border-[#D4AF37]/50'
         }`}
         title={lang === 'fr' ? 'Mode dictionnaire — cliquez sur les mots' : 'Dictionary mode — click on words'}
       >
@@ -1545,16 +1548,16 @@ export default function ArticleDetailPage() {
     {/* Titre en bas */}
     <div
       style={{ opacity: heroOpacity }}
-      className="absolute bottom-0 left-0 right-0 p-6 md:p-10 z-10"
+      className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 md:p-10 z-10 bg-gradient-to-t from-black/80 via-black/40 to-transparent"
     >
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center gap-2 mb-4">
-          <span className="flex items-center gap-1.5 bg-[#D4AF37] px-2.5 py-1 rounded-full">
+        <div className="flex items-center gap-2 mb-3 sm:mb-4">
+          <span className="flex items-center gap-1.5 bg-[#D4AF37] px-2.5 py-1 rounded-full shadow-lg">
             <CaurisIcon className="w-3 h-3 text-black" />
             <span className="text-[9px] font-bold text-black tracking-[0.2em] uppercase">Lukeni</span>
           </span>
         </div>
-        <h1 className="text-3xl md:text-5xl font-serif font-bold text-white leading-tight drop-shadow-[0_2px_20px_rgba(0,0,0,0.8)]">
+        <h1 className="text-2xl sm:text-3xl md:text-5xl font-serif font-bold text-white leading-tight drop-shadow-[0_4px_30px_rgba(0,0,0,0.9)]">
           {parseInline(title, catColor)}
         </h1>
       </div>
