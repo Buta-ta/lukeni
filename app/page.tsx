@@ -1149,70 +1149,84 @@ export default function LandingPage() {
         <FeaturedEventsBar events={featuredEvents} lang={lang} onEventClick={setActiveFeaturedEvent} />
       </div>
 
-      {/* ── POP-UP ÉTOILE ── */}
+      {/* ── POP-UP ÉTOILE (CORRIGÉ: Structure robuste, plus de blur, scroll séparé) ── */}
       <AnimatePresence>
         {activeStar && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
+            className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/80"
             onClick={() => setActiveStar(null)}>
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-              className="bg-[#1A1A1A]/95 border-2 rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(212,175,55,0.2)] w-full max-w-md"
+            
+            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
+              className="bg-[#1A1A1A] border-2 rounded-2xl overflow-hidden shadow-2xl w-full max-w-md flex flex-col max-h-[85vh]"
               style={{ borderColor: activeStar.card_color || '#D4AF37' }}
               onClick={e => e.stopPropagation()}>
-              <div className="relative h-44 md:h-52 bg-gradient-to-br from-gray-900 to-black">
+              
+              {/* IMAGE HEADER (Hauteur fixe qui ne déborde jamais sur le texte) */}
+              <div className="relative h-32 md:h-48 flex-shrink-0 bg-black">
                 <img src={activeStar.image_url || 'https://images.unsplash.com/photo-1501854140801-50d01674aa3e?q=80&w=600&h=400&auto=format&fit=crop'}
-                  alt={activeStar.name_fr} className="w-full h-full object-cover opacity-80" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                <motion.button whileHover={{ scale: 1.1, rotate: 90 }} onClick={() => setActiveStar(null)}
-                  className="absolute top-3 right-3 p-2 bg-black/60 backdrop-blur-sm rounded-full text-white hover:bg-black/80 transition-all">
+                  alt={activeStar.name_fr} className="w-full h-full object-cover opacity-75" />
+                
+                {/* Dégradé propre pour la transition vers le texte */}
+                <div className="absolute inset-0 bg-gradient-to-t from-[#1A1A1A] via-transparent to-transparent" />
+                
+                <button onClick={() => setActiveStar(null)}
+                  className="absolute top-3 right-3 p-2 bg-black/80 rounded-full text-white hover:bg-white hover:text-black transition-all z-10">
                   <X size={16} />
-                </motion.button>
+                </button>
+                
                 {activeStar.birth_year && (
-                  <div className="absolute bottom-3 left-4 flex items-center gap-2 text-white/80 text-xs">
+                  <div className="absolute bottom-3 left-4 flex items-center gap-2 text-white/90 text-xs font-bold z-10 drop-shadow-md">
                     <Clock size={12} />
                     <span>{activeStar.birth_year} - {activeStar.death_year || (lang === 'fr' ? 'Présent' : 'Present')}</span>
                   </div>
                 )}
               </div>
-              <div className="p-5 md:p-6">
+              
+              {/* TEXTE (Scrollable s'il est très long) */}
+              <div className="px-5 py-4 md:px-6 flex-1 overflow-y-auto">
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <h3 className="text-[#D4AF37] text-xl md:text-2xl font-serif mb-1">{lang === 'fr' ? activeStar.name_fr : activeStar.name_en}</h3>
+                    <h3 className="text-[#D4AF37] text-xl md:text-2xl font-serif mb-1 leading-tight">
+                      {lang === 'fr' ? activeStar.name_fr : activeStar.name_en}
+                    </h3>
                     {activeStar.domain && <span className="text-white/50 text-xs uppercase tracking-wider">{activeStar.domain}</span>}
                   </div>
-                  <motion.div animate={{ rotate: 360 }} transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}>
-                    <Zap size={18} className="text-[#D4AF37]" />
-                  </motion.div>
+                  <Zap size={18} className="text-[#D4AF37] flex-shrink-0 mt-1 opacity-50" />
                 </div>
-                <p className="text-gray-400 text-sm line-clamp-4 mb-5 font-light leading-relaxed">
+                <p className="text-gray-300 text-sm font-light leading-relaxed pb-2">
                   {lang === 'fr' ? activeStar.short_bio_fr : activeStar.short_bio_en}
                 </p>
-                <div className="flex flex-col gap-2.5">
-                  <Link href={`/encyclopedie?q=${encodeURIComponent(lang === 'fr' ? activeStar.name_fr : activeStar.name_en)}`}
-                    className="flex items-center justify-between w-full px-5 py-3 bg-gradient-to-r from-[#D4AF37] to-[#E5C158] text-black rounded-xl font-bold hover:shadow-lg hover:shadow-[#D4AF37]/30 transition-all group">
-                    <span className="flex items-center gap-2"><BookOpen size={13} />{lang === 'fr' ? 'Voir dans l\'encyclopédie' : 'View in encyclopedia'}</span>
-                    <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-                  </Link>
-                </div>
               </div>
+
+              {/* BOUTON (Fixé en bas, ne disparaît jamais) */}
+              <div className="px-5 pb-5 pt-2 md:px-6 md:pb-6 flex-shrink-0 bg-[#1A1A1A]">
+                <Link href={`/encyclopedie?q=${encodeURIComponent(lang === 'fr' ? activeStar.name_fr : activeStar.name_en)}`}
+                  className="flex items-center justify-between w-full px-5 py-3.5 bg-gradient-to-r from-[#D4AF37] to-[#E5C158] text-black rounded-xl font-bold hover:shadow-[0_0_15px_rgba(212,175,55,0.4)] transition-all group">
+                  <span className="flex items-center gap-2"><BookOpen size={14} />{lang === 'fr' ? 'Voir dans l\'encyclopédie' : 'View in encyclopedia'}</span>
+                  <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                </Link>
+              </div>
+
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── POP-UP ÉVÉNEMENT FEATURED ── */}
+      {/* ── POP-UP ÉVÉNEMENT FEATURED (Corrigé aussi pour la sécurité) ── */}
       <AnimatePresence>
         {activeFeaturedEvent && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md"
+            className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/80"
             onClick={() => setActiveFeaturedEvent(null)}>
+            
             <motion.div initial={{ opacity: 0, y: 30, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 30, scale: 0.95 }}
-              className="bg-[#0A0A1A]/95 border border-[#D4AF37]/20 w-full max-w-md rounded-3xl p-6 md:p-8 shadow-[0_0_80px_rgba(212,175,55,0.15)] relative backdrop-blur-xl"
+              className="bg-[#0A0A1A] border border-[#D4AF37]/30 w-full max-w-md rounded-3xl p-6 md:p-8 shadow-2xl relative flex flex-col max-h-[85vh] overflow-y-auto"
               onClick={e => e.stopPropagation()}>
-              <motion.button whileHover={{ scale: 1.1, rotate: 90 }} onClick={() => setActiveFeaturedEvent(null)}
-                className="absolute top-4 right-4 p-2 text-gray-500 hover:text-white transition-colors">
-                <X size={18} />
-              </motion.button>
+              <button onClick={() => setActiveFeaturedEvent(null)}
+                className="absolute top-4 right-4 p-2 text-gray-500 hover:text-white transition-colors bg-white/5 rounded-full">
+                <X size={16} />
+              </button>
+              
               <div className="flex items-center gap-4 mb-5">
                 <span className="text-4xl md:text-5xl">{activeFeaturedEvent.country}</span>
                 <div>
@@ -1225,15 +1239,17 @@ export default function LandingPage() {
               <h3 className="text-white text-xl md:text-2xl font-serif mb-4 leading-snug">
                 {lang === 'fr' ? activeFeaturedEvent.title_fr : activeFeaturedEvent.title_en}
               </h3>
-              <p className="text-gray-400 text-sm font-light leading-relaxed mb-6 md:mb-8">
+              <p className="text-gray-300 text-sm font-light leading-relaxed mb-6 md:mb-8">
                 {lang === 'fr' ? activeFeaturedEvent.description_fr : activeFeaturedEvent.description_en}
               </p>
+              
               <Link href={`/evenements/${activeFeaturedEvent.slug}`}
-                className="w-full flex items-center justify-center gap-3 px-6 py-3.5 bg-gradient-to-r from-[#D4AF37] to-[#E5C158] text-black rounded-xl font-bold hover:shadow-lg hover:shadow-[#D4AF37]/30 transition-all text-sm group">
+                className="w-full flex items-center justify-center gap-3 px-6 py-3.5 bg-gradient-to-r from-[#D4AF37] to-[#E5C158] text-black rounded-xl font-bold hover:shadow-[0_0_15px_rgba(212,175,55,0.4)] transition-all text-sm group mt-auto">
                 <span>{lang === 'fr' ? 'Lire l\'histoire complète' : 'Read full story'}</span>
                 <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
               </Link>
             </motion.div>
+
           </motion.div>
         )}
       </AnimatePresence>
