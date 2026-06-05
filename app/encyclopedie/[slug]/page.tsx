@@ -1028,7 +1028,7 @@ function getDomain(url: string): string {
 
 
 // ============================================================================
-// AUDIO PLAYER - VERSION CORRIGÉE
+// AUDIO PLAYER - VERSION COMPLÈTE CORRIGÉE
 // ============================================================================
 
 const AudioPlayer = memo(({ text, lang, catColor }: {
@@ -1041,21 +1041,24 @@ const AudioPlayer = memo(({ text, lang, catColor }: {
   const [progress, setProgress] = useState(0);
   const [isSupported, setIsSupported] = useState(false);
   const [voicesLoaded, setVoicesLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const totalCharsRef = useRef(0);
 
   // ✅ Nettoie TOUT le markdown du texte
   const cleanText = useMemo(() => {
+    if (!text) return '';
+    
     return text
       // Enlève les balises de formatage
-      .replace(/\*\*([^\*]+)\*\*/g, '$1') // gras
-      .replace(/\*([^\*]+)\*/g, '$1')     // italique
-      .replace(/~~([^~]+)~~/g, '$1')      // barré
-      .replace(/==([^=]+)==/g, '$1')      // surligné
-      .replace(/\{#[^}]+\}([^{]+)\{\/\}/g, '$1')  // couleur
-      .replace(/\{\+[^}]+\}([^{]+)\{\/\+\}/g, '$1') // taille
-      .replace(/`([^`]+)`/g, '$1')        // code
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // liens
+      .replace(/\*\*([^\*]+)\*\*/g, '$1')
+      .replace(/\*([^\*]+)\*/g, '$1')
+      .replace(/~~([^~]+)~~/g, '$1')
+      .replace(/==([^=]+)==/g, '$1')
+      .replace(/\{#[^}]+\}([^{]+)\{\/\}/g, '$1')
+      .replace(/\{\+[^}]+\}([^{]+)\{\/\+\}/g, '$1')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
       // Enlève les titres markdown
       .replace(/^#{1,6}\s+/gm, '')
       // Enlève les listes
@@ -1072,148 +1075,257 @@ const AudioPlayer = memo(({ text, lang, catColor }: {
   }, [text]);
 
   useEffect(() => {
-    setIsSupported(typeof window !== 'undefined' && 'speechSynthesis' in window);
+    const isBrowser = typeof window !== 'undefined';
+    const hasSupport = isBrowser && 'speechSynthesis' in window;
     
-    // ✅ Attend que les voix soient chargées
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      const loadVoices = () => {
-        const voices = window.speechSynthesis.getVoices();
-        if (voices.length > 0) {
-          setVoicesLoaded(true);
-        }
-      };
+    setIsSupported(hasSupport);
 
-      // Charge immédiatement si disponible
-      loadVoices();
-      
-      // Sinon attend l'événement
-      window.speechSynthesis.onvoiceschanged = loadVoices;
+    if (!hasSupport) {
+      console.warn('❌ Speech Synthesis non supporté par le navigateur');
+      setError('Speech Synthesis non supporté');
+      return;
     }
 
+    // Charge les voix
+    const loadVoices = () => {
+      try {
+        const voices = window.speechSynthesis.getVoices();
+        console.log(`🎤 ${voices.length} voix disponibles`);
+        
+        if (voices.length > 0) {
+          setVoicesLoaded(true);
+          setError(null);
+        }
+      } catch (err) {
+        console.error('Erreur lors du chargement des voix:', err);
+      }
+    };
+
+    loadVoices();
+    
+    // Écoute l'événement de chargement des voix
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+
     return () => {
-      if (typeof window !== 'undefined') {
+      try {
         window.speechSynthesis?.cancel();
+      } catch (err) {
+        console.error('Erreur cancel:', err);
       }
     };
   }, []);
 
   // ✅ Reset quand la langue change
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window === 'undefined') return;
+    
+    try {
       window.speechSynthesis?.cancel();
+    } catch (err) {
+      console.error('Erreur cancel:', err);
     }
+    
     setIsPlaying(false);
     setIsPaused(false);
     setProgress(0);
     utteranceRef.current = null;
   }, [lang]);
 
-  // ✅ Fonction améliorée pour obtenir la meilleure voix
+  // ✅ Fonction pour obtenir la meilleure voix
   const getVoice = useCallback((): SpeechSynthesisVoice | null => {
-    const voices = window.speechSynthesis.getVoices();
-    const langCode = lang === 'fr' ? 'fr' : 'en';
-    
-    // Essaie de trouver une voix premium dans l'ordre de préférence
-    const priorities = [
-      (v: SpeechSynthesisVoice) => v.lang.startsWith(langCode) && v.name.includes('Google'),
-      (v: SpeechSynthesisVoice) => v.lang.startsWith(langCode) && v.name.includes('Premium'),
-      (v: SpeechSynthesisVoice) => v.lang.startsWith(langCode) && v.name.includes('Enhanced'),
-      (v: SpeechSynthesisVoice) => v.lang.startsWith(langCode) && v.localService === false,
-      (v: SpeechSynthesisVoice) => v.lang.startsWith(langCode),
-    ];
+    try {
+      const voices = window.speechSynthesis.getVoices();
+      
+      if (voices.length === 0) {
+        console.warn('❌ Aucune voix disponible');
+        return null;
+      }
 
-    for (const priority of priorities) {
-      const voice = voices.find(priority);
-      if (voice) return voice;
+      const langCode = lang === 'fr' ? 'fr' : 'en';
+      
+      console.log(`🔍 Cherchant voix pour ${langCode}`);
+      console.log('Voix disponibles:', voices.map(v => `${v.name} (${v.lang})`).join(', '));
+
+      // Essaie de trouver une voix premium dans l'ordre de préférence
+      const priorities = [
+        (v: SpeechSynthesisVoice) => v.lang.startsWith(langCode) && v.name.includes('Google'),
+        (v: SpeechSynthesisVoice) => v.lang.startsWith(langCode) && v.name.includes('Premium'),
+        (v: SpeechSynthesisVoice) => v.lang.startsWith(langCode) && !v.localService,
+        (v: SpeechSynthesisVoice) => v.lang.startsWith(langCode),
+      ];
+
+      for (const priority of priorities) {
+        const voice = voices.find(priority);
+        if (voice) {
+          console.log(`✅ Voix sélectionnée: ${voice.name} (${voice.lang})`);
+          return voice;
+        }
+      }
+
+      // Fallback : première voix
+      const fallback = voices[0];
+      console.log(`⚠️ Fallback: ${fallback.name} (${fallback.lang})`);
+      return fallback;
+
+    } catch (err) {
+      console.error('❌ Erreur getVoice:', err);
+      return null;
     }
-
-    return null;
   }, [lang]);
 
   const handlePlay = useCallback(() => {
-    if (!isSupported || !voicesLoaded) return;
-
-    // ✅ Si en pause, reprendre
-    if (isPaused) {
-      window.speechSynthesis.resume();
-      setIsPlaying(true);
-      setIsPaused(false);
+    if (!isSupported) {
+      setError('Speech Synthesis non supporté');
+      console.error('❌ Speech Synthesis non supporté');
       return;
     }
 
-    // ✅ Arrête toute lecture en cours
-    window.speechSynthesis.cancel();
-    
-    totalCharsRef.current = cleanText.length;
-    setProgress(0);
-
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    
-    // ✅ Configuration optimale
-    utterance.lang = lang === 'fr' ? 'fr-FR' : 'en-US';
-    utterance.rate = 0.95;  // Légèrement plus lent pour meilleure compréhension
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-
-    // ✅ Applique la voix AVANT de parler
-    const voice = getVoice();
-    if (voice) {
-      utterance.voice = voice;
-      console.log('🎤 Voix sélectionnée:', voice.name, voice.lang);
-    } else {
-      console.warn('⚠️ Aucune voix trouvée pour', lang);
+    if (!voicesLoaded) {
+      setError('Voix en cours de chargement...');
+      console.warn('⚠️ Voix pas encore chargées');
+      return;
     }
 
-    // ✅ Gestion de la progression
-    utterance.onboundary = (e) => {
-      if (e.name === 'word' && totalCharsRef.current > 0) {
-        const newProgress = Math.min((e.charIndex / totalCharsRef.current) * 100, 100);
-        setProgress(newProgress);
+    if (!cleanText || cleanText.trim().length === 0) {
+      setError('Texte vide');
+      console.error('❌ Texte vide');
+      return;
+    }
+
+    try {
+      // ✅ Si en pause, reprendre
+      if (isPaused) {
+        console.log('▶️ Reprise de la lecture');
+        window.speechSynthesis.resume();
+        setIsPlaying(true);
+        setIsPaused(false);
+        return;
       }
-    };
 
-    // ✅ Fin de lecture
-    utterance.onend = () => {
-      setIsPlaying(false);
-      setIsPaused(false);
-      setProgress(100);
-      setTimeout(() => setProgress(0), 2000);
-    };
-
-    // ✅ Gestion des erreurs
-    utterance.onerror = (e) => {
-      console.error('❌ Erreur TTS:', e.error);
-      setIsPlaying(false);
-      setIsPaused(false);
+      // ✅ Arrête toute lecture en cours
+      window.speechSynthesis.cancel();
+      
+      console.log(`🎤 Démarrage de la lecture (${cleanText.length} chars, ${lang})`);
+      
+      totalCharsRef.current = cleanText.length;
       setProgress(0);
-    };
+      setError(null);
 
-    utteranceRef.current = utterance;
-    
-    // ✅ Lance la lecture
-    window.speechSynthesis.speak(utterance);
-    setIsPlaying(true);
-    setIsPaused(false);
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      
+      // ✅ Configuration optimale
+      utterance.lang = lang === 'fr' ? 'fr-FR' : 'en-US';
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+
+      // ✅ Applique la voix AVANT de parler
+      const voice = getVoice();
+      if (voice) {
+        utterance.voice = voice;
+      } else {
+        console.warn('⚠️ Pas de voix trouvée, utilisation de la voix par défaut');
+      }
+
+      // ✅ Gestion des événements
+      utterance.onstart = () => {
+        console.log('🔊 Lecture démarrée');
+        setIsPlaying(true);
+        setIsPaused(false);
+      };
+
+      utterance.onboundary = (e) => {
+        if (totalCharsRef.current > 0) {
+          const newProgress = Math.min((e.charIndex / totalCharsRef.current) * 100, 100);
+          setProgress(newProgress);
+        }
+      };
+
+      utterance.onend = () => {
+        console.log('✅ Lecture terminée');
+        setIsPlaying(false);
+        setIsPaused(false);
+        setProgress(100);
+        setTimeout(() => setProgress(0), 2000);
+      };
+
+      utterance.onpause = () => {
+        console.log('⏸️ Lecture mise en pause');
+        setIsPlaying(false);
+        setIsPaused(true);
+      };
+
+      utterance.onresume = () => {
+        console.log('▶️ Lecture reprise');
+        setIsPlaying(true);
+        setIsPaused(false);
+      };
+
+      utterance.onerror = (e) => {
+        console.error('❌ Erreur TTS:', e.error);
+        setError(`Erreur: ${e.error}`);
+        setIsPlaying(false);
+        setIsPaused(false);
+        setProgress(0);
+      };
+
+      utteranceRef.current = utterance;
+      
+      // ✅ Lance la lecture
+      window.speechSynthesis.speak(utterance);
+
+    } catch (err: any) {
+      console.error('❌ Erreur handlePlay:', err);
+      setError(err.message);
+      setIsPlaying(false);
+      setIsPaused(false);
+    }
 
   }, [isSupported, voicesLoaded, isPaused, cleanText, lang, getVoice]);
 
   const handlePause = useCallback(() => {
     if (!isSupported) return;
-    window.speechSynthesis.pause();
-    setIsPlaying(false);
-    setIsPaused(true);
+    try {
+      console.log('⏸️ Pause');
+      window.speechSynthesis.pause();
+      setIsPlaying(false);
+      setIsPaused(true);
+    } catch (err) {
+      console.error('❌ Erreur pause:', err);
+    }
   }, [isSupported]);
 
   const handleStop = useCallback(() => {
     if (!isSupported) return;
-    window.speechSynthesis.cancel();
-    setIsPlaying(false);
-    setIsPaused(false);
-    setProgress(0);
-    utteranceRef.current = null;
+    try {
+      console.log('⛔ Stop');
+      window.speechSynthesis.cancel();
+      setIsPlaying(false);
+      setIsPaused(false);
+      setProgress(0);
+      utteranceRef.current = null;
+    } catch (err) {
+      console.error('❌ Erreur stop:', err);
+    }
   }, [isSupported]);
 
-  if (!isSupported) return null;
+  if (!isSupported) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: -6 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center gap-3 px-4 py-2.5 rounded-2xl border"
+        style={{
+          backgroundColor: `${catColor}08`,
+          borderColor: `${catColor}25`,
+        }}
+      >
+        <div className="text-xs text-gray-500">
+          🔇 {lang === 'fr' ? 'Lecture vocale non supportée' : 'Speech not supported'}
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
@@ -1230,10 +1342,10 @@ const AudioPlayer = memo(({ text, lang, catColor }: {
         whileHover={{ scale: 1.12 }}
         whileTap={{ scale: 0.9 }}
         onClick={isPlaying ? handlePause : handlePlay}
-        disabled={!voicesLoaded}
+        disabled={!voicesLoaded || !cleanText}
         title={
           !voicesLoaded
-            ? 'Chargement...'
+            ? 'Chargement des voix...'
             : isPlaying
               ? (lang === 'fr' ? 'Pause' : 'Pause')
               : isPaused
@@ -1275,7 +1387,7 @@ const AudioPlayer = memo(({ text, lang, catColor }: {
                 : (lang === 'fr' ? 'Écouter l\'article' : 'Listen to article')}
         </span>
         <span className="text-[9px] text-gray-600 mt-0.5">
-          {lang === 'fr' ? 'Français' : 'English'} · TTS
+          {error ? error : `${lang === 'fr' ? 'Français' : 'English'} · TTS`}
         </span>
       </div>
 
@@ -1651,8 +1763,8 @@ export default function ArticleDetailPage() {
   </div>
 )}
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-10">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-10">
+      <div className="relative z-10 mx-auto px-4 sm:px-6 py-10" style={{ maxWidth: '1400px' }}>
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8 lg:gap-12">
 
           <div>
 
@@ -1979,7 +2091,7 @@ export default function ArticleDetailPage() {
           </div>
 
           {/* ── Sidebar ── */}
-          <div className="hidden lg:block">
+          <aside className="hidden lg:flex lg:flex-col lg:w-[300px]">
             <TableOfContents items={tocItems} lang={lang} catColor={catColor} />
 
             <motion.div
@@ -2084,7 +2196,7 @@ export default function ArticleDetailPage() {
                 ))}
               </div>
             </motion.div>
-          </div>
+          </aside>
         </div>
       </div>
 
