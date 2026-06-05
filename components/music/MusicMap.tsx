@@ -7,6 +7,15 @@ import { useEffect, useRef, useCallback, useState, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, Navigation, Info, X } from "lucide-react";
 
+
+
+// Ajoutez cette fonction utilitaire au début du fichier
+function isMobileDevice(): boolean {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent
+  ) || window.innerWidth < 768;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface CountryMusicData {
@@ -627,62 +636,74 @@ function RelationTooltip({
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4"
       onClick={onClose}
+      style={{ touchAction: 'none' }}
     >
       <motion.div
+        initial={{ y: 100, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 100, opacity: 0 }}
+        transition={{ type: "spring", damping: 25, stiffness: 300 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-[#020111] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl"
+        className="bg-[#020111] border border-white/10 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md shadow-2xl max-h-[80vh] overflow-y-auto"
       >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-white font-bold text-lg flex items-center gap-2">
-            <span className="text-2xl">{icons[relationType]}</span>
-            {labels[relationType][lang]}
-          </h3>
-          <button
-            onClick={onClose}
-            className="p-1 text-gray-500 hover:text-white transition-colors"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="space-y-4 mb-4">
-          <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-            <div className="text-center flex-1">
-              <p className="text-white text-sm font-semibold mb-1">
-                {relation.origin_name}
-              </p>
-              <p className="text-[9px] text-gray-600">
-                {lang === "fr" ? "Origine" : "Origin"}
-              </p>
-            </div>
-            <span className="text-xl mx-2">→</span>
-            <div className="text-center flex-1">
-              <p className="text-white text-sm font-semibold mb-1">
-                {relation.derived_name}
-              </p>
-              <p className="text-[9px] text-gray-600">
-                {lang === "fr" ? "Dérivé" : "Derived"}
-              </p>
-            </div>
+        {/* Handle mobile */}
+        <div className="sm:hidden w-12 h-1 bg-white/20 rounded-full mx-auto my-3" />
+        
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-white font-bold text-lg flex items-center gap-2">
+              <span className="text-2xl">{icons[relationType]}</span>
+              {labels[relationType][lang]}
+            </h3>
+            <button
+              onClick={onClose}
+              className="p-2 -m-2 text-gray-500 hover:text-white transition-colors touch-manipulation"
+              style={{ minWidth: 44, minHeight: 44 }}
+            >
+              <X size={20} />
+            </button>
           </div>
 
-          {description && (
-            <div className="bg-white/[0.03] rounded-lg p-3 border border-white/5">
-              <p className="text-white text-sm leading-relaxed">
-                {description}
-              </p>
+          <div className="space-y-4 mb-4">
+            <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
+              <div className="text-center flex-1">
+                <p className="text-white text-sm sm:text-base font-semibold mb-1">
+                  {relation.origin_name}
+                </p>
+                <p className="text-[9px] sm:text-xs text-gray-500 uppercase tracking-wider">
+                  {lang === "fr" ? "Origine" : "Origin"}
+                </p>
+              </div>
+              <span className="text-2xl mx-3">→</span>
+              <div className="text-center flex-1">
+                <p className="text-white text-sm sm:text-base font-semibold mb-1">
+                  {relation.derived_name}
+                </p>
+                <p className="text-[9px] sm:text-xs text-gray-500 uppercase tracking-wider">
+                  {lang === "fr" ? "Dérivé" : "Derived"}
+                </p>
+              </div>
             </div>
-          )}
-        </div>
 
-        <button
-          onClick={onClose}
-          className="w-full py-2 bg-[#D4AF37] text-black rounded-lg font-bold text-sm hover:bg-[#E5C158] transition-colors"
-        >
-          {lang === "fr" ? "Fermer" : "Close"}
-        </button>
+            {description && (
+              <div className="bg-white/[0.03] rounded-lg p-4 border border-white/5">
+                <p className="text-white text-sm sm:text-base leading-relaxed">
+                  {description}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={onClose}
+            className="w-full py-3 bg-[#D4AF37] text-black rounded-lg font-bold text-sm hover:bg-[#E5C158] transition-colors touch-manipulation"
+            style={{ minHeight: 44 }}
+          >
+            {lang === "fr" ? "Fermer" : "Close"}
+          </button>
+        </div>
       </motion.div>
     </motion.div>
   );
@@ -1018,7 +1039,9 @@ function addCustomSourcesAndLayers(map: maplibregl.Map) {
   }
 
   // ── Relations lignes ──
+  // ── Relations lignes ──
   if (!map.getLayer(LYR_RELATIONS)) {
+    const isMobile = isMobileDevice();
     map.addLayer({
       id: LYR_RELATIONS,
       type: "line",
@@ -1035,13 +1058,53 @@ function addCustomSourcesAndLayers(map: maplibregl.Map) {
         ] as maplibregl.ExpressionSpecification,
         "line-width": [
           "interpolate", ["linear"], ["zoom"],
-          1, 0.8, 5, 1.5, 10, 3,
+          1, isMobile ? 2 : 0.8,
+          5, isMobile ? 3 : 1.5,
+          10, isMobile ? 5 : 3,
         ] as maplibregl.ExpressionSpecification,
-        "line-opacity": 0.5,
+        "line-opacity": isMobile ? 0.7 : 0.5,
         "line-dasharray": [2, 2],
       },
     });
   }
+
+  // ── Relations hit area (zone cliquable invisible plus large) ──
+  if (!map.getLayer(`${LYR_RELATIONS}-hitarea`)) {
+    map.addLayer({
+      id: `${LYR_RELATIONS}-hitarea`,
+      type: "line",
+      source: SRC_RELATIONS,
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": "transparent",
+        "line-width": [
+          "interpolate", ["linear"], ["zoom"],
+          1, 15, 5, 25, 10, 40,
+        ] as maplibregl.ExpressionSpecification,
+        "line-opacity": 0,
+      },
+    });
+  }
+
+  // ── Cluster circles ──
+
+  
+if (!map.getLayer(`${LYR_RELATIONS}-hitarea`)) {
+  map.addLayer({
+    id: `${LYR_RELATIONS}-hitarea`,
+    type: "line",
+    source: SRC_RELATIONS,
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: {
+      "line-color": "transparent",
+      "line-width": [
+        "interpolate", ["linear"], ["zoom"],
+        1, 15, 5, 20, 10, 30, // Beaucoup plus large
+      ] as maplibregl.ExpressionSpecification,
+      "line-opacity": 0,
+    },
+  });
+}
 
   // ── Cluster circles ──
   if (!map.getLayer(LYR_CLUSTER_CIRCLE)) {
@@ -1404,68 +1467,95 @@ export default function MusicMap({
         }
       });
 
-      // ── Relations popup ──
-      map.on("mouseenter", LYR_RELATIONS, () => {
-        map.getCanvas().style.cursor = "pointer";
-      });
-      map.on("mouseleave", LYR_RELATIONS, () => {
-        map.getCanvas().style.cursor = "";
-        popupRef.current?.remove();
-        popupRef.current = null;
-      });
+          // ── Relations events ──
+      const relationLayers = [LYR_RELATIONS, `${LYR_RELATIONS}-hitarea`];
+      const isMobile = isMobileDevice();
 
-      map.on("mousemove", LYR_RELATIONS, (e) => {
-        const f = e.features?.[0];
-        if (!f) return;
+      relationLayers.forEach(layerId => {
+        if (!isMobile) {
+          // Desktop: tooltip au survol
+          map.on("mouseenter", layerId, () => {
+            map.getCanvas().style.cursor = "pointer";
+          });
+          
+          map.on("mouseleave", layerId, () => {
+            map.getCanvas().style.cursor = "";
+            popupRef.current?.remove();
+            popupRef.current = null;
+          });
 
-        const originName = f.properties?.origin_name as string;
-        const derivedName = f.properties?.derived_name as string;
-        const relationType = f.properties?.relation_type as string;
+          map.on("mousemove", layerId, (e) => {
+            const f = e.features?.[0];
+            if (!f || layerId.includes('hitarea')) return;
 
-        popupRef.current?.remove();
-        popupRef.current = new maplibregl.Popup({
-          closeButton: false,
-          closeOnClick: false,
-          className: "lukeni-popup",
-          offset: [0, 10] as [number, number],
-          maxWidth: "280px",
-        })
-          .setLngLat(e.lngLat)
-          .setHTML(`
-            <div style="background:rgba(2,1,17,.95);border:1px solid rgba(212,175,55,.25);
-              border-radius:14px;padding:12px 16px;backdrop-filter:blur(12px);
-              box-shadow:0 8px 32px rgba(0,0,0,.4),0 0 0 1px rgba(212,175,55,.1);">
-              <p style="color:#D4AF37;font-size:10px;font-weight:800;text-transform:uppercase;
-                letter-spacing:.18em;margin:0 0 6px;">Connexion</p>
-              <p style="color:#fff;font-size:13px;font-weight:700;margin:8px 0;">
-                ${originName} 
-                <span style="color:#D4AF37;margin:0 4px;">→</span>
-                ${derivedName}
-              </p>
-              <p style="color:rgba(255,255,255,.5);font-size:11px;margin:6px 0 0;">
-                ${relationType === 'influence' ? '💡 Influence' : 
-                  relationType === 'derived_from' ? '🔄 Dérivé de' : 
-                  relationType === 'fusion' ? '🔀 Fusion' : 
-                  relationType === 'migration' ? '🚀 Migration' : relationType}
-              </p>
-            </div>
-          `)
-          .addTo(map);
-      });
+            const originName = f.properties?.origin_name as string;
+            const derivedName = f.properties?.derived_name as string;
+            const relationType = f.properties?.relation_type as string;
 
-      // Clic sur relations
-      map.on("click", LYR_RELATIONS, (e) => {
-        const f = e.features?.[0];
-        if (!f) return;
-        
-        setSelectedRelation({
-          origin_name: f.properties?.origin_name,
-          derived_name: f.properties?.derived_name,
-          relation_type: f.properties?.relation_type,
-          description_fr: f.properties?.description_fr,
-          description_en: f.properties?.description_en,
+            popupRef.current?.remove();
+            popupRef.current = new maplibregl.Popup({
+              closeButton: false,
+              closeOnClick: false,
+              className: "lukeni-popup",
+              offset: [0, 10] as [number, number],
+              maxWidth: "280px",
+            })
+              .setLngLat(e.lngLat)
+              .setHTML(`
+                <div style="background:rgba(2,1,17,.95);border:1px solid rgba(212,175,55,.25);
+                  border-radius:14px;padding:12px 16px;backdrop-filter:blur(12px);
+                  box-shadow:0 8px 32px rgba(0,0,0,.4),0 0 0 1px rgba(212,175,55,.1);">
+                  <p style="color:#D4AF37;font-size:10px;font-weight:800;text-transform:uppercase;
+                    letter-spacing:.18em;margin:0 0 6px;">Connexion</p>
+                  <p style="color:#fff;font-size:13px;font-weight:700;margin:8px 0;">
+                    ${originName} 
+                    <span style="color:#D4AF37;margin:0 4px;">→</span>
+                    ${derivedName}
+                  </p>
+                  <p style="color:rgba(255,255,255,.5);font-size:11px;margin:6px 0 0;">
+                    ${relationType === 'influence' ? '💡 Influence' : 
+                      relationType === 'derived_from' ? '🔄 Dérivé de' : 
+                      relationType === 'fusion' ? '🔀 Fusion' : 
+                      relationType === 'migration' ? '🚀 Migration' : relationType}
+                  </p>
+                </div>
+              `)
+              .addTo(map);
+          });
+        }
+
+        // Clic (mobile et desktop) - Ouvre la modal
+        map.on("click", layerId, (e) => {
+          e.preventDefault();
+          const f = e.features?.[0];
+          if (!f) return;
+          
+          // Fermer le popup si ouvert
+          popupRef.current?.remove();
+          popupRef.current = null;
+          
+          setSelectedRelation({
+            origin_name: f.properties?.origin_name,
+            derived_name: f.properties?.derived_name,
+            relation_type: f.properties?.relation_type,
+            description_fr: f.properties?.description_fr,
+            description_en: f.properties?.description_en,
+          });
         });
+
+        // Touch events pour mobile
+        if (isMobile) {
+          map.on("touchstart", layerId, () => {
+            map.getCanvas().style.cursor = "pointer";
+          });
+          
+          map.on("touchend", layerId, () => {
+            map.getCanvas().style.cursor = "";
+          });
+        }
       });
+
+      // Données initiales
 
       // Données initiales
       getGeoJSONSource(map, SRC_MARKERS)?.setData(

@@ -27,7 +27,11 @@ interface Recipient {
   status: 'sent' | 'failed' | 'expired';
   error_message?: string;
   sent_at: string;
+<<<<<<< HEAD
+  user_name?: string; // ✅ NOUVEAU
+=======
   user_name?: string;
+>>>>>>> ba4dbc9fc29bf439e9ddbffa19f8000c9059d96d
 }
 
 interface PushSubscriber {
@@ -36,7 +40,11 @@ interface PushSubscriber {
   created_at: string;
   is_active: boolean;
   user_id?: string;
+<<<<<<< HEAD
+  user_name?: string; // ✅ NOUVEAU
+=======
   user_name?: string;
+>>>>>>> ba4dbc9fc29bf439e9ddbffa19f8000c9059d96d
 }
 
 interface EmailLog {
@@ -55,9 +63,13 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
   const [pushTitle, setPushTitle] = useState('');
   const [pushBody, setPushBody] = useState('');
   const [pushUrl, setPushUrl] = useState('https://lukeni.app/encyclopedie');
+<<<<<<< HEAD
+  const [pushIcon, setPushIcon] = useState('https://lukeni.app/icons/icon-192x192.png'); // ✅ NOUVEAU
+=======
   const [pushIcon, setPushIcon] = useState('https://lukeni.app/icons/icon-192x192.png');
   const [enableSound, setEnableSound] = useState(true);
   const [enableVibration, setEnableVibration] = useState(true);
+>>>>>>> ba4dbc9fc29bf439e9ddbffa19f8000c9059d96d
   const [isSending, setIsSending] = useState(false);
   const [activeSubCount, setActiveSubCount] = useState(0);
 
@@ -75,6 +87,11 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
   const [subscribers, setSubscribers] = useState<PushSubscriber[]>([]);
   const [subsLoading, setSubsLoading] = useState(false);
 
+<<<<<<< HEAD
+  // ── Search ────────────────────────────────────────────────────────────────
+  const [searchQuery, setSearchQuery] = useState('');
+
+=======
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
   const [emailLogsLoading, setEmailLogsLoading] = useState(false);
 
@@ -83,6 +100,7 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
+>>>>>>> ba4dbc9fc29bf439e9ddbffa19f8000c9059d96d
   useEffect(() => {
     supabase.from('push_subscriptions').select('id', { count: 'exact', head: true }).eq('is_active', true)
       .then(({ count }) => setActiveSubCount(count || 0));
@@ -107,13 +125,33 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
     setRecipientsLoading(true);
     const { data, error } = await supabase
       .from('notification_recipients')
-      .select('*')
+      .select(`
+        *,
+        profiles:user_id (
+          first_name,
+          last_name
+        )
+      `)
       .eq('notification_log_id', logId)
       .order('sent_at', { ascending: false });
+<<<<<<< HEAD
+
+    if (data) {
+      // ✅ Enrichir avec le nom complet
+      const enriched = data.map((r: any) => ({
+        ...r,
+        user_name: r.profiles 
+          ? `${r.profiles.first_name || ''} ${r.profiles.last_name || ''}`.trim() 
+          : 'Utilisateur inconnu'
+      }));
+      setRecipients(enriched);
+    }
+=======
 
     if (data) {
       setRecipients(data as any);
     }
+>>>>>>> ba4dbc9fc29bf439e9ddbffa19f8000c9059d96d
     setRecipientsLoading(false);
   }
 
@@ -121,15 +159,42 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
     setSubsLoading(true);
     const { data, error } = await supabase
       .from('push_subscriptions')
+<<<<<<< HEAD
+      .select(`
+        *,
+        profiles:user_id (
+          first_name,
+          last_name
+        )
+      `)
+=======
       .select('id, endpoint, created_at, is_active, user_id, user_name')
+>>>>>>> ba4dbc9fc29bf439e9ddbffa19f8000c9059d96d
       .order('created_at', { ascending: false });
+<<<<<<< HEAD
+
+    if (data) {
+      // ✅ Enrichir avec le nom complet
+      const enriched = data.map((s: any) => ({
+        ...s,
+        user_name: s.profiles 
+          ? `${s.profiles.first_name || ''} ${s.profiles.last_name || ''}`.trim() 
+          : null
+      }));
+      setSubscribers(enriched as PushSubscriber[]);
+    }
+=======
 
     if (data) {
       setSubscribers(data as PushSubscriber[]);
     }
+>>>>>>> ba4dbc9fc29bf439e9ddbffa19f8000c9059d96d
     setSubsLoading(false);
   }
 
+<<<<<<< HEAD
+  // ── ENVOYER PUSH MANUEL ────────────────────────────────────────────────────
+=======
   async function fetchEmailLogs() {
     setEmailLogsLoading(true);
     const { data, error } = await supabase
@@ -278,6 +343,7 @@ async function deleteAllEmailLogs() {
   }
 }
 
+>>>>>>> ba4dbc9fc29bf439e9ddbffa19f8000c9059d96d
   async function sendManualPush() {
     if (!pushTitle.trim() || !pushBody.trim()) {
       showMsg('error', 'Titre et contenu requis');
@@ -297,11 +363,17 @@ async function deleteAllEmailLogs() {
           body: JSON.stringify({
             type: 'manual_push',
             title: pushTitle,
+<<<<<<< HEAD
+            body: pushBody,
+            icon: pushIcon, // ✅ NOUVEAU
+            url: pushUrl,
+=======
             body: pushBody,
             icon: pushIcon,
             url: pushUrl,
             sound: enableSound,
             vibrate: enableVibration,
+>>>>>>> ba4dbc9fc29bf439e9ddbffa19f8000c9059d96d
           }),
         }
       );
@@ -313,9 +385,13 @@ async function deleteAllEmailLogs() {
         setPushTitle('');
         setPushBody('');
         setPushUrl('https://lukeni.app/encyclopedie');
+<<<<<<< HEAD
+        setPushIcon('https://lukeni.app/icons/icon-192x192.png');
+=======
         setPushIcon('https://lukeni.app/icons/icon-192x192.png');
         setEnableSound(true);
         setEnableVibration(true);
+>>>>>>> ba4dbc9fc29bf439e9ddbffa19f8000c9059d96d
         setTimeout(() => fetchLogs(), 1000);
       } else {
         showMsg('error', result.message || result.error || 'Erreur lors de l\'envoi');
@@ -374,11 +450,31 @@ async function deleteAllEmailLogs() {
 
   const filteredRecipients = recipients.filter(r =>
     filterStatus === 'all' || r.status === filterStatus
+<<<<<<< HEAD
+  ).filter(r => {
+    if (!searchQuery) return true;
+    return (
+      r.user_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.endpoint.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
+=======
   ).filter(r => {
     if (!searchQuery) return true;
     return r.endpoint.toLowerCase().includes(searchQuery.toLowerCase());
   });
+>>>>>>> ba4dbc9fc29bf439e9ddbffa19f8000c9059d96d
 
+<<<<<<< HEAD
+  const filteredSubscribers = subscribers.filter(s => {
+    if (!searchQuery) return true;
+    return (
+      s.user_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.endpoint.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
+
+=======
   const filteredSubscribers = subscribers.filter(s => {
     if (!searchQuery) return true;
     return (
@@ -395,6 +491,7 @@ async function deleteAllEmailLogs() {
     );
   });
 
+>>>>>>> ba4dbc9fc29bf439e9ddbffa19f8000c9059d96d
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -482,10 +579,43 @@ async function deleteAllEmailLogs() {
             <div>
               <label className="block text-xs text-gray-400 mb-1 font-mono">🎨 Icône (URL)</label>
               <input
+<<<<<<< HEAD
+                type="url" value={pushIcon} onChange={(e) => setPushIcon(e.target.value)}
+                placeholder="https://lukeni.app/icons/icon-192x192.png"
+                className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-blue-500/50"
+              />
+              <div className="flex gap-2 mt-2">
+                {[
+                  { url: 'https://lukeni.app/icons/icon-192x192.png', label: '📱 Défaut' },
+                  { url: 'https://lukeni.app/icons/bell.png', label: '🔔 Cloche' },
+                  { url: 'https://lukeni.app/icons/calendar.png', label: '📅 Calendrier' },
+                  { url: 'https://lukeni.app/icons/newspaper.png', label: '📰 Journal' },
+                ].map(preset => (
+                  <button
+                    key={preset.url}
+                    onClick={() => setPushIcon(preset.url)}
+                    className={`text-xs px-3 py-1 rounded-lg transition-all ${
+                      pushIcon === preset.url 
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-400 mb-1 font-mono">🔗 URL de destination</label>
+              <input
+                type="url" value={pushUrl} onChange={(e) => setPushUrl(e.target.value)}
+=======
                 type="url" 
                 value={pushIcon} 
                 onChange={(e) => setPushIcon(e.target.value)}
                 placeholder="https://lukeni.app/icons/icon-192x192.png"
+>>>>>>> ba4dbc9fc29bf439e9ddbffa19f8000c9059d96d
                 className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-blue-500/50"
               />
               <div className="flex gap-2 mt-2 flex-wrap">
@@ -602,7 +732,13 @@ async function deleteAllEmailLogs() {
         </div>
       )}
 
+<<<<<<< HEAD
+      {/* ════════════════════════════════════════════════════════════ */}
       {/* SUBSCRIBERS TAB */}
+      {/* ════════════════════════════════════════════════════════════ */}
+=======
+      {/* SUBSCRIBERS TAB */}
+>>>>>>> ba4dbc9fc29bf439e9ddbffa19f8000c9059d96d
       {activeTab === 'subscribers' && (
         <div className="space-y-4">
           <div className="flex gap-4 mb-6">
@@ -616,6 +752,8 @@ async function deleteAllEmailLogs() {
             </div>
           </div>
 
+<<<<<<< HEAD
+          {/* ✅ Barre de recherche */}
           <div className="relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
             <input
@@ -627,6 +765,19 @@ async function deleteAllEmailLogs() {
             />
           </div>
 
+=======
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Rechercher par nom ou endpoint..."
+              className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-white text-sm outline-none focus:border-blue-500/50"
+            />
+          </div>
+
+>>>>>>> ba4dbc9fc29bf439e9ddbffa19f8000c9059d96d
           {subsLoading ? (
             <div className="flex justify-center py-12"><Loader2 className="animate-spin text-blue-400" size={32} /></div>
           ) : filteredSubscribers.length === 0 ? (
@@ -644,11 +795,20 @@ async function deleteAllEmailLogs() {
                       <span className={`text-xs font-bold ${sub.is_active ? 'text-green-400' : 'text-red-400'}`}>
                         {sub.is_active ? 'Actif' : 'Inactif'}
                       </span>
+<<<<<<< HEAD
+                      {/* ✅ Afficher le nom */}
                       {sub.user_name && (
                         <span className="text-xs bg-blue-500/20 px-2 py-0.5 rounded-full text-blue-400 flex items-center gap-1">
                           <User size={10} /> {sub.user_name}
                         </span>
                       )}
+=======
+                      {sub.user_name && (
+                        <span className="text-xs bg-blue-500/20 px-2 py-0.5 rounded-full text-blue-400 flex items-center gap-1">
+                          <User size={10} /> {sub.user_name}
+                        </span>
+                      )}
+>>>>>>> ba4dbc9fc29bf439e9ddbffa19f8000c9059d96d
                     </div>
                     <p className="text-gray-400 font-mono text-[10px] truncate" title={sub.endpoint}>
                       {sub.endpoint.replace('https://fcm.googleapis.com/fcm/send/', '...')}
@@ -772,7 +932,11 @@ async function deleteAllEmailLogs() {
           {!selectedLog ? (
             <div className="text-center py-12 text-gray-500">
               <Users size={48} className="mx-auto mb-4 opacity-30" />
+<<<<<<< HEAD
+              <p>Sélectionnez un log dans l'onglet "Historique" pour voir les destinataires</p>
+=======
               <p>Sélectionnez un log dans l'onglet "Push" pour voir les destinataires</p>
+>>>>>>> ba4dbc9fc29bf439e9ddbffa19f8000c9059d96d
             </div>
           ) : (
             <>
@@ -792,6 +956,20 @@ async function deleteAllEmailLogs() {
                 ))}
               </div>
 
+<<<<<<< HEAD
+              {/* ✅ Barre de recherche */}
+              <div className="relative mb-4">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Rechercher par nom..."
+                  className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-white text-sm outline-none focus:border-blue-500/50"
+                />
+              </div>
+
+=======
               <div className="relative mb-4">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                 <input
@@ -803,6 +981,7 @@ async function deleteAllEmailLogs() {
                 />
               </div>
 
+>>>>>>> ba4dbc9fc29bf439e9ddbffa19f8000c9059d96d
               {recipientsLoading ? (
                 <div className="flex justify-center py-12"><Loader2 className="animate-spin text-blue-400" size={32} /></div>
               ) : filteredRecipients.length === 0 ? (
@@ -812,8 +991,19 @@ async function deleteAllEmailLogs() {
                   {filteredRecipients.map(r => (
                     <motion.div key={r.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className={`flex items-center justify-between p-3 rounded-lg text-xs ${r.status === 'sent' ? 'bg-green-500/10 border border-green-500/20' : r.status === 'expired' ? 'bg-orange-500/10 border border-orange-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
                       <div className="flex-1 min-w-0">
+<<<<<<< HEAD
+                        {/* ✅ Afficher le nom */}
+                        {r.user_name && (
+                          <p className="text-white font-bold mb-1 flex items-center gap-1">
+                            <User size={12} /> {r.user_name}
+                          </p>
+                        )}
                         <p className="text-gray-400 font-mono truncate text-[10px]">{r.endpoint.slice(0, 60)}...</p>
                         {r.error_message && <p className="text-[10px] text-red-400 mt-0.5">{r.error_message}</p>}
+=======
+                        <p className="text-gray-400 font-mono truncate text-[10px]">{r.endpoint.slice(0, 60)}...</p>
+                        {r.error_message && <p className="text-[10px] text-red-400 mt-0.5">{r.error_message}</p>}
+>>>>>>> ba4dbc9fc29bf439e9ddbffa19f8000c9059d96d
                       </div>
                       <div className="flex items-center gap-2">
                         <span className={`px-2 py-1 rounded font-bold ${r.status === 'sent' ? 'bg-green-500/20 text-green-400' : r.status === 'expired' ? 'bg-orange-500/20 text-orange-400' : 'bg-red-500/20 text-red-400'}`}>
