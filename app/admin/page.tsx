@@ -39,6 +39,9 @@ import AdsTab from '@/components/AdsTab';
 import VisitorsTab from '@/components/VisitorsTab';
 import NotificationsTab    from "@/components/NotificationsTab";  
 import AboutTab from '@/components/AboutTab';
+
+import { useActivityTimeout } from '@/lib/hooks/useActivityTimeout';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 // ✅ CORRECT (à remplacer)
@@ -93,7 +96,17 @@ const ALL_TABS: { id: TabType; label: string; icon: React.ElementType }[] = [
 // ─── Composant ────────────────────────────────────────────────────────────────
 
 export default function AdminDashboard() {
+
+
+   // ✅ Ajouter juste après les useState
+  useActivityTimeout(() => {
+    router.push('/admin/auth?reason=timeout');
+  });
+
+  
   const router = useRouter();
+
+
   const [activeTab, setActiveTab]         = useState<TabType>("dashboard");
   const [msg, setMsg]                     = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [user, setUser]                   = useState<User | null>(null);

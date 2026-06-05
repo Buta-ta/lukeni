@@ -2,43 +2,43 @@
 "use client";
 
 import { useEffect, useRef } from 'react';
-import { createClient } from '@/lib/supabase-browser';
+import { supabase } from '@/lib/supabase';
 
-const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes en ms
-const WARNING_BEFORE = 2 * 60 * 1000;      // Avertir 2 min avant
+const INACTIVITY_TIMEOUT = 8 * 60 * 60 * 1000; // 8 heures en ms
+const COOKIE_REFRESH_INTERVAL = 5 * 60 * 1000;  // Rafraîchit le cookie toutes les 5 min
+
+const ACTIVITY_EVENTS = [
+  'mousedown', 'mousemove', 'keydown',
+  'scroll', 'touchstart', 'click'
+];
+
+function refreshActivityCookie() {
+  const now = Date.now();
+  document.cookie = `last_activity=${now}; path=/; max-age=${8 * 60 * 60}; samesite=lax`;
+  localStorage.setItem('last_activity', String(now));
+}
 
 export function useActivityTimeout(onTimeout?: () => void) {
-  const supabase = createClient();
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const warningRef = useRef<NodeJS.Timeout | null>(null);
-  const lastActivityRef = useRef<number>(Date.now());
+  const timeoutRef     = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef    = useRef<NodeJS.Timeout | null>(null);
+  const lastRefreshRef = useRef<number>(0);
 
   const resetTimer = () => {
-    // Nettoyer les anciens timers
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    if (warningRef.current) clearTimeout(warningRef.current);
 
-    lastActivityRef.current = Date.now();
-
-    // Sauvegarder l'activité dans localStorage
-    localStorage.setItem('last_activity', String(Date.now()));
-
-    // Timer d'avertissement (optionnel)
-    warningRef.current = setTimeout(() => {
-      const shouldWarn = confirm(
-        '⏱️ Votre session expire dans 2 minutes.\nCliquez OK pour rester connecté.'
-      );
-      if (shouldWarn) {
-        resetTimer(); // Prolonger si l'utilisateur répond
-      }
-    }, INACTIVITY_TIMEOUT - WARNING_BEFORE);
+    // Rafraîchit le cookie max 1 fois par intervalle pour éviter le spam
+    const now = Date.now();
+    if (now - lastRefreshRef.current >= COOKIE_REFRESH_INTERVAL) {
+      lastRefreshRef.current = now;
+      refreshActivityCookie();
+    }
 
     // Timer de déconnexion
     timeoutRef.current = setTimeout(async () => {
-      console.log('⏱️ Session expirée par inactivité');
+      console.log('⏱️ Session expirée par inactivité (8h)');
       await supabase.auth.signOut();
       localStorage.removeItem('last_activity');
-      
+
       if (onTimeout) {
         onTimeout();
       } else {
@@ -48,12 +48,12 @@ export function useActivityTimeout(onTimeout?: () => void) {
   };
 
   useEffect(() => {
-    // Vérifier l'activité précédente au chargement
+    // ── Vérifier l'activité précédente au chargement ──
     const lastActivity = localStorage.getItem('last_activity');
     if (lastActivity) {
       const elapsed = Date.now() - parseInt(lastActivity, 10);
       if (elapsed > INACTIVITY_TIMEOUT) {
-        // Session expirée avant même de charger
+        console.log('⏱️ Session expirée (inactivité détectée au chargement)');
         supabase.auth.signOut();
         localStorage.removeItem('last_activity');
         window.location.href = '/auth?reason=timeout';
@@ -61,24 +61,30 @@ export function useActivityTimeout(onTimeout?: () => void) {
       }
     }
 
-    // Démarrer le timer
+    // ── Initialisation ──
+    refreshActivityCookie();
     resetTimer();
 
-    // Événements d'activité
-    const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
-    
-    events.forEach(event => {
+    // ── Écoute des événements utilisateur ──
+    ACTIVITY_EVENTS.forEach(event => {
       window.addEventListener(event, resetTimer, { passive: true });
     });
 
-    // Cleanup
+    // ── Rafraîchissement périodique du cookie (même sans activité) ──
+    // Utile quand l'admin travaille dans un formulaire sans bouger la souris
+    intervalRef.current = setInterval(() => {
+      refreshActivityCookie();
+    }, COOKIE_REFRESH_INTERVAL);
+
+    // ── Cleanup ──
     return () => {
-      events.forEach(event => {
+      ACTIVITY_EVENTS.forEach(event => {
         window.removeEventListener(event, resetTimer);
       });
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      if (warningRef.current) clearTimeout(warningRef.current);
+      if (timeoutRef.current)  clearTimeout(timeoutRef.current);
+      if (intervalRef.current) clearInterval(intervalRef.current);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return { resetTimer };

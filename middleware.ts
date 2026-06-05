@@ -5,7 +5,7 @@ import { createServerClient } from '@supabase/ssr';
 
 const PUBLIC_PATHS = ['/', '/auth', '/admin/auth', '/qui-sommes-nous'];
 const PUBLIC_PREFIXES = ['/auth/', '/api/', '/_next/', '/favicon.ico', '/manifest.json', '/sw.js', '/icon-', '/screenshot', '/apple-touch-icon'];
-const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
+const INACTIVITY_TIMEOUT = 8 * 60 * 60 * 1000; // 8 heures
 
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true;
@@ -59,11 +59,12 @@ export async function middleware(req: NextRequest) {
     }
 
     if (session) {
+      // ✅ Toujours rafraîchir le cookie à chaque requête
       res.cookies.set('last_activity', String(Date.now()), {
         httpOnly: false,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: INACTIVITY_TIMEOUT / 1000,
+        maxAge: 8 * 60 * 60, // 8 heures en secondes
         path: '/',
       });
     }
@@ -79,8 +80,8 @@ export async function middleware(req: NextRequest) {
     // ✅ Protection des routes utilisateur
     const protectedPrefixes = [
       '/profil',
-      '/bibliotheque',      // ✅ Ajouter
-      '/presse',            // ✅ Ajouter
+      '/bibliotheque',
+      '/presse',
       '/voyage-musical/contribuer',
       '/explore',
       '/encyclopedie',
