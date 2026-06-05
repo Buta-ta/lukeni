@@ -191,9 +191,9 @@ export default function ArticlesTab({ showMsg }: {
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
   const [sources, setSources] = useState<string[]>([]);
 
-  
-const [audioUrl, setAudioUrl] = useState('');
-const [isUploading, setIsUploading] = useState(false);
+
+  const [audioUrl, setAudioUrl] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
 
   const [newSource, setNewSource] = useState('');
 
@@ -241,7 +241,7 @@ const [isUploading, setIsUploading] = useState(false);
     setContentFr(''); setContentEn('');
     setImageUrl(''); setWikipediaUrl(''); setReadingTime('');
     setCatId(''); setStatus('draft'); setLinkedEventIds([]);
-    setEventSearch('');setAudioUrl(''); setSources([]); setNewSource('');
+    setEventSearch(''); setAudioUrl(''); setSources([]); setNewSource('');
     setGalleryImages([]);
     // ✅ RESET CHRONOLOGIE
     setTimeline([]);
@@ -259,7 +259,7 @@ const [isUploading, setIsUploading] = useState(false);
   };
 
 
-    const openAudioWidget = () => {
+  const openAudioWidget = () => {
     setIsUploading(true);
     const createWidget = () => {
       // @ts-ignore
@@ -433,7 +433,7 @@ const [isUploading, setIsUploading] = useState(false);
         </div>
       </div>
 
-      <div className="bg-[#0f0f0f] p-4 md:p-6 rounded-lg border border-white/5 space-y-4">
+      <div className="bg-[#0f0f0f] p-3 md:p-6 rounded-lg border border-white/5 space-y-3 md:space-y-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold text-white flex items-center gap-2">
             {editingId ? <Edit2 size={18} className="text-[#D4AF37]" /> : <PlusCircle size={18} className="text-[#D4AF37]" />}
@@ -581,8 +581,8 @@ const [isUploading, setIsUploading] = useState(false);
               id="content-fr"
               value={contentFr}
               onChange={e => setContentFr(e.target.value)}
-              rows={14}
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37] resize-none font-mono rounded-t-none"
+              rows={10}
+              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37] resize-none font-mono rounded-t-none max-h-[400px] md:max-h-none"
             />
             <div className="flex gap-1 mt-1">
               <button onClick={() => handleLingua('correct-content-fr')} disabled={isProcessing === 'correct-content-fr'}
@@ -606,8 +606,8 @@ const [isUploading, setIsUploading] = useState(false);
               id="content-en"
               value={contentEn}
               onChange={e => setContentEn(e.target.value)}
-              rows={14}
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37] resize-none font-mono rounded-t-none"
+              rows={10}
+              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37] resize-none font-mono rounded-t-none max-h-[400px] md:max-h-none"
             />
             <div className="flex gap-1 mt-1">
               <button onClick={() => handleLingua('correct-content-en')} disabled={isProcessing === 'correct-content-en'}
@@ -656,23 +656,29 @@ const [isUploading, setIsUploading] = useState(false);
         </div>
 
         {/* Image principale */}
-        <div>
-          <label className="block text-xs text-gray-400 mb-1 font-mono">🖼️ Image principale</label>
-          <input type="text" value={imageUrl} onChange={e => setImageUrl(e.target.value)}
-            placeholder="https://..."
-            className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]" />
-          {imageUrl && (
-            <div className="mt-2 w-full h-24 rounded-lg overflow-hidden border border-white/10">
-              <img src={imageUrl} alt="" className="w-full h-full object-cover" />
-            </div>
-          )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs text-gray-400 mb-1 font-mono">🖼️ Image principale</label>
+            <input type="text" value={imageUrl} onChange={e => setImageUrl(e.target.value)}
+              placeholder="https://..."
+              className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]" />
+            {imageUrl && (
+              <div className="mt-2 w-full h-20 rounded-lg overflow-hidden border border-white/10">
+                <img src={imageUrl} alt="" className="w-full h-full object-cover" />
+              </div>
+            )}
+          </div>
+
+          <div>
+            <ImageUploader label="Uploader l'image principale" currentUrl={imageUrl} onUpload={setImageUrl} />
+          </div>
         </div>
 
         <div>
           <ImageUploader label="Uploader l'image principale" currentUrl={imageUrl} onUpload={setImageUrl} />
         </div>
 
-                {/* ── Audio ── */}
+        {/* ── Audio ── */}
         <div className="p-4 bg-[#1a1a1a] rounded-lg border border-white/10">
           <div className="flex items-center gap-2 mb-3">
             <Music size={14} className="text-[#D4AF37]" />
@@ -680,26 +686,26 @@ const [isUploading, setIsUploading] = useState(false);
           </div>
 
           {audioUrl ? (
-            <div className="space-y-2">
+            <div className="space-y-2 overflow-x-auto">
               <audio
                 src={audioUrl}
                 controls
-                className="w-full h-10"
+                className="w-full h-8"
               />
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 <code className="flex-1 text-[10px] text-gray-500 bg-black/40 px-2 py-1 rounded truncate">
                   {audioUrl}
                 </code>
                 <button
                   onClick={() => openAudioWidget()}
                   disabled={isUploading}
-                  className="text-[10px] text-[#D4AF37] hover:text-white transition-colors whitespace-nowrap"
+                  className="text-[10px] text-[#D4AF37] hover:text-white transition-colors whitespace-nowrap flex-shrink-0"
                 >
                   Remplacer
                 </button>
                 <button
                   onClick={() => setAudioUrl('')}
-                  className="text-[10px] text-red-400 hover:text-red-300 transition-colors"
+                  className="text-[10px] text-red-400 hover:text-red-300 transition-colors flex-shrink-0"
                 >
                   Supprimer
                 </button>
@@ -709,15 +715,15 @@ const [isUploading, setIsUploading] = useState(false);
             <button
               onClick={() => openAudioWidget()}
               disabled={isUploading}
-              className="w-full flex flex-col items-center gap-2 p-6 border border-dashed border-white/15 rounded-xl text-gray-500 hover:text-[#D4AF37] hover:border-[#D4AF37]/40 transition-colors disabled:opacity-40"
+              className="w-full flex flex-col items-center gap-2 p-4 md:p-6 border border-dashed border-white/15 rounded-xl text-gray-500 hover:text-[#D4AF37] hover:border-[#D4AF37]/40 transition-colors disabled:opacity-40"
             >
               {isUploading
-                ? <Loader2 size={28} className="animate-spin" />
-                : <Upload size={28} />}
-              <span className="text-xs font-bold">
+                ? <Loader2 size={24} className="animate-spin" />
+                : <Upload size={24} />}
+              <span className="text-xs font-bold text-center">
                 {isUploading ? 'Upload en cours...' : 'Uploader un fichier audio'}
               </span>
-              <span className="text-[10px] text-gray-600">
+              <span className="text-[10px] text-gray-600 text-center">
                 MP3, WAV, OGG · Max 50 MB
               </span>
             </button>
@@ -1171,8 +1177,8 @@ const [isUploading, setIsUploading] = useState(false);
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${art.status === 'published' ? 'bg-green-500/20 text-green-400' :
-                      art.status === 'draft' ? 'bg-gray-500/20 text-gray-400' :
-                        'bg-yellow-500/20 text-yellow-400'
+                    art.status === 'draft' ? 'bg-gray-500/20 text-gray-400' :
+                      'bg-yellow-500/20 text-yellow-400'
                     }`}>{art.status}</span>
                   {art.categories && (
                     <span className="text-[10px] text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">
