@@ -70,7 +70,7 @@ interface Article {
   categories: Category;
   linked_events?: LinkedEvent[];
   sources?: string[];
-  timeline?: Array<{  // ✅ AJOUT
+  timeline?: Array<{
     year: string;
     title_fr: string;
     title_en: string;
@@ -78,8 +78,6 @@ interface Article {
     description_en?: string;
   }>;
 }
-
-
 
 // ============================================================================
 // CAURIS ICON
@@ -256,7 +254,7 @@ const TableOfContents = memo(({ items, lang, catColor }: {
   if (items.length < 2) return null;
 
   return (
-    <div className="relative">
+    <div className="relative w-full">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="lg:hidden w-full flex items-center justify-between p-4 bg-white/[0.03] border border-white/10 rounded-xl mb-4 text-gray-400 hover:text-white transition-colors"
@@ -275,16 +273,16 @@ const TableOfContents = memo(({ items, lang, catColor }: {
         {(isOpen || true) && (
           <motion.div
             initial={false}
-            className="hidden lg:block sticky top-24"
+            className="hidden lg:block sticky top-24 w-full"
           >
-            <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-5">
+            <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-5 w-full">
               <div className="flex items-center gap-2 mb-4">
                 <Hash size={13} style={{ color: catColor }} />
                 <span className="text-[10px] font-bold tracking-[0.25em] uppercase text-gray-500">
                   {lang === 'fr' ? 'Sommaire' : 'Contents'}
                 </span>
               </div>
-              <nav className="space-y-1">
+              <nav className="space-y-1 w-full">
                 {items.map(item => (
                   <a
                     key={item.id}
@@ -293,7 +291,7 @@ const TableOfContents = memo(({ items, lang, catColor }: {
                       e.preventDefault();
                       document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth' });
                     }}
-                    className={`block text-xs py-1.5 transition-all duration-200 ${item.level === 'h3' ? 'pl-3 border-l border-white/10' : ''
+                    className={`block text-xs py-1.5 transition-all duration-200 break-words ${item.level === 'h3' ? 'pl-3 border-l border-white/10' : ''
                       } ${activeId === item.id
                         ? 'font-bold'
                         : 'text-gray-600 hover:text-gray-300'
@@ -315,9 +313,9 @@ const TableOfContents = memo(({ items, lang, catColor }: {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="lg:hidden overflow-hidden mb-6"
+            className="lg:hidden overflow-hidden mb-6 w-full"
           >
-            <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-4 space-y-1">
+            <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-4 space-y-1 w-full">
               {items.map(item => (
                 <a
                   key={item.id}
@@ -327,7 +325,7 @@ const TableOfContents = memo(({ items, lang, catColor }: {
                     document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth' });
                     setIsOpen(false);
                   }}
-                  className={`block text-xs py-1.5 transition-colors ${item.level === 'h3' ? 'pl-3 border-l border-white/10' : ''
+                  className={`block text-xs py-1.5 transition-colors break-words ${item.level === 'h3' ? 'pl-3 border-l border-white/10' : ''
                     } ${activeId === item.id ? 'font-bold' : 'text-gray-600'}`}
                   style={activeId === item.id ? { color: catColor } : {}}
                 >
@@ -344,7 +342,7 @@ const TableOfContents = memo(({ items, lang, catColor }: {
 TableOfContents.displayName = 'TableOfContents';
 
 // ============================================================================
-// STRIP FORMATTING — pour les IDs et le sommaire
+// STRIP FORMATTING
 // ============================================================================
 
 function stripFormatting(text: string): string {
@@ -453,7 +451,7 @@ function parseInline(text: string, catColor: string): React.ReactNode[] {
       case 'link':
         result.push(
           <a key={key++} href={m[3]} target="_blank" rel="noopener noreferrer"
-            className="underline underline-offset-2 hover:opacity-80 transition-opacity"
+            className="underline underline-offset-2 hover:opacity-80 transition-opacity break-all"
             style={{ color: catColor }}>
             {m[2]}
           </a>
@@ -462,7 +460,7 @@ function parseInline(text: string, catColor: string): React.ReactNode[] {
         break;
       case 'code':
         result.push(
-          <code key={key++} className="bg-white/10 text-gray-300 px-1.5 py-0.5 rounded text-[13px] font-mono">
+          <code key={key++} className="bg-white/10 text-gray-300 px-1.5 py-0.5 rounded text-[13px] font-mono break-words">
             {m[2]}
           </code>
         );
@@ -477,7 +475,6 @@ function parseInline(text: string, catColor: string): React.ReactNode[] {
   return result;
 }
 
-
 // ============================================================================
 // ENRICHED TEXT RENDERER WITH WORD DEFINITIONS
 // ============================================================================
@@ -491,20 +488,17 @@ interface EnrichedTextProps {
 
 const EnrichedTextRenderer = memo(
   ({ text, lang, catColor, enableDefinitions }: EnrichedTextProps) => {
-    // ✅ Utilise directement le hook
     const { definition, isLoading, isOpen, currentWord, lookupWord, closePopover } = useWordDefinition(lang);
 
     const handleWordClick = useCallback(
       async (word: string, e: React.MouseEvent<HTMLSpanElement>) => {
         if (!enableDefinitions) return;
         e.stopPropagation();
-        // ✅ Appelle lookupWord (qui gère tout : ouverture, chargement, etc.)
         await lookupWord(word);
       },
       [enableDefinitions, lookupWord]
     );
 
-    // ✅ Adapte le filtre selon la langue
     const shouldBeClickable = useCallback((word: string): boolean => {
       if (!enableDefinitions) return false;
       const clean = word.replace(/[-_]/g, '').toLowerCase();
@@ -518,8 +512,8 @@ const EnrichedTextRenderer = memo(
     const words = text.split(/(\s+)/);
 
     return (
-      <div className="relative">
-        <div className="text-gray-300 leading-relaxed text-base md:text-[17px]">
+      <div className="relative w-full">
+        <div className="text-gray-300 leading-relaxed text-base md:text-[17px] break-words">
           {words.map((word, idx) => {
             const cleanWord = word.replace(/[-_.,!?;:'"()[\]]/g, '').toLowerCase();
             const clickable = shouldBeClickable(cleanWord);
@@ -538,7 +532,6 @@ const EnrichedTextRenderer = memo(
           })}
         </div>
 
-        {/* ✅ Un seul popover, utilise isOpen et currentWord du hook */}
         <WordDefinitionPopover
           definition={definition}
           isOpen={isOpen}
@@ -552,7 +545,6 @@ const EnrichedTextRenderer = memo(
 );
 EnrichedTextRenderer.displayName = 'EnrichedTextRenderer';
 
-
 // ============================================================================
 // CONTENT RENDERER
 // ============================================================================
@@ -564,7 +556,7 @@ const ContentRenderer = memo(({ text, lang, catColor }: {
 }) => {
   if (!text?.trim()) {
     return (
-      <div className="flex flex-col items-center gap-4 py-12 text-center">
+      <div className="flex flex-col items-center gap-4 py-12 text-center w-full">
         <CaurisIcon className="w-12 h-12 text-gray-800" />
         <p className="text-gray-600 text-sm italic">
           {lang === 'fr'
@@ -587,18 +579,18 @@ const ContentRenderer = memo(({ text, lang, catColor }: {
     return { alt: match[1] || '', url: match[2] };
   };
 
-    const renderImage = (url: string, alt: string, key: number) => (
+  const renderImage = (url: string, alt: string, key: number) => (
     <motion.figure key={key}
       initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }} transition={{ duration: 0.5 }}
-      className="my-8 flex flex-col items-center">
-      <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-black/30 max-w-[85%] mx-auto">
+      className="my-8 flex flex-col items-center w-full">
+      <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-black/30 w-full flex justify-center items-center">
         <img src={url} alt={alt || 'Image'} loading="lazy"
-          className="block max-h-[600px] max-w-full object-contain mx-auto"
+          className="block max-h-[600px] w-auto max-w-full object-contain mx-auto rounded-xl"
           onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
       </div>
       {alt && (
-        <figcaption className="mt-2 text-center text-gray-500 text-xs italic">{alt}</figcaption>
+        <figcaption className="mt-2 text-center text-gray-500 text-xs italic break-words w-full px-4">{alt}</figcaption>
       )}
     </motion.figure>
   );
@@ -607,12 +599,12 @@ const ContentRenderer = memo(({ text, lang, catColor }: {
     <>
       {text.split('\n').map((line, i) => {
         const trimmed = line.trim();
-        if (!trimmed) return <div key={i} className="h-2" />;
+        if (!trimmed) return <div key={i} className="h-2 w-full" />;
 
         // Séparateur ---
         if (trimmed === '---' || trimmed === '***') {
           return (
-            <div key={i} className="my-8 flex items-center gap-4">
+            <div key={i} className="my-8 flex items-center gap-4 w-full">
               <div className="flex-1 h-px"
                 style={{ background: `linear-gradient(90deg, transparent, ${catColor}40, transparent)` }} />
               <span style={{ color: `${catColor}60` }}><CaurisIcon className="w-4 h-4" /></span>
@@ -633,7 +625,7 @@ const ContentRenderer = memo(({ text, lang, catColor }: {
             <motion.h2 key={i} id={id}
               initial={{ opacity: 0, x: -10 }} whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }} transition={{ duration: 0.4 }}
-              className="flex items-center gap-3 text-xl md:text-2xl font-serif font-bold text-white mt-12 mb-5 pb-3 scroll-mt-24"
+              className="flex items-center gap-3 text-xl md:text-2xl font-serif font-bold text-white mt-12 mb-5 pb-3 scroll-mt-24 w-full break-words"
               style={{ borderBottom: `1px solid ${catColor}20` }}>
               <span className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-mono font-bold text-black"
                 style={{ backgroundColor: catColor }}>
@@ -652,7 +644,7 @@ const ContentRenderer = memo(({ text, lang, catColor }: {
             .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-')}`;
           return (
             <h3 key={i} id={id}
-              className="text-lg font-serif font-bold mt-8 mb-3 scroll-mt-24"
+              className="text-lg font-serif font-bold mt-8 mb-3 scroll-mt-24 w-full break-words"
               style={{ color: catColor }}>
               {parseInline(headingText, catColor)}
             </h3>
@@ -664,10 +656,10 @@ const ContentRenderer = memo(({ text, lang, catColor }: {
           return (
             <motion.blockquote key={i}
               initial={{ opacity: 0, x: -8 }} whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }} className="relative my-6 pl-6 py-1">
+              viewport={{ once: true }} className="relative my-6 pl-6 py-1 w-full">
               <div className="absolute left-0 top-0 bottom-0 w-1 rounded-full"
                 style={{ backgroundColor: catColor }} />
-              <p className="text-gray-300 italic text-base leading-relaxed">
+              <p className="text-gray-300 italic text-base leading-relaxed break-words">
                 {parseInline(trimmed.slice(2), catColor)}
               </p>
             </motion.blockquote>
@@ -677,10 +669,10 @@ const ContentRenderer = memo(({ text, lang, catColor }: {
         // - Liste
         if (trimmed.startsWith('- ')) {
           return (
-            <div key={i} className="flex items-start gap-3 mb-3 ml-2">
+            <div key={i} className="flex items-start gap-3 mb-3 ml-2 w-full">
               <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full mt-2.5"
                 style={{ backgroundColor: catColor }} />
-              <p className="text-gray-300 leading-[1.9] text-base md:text-[17px] flex-1">
+              <p className="text-gray-300 leading-[1.9] text-base md:text-[17px] flex-1 break-words min-w-0">
                 {parseInline(trimmed.slice(2), catColor)}
               </p>
             </div>
@@ -698,7 +690,7 @@ const ContentRenderer = memo(({ text, lang, catColor }: {
 
         // Texte normal
         return (
-          <p key={i} className="mb-5 text-gray-300 leading-[1.9] text-base md:text-[17px]">
+          <p key={i} className="mb-5 text-gray-300 leading-[1.9] text-base md:text-[17px] break-words w-full">
             {parseInline(trimmed, catColor)}
           </p>
         );
@@ -707,7 +699,6 @@ const ContentRenderer = memo(({ text, lang, catColor }: {
   );
 });
 ContentRenderer.displayName = 'ContentRenderer';
-
 
 // ============================================================================
 // ARTICLE TIMELINE ENTRY
@@ -732,12 +723,12 @@ const TimelineEntry = memo(({ entry, lang, catColor }: {
       initial={{ opacity: 0, x: -12 }}
       whileInView={{ opacity: 1, x: 0 }}
       viewport={{ once: true }}
-      className="relative flex gap-4 group"
+      className="relative flex gap-4 group w-full"
     >
       {/* Point timeline */}
-      <div className="flex flex-col items-center">
+      <div className="flex flex-col items-center flex-shrink-0">
         <div
-          className="w-3 h-3 rounded-full border-2 border-black flex-shrink-0"
+          className="w-3 h-3 rounded-full border-2 border-black"
           style={{ backgroundColor: catColor, boxShadow: `0 0 10px ${catColor}` }}
         />
         <div
@@ -747,7 +738,7 @@ const TimelineEntry = memo(({ entry, lang, catColor }: {
       </div>
 
       {/* Contenu */}
-      <div className="flex-1 pb-6">
+      <div className="flex-1 pb-6 min-w-0 break-words">
         <div className="flex items-center gap-2 mb-1">
           <span
             className="font-mono font-bold text-sm"
@@ -756,12 +747,12 @@ const TimelineEntry = memo(({ entry, lang, catColor }: {
             {entry.year}
           </span>
         </div>
-        <h4 className="text-white font-bold text-sm mb-1 group-hover:text-[color:var(--cat)] transition-colors"
+        <h4 className="text-white font-bold text-sm mb-1 group-hover:text-[color:var(--cat)] transition-colors break-words"
           style={{ '--cat': catColor } as React.CSSProperties}>
           {title}
         </h4>
         {description && (
-          <p className="text-gray-500 text-xs leading-relaxed">
+          <p className="text-gray-500 text-xs leading-relaxed break-words">
             {description}
           </p>
         )}
@@ -807,7 +798,7 @@ const LinkedEventCard = memo(({ event, lang, catColor }: {
       initial={{ opacity: 0, y: 12 }}
       animate={isInView ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.4 }}
-      className="group relative flex gap-0 bg-white/[0.02] border border-white/[0.07] rounded-2xl overflow-hidden hover:border-white/15 transition-all duration-300"
+      className="group relative flex gap-0 bg-white/[0.02] border border-white/[0.07] rounded-2xl overflow-hidden hover:border-white/15 transition-all duration-300 w-full"
       style={{ '--cat': catColor } as React.CSSProperties}
     >
       <div
@@ -832,7 +823,7 @@ const LinkedEventCard = memo(({ event, lang, catColor }: {
 
       <div className="flex-1 min-w-0 p-4">
         <h4
-          className="text-white font-bold text-sm mb-1 line-clamp-1 group-hover:transition-colors duration-300"
+          className="text-white font-bold text-sm mb-1 line-clamp-1 group-hover:transition-colors duration-300 break-words"
           style={{ '--hover': catColor } as React.CSSProperties}
         >
           <span className="group-hover:text-[var(--hover)] transition-colors duration-300">
@@ -840,15 +831,15 @@ const LinkedEventCard = memo(({ event, lang, catColor }: {
           </span>
         </h4>
         {desc && (
-          <p className="text-gray-600 text-xs line-clamp-2 leading-relaxed mb-2">
+          <p className="text-gray-600 text-xs line-clamp-2 leading-relaxed mb-2 break-words">
             {desc}
           </p>
         )}
         <div className="flex items-center gap-2">
           {event.country && (
-            <span className="text-gray-700 text-[10px] font-mono">{event.country}</span>
+            <span className="text-gray-700 text-[10px] font-mono break-words">{event.country}</span>
           )}
-          <span className="ml-auto text-[10px]" style={{ color: `${catColor}70` }}>
+          <span className="ml-auto text-[10px] flex-shrink-0" style={{ color: `${catColor}70` }}>
             {'★'.repeat(event.importance)}
           </span>
         </div>
@@ -871,14 +862,14 @@ const RelatedArticleCard = memo(({ article, lang }: {
   const catColor = article.categories?.color || '#D4AF37';
 
   return (
-    <Link href={`/encyclopedie/${article.slug}`} className="group block">
-      <div className="relative bg-white/[0.02] border border-white/[0.07] rounded-2xl overflow-hidden hover:border-white/15 transition-all duration-300">
+    <Link href={`/encyclopedie/${article.slug}`} className="group block w-full">
+      <div className="relative bg-white/[0.02] border border-white/[0.07] rounded-2xl overflow-hidden hover:border-white/15 transition-all duration-300 w-full">
         <div
           className="absolute left-0 top-0 bottom-0 w-0.5"
           style={{ backgroundColor: catColor, opacity: 0.5 }}
         />
 
-        <div className="flex gap-3 p-4 pl-5">
+        <div className="flex gap-3 p-4 pl-5 w-full">
           {article.image_url && (
             <div className="flex-shrink-0 w-14 h-14 rounded-xl overflow-hidden">
               <img
@@ -891,10 +882,10 @@ const RelatedArticleCard = memo(({ article, lang }: {
           )}
 
           <div className="flex-1 min-w-0">
-            <h4 className="text-white text-sm font-bold line-clamp-1 mb-1 group-hover:text-[#D4AF37] transition-colors duration-300">
+            <h4 className="text-white text-sm font-bold line-clamp-1 mb-1 group-hover:text-[#D4AF37] transition-colors duration-300 break-words">
               {title}
             </h4>
-            <p className="text-gray-600 text-xs line-clamp-2 leading-relaxed">
+            <p className="text-gray-600 text-xs line-clamp-2 leading-relaxed break-words">
               {summary}
             </p>
           </div>
@@ -954,14 +945,11 @@ const ShareButton = memo(({ title, lang }: { title: string; lang: 'fr' | 'en' })
 
   const handleShare = useCallback(async () => {
     const url = window.location.href;
-    
-    // ✅ Nettoie la mise en forme du titre
     const cleanTitle = stripFormatting(title);
     
     if (navigator.share) {
       await navigator.share({ title: cleanTitle, url });
     } else {
-      // ✅ Copie le titre + URL (format lisible)
       const shareText = `${cleanTitle}\n${url}`;
       await navigator.clipboard.writeText(shareText);
       setCopied(true);
@@ -1027,9 +1015,8 @@ function getDomain(url: string): string {
   }
 }
 
-
 // ============================================================================
-// AUDIO PLAYER — Fichier Cloudinary
+// AUDIO PLAYER
 // ============================================================================
 
 const AudioPlayer = memo(({ audioUrl, lang, catColor }: {
@@ -1136,16 +1123,14 @@ const AudioPlayer = memo(({ audioUrl, lang, catColor }: {
     <motion.div
       initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex items-center gap-3 px-4 py-2.5 rounded-2xl border"
+      className="flex items-center gap-3 px-4 py-2.5 rounded-2xl border w-full"
       style={{
         backgroundColor: `${catColor}08`,
         borderColor: `${catColor}25`,
       }}
     >
-      {/* Élément audio natif caché */}
       <audio ref={audioRef} src={audioUrl} preload="metadata" />
 
-      {/* Bouton Play / Pause */}
       <motion.button
         whileHover={{ scale: 1.12 }}
         whileTap={{ scale: 0.9 }}
@@ -1171,10 +1156,9 @@ const AudioPlayer = memo(({ audioUrl, lang, catColor }: {
         )}
       </motion.button>
 
-      {/* Label + timer */}
-      <div className="flex flex-col min-w-0">
+      <div className="flex flex-col min-w-0 flex-shrink-0 max-w-[120px]">
         <span
-          className="text-[10px] font-bold tracking-[0.2em] uppercase leading-none"
+          className="text-[10px] font-bold tracking-[0.2em] uppercase leading-none truncate"
           style={{ color: catColor }}
         >
           {isLoading
@@ -1183,14 +1167,13 @@ const AudioPlayer = memo(({ audioUrl, lang, catColor }: {
             ? (lang === 'fr' ? 'Lecture en cours...' : 'Playing...')
             : (lang === 'fr' ? "Écouter l'article" : 'Listen to article')}
         </span>
-        <span className="text-[9px] text-gray-600 mt-0.5 font-mono">
+        <span className="text-[9px] text-gray-600 mt-0.5 font-mono truncate">
           {formatTime(currentTime)} / {formatTime(duration)}
         </span>
       </div>
 
-      {/* Barre de progression cliquable */}
       <div
-        className="flex-1 relative h-1.5 rounded-full overflow-hidden bg-white/10 mx-1 cursor-pointer"
+        className="flex-1 relative h-1.5 rounded-full overflow-hidden bg-white/10 mx-1 cursor-pointer min-w-0"
         onClick={handleProgressClick}
       >
         <div
@@ -1212,7 +1195,6 @@ const AudioPlayer = memo(({ audioUrl, lang, catColor }: {
         )}
       </div>
 
-      {/* Bouton Stop */}
       <AnimatePresence>
         {(isPlaying || currentTime > 0) && (
           <motion.button
@@ -1251,12 +1233,9 @@ export default function ArticleDetailPage() {
   const [heroY, setHeroY] = useState('0%');
   const [heroOpacity, setHeroOpacity] = useState(1);
 
-
   const hasIncrementedView = useRef(false);
   const heroRef = useRef<HTMLDivElement>(null);
   const [enrichmentMode, setEnrichmentMode] = useState(false);
-
-  
 
   const [user, setUser] = useState<any>(null);
 
@@ -1372,9 +1351,6 @@ export default function ArticleDetailPage() {
     fetchArticle();
   }, [slug]);
 
-
-  
-
   const handleLangToggle = useCallback(() => {
     const newLang = lang === 'fr' ? 'en' : 'fr';
     setLang(newLang);
@@ -1399,7 +1375,7 @@ export default function ArticleDetailPage() {
 
   if (!article) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#020111] via-[#03032B] to-black text-white flex flex-col items-center justify-center gap-6 p-4">
+      <div className="min-h-screen bg-gradient-to-b from-[#020111] via-[#03032B] to-black text-white flex flex-col items-center justify-center gap-6 p-4 w-full">
         <motion.div
           animate={{ rotate: [0, 10, -10, 0] }}
           transition={{ duration: 2, repeat: Infinity }}
@@ -1426,30 +1402,24 @@ export default function ArticleDetailPage() {
   }
 
   return (
-
     <NotesplitContainer
       itemId={article.slug}
       itemType="article"
       userId={user?.id}
       catColor={catColor}
       lang={lang}
-      
     >
-
-
       <ReadingProgress color={catColor} />
 
       <StarField mousePos={mousePos} />
 
-
-      <header className="sticky top-[2px] z-50 bg-[#020111]/80 backdrop-blur-xl border-b border-white/[0.06] overflow-x-hidden">
-
-         <div className="max-w-[1400px] mx-auto px-3 sm:px-6 py-2.5 grid grid-cols-3 items-center gap-4">
+      <header className="sticky top-[2px] z-50 bg-[#020111]/80 backdrop-blur-xl border-b border-white/[0.06] w-full">
+         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-2.5 grid grid-cols-3 items-center gap-4 w-full">
 
           {/* Gauche : Retour */}
           <div>
             <Link href="/encyclopedie"
-              className="flex items-center gap-1.5 text-gray-500 hover:text-white transition-colors group">
+              className="flex items-center gap-1.5 text-gray-500 hover:text-white transition-colors group w-fit">
               <motion.div whileHover={{ x: -3 }} transition={{ type: 'spring', stiffness: 400 }}>
                 <ArrowLeft size={16} />
               </motion.div>
@@ -1485,116 +1455,122 @@ export default function ArticleDetailPage() {
       </header>
 
       {article.image_url && (
-  <div ref={heroRef} className="relative h-[50vh] md:h-[65vh] overflow-hidden bg-black">
-    {/* Image NON zoomée, bien cadrée */}
-    <img
-      src={article.image_url}
-      alt={title}
-      loading="eager"
-      className="absolute inset-0 w-full h-full object-cover"
-      style={{ 
-        objectPosition: 'center center',
-        transform: `translateY(${heroY})`,
-        // ✅ ENLEVÉ le scale(1.1) qui zoomait trop
-      }}
-    />
-    
-    {/* Gradients pour le contraste */}
-    <div className="absolute inset-0 bg-gradient-to-t from-[#020111] via-[#020111]/50 to-transparent pointer-events-none" />
-    <div className="absolute inset-0 bg-gradient-to-r from-[#020111]/30 via-transparent to-[#020111]/30 pointer-events-none" />
-
-    {/* Catégorie */}
-    {article.categories && (
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="absolute top-4 sm:top-6 left-4 sm:left-6 z-20"
-      >
-        <span
-          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-md shadow-xl"
-          style={{
-            backgroundColor: `${catColor}35`,
-            color: catColor,
-            border: `1.5px solid ${catColor}60`,
-          }}
-        >
-          <Tag size={10} />
-          {categoryName}
-        </span>
-      </motion.div>
-    )}
-
-    {/* Boutons verticaux sur la photo (haut droite) */}
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: 0.4 }}
-      className="absolute top-4 sm:top-6 right-4 sm:right-6 z-20 flex flex-col gap-2"
-    >
-      <ShareButton title={title} lang={lang} />
-
-      <button
-        onClick={() => setEnrichmentMode(!enrichmentMode)}
-        className={`px-3 sm:px-4 py-2 text-xs font-bold rounded-xl backdrop-blur-md transition-all shadow-xl ${
-          enrichmentMode
-            ? 'bg-[#D4AF37] text-black border-2 border-[#D4AF37]'
-            : 'bg-black/40 border-2 border-white/30 text-white hover:border-[#D4AF37]/70'
-        }`}
-        title={lang === 'fr' ? 'Mode dictionnaire — cliquez sur les mots' : 'Dictionary mode — click on words'}
-      >
-        Dict
-      </button>
-
-      <div className="bg-black/40 backdrop-blur-md rounded-xl p-1.5 border-2 border-white/30 shadow-xl">
-        <FavoriteButton itemType="article" itemId={article.id} size={17} />
-      </div>
-    </motion.div>
-
-    {/* Titre en bas */}
-    <div
-      style={{ opacity: heroOpacity }}
-      className="absolute bottom-0 left-0 right-0 z-10"
-    >
-      {/* Fond gradient pour lisibilité */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent" />
-      
-      {/* Contenu */}
-      <div className="relative p-4 sm:p-6 md:p-10">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center gap-2 mb-3 sm:mb-4">
-            <span className="flex items-center gap-1.5 bg-[#D4AF37] px-2.5 py-1 rounded-full shadow-2xl">
-              <CaurisIcon className="w-3 h-3 text-black" />
-              <span className="text-[9px] font-bold text-black tracking-[0.2em] uppercase">Lukeni</span>
-            </span>
-          </div>
-          <h1 
-            className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-serif font-bold text-white leading-tight"
-            style={{
-              textShadow: '0 2px 10px rgba(0,0,0,0.95), 0 4px 25px rgba(0,0,0,0.8)'
+        <div ref={heroRef} className="relative w-full h-[50vh] md:h-[65vh] overflow-hidden bg-black flex justify-center items-center">
+          
+          {/* Fond flouté pour éviter le noir si l'image ne couvre pas tout */}
+          <img
+            src={article.image_url}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover opacity-40 blur-3xl scale-110"
+            style={{ 
+              transform: `translateY(${heroY})`,
             }}
+          />
+
+          {/* Image principale bien cadrée, non coupée */}
+          <img
+            src={article.image_url}
+            alt={title}
+            loading="eager"
+            className="absolute inset-0 w-full h-full object-contain"
+            style={{ 
+              transform: `translateY(${heroY})`,
+            }}
+          />
+          
+          {/* Gradients pour le contraste */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#020111] via-[#020111]/30 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#020111]/30 via-transparent to-[#020111]/30 pointer-events-none" />
+
+          {/* Catégorie */}
+          {article.categories && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="absolute top-4 sm:top-6 left-4 sm:left-6 z-20"
+            >
+              <span
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-md shadow-xl"
+                style={{
+                  backgroundColor: `${catColor}35`,
+                  color: catColor,
+                  border: `1.5px solid ${catColor}60`,
+                }}
+              >
+                <Tag size={10} />
+                {categoryName}
+              </span>
+            </motion.div>
+          )}
+
+          {/* Boutons verticaux sur la photo (haut droite) */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.4 }}
+            className="absolute top-4 sm:top-6 right-4 sm:right-6 z-20 flex flex-col gap-2"
           >
-            {parseInline(title, catColor)}
-          </h1>
+            <ShareButton title={title} lang={lang} />
+
+            <button
+              onClick={() => setEnrichmentMode(!enrichmentMode)}
+              className={`px-3 sm:px-4 py-2 text-xs font-bold rounded-xl backdrop-blur-md transition-all shadow-xl ${
+                enrichmentMode
+                  ? 'bg-[#D4AF37] text-black border-2 border-[#D4AF37]'
+                  : 'bg-black/40 border-2 border-white/30 text-white hover:border-[#D4AF37]/70'
+              }`}
+              title={lang === 'fr' ? 'Mode dictionnaire — cliquez sur les mots' : 'Dictionary mode — click on words'}
+            >
+              Dict
+            </button>
+
+            <div className="bg-black/40 backdrop-blur-md rounded-xl p-1.5 border-2 border-white/30 shadow-xl w-fit self-end">
+              <FavoriteButton itemType="article" itemId={article.id} size={17} />
+            </div>
+          </motion.div>
+
+          {/* Titre en bas */}
+          <div
+            style={{ opacity: heroOpacity }}
+            className="absolute bottom-0 left-0 right-0 z-10 w-full"
+          >
+            {/* Fond gradient pour lisibilité */}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#020111] via-[#020111]/80 to-transparent pointer-events-none" />
+            
+            {/* Contenu aligné avec la grille */}
+            <div className="relative w-full max-w-[1400px] mx-auto px-4 sm:px-6 pb-8 pt-12">
+              <div className="w-full lg:pr-[320px]">
+                <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                  <span className="flex items-center gap-1.5 bg-[#D4AF37] px-2.5 py-1 rounded-full shadow-2xl">
+                    <CaurisIcon className="w-3 h-3 text-black" />
+                    <span className="text-[9px] font-bold text-black tracking-[0.2em] uppercase">Lukeni</span>
+                  </span>
+                </div>
+                <h1 
+                  className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-serif font-bold text-white leading-tight break-words"
+                  style={{
+                    textShadow: '0 2px 10px rgba(0,0,0,0.95), 0 4px 25px rgba(0,0,0,0.8)'
+                  }}
+                >
+                  {parseInline(title, catColor)}
+                </h1>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
-  </div>
-)}
+      )}
 
-      <div 
-  className="relative z-10 w-full mx-auto px-4 sm:px-6 py-10 overflow-x-hidden" 
-  style={{ maxWidth: '1400px' }}
->
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 lg:gap-8 min-w-0">
+      <div className="relative z-10 w-full max-w-[1400px] mx-auto px-4 sm:px-6 py-10">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 lg:gap-8 w-full min-w-0">
 
-          <div>
+          <div className="min-w-0 w-full">
 
             {!article.image_url && (
               <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mb-8"
+                className="mb-8 w-full"
               >
                 {article.categories && (
                   <span
@@ -1610,7 +1586,7 @@ export default function ArticleDetailPage() {
                   </span>
                 )}
                 {/* Title sans image */}
-                <h1 className="text-3xl md:text-5xl font-serif font-bold text-white leading-tight">
+                <h1 className="text-3xl md:text-5xl font-serif font-bold text-white leading-tight break-words w-full">
                   {parseInline(title, catColor)}
                 </h1>
               </motion.div>
@@ -1620,7 +1596,7 @@ export default function ArticleDetailPage() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="flex flex-wrap items-center gap-3 mb-8 pb-6 border-b border-white/[0.06]"
+              className="flex flex-wrap items-center gap-3 mb-8 pb-6 border-b border-white/[0.06] w-full"
             >
               <span className="flex items-center gap-1.5 text-gray-500 text-xs">
                 <Calendar size={11} />
@@ -1658,13 +1634,13 @@ export default function ArticleDetailPage() {
               )}
             </motion.div>
 
-                        {/* ── Audio Player ── */}
+            {/* ── Audio Player ── */}
             {article.audio_url && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.12 }}
-                className="mb-6"
+                className="mb-6 w-full"
               >
                 <AudioPlayer
                   audioUrl={article.audio_url}
@@ -1679,7 +1655,7 @@ export default function ArticleDetailPage() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15 }}
-                className="relative mb-8 p-5 rounded-2xl"
+                className="relative mb-8 p-5 rounded-2xl w-full break-words"
                 style={{
                   background: `linear-gradient(135deg, ${catColor}08, transparent)`,
                   border: `1px solid ${catColor}15`,
@@ -1690,13 +1666,13 @@ export default function ArticleDetailPage() {
                   style={{ background: `linear-gradient(90deg, transparent, ${catColor}40, transparent)` }}
                 />
                 {/* Résumé */}
-                <p className="text-gray-300 text-base leading-relaxed italic font-light">
+                <p className="text-gray-300 text-base leading-relaxed italic font-light break-words">
                   {parseInline(lang === 'fr' ? article.summary_fr : article.summary_en, catColor)}
                 </p>
               </motion.div>
             )}
 
-            <div className="lg:hidden mb-6">
+            <div className="lg:hidden mb-6 w-full">
               <TableOfContents items={tocItems} lang={lang} catColor={catColor} />
             </div>
 
@@ -1704,10 +1680,10 @@ export default function ArticleDetailPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2, duration: 0.5 }}
-              className="relative overflow-x-hidden"
+              className="relative w-full break-words"
             >
               <div
-                className="absolute -left-5 top-0 bottom-0 w-px hidden md:block"
+                className="absolute -left-4 sm:-left-6 top-0 bottom-0 w-px hidden md:block"
                 style={{
                   background: `linear-gradient(to bottom, ${catColor}40, ${catColor}10, transparent)`,
                 }}
@@ -1724,25 +1700,24 @@ export default function ArticleDetailPage() {
               )}
             </motion.article>
 
-
-                        {/* ── Chronologie de l'article ── */}
+            {/* ── Chronologie de l'article ── */}
             {article.timeline && article.timeline.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 12 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="mt-12 pt-8 border-t border-white/[0.06]"
+                className="mt-12 pt-8 border-t border-white/[0.06] w-full"
               >
                 <div className="flex items-center gap-3 mb-6">
                   <div className="h-px flex-1 bg-gradient-to-r from-transparent to-white/10" />
-                  <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-gray-600 flex items-center gap-2">
+                  <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-gray-600 flex items-center gap-2 flex-shrink-0">
                     <Calendar size={11} />
                     {lang === 'fr' ? 'Chronologie' : 'Timeline'}
                   </span>
                   <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/10" />
                 </div>
 
-                <div className="space-y-0">
+                <div className="space-y-0 w-full">
                   {article.timeline.map((entry, i) => (
                     <TimelineEntry
                       key={i}
@@ -1761,18 +1736,18 @@ export default function ArticleDetailPage() {
                 initial={{ opacity: 0, y: 12 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="mt-12 pt-8 border-t border-white/[0.06]"
+                className="mt-12 pt-8 border-t border-white/[0.06] w-full"
               >
                 <div className="flex items-center gap-3 mb-5">
                   <div className="h-px flex-1 bg-gradient-to-r from-transparent to-white/10" />
-                  <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-gray-600 flex items-center gap-2">
+                  <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-gray-600 flex items-center gap-2 flex-shrink-0">
                     <Link2 size={11} />
                     {lang === 'fr' ? 'Sources & Références' : 'Sources & References'}
                   </span>
                   <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/10" />
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 w-full">
                   {article.sources.map((source, i) => (
                     <motion.a
                       key={i}
@@ -1783,7 +1758,7 @@ export default function ArticleDetailPage() {
                       whileInView={{ opacity: 1, x: 0 }}
                       viewport={{ once: true }}
                       transition={{ delay: i * 0.05 }}
-                      className="flex items-center gap-3 p-3 bg-white/[0.02] border border-white/10 rounded-xl hover:border-[#D4AF37]/40 hover:bg-white/[0.04] transition-all group"
+                      className="flex items-center gap-3 p-3 bg-white/[0.02] border border-white/10 rounded-xl hover:border-[#D4AF37]/40 hover:bg-white/[0.04] transition-all group w-full"
                     >
                       <span
                         className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-mono font-bold text-black"
@@ -1795,7 +1770,7 @@ export default function ArticleDetailPage() {
                         <span className="text-gray-400 text-xs group-hover:text-white transition-colors truncate block">
                           {source}
                         </span>
-                        <span className="text-gray-600 text-[10px] font-mono">
+                        <span className="text-gray-600 text-[10px] font-mono truncate block">
                           {getDomain(source)}
                         </span>
                       </div>
@@ -1815,17 +1790,17 @@ export default function ArticleDetailPage() {
                 initial={{ opacity: 0, y: 12 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="mt-12 pt-8 border-t border-white/[0.06]"
+                className="mt-12 pt-8 border-t border-white/[0.06] w-full"
               >
                 <div className="flex items-center gap-3 mb-5">
                   <div className="h-px flex-1 bg-gradient-to-r from-transparent to-white/10" />
-                  <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-gray-600 flex items-center gap-2">
+                  <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-gray-600 flex items-center gap-2 flex-shrink-0">
                     <Flag size={11} />
                     {lang === 'fr' ? 'Événements Liés' : 'Related Events'}
                   </span>
                   <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/10" />
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-3 w-full">
                   {article.linked_events.map((event) => (
                     <LinkedEventCard key={event.id} event={event} lang={lang} catColor={catColor} />
                   ))}
@@ -1839,17 +1814,17 @@ export default function ArticleDetailPage() {
                 initial={{ opacity: 0, y: 10 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="mt-10 p-5 rounded-2xl border border-white/[0.07] bg-white/[0.02] flex items-center justify-between gap-4"
+                className="mt-10 p-5 rounded-2xl border border-white/[0.07] bg-white/[0.02] flex items-center justify-between gap-4 w-full"
               >
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-white/5 rounded-xl">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2.5 bg-white/5 rounded-xl flex-shrink-0">
                     <Globe size={18} className="text-gray-400" />
                   </div>
-                  <div>
-                    <p className="text-white text-sm font-bold">
+                  <div className="min-w-0">
+                    <p className="text-white text-sm font-bold truncate">
                       {lang === 'fr' ? 'Approfondir sur Wikipedia' : 'Go deeper on Wikipedia'}
                     </p>
-                    <p className="text-gray-600 text-xs">
+                    <p className="text-gray-600 text-xs truncate">
                       {lang === 'fr' ? 'Source de référence encyclopédique' : 'Encyclopedic reference source'}
                     </p>
                   </div>
@@ -1858,6 +1833,7 @@ export default function ArticleDetailPage() {
                   href={article.wikipedia_url}
                   target="_blank"
                   rel="noopener noreferrer"
+                  className="flex-shrink-0"
                 >
                   <motion.div
                     whileHover={{ scale: 1.05, x: 3 }}
@@ -1875,17 +1851,17 @@ export default function ArticleDetailPage() {
                 initial={{ opacity: 0, y: 12 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="mt-12 pt-8 border-t border-white/[0.05]"
+                className="mt-12 pt-8 border-t border-white/[0.05] w-full"
               >
                 <div className="flex items-center gap-3 mb-5">
                   <div className="h-px flex-1 bg-gradient-to-r from-transparent to-white/10" />
-                  <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-gray-600 flex items-center gap-2">
+                  <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-gray-600 flex items-center gap-2 flex-shrink-0">
                     <BookOpen size={11} />
                     {lang === 'fr' ? 'Dans les Archives' : 'In the Archives'}
                   </span>
                   <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/10" />
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-3 w-full">
                   {relatedArticles.map(rel => (
                     <RelatedArticleCard key={rel.id} article={rel} lang={lang} />
                   ))}
@@ -1894,7 +1870,7 @@ export default function ArticleDetailPage() {
             )}
 
             {/* ── Bottom nav ── */}
-            <div className="mt-12 pt-6 border-t border-white/[0.05] flex items-center justify-between">
+            <div className="mt-12 pt-6 border-t border-white/[0.05] flex items-center justify-between w-full">
               <Link
                 href="/encyclopedie"
                 className="flex items-center gap-2 text-gray-600 hover:text-[#D4AF37] transition-colors text-sm group"
@@ -1913,14 +1889,14 @@ export default function ArticleDetailPage() {
           </div>
 
           {/* ── Sidebar ── */}
-          <aside className="hidden lg:flex lg:flex-col lg:w-[300px]">
+          <aside className="hidden lg:flex lg:flex-col lg:w-full min-w-0">
             <TableOfContents items={tocItems} lang={lang} catColor={catColor} />
 
             <motion.div
               initial={{ opacity: 0, x: 16 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.3 }}
-              className="mt-6 bg-white/[0.02] border border-white/[0.06] rounded-2xl p-5"
+              className="mt-6 bg-white/[0.02] border border-white/[0.06] rounded-2xl p-5 w-full"
             >
               <div className="flex items-center gap-2 mb-4">
                 <CaurisIcon className="w-4 h-4 text-[#D4AF37]" />
@@ -1929,12 +1905,12 @@ export default function ArticleDetailPage() {
                 </span>
               </div>
 
-              <div className="space-y-3 text-xs">
+              <div className="space-y-3 text-xs w-full">
                 {article.categories && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">{lang === 'fr' ? 'Catégorie' : 'Category'}</span>
+                  <div className="flex items-center justify-between min-w-0 gap-2">
+                    <span className="text-gray-600 flex-shrink-0">{lang === 'fr' ? 'Catégorie' : 'Category'}</span>
                     <span
-                      className="px-2 py-0.5 rounded-full font-bold"
+                      className="px-2 py-0.5 rounded-full font-bold truncate"
                       style={{ backgroundColor: `${catColor}20`, color: catColor }}
                     >
                       {categoryName}
@@ -1942,9 +1918,9 @@ export default function ArticleDetailPage() {
                   </div>
                 )}
 
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">{lang === 'fr' ? 'Publié' : 'Published'}</span>
-                  <span className="text-gray-400">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-gray-600 flex-shrink-0">{lang === 'fr' ? 'Publié' : 'Published'}</span>
+                  <span className="text-gray-400 truncate">
                     {new Date(article.created_at).toLocaleDateString(
                       lang === 'fr' ? 'fr-FR' : 'en-US',
                       { month: 'short', year: 'numeric' }
@@ -1953,37 +1929,37 @@ export default function ArticleDetailPage() {
                 </div>
 
                 {article.reading_time && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">{lang === 'fr' ? 'Lecture' : 'Reading'}</span>
-                    <span className="text-gray-400">{article.reading_time} min</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-gray-600 flex-shrink-0">{lang === 'fr' ? 'Lecture' : 'Reading'}</span>
+                    <span className="text-gray-400 flex-shrink-0">{article.reading_time} min</span>
                   </div>
                 )}
 
                 {article.view_count !== undefined && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">{lang === 'fr' ? 'Lectures' : 'Reads'}</span>
-                    <span className="text-gray-400">{article.view_count}</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-gray-600 flex-shrink-0">{lang === 'fr' ? 'Lectures' : 'Reads'}</span>
+                    <span className="text-gray-400 flex-shrink-0">{article.view_count}</span>
                   </div>
                 )}
 
                 {article.sources && article.sources.length > 0 && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">{lang === 'fr' ? 'Sources' : 'Sources'}</span>
-                    <span className="text-gray-400">{article.sources.length}</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-gray-600 flex-shrink-0">{lang === 'fr' ? 'Sources' : 'Sources'}</span>
+                    <span className="text-gray-400 flex-shrink-0">{article.sources.length}</span>
                   </div>
                 )}
 
                 {article.wikipedia_url && (
-                  <div className="pt-3 border-t border-white/[0.05]">
+                  <div className="pt-3 border-t border-white/[0.05] w-full">
                     <a
                       href={article.wikipedia_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-gray-600 hover:text-white transition-colors"
+                      className="flex items-center gap-2 text-gray-600 hover:text-white transition-colors min-w-0"
                     >
-                      <Globe size={11} />
-                      Wikipedia
-                      <ExternalLink size={9} className="ml-auto" />
+                      <Globe size={11} className="flex-shrink-0" />
+                      <span className="truncate">Wikipedia</span>
+                      <ExternalLink size={9} className="ml-auto flex-shrink-0" />
                     </a>
                   </div>
                 )}
@@ -1994,12 +1970,12 @@ export default function ArticleDetailPage() {
               initial={{ opacity: 0, x: 16 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4 }}
-              className="mt-4 bg-white/[0.02] border border-white/[0.06] rounded-2xl p-4"
+              className="mt-4 bg-white/[0.02] border border-white/[0.06] rounded-2xl p-4 w-full"
             >
               <p className="text-[10px] font-bold tracking-[0.25em] uppercase text-gray-600 mb-3">
                 {lang === 'fr' ? 'Langue' : 'Language'}
               </p>
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full">
                 {(['fr', 'en'] as const).map(l => (
                   <button
                     key={l}
@@ -2007,7 +1983,7 @@ export default function ArticleDetailPage() {
                       setLang(l);
                       localStorage.setItem('lukeni_lang', l);
                     }}
-                    className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${lang === l
+                    className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all min-w-0 truncate px-1 ${lang === l
                       ? 'text-black'
                       : 'bg-white/5 text-gray-500 hover:text-gray-300'
                       }`}
