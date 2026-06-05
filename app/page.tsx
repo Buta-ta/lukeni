@@ -246,7 +246,7 @@ function useLukeniSearch(query: string, lang: 'fr' | 'en', geoCountry: string | 
         const personalities = (persResult.data || []).map((p: any) => ({
           id: p.id, type: 'personality' as const,
           title_fr: p.name_fr, title_en: p.name_en,
-          summary_fr: p.short_bio_fr, summary_en: p.short_bio_en,
+          summary_fr: p.short_bio_fr, short_bio_en: p.short_bio_en,
           image_url: p.image_url, slug: p.slug,
         }));
         const all: LukeniSearchResult[] = [...articles, ...personalities];
@@ -341,7 +341,6 @@ const MoonComponent = ({
         bottom-4 right-4
         md:bottom-auto md:top-24 md:right-12 md:z-40"
     >
-      {/* Glow externe */}
       <motion.div
         className="absolute rounded-full blur-3xl pointer-events-none"
         animate={{ scale: [1, 1.2, 1], opacity: isMobile ? 0.15 : [0.2, 0.4, 0.2] }}
@@ -359,7 +358,6 @@ const MoonComponent = ({
         }}
       />
 
-      {/* Corps lunaire */}
       <motion.div
         whileHover={{ scale: 1.08 }}
         className="relative rounded-full overflow-hidden cursor-default
@@ -376,7 +374,6 @@ const MoonComponent = ({
                 : '0 0 50px rgba(255,255,255,0.3), 0 0 100px rgba(255,255,255,0.15), inset -20px -20px 60px rgba(0,0,0,0.4)',
         }}
       >
-        {/* Cratères */}
         <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100">
           <defs>
             <radialGradient id="c1"><stop offset="0%" stopColor="rgba(0,0,0,0.5)" /><stop offset="100%" stopColor="transparent" /></radialGradient>
@@ -389,7 +386,6 @@ const MoonComponent = ({
           <circle cx="18" cy="58" r="6" fill="url(#c2)" opacity="0.5" />
           <ellipse cx="40" cy="50" rx="18" ry="22" fill="rgba(0,0,0,0.15)" opacity="0.4" />
         </svg>
-        {/* Phase */}
         <motion.div
           className="absolute inset-0"
           style={{
@@ -403,7 +399,6 @@ const MoonComponent = ({
         />
       </motion.div>
 
-      {/* Tooltip hover — masqué sur mobile */}
       {!isMobile && (
         <div className="absolute pointer-events-none bg-black/95 border border-[#D4AF37]/30 rounded-xl px-3 py-2.5 backdrop-blur-md shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap
         top-full mt-5 left-1/2 -translate-x-1/2">
@@ -425,7 +420,6 @@ const MoonComponent = ({
         </div>
       )}
 
-      {/* Étoiles autour — desktop uniquement */}
       {!isMobile && [...Array(6)].map((_, i) => (
         <motion.div
           key={`star-${i}`}
@@ -845,7 +839,6 @@ export default function LandingPage() {
             transition={{ duration: 0.5 }}
             className="fixed inset-0 z-[9999] bg-[#020111] flex flex-col items-center justify-center px-6"
           >
-            {/* Halo de fond */}
             <motion.div
               className="absolute rounded-full pointer-events-none"
               animate={{
@@ -859,8 +852,6 @@ export default function LandingPage() {
                 background: 'radial-gradient(circle, rgba(212,175,55,0.3) 0%, transparent 70%)',
               }}
             />
-
-            {/* Icône */}
             <motion.div
               animate={{ rotate: 360 }}
               transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
@@ -868,8 +859,6 @@ export default function LandingPage() {
             >
               <CaurisIcon className="w-16 h-16 md:w-24 md:h-24 text-[#D4AF37]" />
             </motion.div>
-
-            {/* Nom */}
             <motion.h2
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -878,19 +867,13 @@ export default function LandingPage() {
             >
               LUKENI
             </motion.h2>
-
-            {/* Texte animé */}
             <motion.p
               animate={{ opacity: [0.4, 1, 0.4] }}
               transition={{ duration: 1.5, repeat: Infinity }}
               className="relative z-10 text-[#D4AF37]/70 text-[10px] md:text-xs tracking-[0.25em] md:tracking-[0.4em] font-light text-center leading-relaxed"
             >
-              {lang === 'fr'
-                ? 'CHARGEMENT DE LA CONSTELLATION...'
-                : 'LOADING CONSTELLATION...'}
+              {lang === 'fr' ? 'CHARGEMENT DE LA CONSTELLATION...' : 'LOADING CONSTELLATION...'}
             </motion.p>
-
-            {/* Barre de progression simulée */}
             <div className="relative z-10 mt-8 md:mt-10 w-32 md:w-48 h-px bg-white/10 rounded-full overflow-hidden">
               <motion.div
                 className="h-full bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent rounded-full"
@@ -899,34 +882,17 @@ export default function LandingPage() {
                 style={{ width: '60%' }}
               />
             </div>
-
-            {/* Étoiles décoratives — masquées sur très petits écrans */}
             <div className="absolute inset-0 pointer-events-none hidden sm:block">
               {[
-                { x: '15%', y: '20%', d: 1.8, delay: 0 },
-                { x: '82%', y: '15%', d: 2.2, delay: 0.4 },
-                { x: '8%', y: '72%', d: 1.5, delay: 0.8 },
-                { x: '90%', y: '68%', d: 2.0, delay: 0.6 },
-                { x: '50%', y: '88%', d: 1.6, delay: 1.0 },
-                { x: '25%', y: '55%', d: 1.9, delay: 0.2 },
+                { x: '15%', y: '20%', d: 1.8, delay: 0 }, { x: '82%', y: '15%', d: 2.2, delay: 0.4 },
+                { x: '8%', y: '72%', d: 1.5, delay: 0.8 }, { x: '90%', y: '68%', d: 2.0, delay: 0.6 },
+                { x: '50%', y: '88%', d: 1.6, delay: 1.0 }, { x: '25%', y: '55%', d: 1.9, delay: 0.2 },
                 { x: '75%', y: '42%', d: 1.4, delay: 1.2 },
               ].map((star, i) => (
-                <motion.div
-                  key={i}
-                  className="absolute w-1 h-1 rounded-full bg-[#D4AF37]"
-                  style={{
-                    left: star.x,
-                    top: star.y,
-                    boxShadow: '0 0 6px 2px rgba(212,175,55,0.6)',
-                  }}
+                <motion.div key={i} className="absolute w-1 h-1 rounded-full bg-[#D4AF37]"
+                  style={{ left: star.x, top: star.y, boxShadow: '0 0 6px 2px rgba(212,175,55,0.6)' }}
                   animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1.4, 0.8] }}
-                  transition={{
-                    duration: star.d,
-                    repeat: Infinity,
-                    delay: star.delay,
-                    ease: 'easeInOut',
-                  }}
-                />
+                  transition={{ duration: star.d, repeat: Infinity, delay: star.delay, ease: 'easeInOut' }} />
               ))}
             </div>
           </motion.div>
@@ -959,8 +925,7 @@ export default function LandingPage() {
       <div className="absolute top-4 md:top-6 left-0 right-0 z-50 flex items-center justify-between px-4 md:px-6">
         <div className="flex items-center gap-1">
           <motion.button
-            whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-            onClick={handleToggleSound}
+            whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={handleToggleSound}
             className={`p-2.5 md:p-3 border rounded-full text-white transition-all backdrop-blur-sm ${soundEnabled ? 'bg-[#D4AF37]/20 border-[#D4AF37]/40 text-[#D4AF37]' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-[#D4AF37]/40'}`}
           >
             {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
@@ -973,8 +938,7 @@ export default function LandingPage() {
 
           {soundEnabled && currentTrack && (
             <motion.div
-              initial={{ opacity: 0, x: -20, scale: 0.9 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
+              initial={{ opacity: 0, x: -20, scale: 0.9 }} animate={{ opacity: 1, x: 0, scale: 1 }}
               className="ml-2 bg-black/80 backdrop-blur-md border border-white/20 rounded-lg px-2 md:px-2.5 py-1.5 flex items-center gap-1.5 md:gap-2 shadow-lg"
             >
               <div className="w-5 h-5 md:w-6 md:h-6 rounded overflow-hidden bg-[#D4AF37]/20 flex-shrink-0">
@@ -999,8 +963,7 @@ export default function LandingPage() {
         </div>
 
         <motion.button
-          whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-          onClick={() => setLang(lang === 'fr' ? 'en' : 'fr')}
+          whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => setLang(lang === 'fr' ? 'en' : 'fr')}
           className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-3 md:px-4 py-1.5 md:py-2 rounded-full text-white hover:bg-[#D4AF37] hover:text-black transition-all font-bold text-xs backdrop-blur-sm"
         >
           <Globe size={13} /> {lang.toUpperCase()}
@@ -1063,7 +1026,7 @@ export default function LandingPage() {
         </p>
       </motion.div>
 
-      {/* ── BARRE DE RECHERCHE (centrée verticalement) ── */}
+      {/* ── BARRE DE RECHERCHE ── */}
       <div className="z-[60] w-full max-w-3xl px-4 md:px-6 relative">
         <motion.form
           onSubmit={handleSearch}
@@ -1081,9 +1044,7 @@ export default function LandingPage() {
               <AnimatePresence mode="wait">
                 <motion.span
                   key={`${lang}-${placeholderIndex}`}
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 0.5, y: 0 }}
-                  exit={{ opacity: 0, y: -15 }}
+                  initial={{ opacity: 0, y: 15 }} animate={{ opacity: 0.5, y: 0 }} exit={{ opacity: 0, y: -15 }}
                   transition={{ duration: 0.4 }}
                   className="absolute text-white pointer-events-none text-sm md:text-lg font-light truncate w-full"
                 >
@@ -1092,8 +1053,7 @@ export default function LandingPage() {
               </AnimatePresence>
             )}
             <input
-              type="text"
-              value={searchValue}
+              type="text" value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setTimeout(() => setIsFocused(false), 250)}
@@ -1104,8 +1064,7 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-1 md:gap-2 pr-2 md:pr-4">
             <motion.button
-              whileHover={{ scale: 1.1 }} type="button"
-              onClick={handleGeoLocation} disabled={geoLoading}
+              whileHover={{ scale: 1.1 }} type="button" onClick={handleGeoLocation} disabled={geoLoading}
               className={`p-2 transition-all hidden md:block ${geoLoading ? 'text-yellow-500 animate-pulse' : geoCountry ? 'text-[#D4AF37]' : 'text-gray-500 hover:text-[#D4AF37]'}`}
               title={lang === 'fr' ? 'Recherche par localisation' : 'Location-based search'}
             >
@@ -1113,8 +1072,7 @@ export default function LandingPage() {
             </motion.button>
 
             <motion.button
-              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-              type="submit"
+              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} type="submit"
               className={`ml-1 md:ml-2 px-4 md:px-6 py-2 md:py-2.5 rounded-full font-bold text-xs md:text-sm transition-all flex items-center gap-1.5 md:gap-2 ${isOrganic ? 'bg-[#D4AF37] text-[#1a120b] hover:bg-[#E5C158]' : 'bg-[#D4AF37]/20 text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black border border-[#D4AF37]/30'}`}
             >
               <Search size={14} />
@@ -1149,59 +1107,62 @@ export default function LandingPage() {
         <FeaturedEventsBar events={featuredEvents} lang={lang} onEventClick={setActiveFeaturedEvent} />
       </div>
 
-      {/* ── POP-UP ÉTOILE (CORRIGÉ: Structure robuste, plus de blur, scroll séparé) ── */}
+      {/* ── POP-UP ÉTOILE (CORRIGÉE DÉFINITIVEMENT) ── */}
       <AnimatePresence>
         {activeStar && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/80"
+            className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
             onClick={() => setActiveStar(null)}>
             
             <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
-              className="bg-[#1A1A1A] border-2 rounded-2xl overflow-hidden shadow-2xl w-full max-w-md flex flex-col max-h-[85vh]"
+              className="bg-[#1A1A1A] border border-[#D4AF37]/50 rounded-2xl shadow-2xl w-full max-w-md relative flex flex-col overflow-hidden max-h-[85vh]"
               style={{ borderColor: activeStar.card_color || '#D4AF37' }}
               onClick={e => e.stopPropagation()}>
               
-              {/* IMAGE HEADER (Hauteur fixe qui ne déborde jamais sur le texte) */}
-              <div className="relative h-32 md:h-48 flex-shrink-0 bg-black">
-                <img src={activeStar.image_url || 'https://images.unsplash.com/photo-1501854140801-50d01674aa3e?q=80&w=600&h=400&auto=format&fit=crop'}
-                  alt={activeStar.name_fr} className="w-full h-full object-cover opacity-75" />
-                
-                {/* Dégradé propre pour la transition vers le texte */}
+              {/* HEADER: IMAGE (Utilisation d'un background pour garantir qu'elle ne déborde pas) */}
+              <div className="relative w-full h-40 md:h-52 flex-shrink-0 bg-black">
+                <div 
+                  className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-60"
+                  style={{ 
+                    backgroundImage: `url(${activeStar.image_url || 'https://images.unsplash.com/photo-1501854140801-50d01674aa3e?q=80&w=600&h=400&auto=format&fit=crop'})` 
+                  }}
+                />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#1A1A1A] via-transparent to-transparent" />
                 
                 <button onClick={() => setActiveStar(null)}
-                  className="absolute top-3 right-3 p-2 bg-black/80 rounded-full text-white hover:bg-white hover:text-black transition-all z-10">
+                  className="absolute top-3 right-3 p-2 bg-black/50 backdrop-blur-md rounded-full text-white hover:bg-[#D4AF37] hover:text-black transition-all z-20">
                   <X size={16} />
                 </button>
                 
                 {activeStar.birth_year && (
-                  <div className="absolute bottom-3 left-4 flex items-center gap-2 text-white/90 text-xs font-bold z-10 drop-shadow-md">
+                  <div className="absolute bottom-3 left-5 flex items-center gap-2 text-white text-xs font-bold z-20 drop-shadow-md">
                     <Clock size={12} />
                     <span>{activeStar.birth_year} - {activeStar.death_year || (lang === 'fr' ? 'Présent' : 'Present')}</span>
                   </div>
                 )}
               </div>
               
-              {/* TEXTE (Scrollable s'il est très long) */}
-              <div className="px-5 py-4 md:px-6 flex-1 overflow-y-auto">
-                <div className="flex items-start justify-between mb-3">
+              {/* BODY: TEXTE & INFOS */}
+              <div className="px-5 py-5 md:px-6 flex-1 overflow-y-auto bg-[#1A1A1A] relative z-10">
+                <div className="flex items-start justify-between mb-4">
                   <div>
-                    <h3 className="text-[#D4AF37] text-xl md:text-2xl font-serif mb-1 leading-tight">
+                    <h3 className="text-[#D4AF37] text-2xl font-serif mb-1 leading-tight">
                       {lang === 'fr' ? activeStar.name_fr : activeStar.name_en}
                     </h3>
-                    {activeStar.domain && <span className="text-white/50 text-xs uppercase tracking-wider">{activeStar.domain}</span>}
+                    {activeStar.domain && <span className="text-white/40 text-xs uppercase tracking-widest font-semibold">{activeStar.domain}</span>}
                   </div>
-                  <Zap size={18} className="text-[#D4AF37] flex-shrink-0 mt-1 opacity-50" />
+                  <Zap size={18} className="text-[#D4AF37]/50 flex-shrink-0 mt-1" />
                 </div>
-                <p className="text-gray-300 text-sm font-light leading-relaxed pb-2">
+                
+                <p className="text-gray-300 text-sm font-light leading-relaxed">
                   {lang === 'fr' ? activeStar.short_bio_fr : activeStar.short_bio_en}
                 </p>
               </div>
 
-              {/* BOUTON (Fixé en bas, ne disparaît jamais) */}
-              <div className="px-5 pb-5 pt-2 md:px-6 md:pb-6 flex-shrink-0 bg-[#1A1A1A]">
+              {/* FOOTER: BOUTON */}
+              <div className="p-5 md:p-6 pt-2 bg-[#1A1A1A] flex-shrink-0 relative z-10 border-t border-white/5">
                 <Link href={`/encyclopedie?q=${encodeURIComponent(lang === 'fr' ? activeStar.name_fr : activeStar.name_en)}`}
-                  className="flex items-center justify-between w-full px-5 py-3.5 bg-gradient-to-r from-[#D4AF37] to-[#E5C158] text-black rounded-xl font-bold hover:shadow-[0_0_15px_rgba(212,175,55,0.4)] transition-all group">
+                  className="flex items-center justify-between w-full px-5 py-3.5 bg-gradient-to-r from-[#D4AF37] to-[#E5C158] text-black rounded-xl font-bold hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] transition-all group">
                   <span className="flex items-center gap-2"><BookOpen size={14} />{lang === 'fr' ? 'Voir dans l\'encyclopédie' : 'View in encyclopedia'}</span>
                   <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
                 </Link>
@@ -1212,11 +1173,11 @@ export default function LandingPage() {
         )}
       </AnimatePresence>
 
-      {/* ── POP-UP ÉVÉNEMENT FEATURED (Corrigé aussi pour la sécurité) ── */}
+      {/* ── POP-UP ÉVÉNEMENT FEATURED ── */}
       <AnimatePresence>
         {activeFeaturedEvent && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/80"
+            className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
             onClick={() => setActiveFeaturedEvent(null)}>
             
             <motion.div initial={{ opacity: 0, y: 30, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 30, scale: 0.95 }}
