@@ -20,13 +20,14 @@
 }
 
 /* ──────────────────────────────────────────────────────────
-   ✅ FIX SCROLL HORIZONTAL — AJOUTE CECI
+   ✅ FIX SCROLL HORIZONTAL (CORRIGÉ POUR DESKTOP)
    ────────────────────────────────────────────────────────── */
 
 html,
 body {
   overflow-x: hidden;
-  max-width: 100vw;
+  /* ❌ Surtout pas de 100vw ici, ça crée le bug avec la scrollbar Windows ! */
+  width: 100%; 
   position: relative;
 }
 
@@ -175,7 +176,6 @@ body {
   margin: 0 !important;
   padding: 0 !important;
 }
-
 
 .wiki-content * {
   max-width: 100% !important;
