@@ -127,49 +127,65 @@ export default function EventsTab({ showMsg }: {
   };
 
   const handleSave = async () => {
-    if (!titleFr.trim() || !titleEn.trim()) return showMsg('error', 'Titres requis.');
-    setIsSaving(true);
-    try {
-      const payload = {
-        title_fr: titleFr,
-        title_en: titleEn,
-        description_fr: descFr,
-        description_en: descEn,
-        year,
-        event_month: eventMonth ? parseInt(eventMonth) : null,
-        event_day: eventDay ? parseInt(eventDay) : null,
-        notify_anniversary: notifyAnniversary,
-        featured_on_landing: featuredOnLanding,
-        country,
-        importance,
-        category_id: catId || null,
-        latitude: lat,
-        longitude: lng,
-        image_url: imageUrl,
-      };
+  if (!titleFr.trim() || !titleEn.trim()) return showMsg('error', 'Titres requis.');
+  setIsSaving(true);
+  try {
+    // Générer un slug unique
+    const slug = titleFr.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+      + '-' + year;
 
-      if (editingId) {
-        const { error } = await supabase.from('events').update(payload).eq('id', editingId);
-        if (error) throw error;
-        setEvents(events.map(e => e.id === editingId
-          ? { ...e, ...payload, categories: categories.find(c => c.id === catId) as Category }
-          : e
-        ));
-        showMsg('success', 'Événement mis à jour !');
-      } else {
-        const { data, error } = await supabase
-          .from('events')
-          .insert(payload)
-          .select('*, categories(id, name_fr, name_en)')
-          .single();
-        if (error) throw error;
-        setEvents([data as unknown as EventItem, ...events]);
-        showMsg('success', 'Événement créé !');
-      }
-      resetForm();
-    } catch (err: any) { showMsg('error', err.message); }
-    setIsSaving(false);
-  };
+    const payload = {
+      title_fr: titleFr,
+      title_en: titleEn,
+      description_fr: descFr || null,
+      description_en: descEn || null,
+      desc_fr: descFr || null,      // ← pour compatibilité avec l'ancien schéma
+      desc_en: descEn || null,      // ← pour compatibilité avec l'ancien schéma
+      year,
+      month: eventMonth ? parseInt(eventMonth) : 1,  // ← OBLIGATOIRE (NOT NULL)
+      day: eventDay ? parseInt(eventDay) : 1,        // ← OBLIGATOIRE (NOT NULL)
+      event_month: eventMonth ? parseInt(eventMonth) : null,
+      event_day: eventDay ? parseInt(eventDay) : null,
+      notify_anniversary: notifyAnniversary,
+      featured_on_landing: featuredOnLanding,
+      country,
+      country_code: country || '🌍',
+      importance,
+      category_id: catId || null,
+      latitude: lat || null,
+      longitude: lng || null,
+      image_url: imageUrl || null,
+      slug,
+      status: 'published',
+    };
+
+    if (editingId) {
+      const { error } = await supabase.from('events').update(payload).eq('id', editingId);
+      if (error) throw error;
+      setEvents(events.map(e => e.id === editingId
+        ? { ...e, ...payload, categories: categories.find(c => c.id === catId) as Category }
+        : e
+      ));
+      showMsg('success', 'Événement mis à jour !');
+    } else {
+      const { data, error } = await supabase
+        .from('events')
+        .insert(payload)
+        .select('*, categories(id, name_fr, name_en)')
+        .single();
+      if (error) throw error;
+      setEvents([data as unknown as EventItem, ...events]);
+      showMsg('success', 'Événement créé !');
+    }
+    resetForm();
+  } catch (err: any) { 
+    console.error('Save error:', err);
+    showMsg('error', err.message || 'Erreur inconnue'); 
+  }
+  setIsSaving(false);
+};
 
   const handleDelete = async (id: string) => {
     if (!confirm('Supprimer cet événement ?')) return;
