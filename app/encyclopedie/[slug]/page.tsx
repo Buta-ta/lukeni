@@ -1645,8 +1645,9 @@ export default function ArticleDetailPage() {
       <StarField mousePos={mousePos} />
 
 
-      <header className="sticky top-[2px] z-50 bg-[#020111]/80 backdrop-blur-xl border-b border-white/[0.06]">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 grid grid-cols-3 items-center gap-4">
+      <header className="sticky top-[2px] z-50 bg-[#020111]/80 backdrop-blur-xl border-b border-white/[0.06] overflow-x-hidden">
+
+         <div className="max-w-[1400px] mx-auto px-3 sm:px-6 py-2.5 grid grid-cols-3 items-center gap-4">
 
           {/* Gauche : Retour */}
           <div>
@@ -1764,8 +1765,11 @@ export default function ArticleDetailPage() {
   </div>
 )}
 
-      <div className="relative z-10 w-full mx-auto px-4 sm:px-6 py-10" style={{ maxWidth: '1400px' }}>
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8 lg:gap-12">
+      <div 
+  className="relative z-10 w-full mx-auto px-4 sm:px-6 py-10 overflow-x-hidden" 
+  style={{ maxWidth: '1400px' }}
+>
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 lg:gap-8 min-w-0">
 
           <div>
 
@@ -1883,7 +1887,7 @@ export default function ArticleDetailPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2, duration: 0.5 }}
-              className="relative"
+              className="relative overflow-x-hidden"
             >
               <div
                 className="absolute -left-5 top-0 bottom-0 w-px hidden md:block"
