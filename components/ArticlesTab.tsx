@@ -11,7 +11,7 @@ import ImageUploader from '@/components/admin/ImageUploader';
 import { Image as ImageIcon } from 'lucide-react';
 import FormatToolbar from '@/components/admin/FormatToolbar';
 
-interface Category { id: string; name_fr: string; name_en: string;color?: string; }
+interface Category { id: string; name_fr: string; name_en: string; color?: string; }
 interface EventOption { id: string; title_fr: string; year: number; }
 interface Article {
   id: string; title_fr: string; title_en: string;
@@ -206,6 +206,14 @@ export default function ArticlesTab({ showMsg }: {
   const [newTimelineDescFr, setNewTimelineDescFr] = useState('');
   const [newTimelineDescEn, setNewTimelineDescEn] = useState('');
 
+  // Ajoutez ces états après la déclaration de `timeline`
+  const [editingTimelineIndex, setEditingTimelineIndex] = useState<number | null>(null);
+  const [editTimelineYear, setEditTimelineYear] = useState('');
+  const [editTimelineTitleFr, setEditTimelineTitleFr] = useState('');
+  const [editTimelineTitleEn, setEditTimelineTitleEn] = useState('');
+  const [editTimelineDescFr, setEditTimelineDescFr] = useState('');
+  const [editTimelineDescEn, setEditTimelineDescEn] = useState('');
+
   useEffect(() => {
     async function fetchData() {
       setIsLoading(true);
@@ -237,6 +245,12 @@ export default function ArticlesTab({ showMsg }: {
     setNewTimelineTitleEn('');
     setNewTimelineDescFr('');
     setNewTimelineDescEn('');
+    setEditingTimelineIndex(null);
+    setEditTimelineYear('');
+    setEditTimelineTitleFr('');
+    setEditTimelineTitleEn('');
+    setEditTimelineDescFr('');
+    setEditTimelineDescEn('');
   };
 
   const handleEdit = async (art: Article) => {
@@ -277,6 +291,12 @@ export default function ArticlesTab({ showMsg }: {
       if (action === 'translate-timeline-fr') setNewTimelineTitleFr(await autoTranslate(newTimelineTitleEn, 'en'));
       if (action === 'translate-timeline-desc-en') setNewTimelineDescEn(await autoTranslate(newTimelineDescFr, 'fr'));
       if (action === 'translate-timeline-desc-fr') setNewTimelineDescFr(await autoTranslate(newTimelineDescEn, 'en'));
+
+      if (action === 'edit-translate-timeline-en') setEditTimelineTitleEn(await autoTranslate(editTimelineTitleFr, 'fr'));
+      if (action === 'edit-translate-timeline-fr') setEditTimelineTitleFr(await autoTranslate(editTimelineTitleEn, 'en'));
+      if (action === 'edit-translate-timeline-desc-en') setEditTimelineDescEn(await autoTranslate(editTimelineDescFr, 'fr'));
+      if (action === 'edit-translate-timeline-desc-fr') setEditTimelineDescFr(await autoTranslate(editTimelineDescEn, 'en'));
+
     } catch { showMsg('error', 'Erreur API'); }
     setIsProcessing(null);
   };
@@ -714,37 +734,197 @@ export default function ArticlesTab({ showMsg }: {
           </div>
 
           {/* Liste des entrées */}
+          {/* Liste des entrées */}
           {timeline.length > 0 ? (
             <div className="space-y-2">
               {timeline.map((entry, i) => (
-                <div
-                  key={i}
-                  className="flex items-start justify-between p-3 bg-[#0f0f0f] rounded-lg border border-white/10 group"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[#D4AF37] font-mono text-xs font-bold">{entry.year}</span>
-                      <span className="text-white text-xs font-bold truncate">{entry.title_fr}</span>
-                      <span className="text-gray-500 text-[10px] truncate">/ {entry.title_en}</span>
+                <div key={i} className="rounded-lg border border-white/10 overflow-hidden">
+
+                  {/* ── Mode édition ── */}
+                  {editingTimelineIndex === i ? (
+                    <div className="p-3 bg-[#0f0f0f] space-y-2">
+
+                      {/* En-tête mode édition */}
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-bold text-[#D4AF37] font-mono uppercase tracking-wider">
+                          ✏️ Édition de l'étape #{i + 1}
+                        </span>
+                        <button
+                          onClick={() => setEditingTimelineIndex(null)}
+                          className="p-1 text-gray-500 hover:text-white transition-colors"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+
+                      {/* Année + Titre FR */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          value={editTimelineYear}
+                          onChange={e => setEditTimelineYear(e.target.value)}
+                          placeholder="Année"
+                          className="bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37]"
+                        />
+                        <input
+                          type="text"
+                          value={editTimelineTitleFr}
+                          onChange={e => setEditTimelineTitleFr(e.target.value)}
+                          placeholder="Titre FR"
+                          className="bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37]"
+                        />
+                      </div>
+
+                      {/* Bouton traduction FR→EN titre */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleLingua('edit-translate-timeline-en')}
+                          disabled={isProcessing === 'edit-translate-timeline-en' || !editTimelineTitleFr}
+                          className="p-1 text-[9px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
+                        >
+                          <Languages size={9} /> FR→EN
+                        </button>
+                        <button
+                          onClick={() => handleLingua('edit-translate-timeline-fr')}
+                          disabled={isProcessing === 'edit-translate-timeline-fr' || !editTimelineTitleEn}
+                          className="p-1 text-[9px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
+                        >
+                          <Languages size={9} /> EN→FR
+                        </button>
+                      </div>
+
+                      {/* Titre EN */}
+                      <input
+                        type="text"
+                        value={editTimelineTitleEn}
+                        onChange={e => setEditTimelineTitleEn(e.target.value)}
+                        placeholder="Titre EN"
+                        className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37]"
+                      />
+
+                      {/* Description FR */}
+                      <textarea
+                        value={editTimelineDescFr}
+                        onChange={e => setEditTimelineDescFr(e.target.value)}
+                        placeholder="Description FR (optionnel)"
+                        rows={2}
+                        className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37] resize-none"
+                      />
+
+                      {/* Boutons traduction description */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleLingua('edit-translate-timeline-desc-en')}
+                          disabled={isProcessing === 'edit-translate-timeline-desc-en' || !editTimelineDescFr}
+                          className="p-1 text-[9px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
+                        >
+                          <Languages size={9} /> Desc FR→EN
+                        </button>
+                        <button
+                          onClick={() => handleLingua('edit-translate-timeline-desc-fr')}
+                          disabled={isProcessing === 'edit-translate-timeline-desc-fr' || !editTimelineDescEn}
+                          className="p-1 text-[9px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
+                        >
+                          <Languages size={9} /> Desc EN→FR
+                        </button>
+                      </div>
+
+                      {/* Description EN */}
+                      <textarea
+                        value={editTimelineDescEn}
+                        onChange={e => setEditTimelineDescEn(e.target.value)}
+                        placeholder="Description EN (optionnel)"
+                        rows={2}
+                        className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37] resize-none"
+                      />
+
+                      {/* Actions */}
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          onClick={() => {
+                            if (!editTimelineYear || !editTimelineTitleFr || !editTimelineTitleEn) return;
+                            const updated = [...timeline];
+                            updated[i] = {
+                              year: editTimelineYear,
+                              title_fr: editTimelineTitleFr,
+                              title_en: editTimelineTitleEn,
+                              description_fr: editTimelineDescFr,
+                              description_en: editTimelineDescEn,
+                            };
+                            setTimeline(updated);
+                            setEditingTimelineIndex(null);
+                          }}
+                          disabled={!editTimelineYear || !editTimelineTitleFr || !editTimelineTitleEn}
+                          className="flex-1 px-3 py-1.5 bg-[#D4AF37] text-black rounded-lg text-xs font-bold hover:bg-white transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
+                        >
+                          <CheckCircle size={11} /> Enregistrer
+                        </button>
+                        <button
+                          onClick={() => setTimeline(timeline.filter((_, idx) => idx !== i))}
+                          className="px-3 py-1.5 bg-red-500/10 text-red-400 rounded-lg text-xs font-bold hover:bg-red-500/20 transition-colors flex items-center gap-1"
+                        >
+                          <Trash2 size={11} /> Supprimer
+                        </button>
+                      </div>
                     </div>
-                    {entry.description_fr && (
-                      <p className="text-gray-500 text-[10px] line-clamp-2">{entry.description_fr}</p>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => setTimeline(timeline.filter((_, idx) => idx !== i))}
-                    className="p-1.5 text-gray-600 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                  >
-                    <X size={12} />
-                  </button>
+
+                  ) : (
+                    /* ── Mode affichage ── */
+                    <div className="flex items-start justify-between p-3 bg-[#0f0f0f] group">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[#D4AF37] font-mono text-xs font-bold">
+                            {entry.year}
+                          </span>
+                          <span className="text-white text-xs font-bold truncate">
+                            {entry.title_fr}
+                          </span>
+                          <span className="text-gray-500 text-[10px] truncate">
+                            / {entry.title_en}
+                          </span>
+                        </div>
+                        {entry.description_fr && (
+                          <p className="text-gray-500 text-[10px] line-clamp-2">
+                            {entry.description_fr}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Boutons affichés au hover */}
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0">
+                        <button
+                          onClick={() => {
+                            setEditingTimelineIndex(i);
+                            setEditTimelineYear(entry.year);
+                            setEditTimelineTitleFr(entry.title_fr);
+                            setEditTimelineTitleEn(entry.title_en);
+                            setEditTimelineDescFr(entry.description_fr || '');
+                            setEditTimelineDescEn(entry.description_en || '');
+                          }}
+                          className="p-1.5 text-gray-500 hover:text-[#D4AF37] transition-colors"
+                          title="Modifier cette étape"
+                        >
+                          <Edit2 size={12} />
+                        </button>
+                        <button
+                          onClick={() => setTimeline(timeline.filter((_, idx) => idx !== i))}
+                          className="p-1.5 text-gray-600 hover:text-red-500 transition-colors"
+                          title="Supprimer cette étape"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-gray-600 text-xs text-center py-4">Aucune étape chronologique ajoutée</p>
+            <p className="text-gray-600 text-xs text-center py-4">
+              Aucune étape chronologique ajoutée
+            </p>
           )}
         </div>
-
         {/* Galerie */}
         <div className="p-4 bg-[#1a1a1a] rounded-lg border border-white/10">
           <div className="flex items-center gap-2 mb-3">
@@ -853,9 +1033,8 @@ export default function ArticlesTab({ showMsg }: {
           <div className="max-h-40 overflow-y-auto space-y-1">
             {filteredEvents.slice(0, 20).map(evt => (
               <label key={evt.id}
-                className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${
-                  linkedEventIds.includes(evt.id) ? 'bg-[#D4AF37]/10 border border-[#D4AF37]/20' : 'hover:bg-white/5'
-                }`}>
+                className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${linkedEventIds.includes(evt.id) ? 'bg-[#D4AF37]/10 border border-[#D4AF37]/20' : 'hover:bg-white/5'
+                  }`}>
                 <input type="checkbox" checked={linkedEventIds.includes(evt.id)}
                   onChange={() => toggleEvent(evt.id)} className="accent-[#D4AF37]" />
                 <span className="text-[#D4AF37] font-mono text-[10px] font-bold">{evt.year}</span>
@@ -890,11 +1069,10 @@ export default function ArticlesTab({ showMsg }: {
               )}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                    art.status === 'published' ? 'bg-green-500/20 text-green-400' :
-                    art.status === 'draft' ? 'bg-gray-500/20 text-gray-400' :
-                    'bg-yellow-500/20 text-yellow-400'
-                  }`}>{art.status}</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${art.status === 'published' ? 'bg-green-500/20 text-green-400' :
+                      art.status === 'draft' ? 'bg-gray-500/20 text-gray-400' :
+                        'bg-yellow-500/20 text-yellow-400'
+                    }`}>{art.status}</span>
                   {art.categories && (
                     <span className="text-[10px] text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">
                       {art.categories.name_fr}
