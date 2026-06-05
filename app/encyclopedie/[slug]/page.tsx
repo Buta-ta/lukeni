@@ -1486,18 +1486,22 @@ export default function ArticleDetailPage() {
 
       {article.image_url && (
   <div ref={heroRef} className="relative h-[50vh] md:h-[65vh] overflow-hidden bg-black">
+    {/* Image NON zoomée, bien cadrée */}
     <img
       src={article.image_url}
       alt={title}
       loading="eager"
-      className="absolute inset-0 w-full h-full object-contain"
+      className="absolute inset-0 w-full h-full object-cover"
       style={{ 
+        objectPosition: 'center center',
         transform: `translateY(${heroY})`,
-        filter: 'brightness(0.85)'
+        // ✅ ENLEVÉ le scale(1.1) qui zoomait trop
       }}
     />
-    <div className="absolute inset-0 bg-gradient-to-t from-[#020111] via-[#020111]/30 to-transparent" />
-    <div className="absolute inset-0 bg-gradient-to-r from-[#020111]/20 via-transparent to-[#020111]/20" />
+    
+    {/* Gradients pour le contraste */}
+    <div className="absolute inset-0 bg-gradient-to-t from-[#020111] via-[#020111]/50 to-transparent pointer-events-none" />
+    <div className="absolute inset-0 bg-gradient-to-r from-[#020111]/30 via-transparent to-[#020111]/30 pointer-events-none" />
 
     {/* Catégorie */}
     {article.categories && (
@@ -1508,11 +1512,11 @@ export default function ArticleDetailPage() {
         className="absolute top-4 sm:top-6 left-4 sm:left-6 z-20"
       >
         <span
-          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-md shadow-lg"
+          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-md shadow-xl"
           style={{
-            backgroundColor: `${catColor}30`,
+            backgroundColor: `${catColor}35`,
             color: catColor,
-            border: `1px solid ${catColor}50`,
+            border: `1.5px solid ${catColor}60`,
           }}
         >
           <Tag size={10} />
@@ -1532,34 +1536,47 @@ export default function ArticleDetailPage() {
 
       <button
         onClick={() => setEnrichmentMode(!enrichmentMode)}
-        className={`px-3 sm:px-4 py-2 text-xs font-bold rounded-xl backdrop-blur-md transition-all shadow-lg ${
+        className={`px-3 sm:px-4 py-2 text-xs font-bold rounded-xl backdrop-blur-md transition-all shadow-xl ${
           enrichmentMode
-            ? 'bg-[#D4AF37] text-black border border-[#D4AF37]'
-            : 'bg-white/[0.08] border border-white/20 text-gray-300 hover:border-[#D4AF37]/50'
+            ? 'bg-[#D4AF37] text-black border-2 border-[#D4AF37]'
+            : 'bg-black/40 border-2 border-white/30 text-white hover:border-[#D4AF37]/70'
         }`}
         title={lang === 'fr' ? 'Mode dictionnaire — cliquez sur les mots' : 'Dictionary mode — click on words'}
       >
         Dict
       </button>
 
-      <FavoriteButton itemType="article" itemId={article.id} size={17} />
+      <div className="bg-black/40 backdrop-blur-md rounded-xl p-1.5 border-2 border-white/30 shadow-xl">
+        <FavoriteButton itemType="article" itemId={article.id} size={17} />
+      </div>
     </motion.div>
 
     {/* Titre en bas */}
     <div
       style={{ opacity: heroOpacity }}
-      className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 md:p-10 z-10 bg-gradient-to-t from-black/80 via-black/40 to-transparent"
+      className="absolute bottom-0 left-0 right-0 z-10"
     >
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center gap-2 mb-3 sm:mb-4">
-          <span className="flex items-center gap-1.5 bg-[#D4AF37] px-2.5 py-1 rounded-full shadow-lg">
-            <CaurisIcon className="w-3 h-3 text-black" />
-            <span className="text-[9px] font-bold text-black tracking-[0.2em] uppercase">Lukeni</span>
-          </span>
+      {/* Fond gradient pour lisibilité */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent" />
+      
+      {/* Contenu */}
+      <div className="relative p-4 sm:p-6 md:p-10">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex items-center gap-2 mb-3 sm:mb-4">
+            <span className="flex items-center gap-1.5 bg-[#D4AF37] px-2.5 py-1 rounded-full shadow-2xl">
+              <CaurisIcon className="w-3 h-3 text-black" />
+              <span className="text-[9px] font-bold text-black tracking-[0.2em] uppercase">Lukeni</span>
+            </span>
+          </div>
+          <h1 
+            className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-serif font-bold text-white leading-tight"
+            style={{
+              textShadow: '0 2px 10px rgba(0,0,0,0.95), 0 4px 25px rgba(0,0,0,0.8)'
+            }}
+          >
+            {parseInline(title, catColor)}
+          </h1>
         </div>
-        <h1 className="text-2xl sm:text-3xl md:text-5xl font-serif font-bold text-white leading-tight drop-shadow-[0_4px_30px_rgba(0,0,0,0.9)]">
-          {parseInline(title, catColor)}
-        </h1>
       </div>
     </div>
   </div>
