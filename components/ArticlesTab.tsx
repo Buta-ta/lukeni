@@ -8,7 +8,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { autoTranslate, autoCorrect } from '@/lib/lingua';
 import ImageUploader from '@/components/admin/ImageUploader';
-import { Image as ImageIcon } from 'lucide-react';
+import { Image as ImageIcon, Music, Upload } from 'lucide-react';
 import FormatToolbar from '@/components/admin/FormatToolbar';
 
 interface Category { id: string; name_fr: string; name_en: string; color?: string; }
@@ -190,6 +190,11 @@ export default function ArticlesTab({ showMsg }: {
   const [eventSearch, setEventSearch] = useState('');
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
   const [sources, setSources] = useState<string[]>([]);
+
+  
+const [audioUrl, setAudioUrl] = useState('');
+const [isUploading, setIsUploading] = useState(false);
+
   const [newSource, setNewSource] = useState('');
 
   // ✅ CHRONOLOGIE DE L'ARTICLE
@@ -236,7 +241,7 @@ export default function ArticlesTab({ showMsg }: {
     setContentFr(''); setContentEn('');
     setImageUrl(''); setWikipediaUrl(''); setReadingTime('');
     setCatId(''); setStatus('draft'); setLinkedEventIds([]);
-    setEventSearch(''); setSources([]); setNewSource('');
+    setEventSearch('');setAudioUrl(''); setSources([]); setNewSource('');
     setGalleryImages([]);
     // ✅ RESET CHRONOLOGIE
     setTimeline([]);
@@ -253,6 +258,48 @@ export default function ArticlesTab({ showMsg }: {
     setEditTimelineDescEn('');
   };
 
+
+    const openAudioWidget = () => {
+    setIsUploading(true);
+    const createWidget = () => {
+      // @ts-ignore
+      const widget = window.cloudinary.createUploadWidget(
+        {
+          cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+          uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET,
+          sources: ['local', 'url'],
+          resourceType: 'auto',
+          multiple: false,
+          maxFileSize: 50_000_000,
+          folder: 'articles/audio',
+        },
+        (
+          error: unknown,
+          result: { event: string; info: { secure_url: string } }
+        ) => {
+          setIsUploading(false);
+          if (result?.event === 'success') {
+            setAudioUrl(result.info.secure_url);
+            showMsg('success', '✅ Audio uploadé !');
+          }
+          if (error) showMsg('error', 'Erreur upload Cloudinary');
+        }
+      );
+      widget.open();
+    };
+
+    // @ts-ignore
+    if (!window.cloudinary) {
+      const script = document.createElement('script');
+      script.src = 'https://upload-widget.cloudinary.com/global/all.js';
+      script.onload = createWidget;
+      document.body.appendChild(script);
+    } else {
+      createWidget();
+    }
+  };
+
+
   const handleEdit = async (art: Article) => {
     setEditingId(art.id);
     setTitleFr(art.title_fr); setTitleEn(art.title_en);
@@ -263,6 +310,7 @@ export default function ArticlesTab({ showMsg }: {
     setReadingTime(art.reading_time ? String(art.reading_time) : '');
     setCatId(art.category_id || ''); setStatus(art.status);
     setGalleryImages((art as any).gallery_images || []);
+    setAudioUrl((art as any).audio_url || '');
     setSources((art as any).sources || []);
     // ✅ CHARGER LA CHRONOLOGIE
     setTimeline((art as any).timeline || []);
@@ -326,6 +374,7 @@ export default function ArticlesTab({ showMsg }: {
         gallery_images: galleryImages,
         sources,
         timeline: timeline.length > 0 ? timeline : null,
+        audio_url: audioUrl || null,
       };
 
       let articleId = editingId;
@@ -621,6 +670,58 @@ export default function ArticlesTab({ showMsg }: {
 
         <div>
           <ImageUploader label="Uploader l'image principale" currentUrl={imageUrl} onUpload={setImageUrl} />
+        </div>
+
+                {/* ── Audio ── */}
+        <div className="p-4 bg-[#1a1a1a] rounded-lg border border-white/10">
+          <div className="flex items-center gap-2 mb-3">
+            <Music size={14} className="text-[#D4AF37]" />
+            <span className="text-xs font-bold text-gray-300">Fichier Audio (optionnel)</span>
+          </div>
+
+          {audioUrl ? (
+            <div className="space-y-2">
+              <audio
+                src={audioUrl}
+                controls
+                className="w-full h-10"
+              />
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-[10px] text-gray-500 bg-black/40 px-2 py-1 rounded truncate">
+                  {audioUrl}
+                </code>
+                <button
+                  onClick={() => openAudioWidget()}
+                  disabled={isUploading}
+                  className="text-[10px] text-[#D4AF37] hover:text-white transition-colors whitespace-nowrap"
+                >
+                  Remplacer
+                </button>
+                <button
+                  onClick={() => setAudioUrl('')}
+                  className="text-[10px] text-red-400 hover:text-red-300 transition-colors"
+                >
+                  Supprimer
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => openAudioWidget()}
+              disabled={isUploading}
+              className="w-full flex flex-col items-center gap-2 p-6 border border-dashed border-white/15 rounded-xl text-gray-500 hover:text-[#D4AF37] hover:border-[#D4AF37]/40 transition-colors disabled:opacity-40"
+            >
+              {isUploading
+                ? <Loader2 size={28} className="animate-spin" />
+                : <Upload size={28} />}
+              <span className="text-xs font-bold">
+                {isUploading ? 'Upload en cours...' : 'Uploader un fichier audio'}
+              </span>
+              <span className="text-[10px] text-gray-600">
+                MP3, WAV, OGG · Max 50 MB
+              </span>
+            </button>
+          )}
         </div>
 
         {/* ✅ CHRONOLOGIE DE L'ARTICLE */}

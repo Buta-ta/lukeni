@@ -66,6 +66,7 @@ interface Article {
   view_count?: number;
   reading_time?: number;
   wikipedia_url?: string;
+  audio_url?: string;
   categories: Category;
   linked_events?: LinkedEvent[];
   sources?: string[];
@@ -586,14 +587,14 @@ const ContentRenderer = memo(({ text, lang, catColor }: {
     return { alt: match[1] || '', url: match[2] };
   };
 
-  const renderImage = (url: string, alt: string, key: number) => (
+    const renderImage = (url: string, alt: string, key: number) => (
     <motion.figure key={key}
       initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }} transition={{ duration: 0.5 }}
-      className="my-8">
-      <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-black/30">
+      className="my-8 flex flex-col items-center">
+      <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-black/30 max-w-[85%] mx-auto">
         <img src={url} alt={alt || 'Image'} loading="lazy"
-          className="w-full max-h-[600px] object-contain"
+          className="block max-h-[600px] max-w-full object-contain mx-auto"
           onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
       </div>
       {alt && (
@@ -1028,304 +1029,108 @@ function getDomain(url: string): string {
 
 
 // ============================================================================
-// AUDIO PLAYER - VERSION COMPLÈTE CORRIGÉE
+// AUDIO PLAYER — Fichier Cloudinary
 // ============================================================================
 
-const AudioPlayer = memo(({ text, lang, catColor }: {
-  text: string;
+const AudioPlayer = memo(({ audioUrl, lang, catColor }: {
+  audioUrl: string;
   lang: 'fr' | 'en';
   catColor: string;
 }) => {
+  const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [isSupported, setIsSupported] = useState(false);
-  const [voicesLoaded, setVoicesLoaded] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const totalCharsRef = useRef(0);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
-  // ✅ Nettoie TOUT le markdown du texte
-  const cleanText = useMemo(() => {
-    if (!text) return '';
-    
-    return text
-      // Enlève les balises de formatage
-      .replace(/\*\*([^\*]+)\*\*/g, '$1')
-      .replace(/\*([^\*]+)\*/g, '$1')
-      .replace(/~~([^~]+)~~/g, '$1')
-      .replace(/==([^=]+)==/g, '$1')
-      .replace(/\{#[^}]+\}([^{]+)\{\/\}/g, '$1')
-      .replace(/\{\+[^}]+\}([^{]+)\{\/\+\}/g, '$1')
-      .replace(/`([^`]+)`/g, '$1')
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-      // Enlève les titres markdown
-      .replace(/^#{1,6}\s+/gm, '')
-      // Enlève les listes
-      .replace(/^\s*[-*+]\s+/gm, '')
-      // Enlève les blockquotes
-      .replace(/^\s*>\s+/gm, '')
-      // Enlève les images
-      .replace(/!\[[^\]]*\]\([^)]+\)/g, '')
-      // Enlève les URLs seules
-      .replace(/https?:\/\/[^\s]+/g, '')
-      // Nettoie les espaces multiples
-      .replace(/\s+/g, ' ')
-      .trim();
-  }, [text]);
+  const formatTime = (seconds: number): string => {
+    if (!seconds || isNaN(seconds)) return '0:00';
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
 
   useEffect(() => {
-    const isBrowser = typeof window !== 'undefined';
-    const hasSupport = isBrowser && 'speechSynthesis' in window;
-    
-    setIsSupported(hasSupport);
+    const audio = audioRef.current;
+    if (!audio) return;
 
-    if (!hasSupport) {
-      console.warn('❌ Speech Synthesis non supporté par le navigateur');
-      setError('Speech Synthesis non supporté');
-      return;
-    }
-
-    // Charge les voix
-    const loadVoices = () => {
-      try {
-        const voices = window.speechSynthesis.getVoices();
-        console.log(`🎤 ${voices.length} voix disponibles`);
-        
-        if (voices.length > 0) {
-          setVoicesLoaded(true);
-          setError(null);
-        }
-      } catch (err) {
-        console.error('Erreur lors du chargement des voix:', err);
-      }
+    const onLoadedMetadata = () => {
+      setDuration(audio.duration);
+      setIsLoading(false);
     };
+    const onTimeUpdate = () => {
+      setCurrentTime(audio.currentTime);
+      setProgress(
+        audio.duration > 0 ? (audio.currentTime / audio.duration) * 100 : 0
+      );
+    };
+    const onEnded = () => {
+      setIsPlaying(false);
+      setProgress(0);
+      setCurrentTime(0);
+      if (audio) audio.currentTime = 0;
+    };
+    const onError = () => {
+      setHasError(true);
+      setIsLoading(false);
+    };
+    const onCanPlay = () => setIsLoading(false);
 
-    loadVoices();
-    
-    // Écoute l'événement de chargement des voix
-    window.speechSynthesis.onvoiceschanged = loadVoices;
+    audio.addEventListener('loadedmetadata', onLoadedMetadata);
+    audio.addEventListener('timeupdate', onTimeUpdate);
+    audio.addEventListener('ended', onEnded);
+    audio.addEventListener('error', onError);
+    audio.addEventListener('canplay', onCanPlay);
 
     return () => {
-      try {
-        window.speechSynthesis?.cancel();
-      } catch (err) {
-        console.error('Erreur cancel:', err);
-      }
+      audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+      audio.removeEventListener('timeupdate', onTimeUpdate);
+      audio.removeEventListener('ended', onEnded);
+      audio.removeEventListener('error', onError);
+      audio.removeEventListener('canplay', onCanPlay);
     };
-  }, []);
+  }, [audioUrl]);
 
-  // ✅ Reset quand la langue change
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    try {
-      window.speechSynthesis?.cancel();
-    } catch (err) {
-      console.error('Erreur cancel:', err);
-    }
-    
-    setIsPlaying(false);
-    setIsPaused(false);
-    setProgress(0);
-    utteranceRef.current = null;
-  }, [lang]);
-
-  // ✅ Fonction pour obtenir la meilleure voix
-  const getVoice = useCallback((): SpeechSynthesisVoice | null => {
-    try {
-      const voices = window.speechSynthesis.getVoices();
-      
-      if (voices.length === 0) {
-        console.warn('❌ Aucune voix disponible');
-        return null;
-      }
-
-      const langCode = lang === 'fr' ? 'fr' : 'en';
-      
-      console.log(`🔍 Cherchant voix pour ${langCode}`);
-      console.log('Voix disponibles:', voices.map(v => `${v.name} (${v.lang})`).join(', '));
-
-      // Essaie de trouver une voix premium dans l'ordre de préférence
-      const priorities = [
-        (v: SpeechSynthesisVoice) => v.lang.startsWith(langCode) && v.name.includes('Google'),
-        (v: SpeechSynthesisVoice) => v.lang.startsWith(langCode) && v.name.includes('Premium'),
-        (v: SpeechSynthesisVoice) => v.lang.startsWith(langCode) && !v.localService,
-        (v: SpeechSynthesisVoice) => v.lang.startsWith(langCode),
-      ];
-
-      for (const priority of priorities) {
-        const voice = voices.find(priority);
-        if (voice) {
-          console.log(`✅ Voix sélectionnée: ${voice.name} (${voice.lang})`);
-          return voice;
-        }
-      }
-
-      // Fallback : première voix
-      const fallback = voices[0];
-      console.log(`⚠️ Fallback: ${fallback.name} (${fallback.lang})`);
-      return fallback;
-
-    } catch (err) {
-      console.error('❌ Erreur getVoice:', err);
-      return null;
-    }
-  }, [lang]);
-
-  const handlePlay = useCallback(() => {
-    if (!isSupported) {
-      setError('Speech Synthesis non supporté');
-      console.error('❌ Speech Synthesis non supporté');
-      return;
-    }
-
-    if (!voicesLoaded) {
-      setError('Voix en cours de chargement...');
-      console.warn('⚠️ Voix pas encore chargées');
-      return;
-    }
-
-    if (!cleanText || cleanText.trim().length === 0) {
-      setError('Texte vide');
-      console.error('❌ Texte vide');
-      return;
-    }
-
-    try {
-      // ✅ Si en pause, reprendre
-      if (isPaused) {
-        console.log('▶️ Reprise de la lecture');
-        window.speechSynthesis.resume();
-        setIsPlaying(true);
-        setIsPaused(false);
-        return;
-      }
-
-      // ✅ Arrête toute lecture en cours
-      window.speechSynthesis.cancel();
-      
-      console.log(`🎤 Démarrage de la lecture (${cleanText.length} chars, ${lang})`);
-      
-      totalCharsRef.current = cleanText.length;
-      setProgress(0);
-      setError(null);
-
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      
-      // ✅ Configuration optimale
-      utterance.lang = lang === 'fr' ? 'fr-FR' : 'en-US';
-      utterance.rate = 0.9;
-      utterance.pitch = 1.0;
-      utterance.volume = 1.0;
-
-      // ✅ Applique la voix AVANT de parler
-      const voice = getVoice();
-      if (voice) {
-        utterance.voice = voice;
-      } else {
-        console.warn('⚠️ Pas de voix trouvée, utilisation de la voix par défaut');
-      }
-
-      // ✅ Gestion des événements
-      utterance.onstart = () => {
-        console.log('🔊 Lecture démarrée');
-        setIsPlaying(true);
-        setIsPaused(false);
-      };
-
-      utterance.onboundary = (e) => {
-        if (totalCharsRef.current > 0) {
-          const newProgress = Math.min((e.charIndex / totalCharsRef.current) * 100, 100);
-          setProgress(newProgress);
-        }
-      };
-
-      utterance.onend = () => {
-        console.log('✅ Lecture terminée');
-        setIsPlaying(false);
-        setIsPaused(false);
-        setProgress(100);
-        setTimeout(() => setProgress(0), 2000);
-      };
-
-      utterance.onpause = () => {
-        console.log('⏸️ Lecture mise en pause');
-        setIsPlaying(false);
-        setIsPaused(true);
-      };
-
-      utterance.onresume = () => {
-        console.log('▶️ Lecture reprise');
-        setIsPlaying(true);
-        setIsPaused(false);
-      };
-
-      utterance.onerror = (e) => {
-        console.error('❌ Erreur TTS:', e.error);
-        setError(`Erreur: ${e.error}`);
-        setIsPlaying(false);
-        setIsPaused(false);
-        setProgress(0);
-      };
-
-      utteranceRef.current = utterance;
-      
-      // ✅ Lance la lecture
-      window.speechSynthesis.speak(utterance);
-
-    } catch (err: any) {
-      console.error('❌ Erreur handlePlay:', err);
-      setError(err.message);
+  const handlePlayPause = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (isPlaying) {
+      audio.pause();
       setIsPlaying(false);
-      setIsPaused(false);
+    } else {
+      audio.play()
+        .then(() => setIsPlaying(true))
+        .catch(() => setHasError(true));
     }
-
-  }, [isSupported, voicesLoaded, isPaused, cleanText, lang, getVoice]);
-
-  const handlePause = useCallback(() => {
-    if (!isSupported) return;
-    try {
-      console.log('⏸️ Pause');
-      window.speechSynthesis.pause();
-      setIsPlaying(false);
-      setIsPaused(true);
-    } catch (err) {
-      console.error('❌ Erreur pause:', err);
-    }
-  }, [isSupported]);
+  }, [isPlaying]);
 
   const handleStop = useCallback(() => {
-    if (!isSupported) return;
-    try {
-      console.log('⛔ Stop');
-      window.speechSynthesis.cancel();
-      setIsPlaying(false);
-      setIsPaused(false);
-      setProgress(0);
-      utteranceRef.current = null;
-    } catch (err) {
-      console.error('❌ Erreur stop:', err);
-    }
-  }, [isSupported]);
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.pause();
+    audio.currentTime = 0;
+    setIsPlaying(false);
+    setProgress(0);
+    setCurrentTime(0);
+  }, []);
 
-  if (!isSupported) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: -6 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex items-center gap-3 px-4 py-2.5 rounded-2xl border"
-        style={{
-          backgroundColor: `${catColor}08`,
-          borderColor: `${catColor}25`,
-        }}
-      >
-        <div className="text-xs text-gray-500">
-          🔇 {lang === 'fr' ? 'Lecture vocale non supportée' : 'Speech not supported'}
-        </div>
-      </motion.div>
-    );
-  }
+  const handleProgressClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const audio = audioRef.current;
+      if (!audio || !duration) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const ratio = (e.clientX - rect.left) / rect.width;
+      const newTime = ratio * duration;
+      audio.currentTime = newTime;
+      setCurrentTime(newTime);
+      setProgress(ratio * 100);
+    },
+    [duration]
+  );
+
+  if (hasError) return null;
 
   return (
     <motion.div
@@ -1337,28 +1142,22 @@ const AudioPlayer = memo(({ text, lang, catColor }: {
         borderColor: `${catColor}25`,
       }}
     >
+      {/* Élément audio natif caché */}
+      <audio ref={audioRef} src={audioUrl} preload="metadata" />
+
       {/* Bouton Play / Pause */}
       <motion.button
         whileHover={{ scale: 1.12 }}
         whileTap={{ scale: 0.9 }}
-        onClick={isPlaying ? handlePause : handlePlay}
-        disabled={!voicesLoaded || !cleanText}
-        title={
-          !voicesLoaded
-            ? 'Chargement des voix...'
-            : isPlaying
-              ? (lang === 'fr' ? 'Pause' : 'Pause')
-              : isPaused
-                ? (lang === 'fr' ? 'Reprendre' : 'Resume')
-                : (lang === 'fr' ? 'Écouter l\'article' : 'Listen to article')
-        }
-        className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        onClick={handlePlayPause}
+        disabled={isLoading}
+        className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all disabled:opacity-50"
         style={{
           backgroundColor: catColor,
           boxShadow: isPlaying ? `0 0 14px ${catColor}60` : 'none',
         }}
       >
-        {!voicesLoaded ? (
+        {isLoading ? (
           <Loader2 className="w-3.5 h-3.5 text-black animate-spin" />
         ) : isPlaying ? (
           <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-black">
@@ -1372,32 +1171,31 @@ const AudioPlayer = memo(({ text, lang, catColor }: {
         )}
       </motion.button>
 
-      {/* Label */}
+      {/* Label + timer */}
       <div className="flex flex-col min-w-0">
         <span
           className="text-[10px] font-bold tracking-[0.2em] uppercase leading-none"
           style={{ color: catColor }}
         >
-          {!voicesLoaded
-            ? 'Chargement...'
+          {isLoading
+            ? (lang === 'fr' ? 'Chargement...' : 'Loading...')
             : isPlaying
-              ? (lang === 'fr' ? 'Lecture en cours...' : 'Playing...')
-              : isPaused
-                ? (lang === 'fr' ? 'En pause' : 'Paused')
-                : (lang === 'fr' ? 'Écouter l\'article' : 'Listen to article')}
+            ? (lang === 'fr' ? 'Lecture en cours...' : 'Playing...')
+            : (lang === 'fr' ? "Écouter l'article" : 'Listen to article')}
         </span>
-        <span className="text-[9px] text-gray-600 mt-0.5">
-          {error ? error : `${lang === 'fr' ? 'Français' : 'English'} · TTS`}
+        <span className="text-[9px] text-gray-600 mt-0.5 font-mono">
+          {formatTime(currentTime)} / {formatTime(duration)}
         </span>
       </div>
 
-      {/* Barre de progression */}
-      <div className="flex-1 relative h-1 rounded-full overflow-hidden bg-white/10 mx-1">
-        <motion.div
-          className="absolute inset-y-0 left-0 rounded-full"
-          style={{ backgroundColor: catColor }}
-          animate={{ width: `${progress}%` }}
-          transition={{ duration: 0.25, ease: 'linear' }}
+      {/* Barre de progression cliquable */}
+      <div
+        className="flex-1 relative h-1.5 rounded-full overflow-hidden bg-white/10 mx-1 cursor-pointer"
+        onClick={handleProgressClick}
+      >
+        <div
+          className="absolute inset-y-0 left-0 rounded-full transition-all duration-100"
+          style={{ backgroundColor: catColor, width: `${progress}%` }}
         />
         {isPlaying && (
           <motion.div
@@ -1416,7 +1214,7 @@ const AudioPlayer = memo(({ text, lang, catColor }: {
 
       {/* Bouton Stop */}
       <AnimatePresence>
-        {(isPlaying || isPaused) && (
+        {(isPlaying || currentTime > 0) && (
           <motion.button
             initial={{ opacity: 0, scale: 0.7 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -1424,7 +1222,6 @@ const AudioPlayer = memo(({ text, lang, catColor }: {
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={handleStop}
-            title={lang === 'fr' ? 'Arrêter' : 'Stop'}
             className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors"
           >
             <svg viewBox="0 0 24 24" className="w-2.5 h-2.5 fill-gray-400">
@@ -1517,7 +1314,7 @@ export default function ArticleDetailPage() {
     id, title_fr, title_en, content_fr, content_en,
     summary_fr, summary_en, image_url, category_id,
     created_at, slug, view_count, reading_time, wikipedia_url,
-    sources, timeline,
+    sources, timeline,audio_url,
     categories(id, name_fr, name_en, color)
   `)
   .eq('slug', slug)
@@ -1841,21 +1638,21 @@ export default function ArticleDetailPage() {
               )}
             </motion.div>
 
-            {/* ── Audio Player ── */}
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.12 }}
-              className="mb-6"
-            >
-              <AudioPlayer
-                text={`${stripFormatting(title)}. ${stripFormatting(
-                  lang === 'fr' ? article.summary_fr : article.summary_en
-                )}. ${stripFormatting(content)}`}
-                lang={lang}
-                catColor={catColor}
-              />
-            </motion.div>
+                        {/* ── Audio Player ── */}
+            {article.audio_url && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.12 }}
+                className="mb-6"
+              >
+                <AudioPlayer
+                  audioUrl={article.audio_url}
+                  lang={lang}
+                  catColor={catColor}
+                />
+              </motion.div>
+            )}
 
             {(lang === 'fr' ? article.summary_fr : article.summary_en) && (
               <motion.div
