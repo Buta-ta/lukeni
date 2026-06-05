@@ -140,7 +140,7 @@ function parseInline(text: string, catColor: string = '#D4AF37'): React.ReactNod
       case 'link':
         result.push(
           <a key={key++} href={m[3]} target="_blank" rel="noopener noreferrer"
-            className="underline underline-offset-2 hover:opacity-80 transition-opacity"
+            className="underline underline-offset-2 hover:opacity-80 transition-opacity break-all"
             style={{ color: catColor }}>
             {m[2]}
           </a>
@@ -149,7 +149,7 @@ function parseInline(text: string, catColor: string = '#D4AF37'): React.ReactNod
         break;
       case 'code':
         result.push(
-          <code key={key++} className="bg-white/10 text-gray-300 px-1.5 py-0.5 rounded text-[13px] font-mono">
+          <code key={key++} className="bg-white/10 text-gray-300 px-1.5 py-0.5 rounded text-[13px] font-mono break-all">
             {m[2]}
           </code>
         );
@@ -190,11 +190,8 @@ export default function ArticlesTab({ showMsg }: {
   const [eventSearch, setEventSearch] = useState('');
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
   const [sources, setSources] = useState<string[]>([]);
-
-
   const [audioUrl, setAudioUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
-
   const [newSource, setNewSource] = useState('');
 
   // ✅ CHRONOLOGIE DE L'ARTICLE
@@ -211,7 +208,6 @@ export default function ArticlesTab({ showMsg }: {
   const [newTimelineDescFr, setNewTimelineDescFr] = useState('');
   const [newTimelineDescEn, setNewTimelineDescEn] = useState('');
 
-  // Ajoutez ces états après la déclaration de `timeline`
   const [editingTimelineIndex, setEditingTimelineIndex] = useState<number | null>(null);
   const [editTimelineYear, setEditTimelineYear] = useState('');
   const [editTimelineTitleFr, setEditTimelineTitleFr] = useState('');
@@ -243,7 +239,6 @@ export default function ArticlesTab({ showMsg }: {
     setCatId(''); setStatus('draft'); setLinkedEventIds([]);
     setEventSearch(''); setAudioUrl(''); setSources([]); setNewSource('');
     setGalleryImages([]);
-    // ✅ RESET CHRONOLOGIE
     setTimeline([]);
     setNewTimelineYear('');
     setNewTimelineTitleFr('');
@@ -257,7 +252,6 @@ export default function ArticlesTab({ showMsg }: {
     setEditTimelineDescFr('');
     setEditTimelineDescEn('');
   };
-
 
   const openAudioWidget = () => {
     setIsUploading(true);
@@ -299,7 +293,6 @@ export default function ArticlesTab({ showMsg }: {
     }
   };
 
-
   const handleEdit = async (art: Article) => {
     setEditingId(art.id);
     setTitleFr(art.title_fr); setTitleEn(art.title_en);
@@ -312,7 +305,6 @@ export default function ArticlesTab({ showMsg }: {
     setGalleryImages((art as any).gallery_images || []);
     setAudioUrl((art as any).audio_url || '');
     setSources((art as any).sources || []);
-    // ✅ CHARGER LA CHRONOLOGIE
     setTimeline((art as any).timeline || []);
 
     const { data: linked } = await supabase
@@ -334,17 +326,14 @@ export default function ArticlesTab({ showMsg }: {
       if (action === 'translate-content-fr') setContentFr(await autoTranslate(contentEn, 'en'));
       if (action === 'correct-content-fr') setContentFr(await autoCorrect(contentFr, 'fr'));
       if (action === 'correct-content-en') setContentEn(await autoCorrect(contentEn, 'en'));
-      // ✅ TRADUCTION CHRONOLOGIE
       if (action === 'translate-timeline-en') setNewTimelineTitleEn(await autoTranslate(newTimelineTitleFr, 'fr'));
       if (action === 'translate-timeline-fr') setNewTimelineTitleFr(await autoTranslate(newTimelineTitleEn, 'en'));
       if (action === 'translate-timeline-desc-en') setNewTimelineDescEn(await autoTranslate(newTimelineDescFr, 'fr'));
       if (action === 'translate-timeline-desc-fr') setNewTimelineDescFr(await autoTranslate(newTimelineDescEn, 'en'));
-
       if (action === 'edit-translate-timeline-en') setEditTimelineTitleEn(await autoTranslate(editTimelineTitleFr, 'fr'));
       if (action === 'edit-translate-timeline-fr') setEditTimelineTitleFr(await autoTranslate(editTimelineTitleEn, 'en'));
       if (action === 'edit-translate-timeline-desc-en') setEditTimelineDescEn(await autoTranslate(editTimelineDescFr, 'fr'));
       if (action === 'edit-translate-timeline-desc-fr') setEditTimelineDescFr(await autoTranslate(editTimelineDescEn, 'en'));
-
     } catch { showMsg('error', 'Erreur API'); }
     setIsProcessing(null);
   };
@@ -424,31 +413,31 @@ export default function ArticlesTab({ showMsg }: {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <FileText className="text-[#D4AF37]" size={24} />
-        <div>
-          <h2 className="text-xl md:text-2xl font-serif">Articles (Encyclopédie)</h2>
+    <div className="space-y-4 sm:space-y-6 max-w-full overflow-x-hidden px-2 sm:px-0">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <FileText className="text-[#D4AF37] flex-shrink-0" size={20} />
+        <div className="min-w-0">
+          <h2 className="text-lg sm:text-xl md:text-2xl font-serif truncate">Articles (Encyclopédie)</h2>
           <p className="text-gray-400 text-xs">{articles.length} articles</p>
         </div>
       </div>
 
-      <div className="bg-[#0f0f0f] p-3 md:p-6 rounded-lg border border-white/5 space-y-3 md:space-y-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-white flex items-center gap-2">
-            {editingId ? <Edit2 size={18} className="text-[#D4AF37]" /> : <PlusCircle size={18} className="text-[#D4AF37]" />}
-            {editingId ? 'Modifier' : 'Nouvel Article'}
+      <div className="bg-[#0f0f0f] p-3 sm:p-4 md:p-6 rounded-lg border border-white/5 space-y-3 sm:space-y-4">
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+            {editingId ? <Edit2 size={16} className="text-[#D4AF37] flex-shrink-0" /> : <PlusCircle size={16} className="text-[#D4AF37] flex-shrink-0" />}
+            <span className="truncate">{editingId ? 'Modifier' : 'Nouvel Article'}</span>
           </h3>
           {editingId && (
-            <button onClick={resetForm} className="text-xs text-gray-400 hover:text-white flex items-center gap-1">
-              <X size={14} /> Annuler
+            <button onClick={resetForm} className="text-xs text-gray-400 hover:text-white flex items-center gap-1 flex-shrink-0">
+              <X size={14} /> <span className="hidden sm:inline">Annuler</span>
             </button>
           )}
         </div>
 
         {/* ── Titres ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+          <div className="min-w-0">
             <label className="block text-xs text-gray-400 mb-1 font-mono">🇫🇷 Titre FR</label>
             <FormatToolbar
               fieldId="title-fr"
@@ -461,9 +450,9 @@ export default function ArticlesTab({ showMsg }: {
               type="text"
               value={titleFr}
               onChange={e => setTitleFr(e.target.value)}
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg rounded-t-none px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]"
+              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg rounded-t-none px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]"
             />
-            <div className="flex gap-1 mt-1">
+            <div className="flex flex-wrap gap-1 mt-1">
               <button
                 onClick={() => handleLingua('correct-fr')}
                 disabled={isProcessing === 'correct-fr'}
@@ -481,7 +470,7 @@ export default function ArticlesTab({ showMsg }: {
             </div>
           </div>
 
-          <div>
+          <div className="min-w-0">
             <label className="block text-xs text-gray-400 mb-1 font-mono">🇬🇧 Titre EN</label>
             <FormatToolbar
               fieldId="title-en"
@@ -494,9 +483,9 @@ export default function ArticlesTab({ showMsg }: {
               type="text"
               value={titleEn}
               onChange={e => setTitleEn(e.target.value)}
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg rounded-t-none px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]"
+              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg rounded-t-none px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]"
             />
-            <div className="flex gap-1 mt-1">
+            <div className="flex flex-wrap gap-1 mt-1">
               <button
                 onClick={() => handleLingua('correct-en')}
                 disabled={isProcessing === 'correct-en'}
@@ -516,8 +505,8 @@ export default function ArticlesTab({ showMsg }: {
         </div>
 
         {/* ── Résumés ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+          <div className="min-w-0">
             <label className="block text-xs text-gray-400 mb-1 font-mono">🇫🇷 Résumé FR</label>
             <FormatToolbar
               fieldId="summary-fr"
@@ -531,7 +520,7 @@ export default function ArticlesTab({ showMsg }: {
               onChange={e => setSummaryFr(e.target.value)}
               rows={2}
               placeholder="Résumé accrocheur affiché sur la carte..."
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg rounded-t-none px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37] resize-none"
+              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg rounded-t-none px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37] resize-none"
             />
             <button
               onClick={() => handleLingua('summary-en')}
@@ -542,7 +531,7 @@ export default function ArticlesTab({ showMsg }: {
             </button>
           </div>
 
-          <div>
+          <div className="min-w-0">
             <label className="block text-xs text-gray-400 mb-1 font-mono">🇬🇧 Summary EN</label>
             <FormatToolbar
               fieldId="summary-en"
@@ -556,7 +545,7 @@ export default function ArticlesTab({ showMsg }: {
               onChange={e => setSummaryEn(e.target.value)}
               rows={2}
               placeholder="Catchy summary shown on the card..."
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg rounded-t-none px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37] resize-none"
+              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg rounded-t-none px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37] resize-none"
             />
             <button
               onClick={() => handleLingua('summary-fr')}
@@ -569,8 +558,8 @@ export default function ArticlesTab({ showMsg }: {
         </div>
 
         {/* Contenus avec toolbar */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+          <div className="min-w-0">
             <label className="block text-xs text-gray-400 mb-1 font-mono">🇫🇷 Contenu FR</label>
             <FormatToolbar
               fieldId="content-fr"
@@ -581,10 +570,10 @@ export default function ArticlesTab({ showMsg }: {
               id="content-fr"
               value={contentFr}
               onChange={e => setContentFr(e.target.value)}
-              rows={10}
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37] resize-none font-mono rounded-t-none max-h-[400px] md:max-h-none"
+              rows={8}
+              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37] resize-none font-mono rounded-t-none"
             />
-            <div className="flex gap-1 mt-1">
+            <div className="flex flex-wrap gap-1 mt-1">
               <button onClick={() => handleLingua('correct-content-fr')} disabled={isProcessing === 'correct-content-fr'}
                 className="p-1 text-[10px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30">
                 <SpellCheck size={10} /> Corriger
@@ -595,7 +584,7 @@ export default function ArticlesTab({ showMsg }: {
               </button>
             </div>
           </div>
-          <div>
+          <div className="min-w-0">
             <label className="block text-xs text-gray-400 mb-1 font-mono">🇬🇧 Content EN</label>
             <FormatToolbar
               fieldId="content-en"
@@ -606,10 +595,10 @@ export default function ArticlesTab({ showMsg }: {
               id="content-en"
               value={contentEn}
               onChange={e => setContentEn(e.target.value)}
-              rows={10}
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37] resize-none font-mono rounded-t-none max-h-[400px] md:max-h-none"
+              rows={8}
+              className="w-full bg-[#1a1a1a] border border-white/20 rounded-b-lg px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37] resize-none font-mono rounded-t-none"
             />
-            <div className="flex gap-1 mt-1">
+            <div className="flex flex-wrap gap-1 mt-1">
               <button onClick={() => handleLingua('correct-content-en')} disabled={isProcessing === 'correct-content-en'}
                 className="p-1 text-[10px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30">
                 <SpellCheck size={10} /> Correct
@@ -623,31 +612,31 @@ export default function ArticlesTab({ showMsg }: {
         </div>
 
         {/* Métadonnées */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="min-w-0">
             <label className="block text-xs text-gray-400 mb-1 font-mono">🏷️ Catégorie</label>
             <select value={catId} onChange={e => setCatId(e.target.value)}
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]">
+              className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]">
               <option value="">Aucune</option>
               {categories.map(c => <option key={c.id} value={c.id}>{c.name_fr}</option>)}
             </select>
           </div>
-          <div>
-            <label className="block text-xs text-gray-400 mb-1 font-mono">⏱️ Temps de lecture (min)</label>
+          <div className="min-w-0">
+            <label className="block text-xs text-gray-400 mb-1 font-mono">⏱️ Temps (min)</label>
             <input type="number" value={readingTime} onChange={e => setReadingTime(e.target.value)}
               placeholder="5"
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]" />
+              className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]" />
           </div>
-          <div>
-            <label className="block text-xs text-gray-400 mb-1 font-mono">🌐 URL Wikipedia</label>
+          <div className="min-w-0">
+            <label className="block text-xs text-gray-400 mb-1 font-mono">🌐 Wikipedia</label>
             <input type="text" value={wikipediaUrl} onChange={e => setWikipediaUrl(e.target.value)}
-              placeholder="https://fr.wikipedia.org/wiki/..."
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]" />
+              placeholder="https://..."
+              className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]" />
           </div>
-          <div>
+          <div className="min-w-0">
             <label className="block text-xs text-gray-400 mb-1 font-mono">📊 Statut</label>
             <select value={status} onChange={e => setStatus(e.target.value)}
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]">
+              className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]">
               <option value="draft">Brouillon</option>
               <option value="pending_review">En attente</option>
               <option value="published">Publié</option>
@@ -656,12 +645,12 @@ export default function ArticlesTab({ showMsg }: {
         </div>
 
         {/* Image principale */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+          <div className="min-w-0">
             <label className="block text-xs text-gray-400 mb-1 font-mono">🖼️ Image principale</label>
             <input type="text" value={imageUrl} onChange={e => setImageUrl(e.target.value)}
               placeholder="https://..."
-              className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]" />
+              className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]" />
             {imageUrl && (
               <div className="mt-2 w-full h-20 rounded-lg overflow-hidden border border-white/10">
                 <img src={imageUrl} alt="" className="w-full h-full object-cover" />
@@ -669,53 +658,51 @@ export default function ArticlesTab({ showMsg }: {
             )}
           </div>
 
-          <div>
+          <div className="min-w-0">
             <ImageUploader label="Uploader l'image principale" currentUrl={imageUrl} onUpload={setImageUrl} />
           </div>
         </div>
 
-        <div>
-          <ImageUploader label="Uploader l'image principale" currentUrl={imageUrl} onUpload={setImageUrl} />
-        </div>
-
         {/* ── Audio ── */}
-        <div className="p-4 bg-[#1a1a1a] rounded-lg border border-white/10">
+        <div className="p-3 sm:p-4 bg-[#1a1a1a] rounded-lg border border-white/10">
           <div className="flex items-center gap-2 mb-3">
-            <Music size={14} className="text-[#D4AF37]" />
+            <Music size={14} className="text-[#D4AF37] flex-shrink-0" />
             <span className="text-xs font-bold text-gray-300">Fichier Audio (optionnel)</span>
           </div>
 
           {audioUrl ? (
-            <div className="space-y-2 overflow-x-auto">
+            <div className="space-y-2">
               <audio
                 src={audioUrl}
                 controls
                 className="w-full h-8"
               />
-              <div className="flex items-center gap-2 min-w-0">
-                <code className="flex-1 text-[10px] text-gray-500 bg-black/40 px-2 py-1 rounded truncate">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                <code className="flex-1 text-[10px] text-gray-500 bg-black/40 px-2 py-1 rounded break-all min-w-0">
                   {audioUrl}
                 </code>
-                <button
-                  onClick={() => openAudioWidget()}
-                  disabled={isUploading}
-                  className="text-[10px] text-[#D4AF37] hover:text-white transition-colors whitespace-nowrap flex-shrink-0"
-                >
-                  Remplacer
-                </button>
-                <button
-                  onClick={() => setAudioUrl('')}
-                  className="text-[10px] text-red-400 hover:text-red-300 transition-colors flex-shrink-0"
-                >
-                  Supprimer
-                </button>
+                <div className="flex gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => openAudioWidget()}
+                    disabled={isUploading}
+                    className="text-[10px] text-[#D4AF37] hover:text-white transition-colors whitespace-nowrap"
+                  >
+                    Remplacer
+                  </button>
+                  <button
+                    onClick={() => setAudioUrl('')}
+                    className="text-[10px] text-red-400 hover:text-red-300 transition-colors whitespace-nowrap"
+                  >
+                    Supprimer
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
             <button
               onClick={() => openAudioWidget()}
               disabled={isUploading}
-              className="w-full flex flex-col items-center gap-2 p-4 md:p-6 border border-dashed border-white/15 rounded-xl text-gray-500 hover:text-[#D4AF37] hover:border-[#D4AF37]/40 transition-colors disabled:opacity-40"
+              className="w-full flex flex-col items-center gap-2 p-4 sm:p-6 border border-dashed border-white/15 rounded-xl text-gray-500 hover:text-[#D4AF37] hover:border-[#D4AF37]/40 transition-colors disabled:opacity-40"
             >
               {isUploading
                 ? <Loader2 size={24} className="animate-spin" />
@@ -731,15 +718,15 @@ export default function ArticlesTab({ showMsg }: {
         </div>
 
         {/* ✅ CHRONOLOGIE DE L'ARTICLE */}
-        <div className="p-4 bg-[#1a1a1a] rounded-lg border border-white/10">
+        <div className="p-3 sm:p-4 bg-[#1a1a1a] rounded-lg border border-white/10">
           <div className="flex items-center gap-2 mb-3">
-            <Calendar size={14} className="text-[#D4AF37]" />
-            <span className="text-xs font-bold text-gray-300">Chronologie de l'article</span>
+            <Calendar size={14} className="text-[#D4AF37] flex-shrink-0" />
+            <span className="text-xs font-bold text-gray-300">Chronologie de l&apos;article</span>
           </div>
 
           {/* Formulaire d'ajout */}
-          <div className="space-y-2 mb-3 p-3 bg-[#0f0f0f] rounded-lg border border-white/5">
-            <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-2 mb-3 p-2 sm:p-3 bg-[#0f0f0f] rounded-lg border border-white/5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <input
                 type="text"
                 value={newTimelineYear}
@@ -755,12 +742,11 @@ export default function ArticlesTab({ showMsg }: {
                 className="bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37]"
               />
             </div>
-            <div className="flex items-center gap-1 mt-1">
+            <div className="flex items-center gap-1 flex-wrap">
               <button
                 onClick={() => handleLingua('translate-timeline-en')}
                 disabled={isProcessing === 'translate-timeline-en' || !newTimelineTitleFr}
                 className="p-1 text-[9px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
-                title="Traduire le titre FR → EN"
               >
                 <Languages size={9} /> FR→EN
               </button>
@@ -772,12 +758,11 @@ export default function ArticlesTab({ showMsg }: {
               placeholder="Titre EN"
               className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37]"
             />
-            <div className="flex items-center gap-1 mt-1">
+            <div className="flex items-center gap-1 flex-wrap">
               <button
                 onClick={() => handleLingua('translate-timeline-fr')}
                 disabled={isProcessing === 'translate-timeline-fr' || !newTimelineTitleEn}
                 className="p-1 text-[9px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
-                title="Traduire le titre EN → FR"
               >
                 <Languages size={9} /> EN→FR
               </button>
@@ -789,12 +774,11 @@ export default function ArticlesTab({ showMsg }: {
               rows={2}
               className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37] resize-none"
             />
-            <div className="flex items-center gap-1 mt-1">
+            <div className="flex items-center gap-1 flex-wrap">
               <button
                 onClick={() => handleLingua('translate-timeline-desc-en')}
                 disabled={isProcessing === 'translate-timeline-desc-en' || !newTimelineDescFr}
                 className="p-1 text-[9px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
-                title="Traduire la description FR → EN"
               >
                 <Languages size={9} /> Desc FR→EN
               </button>
@@ -806,12 +790,11 @@ export default function ArticlesTab({ showMsg }: {
               rows={2}
               className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37] resize-none"
             />
-            <div className="flex items-center gap-1 mt-1">
+            <div className="flex items-center gap-1 flex-wrap">
               <button
                 onClick={() => handleLingua('translate-timeline-desc-fr')}
                 disabled={isProcessing === 'translate-timeline-desc-fr' || !newTimelineDescEn}
                 className="p-1 text-[9px] bg-white/5 text-gray-400 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
-                title="Traduire la description EN → FR"
               >
                 <Languages size={9} /> Desc EN→FR
               </button>
@@ -841,7 +824,6 @@ export default function ArticlesTab({ showMsg }: {
           </div>
 
           {/* Liste des entrées */}
-          {/* Liste des entrées */}
           {timeline.length > 0 ? (
             <div className="space-y-2">
               {timeline.map((entry, i) => (
@@ -849,12 +831,12 @@ export default function ArticlesTab({ showMsg }: {
 
                   {/* ── Mode édition ── */}
                   {editingTimelineIndex === i ? (
-                    <div className="p-3 bg-[#0f0f0f] space-y-2">
+                    <div className="p-2 sm:p-3 bg-[#0f0f0f] space-y-2">
 
                       {/* En-tête mode édition */}
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-[10px] font-bold text-[#D4AF37] font-mono uppercase tracking-wider">
-                          ✏️ Édition de l'étape #{i + 1}
+                          ✏️ Édition #{i + 1}
                         </span>
                         <button
                           onClick={() => setEditingTimelineIndex(null)}
@@ -865,7 +847,7 @@ export default function ArticlesTab({ showMsg }: {
                       </div>
 
                       {/* Année + Titre FR */}
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <input
                           type="text"
                           value={editTimelineYear}
@@ -883,7 +865,7 @@ export default function ArticlesTab({ showMsg }: {
                       </div>
 
                       {/* Bouton traduction FR→EN titre */}
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 flex-wrap">
                         <button
                           onClick={() => handleLingua('edit-translate-timeline-en')}
                           disabled={isProcessing === 'edit-translate-timeline-en' || !editTimelineTitleFr}
@@ -919,7 +901,7 @@ export default function ArticlesTab({ showMsg }: {
                       />
 
                       {/* Boutons traduction description */}
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 flex-wrap">
                         <button
                           onClick={() => handleLingua('edit-translate-timeline-desc-en')}
                           disabled={isProcessing === 'edit-translate-timeline-desc-en' || !editTimelineDescFr}
@@ -946,7 +928,7 @@ export default function ArticlesTab({ showMsg }: {
                       />
 
                       {/* Actions */}
-                      <div className="flex gap-2 pt-1">
+                      <div className="flex flex-col sm:flex-row gap-2 pt-1">
                         <button
                           onClick={() => {
                             if (!editTimelineYear || !editTimelineTitleFr || !editTimelineTitleEn) return;
@@ -968,7 +950,7 @@ export default function ArticlesTab({ showMsg }: {
                         </button>
                         <button
                           onClick={() => setTimeline(timeline.filter((_, idx) => idx !== i))}
-                          className="px-3 py-1.5 bg-red-500/10 text-red-400 rounded-lg text-xs font-bold hover:bg-red-500/20 transition-colors flex items-center gap-1"
+                          className="px-3 py-1.5 bg-red-500/10 text-red-400 rounded-lg text-xs font-bold hover:bg-red-500/20 transition-colors flex items-center justify-center gap-1"
                         >
                           <Trash2 size={11} /> Supprimer
                         </button>
@@ -977,10 +959,10 @@ export default function ArticlesTab({ showMsg }: {
 
                   ) : (
                     /* ── Mode affichage ── */
-                    <div className="flex items-start justify-between p-3 bg-[#0f0f0f] group">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[#D4AF37] font-mono text-xs font-bold">
+                    <div className="flex items-start justify-between p-2 sm:p-3 bg-[#0f0f0f] group">
+                      <div className="flex-1 min-w-0 pr-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1">
+                          <span className="text-[#D4AF37] font-mono text-xs font-bold flex-shrink-0">
                             {entry.year}
                           </span>
                           <span className="text-white text-xs font-bold truncate">
@@ -991,14 +973,14 @@ export default function ArticlesTab({ showMsg }: {
                           </span>
                         </div>
                         {entry.description_fr && (
-                          <p className="text-gray-500 text-[10px] line-clamp-2">
+                          <p className="text-gray-500 text-[10px] line-clamp-2 break-words">
                             {entry.description_fr}
                           </p>
                         )}
                       </div>
 
                       {/* Boutons affichés au hover */}
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0">
+                      <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0">
                         <button
                           onClick={() => {
                             setEditingTimelineIndex(i);
@@ -1009,14 +991,14 @@ export default function ArticlesTab({ showMsg }: {
                             setEditTimelineDescEn(entry.description_en || '');
                           }}
                           className="p-1.5 text-gray-500 hover:text-[#D4AF37] transition-colors"
-                          title="Modifier cette étape"
+                          title="Modifier"
                         >
                           <Edit2 size={12} />
                         </button>
                         <button
                           onClick={() => setTimeline(timeline.filter((_, idx) => idx !== i))}
                           className="p-1.5 text-gray-600 hover:text-red-500 transition-colors"
-                          title="Supprimer cette étape"
+                          title="Supprimer"
                         >
                           <X size={12} />
                         </button>
@@ -1032,11 +1014,12 @@ export default function ArticlesTab({ showMsg }: {
             </p>
           )}
         </div>
+
         {/* Galerie */}
-        <div className="p-4 bg-[#1a1a1a] rounded-lg border border-white/10">
+        <div className="p-3 sm:p-4 bg-[#1a1a1a] rounded-lg border border-white/10">
           <div className="flex items-center gap-2 mb-3">
-            <ImageIcon size={14} className="text-[#D4AF37]" />
-            <span className="text-xs font-bold text-gray-300">Galerie d'images</span>
+            <ImageIcon size={14} className="text-[#D4AF37] flex-shrink-0" />
+            <span className="text-xs font-bold text-gray-300">Galerie d&apos;images</span>
           </div>
           <ImageUploader
             label="Ajouter des images"
@@ -1045,14 +1028,14 @@ export default function ArticlesTab({ showMsg }: {
             onMultipleUpload={setGalleryImages}
           />
           {galleryImages.length > 0 && (
-            <div className="mt-3 p-3 bg-[#0f0f0f] rounded-lg border border-white/5">
+            <div className="mt-3 p-2 sm:p-3 bg-[#0f0f0f] rounded-lg border border-white/5">
               <p className="text-[10px] text-gray-500 mb-2 font-mono">📋 Copie dans le contenu :</p>
               <div className="space-y-1">
                 {galleryImages.map((url, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <code className="flex-1 text-[10px] text-gray-400 bg-black/50 px-2 py-1 rounded truncate">{url}</code>
+                  <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                    <code className="flex-1 text-[10px] text-gray-400 bg-black/50 px-2 py-1 rounded break-all min-w-0">{url}</code>
                     <button onClick={() => navigator.clipboard.writeText(`![légende](${url})`)}
-                      className="text-[10px] text-[#D4AF37] hover:text-white transition-colors whitespace-nowrap">
+                      className="text-[10px] text-[#D4AF37] hover:text-white transition-colors whitespace-nowrap flex-shrink-0">
                       Copier
                     </button>
                   </div>
@@ -1063,15 +1046,15 @@ export default function ArticlesTab({ showMsg }: {
         </div>
 
         {/* Sources */}
-        <div className="p-4 bg-[#1a1a1a] rounded-lg border border-white/10">
+        <div className="p-3 sm:p-4 bg-[#1a1a1a] rounded-lg border border-white/10">
           <div className="flex items-center gap-2 mb-3">
-            <Globe size={14} className="text-[#D4AF37]" />
+            <Globe size={14} className="text-[#D4AF37] flex-shrink-0" />
             <span className="text-xs font-bold text-gray-300">Sources & Références</span>
           </div>
-          <div className="flex gap-2 mb-3">
+          <div className="flex flex-col sm:flex-row gap-2 mb-3">
             <input type="text" value={newSource} onChange={e => setNewSource(e.target.value)}
               placeholder="https://..."
-              className="flex-1 bg-[#0f0f0f] border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]"
+              className="flex-1 bg-[#0f0f0f] border border-white/20 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-white text-sm outline-none focus:border-[#D4AF37]"
               onKeyDown={e => {
                 if (e.key === 'Enter' && newSource.trim()) {
                   setSources([...sources, newSource.trim()]);
@@ -1081,23 +1064,23 @@ export default function ArticlesTab({ showMsg }: {
             <button
               onClick={() => { if (newSource.trim()) { setSources([...sources, newSource.trim()]); setNewSource(''); } }}
               disabled={!newSource.trim()}
-              className="px-4 py-2.5 bg-[#D4AF37] text-black rounded-lg text-sm font-bold hover:bg-white transition-colors disabled:opacity-50">
+              className="px-4 py-2 sm:py-2.5 bg-[#D4AF37] text-black rounded-lg text-sm font-bold hover:bg-white transition-colors disabled:opacity-50 whitespace-nowrap">
               Ajouter
             </button>
           </div>
           {sources.length > 0 && (
             <div className="space-y-2">
               {sources.map((source, i) => (
-                <div key={i} className="flex items-center justify-between p-3 bg-[#0f0f0f] rounded-lg border border-white/10 group">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <span className="text-[10px] text-gray-600 font-mono w-6">#{i + 1}</span>
+                <div key={i} className="flex items-start sm:items-center justify-between p-2 sm:p-3 bg-[#0f0f0f] rounded-lg border border-white/10 group gap-2">
+                  <div className="flex items-start sm:items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                    <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">#{i + 1}</span>
                     <a href={source} target="_blank" rel="noopener noreferrer"
-                      className="text-gray-400 text-xs hover:text-[#D4AF37] transition-colors truncate flex-1">
+                      className="text-gray-400 text-xs hover:text-[#D4AF37] transition-colors break-all flex-1">
                       {source}
                     </a>
                   </div>
                   <button onClick={() => setSources(sources.filter((_, idx) => idx !== i))}
-                    className="p-1.5 text-gray-600 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
+                    className="p-1.5 text-gray-600 hover:text-red-500 transition-colors sm:opacity-0 sm:group-hover:opacity-100 flex-shrink-0">
                     <X size={14} />
                   </button>
                 </div>
@@ -1110,15 +1093,17 @@ export default function ArticlesTab({ showMsg }: {
         </div>
 
         {/* Événements liés */}
-        <div className="p-4 bg-[#1a1a1a] rounded-lg border border-white/10">
-          <div className="flex items-center gap-2 mb-3">
-            <Link2 size={14} className="text-[#D4AF37]" />
-            <span className="text-xs font-bold text-gray-300">
-              Événements liés
-              {linkedEventIds.length > 0 && (
-                <span className="ml-2 text-[#D4AF37]">({linkedEventIds.length} sélectionné{linkedEventIds.length > 1 ? 's' : ''})</span>
-              )}
-            </span>
+        <div className="p-3 sm:p-4 bg-[#1a1a1a] rounded-lg border border-white/10">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
+            <div className="flex items-center gap-2">
+              <Link2 size={14} className="text-[#D4AF37] flex-shrink-0" />
+              <span className="text-xs font-bold text-gray-300">Événements liés</span>
+            </div>
+            {linkedEventIds.length > 0 && (
+              <span className="text-xs text-[#D4AF37]">
+                ({linkedEventIds.length} sélectionné{linkedEventIds.length > 1 ? 's' : ''})
+              </span>
+            )}
           </div>
           {linkedEventIds.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-3">
@@ -1127,8 +1112,8 @@ export default function ArticlesTab({ showMsg }: {
                 if (!evt) return null;
                 return (
                   <span key={id} className="flex items-center gap-1.5 bg-[#D4AF37]/15 border border-[#D4AF37]/30 text-[#D4AF37] text-[10px] px-2.5 py-1 rounded-full font-bold">
-                    {evt.year} — {evt.title_fr.slice(0, 30)}
-                    <button onClick={() => toggleEvent(id)} className="hover:text-white transition-colors"><X size={10} /></button>
+                    <span className="truncate max-w-[200px]">{evt.year} — {evt.title_fr.slice(0, 30)}</span>
+                    <button onClick={() => toggleEvent(id)} className="hover:text-white transition-colors flex-shrink-0"><X size={10} /></button>
                   </span>
                 );
               })}
@@ -1143,9 +1128,9 @@ export default function ArticlesTab({ showMsg }: {
                 className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${linkedEventIds.includes(evt.id) ? 'bg-[#D4AF37]/10 border border-[#D4AF37]/20' : 'hover:bg-white/5'
                   }`}>
                 <input type="checkbox" checked={linkedEventIds.includes(evt.id)}
-                  onChange={() => toggleEvent(evt.id)} className="accent-[#D4AF37]" />
-                <span className="text-[#D4AF37] font-mono text-[10px] font-bold">{evt.year}</span>
-                <span className="text-white text-xs truncate">{evt.title_fr}</span>
+                  onChange={() => toggleEvent(evt.id)} className="accent-[#D4AF37] flex-shrink-0" />
+                <span className="text-[#D4AF37] font-mono text-[10px] font-bold flex-shrink-0">{evt.year}</span>
+                <span className="text-white text-xs truncate flex-1 min-w-0">{evt.title_fr}</span>
               </label>
             ))}
             {filteredEvents.length === 0 && (
@@ -1156,9 +1141,10 @@ export default function ArticlesTab({ showMsg }: {
 
         <div className="flex justify-end pt-4 border-t border-white/5">
           <button onClick={handleSave} disabled={isSaving}
-            className="flex items-center gap-2 bg-[#D4AF37] text-black px-6 py-2.5 rounded-lg font-bold text-sm hover:bg-white disabled:opacity-50 transition-colors">
+            className="flex items-center gap-2 bg-[#D4AF37] text-black px-4 sm:px-6 py-2 sm:py-2.5 rounded-lg font-bold text-sm hover:bg-white disabled:opacity-50 transition-colors whitespace-nowrap">
             {isSaving ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
-            {editingId ? 'Mettre à jour' : "Créer l'article"}
+            <span className="hidden sm:inline">{editingId ? 'Mettre à jour' : "Créer l'article"}</span>
+            <span className="sm:hidden">{editingId ? 'Modifier' : "Créer"}</span>
           </button>
         </div>
       </div>
@@ -1167,7 +1153,7 @@ export default function ArticlesTab({ showMsg }: {
       <div className="space-y-3">
         {articles.map(art => (
           <div key={art.id}
-            className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white/[0.02] border border-white/10 rounded-lg gap-3">
+            className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 bg-white/[0.02] border border-white/10 rounded-lg gap-3">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               {art.image_url && (
                 <div className="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden">
@@ -1181,32 +1167,31 @@ export default function ArticlesTab({ showMsg }: {
                       'bg-yellow-500/20 text-yellow-400'
                     }`}>{art.status}</span>
                   {art.categories && (
-                    <span className="text-[10px] text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] text-gray-500 bg-white/5 px-2 py-0.5 rounded-full truncate max-w-[120px]">
                       {art.categories.name_fr}
                     </span>
                   )}
                   {art.wikipedia_url && (
-                    <span className="flex items-center gap-1 text-[10px] text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded-full">
-                      <Globe size={8} /> Wikipedia
+                    <span className="flex items-center gap-1 text-[10px] text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded-full flex-shrink-0">
+                      <Globe size={8} /> Wiki
                     </span>
                   )}
                 </div>
-                {/* ✅ AFFICHAGE FORMATÉ DES TITRES */}
-                <p className="text-white text-sm font-medium mb-0.5 line-clamp-1">
+                <p className="text-white text-sm font-medium mb-0.5 line-clamp-1 break-words">
                   {parseInline(art.title_fr, art.categories?.color || '#D4AF37')}
                 </p>
-                <p className="text-gray-500 text-xs italic line-clamp-1">
+                <p className="text-gray-500 text-xs italic line-clamp-1 break-words">
                   {parseInline(art.title_en, art.categories?.color || '#D4AF37')}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 self-end sm:self-auto">
               <button onClick={() => handleEdit(art)}
-                className="p-2 bg-white/5 text-gray-400 hover:text-[#D4AF37] rounded-lg transition-colors">
+                className="p-2 bg-white/5 text-gray-400 hover:text-[#D4AF37] rounded-lg transition-colors flex-shrink-0">
                 <Edit2 size={16} />
               </button>
               <button onClick={() => handleDelete(art.id)}
-                className="p-2 bg-white/5 text-gray-500 hover:text-red-500 rounded-lg transition-colors">
+                className="p-2 bg-white/5 text-gray-500 hover:text-red-500 rounded-lg transition-colors flex-shrink-0">
                 <Trash2 size={16} />
               </button>
             </div>
