@@ -773,9 +773,13 @@ function LibraryTeaserTab({ showMsg }: { showMsg: (type: 'success' | 'error', te
     try {
       const text = direction === 'en' ? titleFr : titleEn;
       if (!text.trim()) { showMsg('error', 'Texte source vide'); setAutoTranslating(null); return; }
+
+      // CORRECTION : L'API s'attend à recevoir la langue SOURCE (ex: si on traduit vers l'anglais, la source est le français)
+      const sourceLang = direction === 'en' ? 'fr' : 'en';
+
       const res = await fetch('/api/lingua', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'translate', text, lang: direction }), // Lang envoyé comme la cible de la traduction
+        body: JSON.stringify({ action: 'translate', text, lang: sourceLang }),
       });
       const json = await res.json();
       if (json.result) {
@@ -1024,9 +1028,7 @@ export default function LibraryTab({ showMsg }: { showMsg: (type: 'success' | 'e
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterSuggStatus, setFilterSuggStatus] = useState<string>('pending');
   
-  // Suppression Livres
   const [deleteTarget, setDeleteTarget] = useState<Book | null>(null);
-  // Suppression Demandes (Suggestions)
   const [deleteSuggTarget, setDeleteSuggTarget] = useState<BookSuggestion | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -1101,21 +1103,42 @@ export default function LibraryTab({ showMsg }: { showMsg: (type: 'success' | 'e
     setIsProcessing(key);
     try {
       const sourceMap: Record<string, string> = {
-        'translate-fr-title': titleEn, 'translate-en-title': titleFr, 'correct-fr-title': titleFr, 'correct-en-title': titleEn,
-        'translate-fr-author': authorEn, 'translate-en-author': authorFr, 'correct-fr-author': authorFr, 'correct-en-author': authorEn,
-        'translate-fr-desc': descEn, 'translate-en-desc': descFr, 'correct-fr-desc': descFr, 'correct-en-desc': descEn,
+        'translate-fr-title': titleEn, 'translate-en-title': titleFr,
+        'correct-fr-title': titleFr, 'correct-en-title': titleEn,
+        'translate-fr-author': authorEn, 'translate-en-author': authorFr,
+        'correct-fr-author': authorFr, 'correct-en-author': authorEn,
+        'translate-fr-desc': descEn, 'translate-en-desc': descFr,
+        'correct-fr-desc': descFr, 'correct-en-desc': descEn,
       };
       const setterMap: Record<string, (v: string) => void> = {
-        'translate-fr-title': setTitleFr, 'translate-en-title': setTitleEn, 'correct-fr-title': setTitleFr, 'correct-en-title': setTitleEn,
-        'translate-fr-author': setAuthorFr, 'translate-en-author': setAuthorEn, 'correct-fr-author': setAuthorFr, 'correct-en-author': setAuthorEn,
-        'translate-fr-desc': setDescFr, 'translate-en-desc': setDescEn, 'correct-fr-desc': setDescFr, 'correct-en-desc': setDescEn,
+        'translate-fr-title': setTitleFr, 'translate-en-title': setTitleEn,
+        'correct-fr-title': setTitleFr, 'correct-en-title': setTitleEn,
+        'translate-fr-author': setAuthorFr, 'translate-en-author': setAuthorEn,
+        'correct-fr-author': setAuthorFr, 'correct-en-author': setAuthorEn,
+        'translate-fr-desc': setDescFr, 'translate-en-desc': setDescEn,
+        'correct-fr-desc': setDescFr, 'correct-en-desc': setDescEn,
       };
+      
       const mapKey = `${action}-${field}`;
       const sourceText = sourceMap[mapKey];
       const setter = setterMap[mapKey];
+
       if (!sourceText?.trim()) { showMsg('error', 'Texte source vide'); return; }
-      const targetLang = action.endsWith('fr') ? 'fr' : 'en';
-      const result = action.startsWith('translate') ? await autoTranslate(sourceText, targetLang) : await autoCorrect(sourceText, targetLang);
+
+      // CORRECTION DU BUG D'INVERSION ICI
+      // L'API /api/lingua (ou autoTranslate) s'attend à recevoir la langue SOURCE dans le paramètre.
+      // Donc si on demande de traduire vers l'anglais ('translate-en'), la langue source qu'il faut indiquer à l'API est le français ('fr').
+      let sourceLangForApi: 'fr' | 'en' = 'fr';
+      
+      if (action === 'translate-en') sourceLangForApi = 'fr'; 
+      if (action === 'translate-fr') sourceLangForApi = 'en'; 
+      if (action === 'correct-en') sourceLangForApi = 'en';
+      if (action === 'correct-fr') sourceLangForApi = 'fr';
+
+      const result = action.startsWith('translate') 
+        ? await autoTranslate(sourceText, sourceLangForApi) 
+        : await autoCorrect(sourceText, sourceLangForApi);
+        
       setter(result);
       showMsg('success', action.startsWith('translate') ? 'Traduction appliquée !' : 'Correction appliquée !');
     } catch (e) { showMsg('error', 'Erreur Lingua'); }
@@ -1181,7 +1204,6 @@ export default function LibraryTab({ showMsg }: { showMsg: (type: 'success' | 'e
     if (!deleteTarget) return;
     setIsDeleting(true);
     
-    // Ajout de .select() pour forcer le retour des données supprimées
     const { data, error } = await supabase
       .from('library_books')
       .delete()
@@ -1191,7 +1213,6 @@ export default function LibraryTab({ showMsg }: { showMsg: (type: 'success' | 'e
     if (error) {
       showMsg('error', error.message);
     } else if (!data || data.length === 0) {
-      // Si la DB renvoie un tableau vide, c'est que le RLS a bloqué l'action !
       showMsg('error', 'Suppression bloquée par les permissions Supabase (RLS).');
     } else {
       setBooks(prev => prev.filter(b => b.id !== deleteTarget.id)); 
@@ -1202,8 +1223,7 @@ export default function LibraryTab({ showMsg }: { showMsg: (type: 'success' | 'e
     setDeleteTarget(null);
   }, [deleteTarget, showMsg]);
 
-  // Nouvelle fonction pour supprimer définitivement une suggestion
-    const handleConfirmDeleteSuggestion = useCallback(async () => {
+  const handleConfirmDeleteSuggestion = useCallback(async () => {
     if (!deleteSuggTarget) return;
     setIsDeleting(true);
     
@@ -1330,7 +1350,6 @@ export default function LibraryTab({ showMsg }: { showMsg: (type: 'success' | 'e
                   <input type="text" value={titleFr} onChange={e => setTitleFr(e.target.value)} placeholder={PLACEHOLDERS.title_fr} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 placeholder:text-gray-600 transition-colors" />
                   <div className="flex gap-1 mt-1.5">
                     <LinguaButton action="correct-fr-title" label="Corriger" disabled={!titleFr} isProcessing={isProcessing} onClick={() => handleLingua('correct-fr', 'title')} />
-                    {/* LE BOUTON EST MAINTENANT CONFIGURÉ POUR 'POUSSER' LE TEXTE FRANÇAIS VERS L'ANGLAIS */}
                     <LinguaButton action="translate-en-title" label="FR→EN" disabled={!titleFr} isProcessing={isProcessing} onClick={() => handleLingua('translate-en', 'title')} />
                   </div>
                 </div>
@@ -1339,7 +1358,6 @@ export default function LibraryTab({ showMsg }: { showMsg: (type: 'success' | 'e
                   <input type="text" value={titleEn} onChange={e => setTitleEn(e.target.value)} placeholder={PLACEHOLDERS.title_en} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 placeholder:text-gray-600 transition-colors" />
                   <div className="flex gap-1 mt-1.5">
                     <LinguaButton action="correct-en-title" label="Correct" disabled={!titleEn} isProcessing={isProcessing} onClick={() => handleLingua('correct-en', 'title')} />
-                    {/* LE BOUTON EST MAINTENANT CONFIGURÉ POUR 'POUSSER' LE TEXTE ANGLAIS VERS LE FRANÇAIS */}
                     <LinguaButton action="translate-fr-title" label="EN→FR" disabled={!titleEn} isProcessing={isProcessing} onClick={() => handleLingua('translate-fr', 'title')} />
                   </div>
                 </div>
@@ -1349,10 +1367,18 @@ export default function LibraryTab({ showMsg }: { showMsg: (type: 'success' | 'e
                 <div>
                   <label className="block text-xs text-gray-400 mb-1 font-mono">🇫🇷 Auteur</label>
                   <input type="text" value={authorFr} onChange={e => setAuthorFr(e.target.value)} placeholder={PLACEHOLDERS.author_fr} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 placeholder:text-gray-600 transition-colors" />
+                  <div className="flex gap-1 mt-1.5">
+                    <LinguaButton action="correct-fr-author" label="Corriger" disabled={!authorFr} isProcessing={isProcessing} onClick={() => handleLingua('correct-fr', 'author')} />
+                    <LinguaButton action="translate-en-author" label="FR→EN" disabled={!authorFr} isProcessing={isProcessing} onClick={() => handleLingua('translate-en', 'author')} />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs text-gray-400 mb-1 font-mono">🇬🇧 Author</label>
                   <input type="text" value={authorEn} onChange={e => setAuthorEn(e.target.value)} placeholder={PLACEHOLDERS.author_en} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-emerald-500 placeholder:text-gray-600 transition-colors" />
+                  <div className="flex gap-1 mt-1.5">
+                    <LinguaButton action="correct-en-author" label="Correct" disabled={!authorEn} isProcessing={isProcessing} onClick={() => handleLingua('correct-en', 'author')} />
+                    <LinguaButton action="translate-fr-author" label="EN→FR" disabled={!authorEn} isProcessing={isProcessing} onClick={() => handleLingua('translate-fr', 'author')} />
+                  </div>
                 </div>
               </div>
 
