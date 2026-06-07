@@ -1768,14 +1768,14 @@ export default function ExplorePage() {
         });
       }
 
-      let { data: featuredEvents } = await supabase
+         let { data: featuredEvents } = await supabase
         .from('events')
         .select('*')
         .eq('status', 'published')
-        .eq('featured_on_landing', true)
+        .eq('featured_on_explore', true) // <-- NOUVEAU FILTRE DÉDIÉ
         .order('importance', { ascending: false })
-        .limit(5);
-
+        .limit(10); // <-- Augmente la limite pour le carrousel Explorer (ex: 10)
+        
       if (!featuredEvents || featuredEvents.length === 0) {
         const { data: recentEvents } = await supabase
           .from('events')

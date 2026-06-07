@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Loader2, CalendarDays, PlusCircle, Edit2, Trash2, X,
   Languages, SpellCheck, CheckCircle, MapPin, Bell, BellOff,
-  Calendar, Star
+  Calendar, Star, Globe // <-- Ajout de Globe pour l'icône Explorer
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { autoTranslate, autoCorrect } from '@/lib/lingua';
@@ -17,8 +17,8 @@ interface EventItem {
   title_en: string;
   desc_fr: string;
   desc_en: string;
-  description_fr?: string;  // ← AJOUTER
-  description_en?: string;  // ← AJOUTER
+  description_fr?: string;
+  description_en?: string;
   year: number;
   country: string;
   importance: number;
@@ -30,6 +30,7 @@ interface EventItem {
   event_day?: number;
   notify_anniversary?: boolean;
   featured_on_landing?: boolean;
+  featured_on_explore?: boolean; // <-- NOUVEAU
   categories: Category;
 }
 
@@ -50,7 +51,8 @@ export default function EventsTab({ showMsg }: {
   const [eventMonth, setEventMonth] = useState<string>('');
   const [eventDay, setEventDay] = useState<string>('');
   const [notifyAnniversary, setNotifyAnniversary] = useState(false);
-  const [featuredOnLanding, setFeaturedOnLanding] = useState(false);  // ← NOUVEAU
+  const [featuredOnLanding, setFeaturedOnLanding] = useState(false);
+  const [featuredOnExplore, setFeaturedOnExplore] = useState(false); // <-- NOUVEAU
   const [country, setCountry] = useState('');
   const [importance, setImportance] = useState(3);
   const [catId, setCatId] = useState('');
@@ -82,7 +84,8 @@ export default function EventsTab({ showMsg }: {
     setEditingId(null); setTitleFr(''); setTitleEn('');
     setDescFr(''); setDescEn(''); setYear(new Date().getFullYear());
     setEventMonth(''); setEventDay(''); setNotifyAnniversary(false);
-    setFeaturedOnLanding(false);  // ← NOUVEAU
+    setFeaturedOnLanding(false);
+    setFeaturedOnExplore(false); // <-- NOUVEAU
     setCountry(''); setImportance(3); setCatId('');
     setLat(0); setLng(0); setImageUrl('');
   };
@@ -91,14 +94,15 @@ export default function EventsTab({ showMsg }: {
     setEditingId(evt.id);
     setTitleFr(evt.title_fr || '');
     setTitleEn(evt.title_en || '');
-    setDescFr(evt.desc_fr || evt.description_fr || '');  // ← GÉRER LES DEUX
-    setDescEn(evt.desc_en || evt.description_en || '');  // ← GÉRER LES DEUX
+    setDescFr(evt.desc_fr || evt.description_fr || '');
+    setDescEn(evt.desc_en || evt.description_en || '');
     setYear(evt.year);
 
     setEventMonth(evt.event_month ? String(evt.event_month) : '');
     setEventDay(evt.event_day ? String(evt.event_day) : '');
     setNotifyAnniversary(evt.notify_anniversary || false);
     setFeaturedOnLanding(evt.featured_on_landing || false);
+    setFeaturedOnExplore(evt.featured_on_explore || false); // <-- NOUVEAU
     setCountry(evt.country || '');
     setImportance(evt.importance);
     setCatId(evt.category_id || '');
@@ -127,65 +131,65 @@ export default function EventsTab({ showMsg }: {
   };
 
   const handleSave = async () => {
-  if (!titleFr.trim() || !titleEn.trim()) return showMsg('error', 'Titres requis.');
-  setIsSaving(true);
-  try {
-    // Générer un slug unique
-    const slug = titleFr.toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-      + '-' + year;
+    if (!titleFr.trim() || !titleEn.trim()) return showMsg('error', 'Titres requis.');
+    setIsSaving(true);
+    try {
+      const slug = titleFr.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+        + '-' + year;
 
-    const payload = {
-      title_fr: titleFr,
-      title_en: titleEn,
-      description_fr: descFr || null,
-      description_en: descEn || null,
-      desc_fr: descFr || null,      // ← pour compatibilité avec l'ancien schéma
-      desc_en: descEn || null,      // ← pour compatibilité avec l'ancien schéma
-      year,
-      month: eventMonth ? parseInt(eventMonth) : 1,  // ← OBLIGATOIRE (NOT NULL)
-      day: eventDay ? parseInt(eventDay) : 1,        // ← OBLIGATOIRE (NOT NULL)
-      event_month: eventMonth ? parseInt(eventMonth) : null,
-      event_day: eventDay ? parseInt(eventDay) : null,
-      notify_anniversary: notifyAnniversary,
-      featured_on_landing: featuredOnLanding,
-      country,
-      country_code: country || '🌍',
-      importance,
-      category_id: catId || null,
-      latitude: lat || null,
-      longitude: lng || null,
-      image_url: imageUrl || null,
-      slug,
-      status: 'published',
-    };
+      const payload = {
+        title_fr: titleFr,
+        title_en: titleEn,
+        description_fr: descFr || null,
+        description_en: descEn || null,
+        desc_fr: descFr || null,
+        desc_en: descEn || null,
+        year,
+        month: eventMonth ? parseInt(eventMonth) : 1,
+        day: eventDay ? parseInt(eventDay) : 1,
+        event_month: eventMonth ? parseInt(eventMonth) : null,
+        event_day: eventDay ? parseInt(eventDay) : null,
+        notify_anniversary: notifyAnniversary,
+        featured_on_landing: featuredOnLanding,
+        featured_on_explore: featuredOnExplore, // <-- NOUVEAU
+        country,
+        country_code: country || '🌍',
+        importance,
+        category_id: catId || null,
+        latitude: lat || null,
+        longitude: lng || null,
+        image_url: imageUrl || null,
+        slug,
+        status: 'published',
+      };
 
-    if (editingId) {
-      const { error } = await supabase.from('events').update(payload).eq('id', editingId);
-      if (error) throw error;
-      setEvents(events.map(e => e.id === editingId
-        ? { ...e, ...payload, categories: categories.find(c => c.id === catId) as Category }
-        : e
-      ));
-      showMsg('success', 'Événement mis à jour !');
-    } else {
-      const { data, error } = await supabase
-        .from('events')
-        .insert(payload)
-        .select('*, categories(id, name_fr, name_en)')
-        .single();
-      if (error) throw error;
-      setEvents([data as unknown as EventItem, ...events]);
-      showMsg('success', 'Événement créé !');
+      if (editingId) {
+        const { error } = await supabase.from('events').update(payload).eq('id', editingId);
+        if (error) throw error;
+        setEvents(events.map(e => e.id === editingId
+          ? { ...e, ...payload, categories: categories.find(c => c.id === catId) as Category }
+          : e
+        ));
+        showMsg('success', 'Événement mis à jour !');
+      } else {
+        const { data, error } = await supabase
+          .from('events')
+          .insert(payload)
+          .select('*, categories(id, name_fr, name_en)')
+          .single();
+        if (error) throw error;
+        setEvents([data as unknown as EventItem, ...events]);
+        showMsg('success', 'Événement créé !');
+      }
+      resetForm();
+    } catch (err: any) { 
+      console.error('Save error:', err);
+      showMsg('error', err.message || 'Erreur inconnue'); 
     }
-    resetForm();
-  } catch (err: any) { 
-    console.error('Save error:', err);
-    showMsg('error', err.message || 'Erreur inconnue'); 
-  }
-  setIsSaving(false);
-};
+    setIsSaving(false);
+  };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Supprimer cet événement ?')) return;
@@ -221,7 +225,12 @@ export default function EventsTab({ showMsg }: {
             {events.length} événements
             {events.filter(e => e.featured_on_landing).length > 0 && (
               <span className="text-[#D4AF37] ml-2">
-                • {events.filter(e => e.featured_on_landing).length} en vedette
+                • {events.filter(e => e.featured_on_landing).length} Landing
+              </span>
+            )}
+            {events.filter(e => e.featured_on_explore).length > 0 && (
+              <span className="text-blue-400 ml-2">
+                • {events.filter(e => e.featured_on_explore).length} Explorer
               </span>
             )}
           </p>
@@ -392,93 +401,75 @@ export default function EventsTab({ showMsg }: {
               />
             </div>
           </div>
+        </div>
 
-          {/* Preview date */}
-          {year && (
-            <div className="mt-3 flex items-center gap-2">
-              <span className="text-[10px] text-gray-600">Affichage :</span>
-              <span className="text-[10px] font-mono text-[#D4AF37]">
-                {eventDay && eventMonth
-                  ? `${eventDay}/${eventMonth}/${year}`
-                  : eventMonth
-                    ? `${eventMonth}/${year}`
-                    : `${year}`
-                }
-              </span>
+        {/* Boutons de Visibilité (Landing & Explore) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          
+          {/* Landing Page */}
+          <div className={`p-4 rounded-lg border transition-all ${featuredOnLanding ? 'bg-[#D4AF37]/10 border-[#D4AF37]/30' : 'bg-[#1a1a1a] border-white/10'}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Star size={16} className={featuredOnLanding ? 'text-[#D4AF37]' : 'text-gray-600'} fill={featuredOnLanding ? '#D4AF37' : 'none'} />
+                <div>
+                  <p className={`text-sm font-bold ${featuredOnLanding ? 'text-[#D4AF37]' : 'text-gray-400'}`}>
+                    Hero de l'Accueil (Landing)
+                  </p>
+                  <p className="text-[10px] text-gray-600 mt-0.5">Mis en vedette à l'accueil</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setFeaturedOnLanding(!featuredOnLanding)}
+                className={`relative w-12 h-6 rounded-full transition-all ${featuredOnLanding ? 'bg-[#D4AF37]' : 'bg-white/10'}`}
+              >
+                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${featuredOnLanding ? 'left-7' : 'left-1'}`} />
+              </button>
             </div>
-          )}
+          </div>
+
+          {/* Explore Page */}
+          <div className={`p-4 rounded-lg border transition-all ${featuredOnExplore ? 'bg-blue-500/10 border-blue-500/30' : 'bg-[#1a1a1a] border-white/10'}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Globe size={16} className={featuredOnExplore ? 'text-blue-400' : 'text-gray-600'} />
+                <div>
+                  <p className={`text-sm font-bold ${featuredOnExplore ? 'text-blue-400' : 'text-gray-400'}`}>
+                    Hero de l'Explorer
+                  </p>
+                  <p className="text-[10px] text-gray-600 mt-0.5">Mis en vedette sur l'explorateur</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setFeaturedOnExplore(!featuredOnExplore)}
+                className={`relative w-12 h-6 rounded-full transition-all ${featuredOnExplore ? 'bg-blue-500' : 'bg-white/10'}`}
+              >
+                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${featuredOnExplore ? 'left-7' : 'left-1'}`} />
+              </button>
+            </div>
+          </div>
+
         </div>
 
         {/* Notification anniversaire */}
-        <div
-          className={`p-4 rounded-lg border transition-all ${notifyAnniversary
-              ? 'bg-[#D4AF37]/10 border-[#D4AF37]/30'
-              : 'bg-[#1a1a1a] border-white/10'
-            }`}
-        >
+        <div className={`p-4 rounded-lg border transition-all ${notifyAnniversary ? 'bg-[#D4AF37]/10 border-[#D4AF37]/30' : 'bg-[#1a1a1a] border-white/10'}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              {notifyAnniversary
-                ? <Bell size={16} className="text-[#D4AF37]" />
-                : <BellOff size={16} className="text-gray-600" />
-              }
+              {notifyAnniversary ? <Bell size={16} className="text-[#D4AF37]" /> : <BellOff size={16} className="text-gray-600" />}
               <div>
                 <p className={`text-sm font-bold ${notifyAnniversary ? 'text-[#D4AF37]' : 'text-gray-400'}`}>
                   Notification anniversaire
                 </p>
                 <p className="text-[10px] text-gray-600 mt-0.5">
-                  {eventMonth && eventDay
-                    ? `Notifier les utilisateurs chaque ${eventDay}/${eventMonth}`
-                    : 'Renseignez le jour et le mois pour activer'
-                  }
+                  {eventMonth && eventDay ? `Notifier les utilisateurs chaque ${eventDay}/${eventMonth}` : 'Renseignez le jour et le mois pour activer'}
                 </p>
               </div>
             </div>
             <button
               onClick={() => setNotifyAnniversary(!notifyAnniversary)}
               disabled={!eventMonth || !eventDay}
-              className={`relative w-12 h-6 rounded-full transition-all disabled:opacity-30 disabled:cursor-not-allowed ${notifyAnniversary ? 'bg-[#D4AF37]' : 'bg-white/10'
-                }`}
+              className={`relative w-12 h-6 rounded-full transition-all disabled:opacity-30 disabled:cursor-not-allowed ${notifyAnniversary ? 'bg-[#D4AF37]' : 'bg-white/10'}`}
             >
-              <span
-                className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${notifyAnniversary ? 'left-7' : 'left-1'
-                  }`}
-              />
-            </button>
-          </div>
-        </div>
-
-        {/* ← NOUVEAU : Featured on Landing */}
-        <div
-          className={`p-4 rounded-lg border transition-all ${featuredOnLanding
-              ? 'bg-[#D4AF37]/10 border-[#D4AF37]/30'
-              : 'bg-[#1a1a1a] border-white/10'
-            }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {featuredOnLanding
-                ? <Star size={16} className="text-[#D4AF37]" fill="#D4AF37" />
-                : <Star size={16} className="text-gray-600" />
-              }
-              <div>
-                <p className={`text-sm font-bold ${featuredOnLanding ? 'text-[#D4AF37]' : 'text-gray-400'}`}>
-                  Afficher sur la landing page
-                </p>
-                <p className="text-[10px] text-gray-600 mt-0.5">
-                  Cet événement s'affichera en vedette sous la barre de recherche
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setFeaturedOnLanding(!featuredOnLanding)}
-              className={`relative w-12 h-6 rounded-full transition-all ${featuredOnLanding ? 'bg-[#D4AF37]' : 'bg-white/10'
-                }`}
-            >
-              <span
-                className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${featuredOnLanding ? 'left-7' : 'left-1'
-                  }`}
-              />
+              <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${notifyAnniversary ? 'left-7' : 'left-1'}`} />
             </button>
           </div>
         </div>
@@ -576,8 +567,9 @@ export default function EventsTab({ showMsg }: {
         {events.map(evt => (
           <div
             key={evt.id}
-            className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-3 transition-all ${evt.featured_on_landing
-                ? 'bg-[#D4AF37]/5 border-[#D4AF37]/30'
+            className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-3 transition-all ${
+                evt.featured_on_landing || evt.featured_on_explore
+                ? 'bg-white/[0.04] border-white/20'
                 : 'bg-white/[0.02] border-white/10'
               }`}
           >
@@ -595,17 +587,21 @@ export default function EventsTab({ showMsg }: {
                     {evt.categories.name_fr}
                   </span>
                 )}
-                <span className="text-[10px] text-yellow-300">
-                  {'⭐'.repeat(evt.importance)}
-                </span>
-                {evt.notify_anniversary && (
-                  <span className="flex items-center gap-1 text-[10px] text-[#D4AF37] bg-[#D4AF37]/10 px-2 py-0.5 rounded-full">
-                    <Bell size={9} /> Notif
-                  </span>
-                )}
+                
+                {/* Badges de statut */}
                 {evt.featured_on_landing && (
                   <span className="flex items-center gap-1 text-[10px] text-[#D4AF37] bg-[#D4AF37]/10 px-2 py-0.5 rounded-full">
                     <Star size={9} fill="#D4AF37" /> Landing
+                  </span>
+                )}
+                {evt.featured_on_explore && (
+                  <span className="flex items-center gap-1 text-[10px] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full">
+                    <Globe size={9} /> Explorer
+                  </span>
+                )}
+                {evt.notify_anniversary && (
+                  <span className="flex items-center gap-1 text-[10px] text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full">
+                    <Bell size={9} /> Notif
                   </span>
                 )}
               </div>
