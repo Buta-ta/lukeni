@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { supabase, supabaseAdmin } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase'; 
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Loader2, ShieldCheck, UserPlus, Trash2, Check, X,
@@ -89,88 +89,47 @@ export default function AdminsTab({ showMsg }: { showMsg: (type: 'success' | 'er
   }
 
   // ✅ CRÉER UN NOUVEL ADMIN (compte + profil)
-  const createNewAdmin = async () => {
-    if (!newEmail || !newPassword) {
-      showMsg('error', 'Email et mot de passe requis.');
-      return;
+// ✅ CRÉER UN NOUVEL ADMIN (compte + profil)
+const createNewAdmin = async () => {
+  if (!newEmail || !newPassword) {
+    showMsg('error', 'Email et mot de passe requis.');
+    return;
+  }
+
+  setIsCreating(true);
+
+  try {
+    const response = await fetch('/api/admin/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: newEmail,
+        password: newPassword,
+        fullName: newFullName,
+        allowedTabs: newAdminTabs
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Erreur lors de la création');
     }
 
-    if (!supabaseAdmin) {
-      showMsg('error', 'Configuration serveur manquante.');
-      return;
-    }
+    showMsg('success', `Admin "${newEmail}" créé !`);
+    setShowCreateModal(false);
+    setNewEmail('');
+    setNewPassword('');
+    setNewFullName('');
+    setNewAdminTabs(['articles', 'events', 'press']);
+    fetchAdmins();
 
-    setIsCreating(true);
-
-    try {
-      // 1. Vérifier si l'utilisateur existe déjà
-      const { data: existingUsers } = await supabaseAdmin
-        .from('auth.users')
-        .select('id')
-        .eq('email', newEmail)
-        .single();
-
-      let userId: string;
-
-      if (existingUsers) {
-        userId = existingUsers.id;
-      } else {
-        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-          email: newEmail,
-          password: newPassword,
-          email_confirm: true,
-          user_metadata: { full_name: newFullName }
-        });
-
-        if (authError) throw authError;
-        if (!authData.user) throw new Error('Utilisateur non créé');
-
-        userId = authData.user.id;
-      }
-
-      // 2. Vérifier si le profil existe
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', userId)
-        .single();
-
-      if (existingProfile) {
-        const { error: updateError } = await supabaseAdmin
-          .from('profiles')
-          .update({ full_name: newFullName, role: 'admin', allowed_tabs: newAdminTabs })
-          .eq('id', userId);
-
-        if (updateError) throw updateError;
-        showMsg('success', `Admin "${newEmail}" mis à jour !`);
-      } else {
-        const { error: insertError } = await supabaseAdmin
-          .from('profiles')
-          .insert({
-            id: userId,
-            full_name: newFullName,
-            role: 'admin',
-            allowed_tabs: newAdminTabs,
-            created_at: new Date().toISOString()
-          });
-
-        if (insertError) throw insertError;
-        showMsg('success', `Admin "${newEmail}" créé !`);
-      }
-
-      setShowCreateModal(false);
-      setNewEmail('');
-      setNewPassword('');
-      setNewFullName('');
-      setNewAdminTabs(['articles', 'events', 'press']);
-      fetchAdmins();
-
-    } catch (err: any) {
-      showMsg('error', err.message || 'Erreur lors de la création');
-    } finally {
-      setIsCreating(false);
-    }
-  };
+  } catch (err: any) {
+    showMsg('error', err.message || 'Erreur lors de la création');
+  } finally {
+    setIsCreating(false);
+  }
+};
 
   // ✏️ OUVRIR MODAL ÉDITION INFO
   const openEditInfo = (admin: Profile) => {
@@ -182,59 +141,43 @@ export default function AdminsTab({ showMsg }: { showMsg: (type: 'success' | 'er
   };
 
   // ✏️ SAUVEGARDER MODIFICATION INFO (Email/Password)
-  const saveEditInfo = async () => {
-    if (!editingAdmin || !supabaseAdmin) {
-      showMsg('error', 'Configuration manquante.');
-      return;
+  // ✏️ SAUVEGARDER MODIFICATION INFO (Email/Password)
+const saveEditInfo = async () => {
+  if (!editingAdmin) {
+    showMsg('error', 'Configuration manquante.');
+    return;
+  }
+
+  setIsUpdating(true);
+
+  try {
+    const response = await fetch('/api/admin/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: editingAdmin.id,
+        email: editEmail !== editingAdmin.email ? editEmail : undefined,
+        password: editPassword.trim() || undefined,
+        fullName: editFullName !== editingAdmin.full_name ? editFullName : undefined
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Erreur lors de la mise à jour');
     }
 
-    setIsUpdating(true);
+    showMsg('success', 'Informations mises à jour !');
+    setShowEditModal(false);
+    fetchAdmins();
 
-    try {
-      // 1. Mettre à jour email et password dans auth.users
-      const updateData: { email?: string; password?: string; user_metadata?: { full_name?: string } } = {};
-
-      if (editEmail !== editingAdmin.email) {
-        updateData.email = editEmail;
-      }
-
-      if (editPassword.trim()) {
-        updateData.password = editPassword;
-      }
-
-      if (editFullName !== editingAdmin.full_name) {
-        updateData.user_metadata = { full_name: editFullName };
-      }
-
-      const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
-        editingAdmin.id,
-        updateData
-      );
-
-      if (authError) throw authError;
-
-      // 2. Mettre à jour full_name dans profiles
-      if (editFullName !== editingAdmin.full_name) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({ full_name: editFullName })
-          .eq('id', editingAdmin.id);
-
-        if (profileError) throw profileError;
-      }
-
-      showMsg('success', 'Informations mises à jour !');
-      setShowEditModal(false);
-      fetchAdmins();
-
-    } catch (err: any) {
-      console.error('Update error:', err);
-      showMsg('error', err.message || 'Erreur lors de la mise à jour');
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
+  } catch (err: any) {
+    showMsg('error', err.message || 'Erreur lors de la mise à jour');
+  } finally {
+    setIsUpdating(false);
+  }
+};
   // 🔍 RECHERCHER UN UTILISATEUR EXISTANT
   const searchUser = async () => {
     if (!searchEmail.trim()) return;
@@ -287,36 +230,33 @@ export default function AdminsTab({ showMsg }: { showMsg: (type: 'success' | 'er
   };
 
   // 🗑️ SUPPRIMER DÉFINITIVEMENT
-  const deleteAdmin = async () => {
-    if (!deleteConfirm) return;
+// 🗑️ SUPPRIMER DÉFINITIVEMENT
+const deleteAdmin = async () => {
+  if (!deleteConfirm) return;
 
-    if (!supabaseAdmin) {
-      showMsg('error', 'Configuration serveur manquante.');
-      return;
+  try {
+    const response = await fetch('/api/admin/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: deleteConfirm.id
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Erreur lors de la suppression');
     }
 
-    try {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', deleteConfirm.id);
+    showMsg('success', `Admin "${deleteConfirm.email}" supprimé.`);
+    setDeleteConfirm(null);
+    fetchAdmins();
 
-      if (profileError) throw profileError;
-
-      const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(deleteConfirm.id);
-
-      if (authError && authError.status !== 404) {
-        console.warn('Could not delete auth user:', authError.message);
-      }
-
-      showMsg('success', `Admin "${deleteConfirm.email}" supprimé.`);
-      setDeleteConfirm(null);
-      fetchAdmins();
-
-    } catch (err: any) {
-      showMsg('error', err.message || 'Erreur lors de la suppression');
-    }
-  };
+  } catch (err: any) {
+    showMsg('error', err.message || 'Erreur lors de la suppression');
+  }
+};
 
   // ✏️ SAUVEGARDER LES PERMISSIONS
   const saveTabs = async (userId: string) => {
