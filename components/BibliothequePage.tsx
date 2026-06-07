@@ -18,7 +18,7 @@ import FavoriteButton from '@/components/FavoriteButton';
 import { useOpenLibrary, useLibGen } from '@/lib/hooks/useOpenLibrary';
 import type { EnrichedOLBook } from '@/lib/hooks/useOpenLibrary';
 import { NotesplitContainer } from '@/components/NotesplitContainer';
-import CloudinaryPDFReader from '@/components/CloudinaryPDFReader';
+import CloudinaryPDFReader from '@/components/CloudinaryPDFReaderWrapper';
 
 // ============================================================================
 // TYPES

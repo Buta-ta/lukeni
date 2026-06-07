@@ -12,7 +12,7 @@ import {
 import type { User } from '@supabase/supabase-js';
 import { useReadingCircle, type ReadingCircle, type CircleMember } from '@/lib/hooks/useReadingCircle';
 import { useCircleChat, type ChatMessage } from '@/lib/hooks/useCircleChat';
-import CloudinaryPDFReader from '@/components/CloudinaryPDFReader';
+import CloudinaryPDFReader from '@/components/CloudinaryPDFReaderWrapper';
 import { NotesplitContainer } from '@/components/NotesplitContainer';
 
 const CaurisIcon = ({ className }: { className?: string }) => (
