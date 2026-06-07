@@ -957,13 +957,13 @@ const HeroCarousel = memo(({ events, lang, isLoading }: {
 
   return (
     <div className="relative h-[60vh] min-h-[440px] rounded-3xl overflow-hidden group">
+       {/* Image principale mieux cadrée */}
       <img
         key={`ev-${idx}`}
         src={ev.image} alt=""
         loading="lazy" decoding="async"
         onLoad={() => setImgLoaded(true)}
-        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${imgLoaded ? 'opacity-100' : 'opacity-0'
-          }`}
+        className={`absolute inset-0 w-full h-full object-cover object-[center_20%] md:object-center transition-opacity duration-700 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
       />
       <div className="absolute inset-0 bg-gradient-to-t from-[#020111] via-[#020111]/40 to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-r from-[#020111]/60 via-transparent to-transparent" />
@@ -1775,7 +1775,7 @@ export default function ExplorePage() {
         .eq('featured_on_explore', true) // <-- NOUVEAU FILTRE DÉDIÉ
         .order('importance', { ascending: false })
         .limit(10); // <-- Augmente la limite pour le carrousel Explorer (ex: 10)
-        
+
       if (!featuredEvents || featuredEvents.length === 0) {
         const { data: recentEvents } = await supabase
           .from('events')
