@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
@@ -17,12 +17,12 @@ const CaurisIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-export default function JoinCirclePage() {
+// ✅ NOUVEAU : Composant client qui utilise useSearchParams
+function JoinCircleContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const code = searchParams.get('code');
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
-
   const [user, setUser] = useState<User | null>(null);
   const [circle, setCircle] = useState<any>(null);
   const [book, setBook] = useState<any>(null);
@@ -30,7 +30,6 @@ export default function JoinCirclePage() {
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-
   const [manualCode, setManualCode] = useState('');
 
   useEffect(() => {
@@ -44,7 +43,6 @@ export default function JoinCirclePage() {
     getSession();
   }, []);
 
-  // ── Charger cercle depuis le code ──
   useEffect(() => {
     if (!code && !manualCode) {
       setIsLoading(false);
@@ -71,7 +69,6 @@ export default function JoinCirclePage() {
 
         setCircle(circleData);
 
-        // Charger le livre
         const { data: bookData } = await supabase
           .from('library_books')
           .select('*')
@@ -96,7 +93,6 @@ export default function JoinCirclePage() {
 
     setIsJoining(true);
     try {
-      // Vérifier si déjà membre
       const { data: existingMember } = await supabase
         .from('circle_members')
         .select('id')
@@ -105,12 +101,10 @@ export default function JoinCirclePage() {
         .single();
 
       if (existingMember) {
-        // Déjà membre, rediriger
         router.push(`/bibliotheque/circles/${circle.id}`);
         return;
       }
 
-      // Ajouter comme membre
       const { error } = await supabase
         .from('circle_members')
         .insert({
@@ -134,7 +128,6 @@ export default function JoinCirclePage() {
     }
   };
 
-  // ── État : Chargement ──
   if (isLoading && code) {
     return (
       <div className="min-h-screen bg-[#020111] flex items-center justify-center text-white">
@@ -173,7 +166,6 @@ export default function JoinCirclePage() {
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6"
         >
-          {/* Hero */}
           <div className="text-center space-y-3 mb-8">
             <h1 className="text-3xl font-serif font-bold">
               {lang === 'fr' ? 'Rejoindre un cercle' : 'Join a circle'}
@@ -185,7 +177,6 @@ export default function JoinCirclePage() {
             </p>
           </div>
 
-          {/* Code input */}
           {!circle && !success && (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
@@ -225,14 +216,12 @@ export default function JoinCirclePage() {
             </motion.div>
           )}
 
-          {/* Circle found */}
           {circle && !success && (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               className="space-y-6"
             >
-              {/* Circle card */}
               <div className="bg-gradient-to-br from-[#0d0d1a] to-[#080810] border border-white/[0.07] rounded-3xl overflow-hidden">
                 <div className="h-1 w-full bg-gradient-to-r from-emerald-500 to-emerald-400" />
 
@@ -287,7 +276,6 @@ export default function JoinCirclePage() {
                 </div>
               </div>
 
-              {/* Action */}
               {!user ? (
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
@@ -327,7 +315,6 @@ export default function JoinCirclePage() {
             </motion.div>
           )}
 
-          {/* Success */}
           {success && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
@@ -356,6 +343,29 @@ export default function JoinCirclePage() {
           )}
         </motion.div>
       </main>
+    </div>
+  );
+}
+
+// ✅ Page wrapper avec Suspense
+export default function JoinCirclePage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <JoinCircleContent />
+    </Suspense>
+  );
+}
+
+// ✅ Fallback pendant le loading
+function LoadingFallback() {
+  return (
+    <div className="min-h-screen bg-[#020111] flex items-center justify-center">
+      <motion.div
+        animate={{ rotate: 360 }}
+        transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+      >
+        <CaurisIcon className="w-12 h-12 text-emerald-500" />
+      </motion.div>
     </div>
   );
 }
