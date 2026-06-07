@@ -1028,6 +1028,8 @@ const BookDetailModal = memo(({ book, lang, user, onClose }: {
                 url={book.file_url}
                 title={title}
                 lang={lang}
+                bookId={book.id}
+                userId={user?.id}
                 onClose={() => setShowReader(false)}
               />
             ) : readerMode === 'audio' && book.audio_url ? (
