@@ -191,8 +191,8 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
   const [isLoading, setIsLoading] = useState(true);
   const [uploadingSlot, setUploadingSlot] = useState<number | null>(null);
   const [isSavingLayout, setIsSavingLayout] = useState(false);
+  const [brokenImages, setBrokenImages] = useState<number[]>([]); // Pour traquer les images 404
 
-  // 1. On mémorise la fonction fetch pour pouvoir l'appeler après une suppression
   const fetchCollage = useCallback(async () => {
     setIsLoading(true);
     const [slotsRes, settingsRes] = await Promise.all([
@@ -201,6 +201,7 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
     ]);
     if (slotsRes.data) setSlots(slotsRes.data as CollageSlot[]);
     if (settingsRes.data) setSettings(settingsRes.data as CollageSettings);
+    setBrokenImages([]); // Reset des erreurs au rechargement
     setIsLoading(false);
   }, []);
 
@@ -228,7 +229,6 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
           const slot = slots.find(s => s.slot_index === slotIndex);
           
           if (slot) {
-            // Mise à jour si la zone existe
             const { error: updateError } = await supabase
               .from('library_collage')
               .update({ url, is_active: true })
@@ -238,7 +238,6 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
               fetchCollage();
             } else showMsg('error', updateError.message);
           } else {
-            // Création si la zone est vide
             const { error: insertError } = await supabase
               .from('library_collage')
               .insert({ slot_index: slotIndex, url, is_active: true, label: `Zone ${slotIndex + 1}` });
@@ -262,12 +261,12 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
     } else { doUpload(); }
   }, [slots, showMsg, fetchCollage]);
 
-  // CORRECTION : On SUPPRIME physiquement la ligne de la base de données
-  const handleClearSlot = useCallback(async (slotIndex: number) => {
+  // LA CORRECTION EST ICI : On "Update" la ligne pour mettre url à NULL au lieu de "Delete"
+  const handleClearSlot = useCallback(async (slotId: string, slotIndex: number) => {
     const { error } = await supabase
       .from('library_collage')
-      .delete()
-      .eq('slot_index', slotIndex); // On utilise l'index, c'est infaillible
+      .update({ url: null, is_active: false })
+      .eq('id', slotId);
 
     if (!error) {
       showMsg('success', `Zone ${slotIndex + 1} vidée.`);
@@ -408,6 +407,7 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
             const isUploading = uploadingSlot === idx;
             const hasImage = !!slot?.url;
             const isActive = slot?.is_active ?? false;
+            const isBroken = brokenImages.includes(idx);
 
             return (
               <motion.div
@@ -418,14 +418,25 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
                 <div className="aspect-[4/3] relative bg-[#0a0a18]">
                   {hasImage ? (
                     <>
-                      {/* CORRECTION : onError masque l'image si Cloudinary renvoie une 404 */}
-                      <img 
-                        src={slot!.url!} 
-                        alt={`Zone ${idx + 1}`} 
-                        className="w-full h-full object-cover" 
-                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                      />
-                      {!isActive && (
+                      {/* Affichage de l'image (si elle ne crash pas) */}
+                      {!isBroken && (
+                        <img 
+                          src={slot!.url!} 
+                          alt={`Zone ${idx + 1}`} 
+                          className="w-full h-full object-cover" 
+                          onError={() => setBrokenImages(prev => [...prev, idx])}
+                        />
+                      )}
+                      
+                      {/* Si l'image est 404 (supprimée de Cloudinary) */}
+                      {isBroken && (
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-red-950/20">
+                          <AlertCircle size={24} className="text-red-500" />
+                          <span className="text-[10px] text-red-400 font-bold text-center px-2">Image supprimée<br/>Veuillez la vider</span>
+                        </div>
+                      )}
+
+                      {!isActive && !isBroken && (
                         <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                           <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Masquée</span>
                         </div>
@@ -438,16 +449,16 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
                     </div>
                   )}
 
-                  <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-black/70 backdrop-blur-sm flex items-center justify-center">
+                  <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-black/70 backdrop-blur-sm flex items-center justify-center z-10">
                     <span className="text-[10px] text-gray-300 font-bold">{idx + 1}</span>
                   </div>
 
-                  {hasImage && (
-                    <div className={`absolute top-2 right-2 w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-gray-600'}`} />
+                  {hasImage && !isBroken && (
+                    <div className={`absolute top-2 right-2 w-2 h-2 rounded-full z-10 ${isActive ? 'bg-emerald-500' : 'bg-gray-600'}`} />
                   )}
                 </div>
 
-                <div className="p-2 bg-[#0f0f0f] flex items-center gap-1.5">
+                <div className="p-2 bg-[#0f0f0f] flex items-center gap-1.5 z-20 relative">
                   <button onClick={() => handleUploadSlot(idx)} disabled={isUploading}
                     className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-white/5 text-gray-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg text-[10px] font-bold transition-all disabled:opacity-50">
                     {isUploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
@@ -463,8 +474,7 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
                   )}
 
                   {hasImage && (
-                    // CORRECTION : On envoie l'index (idx) pour supprimer de façon certaine
-                    <button onClick={() => handleClearSlot(idx)}
+                    <button onClick={() => slot && handleClearSlot(slot.id, idx)}
                       className="p-1.5 rounded-lg bg-white/5 text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-all"
                       title="Vider cette zone">
                       <Trash2 size={12} />
