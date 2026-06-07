@@ -45,7 +45,7 @@ export function useReadingCircle(circleId: string, userId?: string) {
     const loadCircle = async () => {
       try {
         setIsLoading(true);
-        
+
         const [circleRes, membersRes] = await Promise.all([
           supabase
             .from('reading_circles')
@@ -54,13 +54,13 @@ export function useReadingCircle(circleId: string, userId?: string) {
             .single(),
           supabase
             .from('circle_members')
-            .select('*, profiles(full_name, avatar_url, username)')
+            .select('*') // ✅ Sans join aux profiles
             .eq('circle_id', circleId)
             .order('last_active_at', { ascending: false })
         ]);
 
         if (circleRes.error) throw circleRes.error;
-        
+
         setCircle(circleRes.data);
         setMembers(membersRes.data || []);
         setError(null);
@@ -74,6 +74,35 @@ export function useReadingCircle(circleId: string, userId?: string) {
 
     loadCircle();
   }, [circleId]);
+
+  // ── Charger les profiles SÉPARÉMENT ──
+  useEffect(() => {
+    if (!members || members.length === 0) return;
+
+    const loadProfiles = async () => {
+      try {
+        const userIds = members.map(m => m.user_id);
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url, username')
+          .in('id', userIds);
+
+        if (data) {
+          const profileMap = Object.fromEntries(data.map(p => [p.id, p]));
+          setMembers(prev =>
+            prev.map(m => ({
+              ...m,
+              profiles: profileMap[m.user_id] || undefined
+            }))
+          );
+        }
+      } catch (err: any) {
+        console.error('Load profiles error:', err);
+      }
+    };
+
+    loadProfiles();
+  }, [members.length]);
 
   // ── Supabase Realtime ──
   useEffect(() => {
@@ -130,6 +159,38 @@ export function useReadingCircle(circleId: string, userId?: string) {
       }
     );
 
+    // 🗃️ POSTGRES CHANGES : Nouveaux membres
+    realtimeChannel.on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'circle_members',
+        filter: `circle_id=eq.${circleId}`
+      },
+      async (payload) => {
+        // Charger le profil du nouveau membre
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('id, full_name, avatar_url, username')
+            .eq('id', payload.new.user_id)
+            .single();
+
+          const newMember: CircleMember = {
+            ...payload.new,
+            profiles: profile || undefined
+          };
+
+          setMembers(prev => [...prev, newMember]);
+        } catch (err) {
+          console.warn('Profile fetch error:', err);
+          // Ajouter quand même le membre sans profil
+          setMembers(prev => [...prev, payload.new]);
+        }
+      }
+    );
+
     realtimeChannel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         await realtimeChannel.track({ user_id: userId, online_at: new Date().toISOString() });
@@ -155,13 +216,13 @@ export function useReadingCircle(circleId: string, userId?: string) {
     });
 
     // 2. Mise à jour DB
-    const { error } = await supabase
+    const { error: err } = await supabase
       .from('reading_circles')
       .update({ current_page: newPage, updated_at: new Date().toISOString() })
       .eq('id', circle.id);
 
-    if (error) {
-      setError(error.message);
+    if (err) {
+      setError(err.message);
     }
   }, [circle, channel]);
 
@@ -176,24 +237,24 @@ export function useReadingCircle(circleId: string, userId?: string) {
     });
 
     // 2. Update DB
-    const { error } = await supabase
+    const { error: err } = await supabase
       .from('circle_members')
       .update({ current_page: page, last_active_at: new Date().toISOString() })
       .eq('circle_id', circle.id)
       .eq('user_id', userId);
 
-    if (error) setError(error.message);
+    if (err) setError(err.message);
   }, [userId, circle, channel]);
 
   const toggleLive = useCallback(async () => {
     if (!circle) return;
 
-    const { error } = await supabase
+    const { error: err } = await supabase
       .from('reading_circles')
       .update({ is_live: !circle.is_live })
       .eq('id', circle.id);
 
-    if (error) setError(error.message);
+    if (err) setError(err.message);
   }, [circle]);
 
   return {

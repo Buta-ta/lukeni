@@ -22,7 +22,7 @@ export function useCircleChat(circleId: string, userId?: string) {
   const [error, setError] = useState<string | null>(null);
   const [channel, setChannel] = useState<RealtimeChannel | null>(null);
 
-  // ── Charger l'historique ──
+  // ✅ CHARGER L'HISTORIQUE SANS JOIN
   useEffect(() => {
     if (!circleId) return;
 
@@ -30,7 +30,7 @@ export function useCircleChat(circleId: string, userId?: string) {
       try {
         const { data, error: err } = await supabase
           .from('circle_messages')
-          .select('*, profiles(full_name, avatar_url, username)')
+          .select('*') // ✅ Sans join aux profiles
           .eq('circle_id', circleId)
           .order('created_at', { ascending: true })
           .limit(100);
@@ -49,7 +49,7 @@ export function useCircleChat(circleId: string, userId?: string) {
     loadMessages();
   }, [circleId]);
 
-  // ── Realtime : Écouter les nouveaux messages ──
+  // ✅ REALTIME : Écouter les nouveaux messages
   useEffect(() => {
     if (!circleId) return;
 
@@ -64,12 +64,18 @@ export function useCircleChat(circleId: string, userId?: string) {
         filter: `circle_id=eq.${circleId}`
       },
       async (payload) => {
-        // Enrichir avec profil si nécessaire
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name, avatar_url, username')
-          .eq('id', payload.new.user_id)
-          .single();
+        // ✅ Charger le profil du user SÉPARÉMENT
+        let profile = null;
+        try {
+          const { data } = await supabase
+            .from('profiles')
+            .select('full_name, avatar_url, username')
+            .eq('id', payload.new.user_id)
+            .single();
+          profile = data;
+        } catch (err) {
+          console.warn('Profile fetch error:', err);
+        }
 
         const newMessage: ChatMessage = {
           ...payload.new,
@@ -88,7 +94,7 @@ export function useCircleChat(circleId: string, userId?: string) {
     };
   }, [circleId]);
 
-  // ── Envoyer un message ──
+  // ✅ ENVOYER UN MESSAGE
   const sendMessage = useCallback(async (content: string, pageNumber?: number) => {
     if (!userId || !content.trim() || !circleId) return;
 
