@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Loader2, ShieldCheck, UserPlus, Trash2, Check, X, 
+import {
+  Loader2, ShieldCheck, UserPlus, Trash2, Check, X,
   Mail, Lock, User, Search, AlertCircle, CheckCircle,
   Edit2, Key, Shield, Users, Crown, Pencil
 } from 'lucide-react';
@@ -25,8 +25,8 @@ const ALL_TABS = [
   { id: 'library', label: 'Bibliothèque', icon: '📚' },
   { id: 'ads', label: 'Publicités', icon: '📣' },  // ← AJOUTER
   { id: 'visitors', label: 'Visiteurs', icon: '👁️' },
-  { id: 'notifications', label: 'Notifications', icon: '🔔' },  
-  { id: 'about', label: 'À Propos', icon: '📖' },  
+  { id: 'notifications', label: 'Notifications', icon: '🔔' },
+  { id: 'about', label: 'À Propos', icon: '📖' },
 
   { id: 'admins', label: 'Admins', icon: '👑' },
 ];
@@ -43,7 +43,7 @@ interface Profile {
 export default function AdminsTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: string) => void }) {
   const [admins, setAdmins] = useState<Profile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // Create Admin Modal
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newEmail, setNewEmail] = useState('');
@@ -72,8 +72,8 @@ export default function AdminsTab({ showMsg }: { showMsg: (type: 'success' | 'er
   const [searchResult, setSearchResult] = useState<Profile | null>(null);
   const [isSearching, setIsSearching] = useState(false);
 
-  useEffect(() => { 
-    fetchAdmins(); 
+  useEffect(() => {
+    fetchAdmins();
   }, []);
 
   async function fetchAdmins() {
@@ -83,7 +83,7 @@ export default function AdminsTab({ showMsg }: { showMsg: (type: 'success' | 'er
       .select('*')
       .eq('role', 'admin')
       .order('created_at', { ascending: true });
-    
+
     if (data) setAdmins(data as unknown as Profile[]);
     setIsLoading(false);
   }
@@ -239,17 +239,17 @@ export default function AdminsTab({ showMsg }: { showMsg: (type: 'success' | 'er
   const searchUser = async () => {
     if (!searchEmail.trim()) return;
     setIsSearching(true);
-    
+
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .ilike('full_name', `%${searchEmail}%`)
       .limit(1)
       .single();
-    
+
     if (data) setSearchResult(data as unknown as Profile);
     else setSearchResult(null);
-    
+
     setIsSearching(false);
   };
 
@@ -259,7 +259,7 @@ export default function AdminsTab({ showMsg }: { showMsg: (type: 'success' | 'er
       .from('profiles')
       .update({ role: 'admin', allowed_tabs: newAdminTabs })
       .eq('id', userId);
-    
+
     if (!error) {
       showMsg('success', 'Utilisateur promu admin !');
       setSearchResult(null);
@@ -276,7 +276,7 @@ export default function AdminsTab({ showMsg }: { showMsg: (type: 'success' | 'er
       .from('profiles')
       .update({ role: 'user', allowed_tabs: [] })
       .eq('id', userId);
-    
+
     if (!error) {
       showMsg('success', 'Droits admin retirés.');
       fetchAdmins();
@@ -304,7 +304,7 @@ export default function AdminsTab({ showMsg }: { showMsg: (type: 'success' | 'er
       if (profileError) throw profileError;
 
       const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(deleteConfirm.id);
-      
+
       if (authError && authError.status !== 404) {
         console.warn('Could not delete auth user:', authError.message);
       }
@@ -324,7 +324,7 @@ export default function AdminsTab({ showMsg }: { showMsg: (type: 'success' | 'er
       .from('profiles')
       .update({ allowed_tabs: editTabs })
       .eq('id', userId);
-    
+
     if (!error) {
       showMsg('success', 'Permissions mises à jour !');
       setEditingId(null);
@@ -335,7 +335,7 @@ export default function AdminsTab({ showMsg }: { showMsg: (type: 'success' | 'er
   };
 
   const toggleTab = (tabId: string) => {
-    setEditTabs(prev => 
+    setEditTabs(prev =>
       prev.includes(tabId) ? prev.filter(t => t !== tabId) : [...prev, tabId]
     );
   };
@@ -369,7 +369,7 @@ export default function AdminsTab({ showMsg }: { showMsg: (type: 'success' | 'er
             <p className="text-gray-400 text-xs">{admins.length} administrateur{admins.length > 1 ? 's' : ''}</p>
           </div>
         </div>
-        
+
         <button
           onClick={() => setShowCreateModal(true)}
           className="flex items-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-red-500 transition-all hover:scale-105"
@@ -458,21 +458,37 @@ export default function AdminsTab({ showMsg }: { showMsg: (type: 'success' | 'er
                   <div className="flex items-center justify-between mb-2">
                     <label className="block text-xs text-gray-400 font-mono">📋 Permissions (onglets)</label>
                     <div className="flex gap-2">
-                      <button onClick={selectAllTabs} className="text-[10px] text-red-400 hover:text-red-300">Tout</button>
+                      <button
+                        onClick={() => setNewAdminTabs(ALL_TABS.map(t => t.id))} // ✅
+                        className="text-[10px] text-red-400 hover:text-red-300"
+                      >
+                        Tout
+                      </button>
                       <span className="text-gray-600">|</span>
-                      <button onClick={deselectAllTabs} className="text-[10px] text-gray-400 hover:text-white">Aucun</button>
+                      <button
+                        onClick={() => setNewAdminTabs([])} // ✅
+                        className="text-[10px] text-gray-400 hover:text-white"
+                      >
+                        Aucun
+                      </button>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-2 bg-[#1a1a1a] rounded-lg border border-white/5">
                     {ALL_TABS.map(tab => (
                       <button
                         key={tab.id}
-                        onClick={() => toggleTab(tab.id)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                          newAdminTabs.includes(tab.id)
+                        onClick={() => {
+                          // ✅ Modifie newAdminTabs au lieu de editTabs
+                          setNewAdminTabs(prev =>
+                            prev.includes(tab.id)
+                              ? prev.filter(t => t !== tab.id)
+                              : [...prev, tab.id]
+                          );
+                        }}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${newAdminTabs.includes(tab.id)
                             ? 'bg-red-600 text-white'
                             : 'bg-white/5 text-gray-400 hover:bg-white/10'
-                        }`}
+                          }`}
                       >
                         {newAdminTabs.includes(tab.id) && <Check size={12} />}
                         <span>{tab.icon}</span>
@@ -619,7 +635,7 @@ export default function AdminsTab({ showMsg }: { showMsg: (type: 'success' | 'er
             {isSearching ? <Loader2 size={16} className="animate-spin" /> : 'Chercher'}
           </button>
         </div>
-        
+
         <AnimatePresence>
           {searchResult && (
             <motion.div
@@ -698,11 +714,10 @@ export default function AdminsTab({ showMsg }: { showMsg: (type: 'success' | 'er
                 </button>
                 <button
                   onClick={() => startEdit(admin)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
-                    editingId === admin.id
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${editingId === admin.id
                       ? 'bg-red-600 text-white'
                       : 'bg-white/5 text-gray-400 hover:bg-white/10'
-                  }`}
+                    }`}
                 >
                   <Edit2 size={12} />
                   {editingId === admin.id ? 'En cours...' : 'Permissions'}
@@ -749,11 +764,10 @@ export default function AdminsTab({ showMsg }: { showMsg: (type: 'success' | 'er
                       <button
                         key={tab.id}
                         onClick={() => toggleTab(tab.id)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                          editTabs.includes(tab.id)
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${editTabs.includes(tab.id)
                             ? 'bg-red-600 text-white'
                             : 'bg-white/5 text-gray-400 hover:bg-white/10'
-                        }`}
+                          }`}
                       >
                         {editTabs.includes(tab.id) && <Check size={12} />}
                         <span>{tab.icon}</span>
@@ -814,7 +828,7 @@ export default function AdminsTab({ showMsg }: { showMsg: (type: 'success' | 'er
                   <p className="text-gray-500 text-xs">Action irréversible</p>
                 </div>
               </div>
-              
+
               <div className="bg-white/5 rounded-lg p-3 mb-6">
                 <p className="text-gray-400 text-xs mb-1">Email :</p>
                 <p className="text-white text-sm font-mono">{deleteConfirm.email}</p>
