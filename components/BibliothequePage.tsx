@@ -3,13 +3,14 @@
 
 import React, { useState, useEffect, useMemo, useRef, memo, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import {
   Library, Loader2, Search, X, Headphones, Download, BookOpen,
   Star, Heart, MessageCircle, Send, Play, Pause, Plus,
   Sparkles, Lightbulb, User as UserIcon, Globe, Upload,
-  FileText, Music, ChevronRight, Check, ExternalLink, AlertCircle
+  FileText, Music, ChevronRight, Check, ExternalLink, AlertCircle,Users
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import SpaceHeader from '@/components/SpaceHeader';
@@ -1518,6 +1519,8 @@ LibrarySearchDropdown.displayName = 'LibrarySearchDropdown';
 // ============================================================================
 
 export default function BibliothequePage() {
+
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
   const [user, setUser] = useState<User | null>(null);
@@ -1610,6 +1613,16 @@ export default function BibliothequePage() {
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 2.5 }}>
         <Plus size={20} />
         <span className="hidden sm:inline">{lang === 'fr' ? 'Contribuer' : 'Contribute'}</span>
+      </motion.button>
+
+
+       {/* 🆕 FAB Créer cercle - NOUVEAU */}
+      <motion.button onClick={() => router.push('/bibliotheque/circles/create')}
+        className="fixed bottom-24 right-6 z-30 flex items-center gap-2 bg-purple-500 text-white px-5 py-3.5 rounded-full font-bold text-sm shadow-[0_0_30px_rgba(168,85,247,0.5)] hover:bg-purple-600 transition-colors"
+        whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.95 }}
+        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 2.6 }}>
+        <Users size={20} />
+        <span className="hidden sm:inline">{lang === 'fr' ? 'Cercle' : 'Circle'}</span>
       </motion.button>
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6">

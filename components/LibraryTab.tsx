@@ -418,6 +418,18 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
                 <div className="aspect-[4/3] relative bg-[#0a0a18]">
                   {hasImage ? (
                     <>
+<<<<<<< HEAD
+                      <img
+                        src={slot!.url!}
+                        alt={`Zone ${idx + 1}`}
+                        className="w-full h-full object-cover bg-[#1a1a2e]"
+                        onError={(e) => {
+                          // Si l'image n'existe plus sur Cloudinary, on la masque pour éviter le bug visuel
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                      {!isActive && (
+=======
                       {/* Affichage de l'image (si elle ne crash pas) */}
                       {!isBroken && (
                         <img 
@@ -437,6 +449,7 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
                       )}
 
                       {!isActive && !isBroken && (
+>>>>>>> c8ed6fae2f2bfb1046da33660638af2e6d8f4788
                         <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                           <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Masquée</span>
                         </div>
