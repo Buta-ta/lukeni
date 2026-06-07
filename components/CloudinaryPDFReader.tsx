@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Download, ExternalLink, Loader2, Share2, Copy, Check, ZoomIn as ZoomInIcon, ZoomOut as ZoomOutIcon } from 'lucide-react';
+import { X, ExternalLink, Loader2, Share2, Copy, Check, ZoomIn as ZoomInIcon, ZoomOut as ZoomOutIcon } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 // React PDF Viewer imports
@@ -28,15 +28,6 @@ const HIGHLIGHT_COLORS = [
   { id: 'pink', value: '#fbcfe8' },
 ];
 
-// Un petit composant invisible pour lier la sélection du PDF à notre React State
-function SelectionTracker({ renderProps, onSelectionChange }: { renderProps: RenderHighlightTargetProps, onSelectionChange: (p: RenderHighlightTargetProps | null) => void }) {
-  useEffect(() => {
-    onSelectionChange(renderProps);
-    return () => onSelectionChange(null);
-  }, [renderProps, onSelectionChange]);
-  return null; // Ne rend rien à l'écran, met juste à jour l'état
-}
-
 export default function CloudinaryPDFReader({ 
   url, 
   title, 
@@ -50,10 +41,6 @@ export default function CloudinaryPDFReader({
   const [initialPage, setInitialPage] = useState(0);
   const [savedHighlights, setSavedHighlights] = useState<any[]>([]);
   const [copied, setCopied] = useState(false);
-  
-  // STATE MAGIQUE : Contient les données de la sélection en cours
-  const [currentSelection, setCurrentSelection] = useState<RenderHighlightTargetProps | null>(null);
-  
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 1. Initialiser le plugin de Zoom
@@ -64,12 +51,60 @@ export default function CloudinaryPDFReader({
 
   // 2. Initialiser le plugin de surlignage
   const highlightPluginInstance = highlightPlugin({
-    // Au lieu d'afficher un menu flottant, on met à jour notre State
-    renderHighlightTarget: (renderProps: RenderHighlightTargetProps) => (
-      <SelectionTracker renderProps={renderProps} onSelectionChange={setCurrentSelection} />
-    ),
+    // Le menu apparait TOUJOURS en bas de l'écran (Fixed Bottom Bar), parfait pour le mobile !
+    renderHighlightTarget: (renderProps: RenderHighlightTargetProps) => {
+      return (
+        <div 
+          className="fixed bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-[#0a0a14]/95 backdrop-blur-xl border border-emerald-500/40 px-4 py-3 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.9)]"
+          style={{ zIndex: 2147483647 }} // Z-index maximal absolu
+        >
+          {/* Couleurs */}
+          <div className="flex items-center gap-3">
+            {HIGHLIGHT_COLORS.map(color => (
+              <button
+                key={color.id}
+                onClick={() => handleAddHighlight(renderProps, color.value)}
+                className="w-7 h-7 rounded-full border border-white/20 hover:scale-110 transition-transform shadow-inner active:scale-95"
+                style={{ backgroundColor: color.value }}
+              />
+            ))}
+          </div>
+
+          <div className="w-px h-6 bg-white/20 mx-1" />
+
+          {/* Actions (Copier / Partager) */}
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={() => handleCopy(renderProps)}
+              className="p-2.5 text-gray-300 hover:text-emerald-400 transition-colors rounded-xl hover:bg-white/10 active:scale-95"
+              title="Copier">
+              {copied ? <Check size={18} className="text-emerald-500" /> : <Copy size={18} />}
+            </button>
+
+            {navigator.share && (
+              <button 
+                onClick={() => handleShare(renderProps)}
+                className="p-2.5 text-gray-300 hover:text-blue-400 transition-colors rounded-xl hover:bg-white/10 active:scale-95"
+                title="Partager">
+                <Share2 size={18} />
+              </button>
+            )}
+          </div>
+
+          <div className="w-px h-6 bg-white/20 mx-1" />
+
+          {/* Bouton Annuler */}
+          <button 
+            onClick={renderProps.toggle}
+            className="p-2.5 text-gray-400 hover:text-red-400 transition-colors rounded-xl hover:bg-white/10 active:scale-95"
+            title="Annuler">
+            <X size={18} />
+          </button>
+        </div>
+      );
+    },
     
-    // Le rendu des couleurs sur la page reste le même
+    // Rendu natif des surlignages
     renderHighlights: (props: RenderHighlightsProps) => (
       <div>
         {savedHighlights
@@ -99,7 +134,7 @@ export default function CloudinaryPDFReader({
     ),
   });
 
-  // 3. Charger les données
+  // 3. Charger les données (Page et Surlignages)
   useEffect(() => {
     async function loadUserData() {
       if (!userId) {
@@ -134,7 +169,7 @@ export default function CloudinaryPDFReader({
     loadUserData();
   }, [userId, bookId]);
 
-  // 4. Actions
+  // 4. Mémoriser la page en cours
   const handlePageChange = (e: any) => {
     if (!userId) return;
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
@@ -148,19 +183,14 @@ export default function CloudinaryPDFReader({
     }, 2000);
   };
 
-  const handleAddHighlight = async (color: string) => {
-    if (!currentSelection) return;
-    
-    // Ferme la sélection
-    currentSelection.toggle(); 
-    const { selectedText, highlightAreas } = currentSelection;
-    setCurrentSelection(null);
+  const handleAddHighlight = async (renderProps: RenderHighlightTargetProps, color: string) => {
+    renderProps.toggle(); // Ferme le menu
 
     const tempId = `temp_${Date.now()}`;
     const newHighlight = {
       id: tempId,
-      content: selectedText,
-      highlightAreas: highlightAreas,
+      content: renderProps.selectedText,
+      highlightAreas: renderProps.highlightAreas,
       color: color,
     };
 
@@ -170,45 +200,32 @@ export default function CloudinaryPDFReader({
       await supabase.from('user_highlights').insert({
         user_id: userId,
         book_id: bookId,
-        content: selectedText,
+        content: renderProps.selectedText,
         color: color,
-        position_data: highlightAreas
+        position_data: renderProps.highlightAreas
       });
     }
   };
 
-  const handleCopy = async () => {
-    if (!currentSelection) return;
-    await navigator.clipboard.writeText(currentSelection.selectedText);
+  const handleCopy = async (renderProps: RenderHighlightTargetProps) => {
+    await navigator.clipboard.writeText(renderProps.selectedText);
     setCopied(true);
     setTimeout(() => {
       setCopied(false);
-      currentSelection.toggle();
-      setCurrentSelection(null);
+      renderProps.toggle(); // Ferme le menu après copie
     }, 1500);
   };
 
-  const handleShare = async () => {
-    if (!currentSelection) return;
+  const handleShare = async (renderProps: RenderHighlightTargetProps) => {
     try {
       await navigator.share({
         title: `Citation de ${title}`,
-        text: `"${currentSelection.selectedText}" — Lu sur Lukeni.`,
+        text: `"${renderProps.selectedText}" — Lu sur Lukeni.`,
       });
     } catch (err) {
       console.log('Partage annulé ou non supporté');
     }
-    currentSelection.toggle();
-    setCurrentSelection(null);
-  };
-
-  const handleDownload = () => {
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${title}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    renderProps.toggle(); // Ferme le menu après partage
   };
 
   return (
@@ -222,92 +239,40 @@ export default function CloudinaryPDFReader({
         </div>
       )}
 
-      {/* LA BARRE D'OUTILS DYNAMIQUE */}
-      <div className="absolute top-0 left-0 right-0 h-14 bg-[#0a0a14] border-b border-white/10 z-30 flex items-center px-2 sm:px-4 transition-colors">
+      {/* Toolbar en haut (Titre, Zoom, Fermer) */}
+      <div className="absolute top-0 left-0 right-0 h-14 bg-[#0a0a14] border-b border-white/10 z-30 flex items-center justify-between px-2 sm:px-4">
         
-        {currentSelection ? (
-          // MODE SÉLECTION : Remplace la barre normale quand du texte est sélectionné
-          <div className="flex-1 flex items-center justify-between w-full">
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={() => { currentSelection.toggle(); setCurrentSelection(null); }} 
-                className="p-1 text-gray-400 hover:text-red-400 transition-colors bg-white/5 rounded-full"
-              >
-                <X size={18} />
+        <div className="hidden sm:flex items-center gap-3 min-w-0 flex-1">
+          <h3 className="text-white text-sm font-bold truncate">{title}</h3>
+        </div>
+
+        {/* Boutons de Zoom */}
+        <div className="flex items-center gap-1 sm:gap-2 mr-auto sm:mr-0 ml-2 sm:ml-0 bg-white/5 rounded-lg p-1">
+          <ZoomOut>
+            {(props) => (
+              <button onClick={props.onClick} className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-all">
+                <ZoomOutIcon size={16} />
               </button>
-              
-              <div className="w-px h-5 bg-white/10 mx-1" />
-              
-              {/* Couleurs de surlignage */}
-              <div className="flex items-center gap-2">
-                {HIGHLIGHT_COLORS.map(color => (
-                  <button
-                    key={color.id}
-                    onClick={() => handleAddHighlight(color.value)}
-                    className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border border-white/20 hover:scale-110 transition-transform active:scale-95"
-                    style={{ backgroundColor: color.value }}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Actions (Copier / Partager) */}
-            <div className="flex items-center gap-1 sm:gap-2">
-              <button onClick={handleCopy} className="p-2 text-gray-300 hover:text-emerald-400 transition-colors rounded-lg bg-white/5 active:scale-95 flex items-center gap-2">
-                {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
-                <span className="hidden sm:inline text-xs font-medium">{lang === 'fr' ? 'Copier' : 'Copy'}</span>
+            )}
+          </ZoomOut>
+          <ZoomIn>
+            {(props) => (
+              <button onClick={props.onClick} className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-all">
+                <ZoomInIcon size={16} />
               </button>
+            )}
+          </ZoomIn>
+        </div>
 
-              {navigator.share && (
-                <button onClick={handleShare} className="p-2 text-gray-300 hover:text-blue-400 transition-colors rounded-lg bg-white/5 active:scale-95 flex items-center gap-2">
-                  <Share2 size={16} />
-                  <span className="hidden sm:inline text-xs font-medium">{lang === 'fr' ? 'Partager' : 'Share'}</span>
-                </button>
-              )}
-            </div>
-          </div>
-
-        ) : (
-
-          // MODE NORMAL : Titre, Zoom, et Fermeture
-          <div className="flex-1 flex items-center justify-between w-full">
-            <div className="hidden sm:flex items-center gap-3 min-w-0 flex-1">
-              <h3 className="text-white text-sm font-bold truncate">{title}</h3>
-            </div>
-
-            {/* Boutons de Zoom */}
-            <div className="flex items-center gap-1 sm:gap-2 mr-auto sm:mr-0 ml-2 sm:ml-0 bg-white/5 rounded-lg p-1">
-              <ZoomOut>
-                {(props) => (
-                  <button onClick={props.onClick} className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-all">
-                    <ZoomOutIcon size={16} />
-                  </button>
-                )}
-              </ZoomOut>
-              <ZoomIn>
-                {(props) => (
-                  <button onClick={props.onClick} className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-all">
-                    <ZoomInIcon size={16} />
-                  </button>
-                )}
-              </ZoomIn>
-            </div>
-
-            {/* Actions globales */}
-            <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0 ml-4">
-              <button onClick={handleDownload} className="p-1.5 text-gray-400 hover:text-emerald-400 transition-colors">
-                <Download size={18} />
-              </button>
-              <a href={url} target="_blank" rel="noopener noreferrer" className="p-1.5 text-gray-400 hover:text-blue-400 transition-colors">
-                <ExternalLink size={18} />
-              </a>
-              <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-red-400 transition-colors ml-2 bg-white/5 rounded-lg">
-                <X size={20} />
-              </button>
-            </div>
-          </div>
-        )}
-
+        {/* Actions d'entête (External et Fermer, le téléchargement a été retiré) */}
+        <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0 ml-4">
+          <a href={url} target="_blank" rel="noopener noreferrer" className="p-1.5 text-gray-400 hover:text-blue-400 transition-colors">
+            <ExternalLink size={18} />
+          </a>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-red-400 transition-colors ml-2 bg-white/5 rounded-lg">
+            <X size={20} />
+          </button>
+        </div>
       </div>
 
       {/* Lecteur PDF */}
