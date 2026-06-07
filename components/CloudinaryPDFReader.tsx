@@ -1,14 +1,17 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Download, ExternalLink, Loader2, Share2, Copy, Check } from 'lucide-react';
+import { X, Download, ExternalLink, Loader2, Share2, Copy, Check, ZoomIn as ZoomInIcon, ZoomOut as ZoomOutIcon } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 // React PDF Viewer imports
 import { Worker, Viewer } from '@react-pdf-viewer/core';
 import { highlightPlugin, RenderHighlightTargetProps, RenderHighlightsProps } from '@react-pdf-viewer/highlight';
+import { zoomPlugin } from '@react-pdf-viewer/zoom'; // NOUVEAU: Plugin de zoom
+
 import '@react-pdf-viewer/core/lib/styles/index.css';
 import '@react-pdf-viewer/highlight/lib/styles/index.css';
+import '@react-pdf-viewer/zoom/lib/styles/index.css'; // NOUVEAU: Styles du zoom
 
 interface CloudinaryPDFReaderProps {
   url: string;
@@ -20,9 +23,9 @@ interface CloudinaryPDFReaderProps {
 }
 
 const HIGHLIGHT_COLORS = [
-  { id: 'yellow', value: '#fef08a' }, // Jaune
-  { id: 'green', value: '#bbf7d0' },  // Vert
-  { id: 'pink', value: '#fbcfe8' },   // Rose
+  { id: 'yellow', value: '#fef08a' },
+  { id: 'green', value: '#bbf7d0' },
+  { id: 'pink', value: '#fbcfe8' },
 ];
 
 export default function CloudinaryPDFReader({ 
@@ -40,34 +43,40 @@ export default function CloudinaryPDFReader({
   const [copied, setCopied] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 1. Initialiser le plugin de surlignage
+  // 1. Initialiser le plugin de Zoom (Active le pinch-to-zoom sur mobile)
+  const zoomPluginInstance = zoomPlugin({
+    enableShortcuts: true,
+  });
+  const { ZoomIn, ZoomOut } = zoomPluginInstance;
+
+  // 2. Initialiser le plugin de surlignage
   const highlightPluginInstance = highlightPlugin({
-    // A. Le menu flottant quand on sélectionne du texte
     renderHighlightTarget: (renderProps: RenderHighlightTargetProps) => {
       return (
         <div 
-          className="absolute flex items-center gap-2 bg-[#1a1a2e] border border-emerald-500/30 p-2 rounded-xl shadow-2xl"
+          className="absolute flex items-center gap-2 bg-[#1a1a2e] border border-emerald-500/50 p-2 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.8)]"
           style={{ 
             left: `${renderProps.selectionRegion.left}%`, 
             top: `${renderProps.selectionRegion.top + renderProps.selectionRegion.height}%`, 
-            marginTop: '8px',
-            zIndex: 99999 // Indispensable pour passer au-dessus de tout sur mobile
+            marginTop: '12px',
+            transform: 'translateX(-50%)', // Centre le menu par rapport à la sélection
+            zIndex: 2147483647 // Z-index maximal absolu
           }}
         >
           {HIGHLIGHT_COLORS.map(color => (
             <button
               key={color.id}
               onClick={() => handleAddHighlight(renderProps, color.value)}
-              className="w-7 h-7 rounded-full border border-white/20 hover:scale-110 transition-transform shadow-inner"
+              className="w-7 h-7 rounded-full border border-white/20 hover:scale-110 transition-transform shadow-inner active:scale-95"
               style={{ backgroundColor: color.value }}
             />
           ))}
 
-          <div className="w-px h-5 bg-white/20 mx-1" />
+          <div className="w-px h-6 bg-white/20 mx-1" />
 
           <button 
             onClick={() => handleCopy(renderProps.selectedText)}
-            className="p-2 text-gray-300 hover:text-emerald-400 transition-colors rounded-lg hover:bg-white/5 active:scale-95"
+            className="p-2 text-gray-300 hover:text-emerald-400 transition-colors rounded-lg hover:bg-white/10 active:scale-95 flex items-center justify-center"
             title="Copier">
             {copied ? <Check size={18} className="text-emerald-500" /> : <Copy size={18} />}
           </button>
@@ -75,7 +84,7 @@ export default function CloudinaryPDFReader({
           {navigator.share && (
             <button 
               onClick={() => handleShare(renderProps.selectedText)}
-              className="p-2 text-gray-300 hover:text-blue-400 transition-colors rounded-lg hover:bg-white/5 active:scale-95"
+              className="p-2 text-gray-300 hover:text-blue-400 transition-colors rounded-lg hover:bg-white/10 active:scale-95 flex items-center justify-center"
               title="Partager">
               <Share2 size={18} />
             </button>
@@ -84,7 +93,6 @@ export default function CloudinaryPDFReader({
       );
     },
     
-    // B. Rendu natif des surlignages (Ça règle le problème du scroll !)
     renderHighlights: (props: RenderHighlightsProps) => (
       <div>
         {savedHighlights
@@ -102,8 +110,8 @@ export default function CloudinaryPDFReader({
                         background: highlight.color,
                         opacity: 0.4,
                         mixBlendMode: 'multiply' as any,
+                        borderRadius: '2px',
                       },
-                      // Magie : cette fonction convertit la position PDF en CSS exact pour la page !
                       props.getCssProperties(area, props.rotation)
                     )}
                   />
@@ -114,7 +122,7 @@ export default function CloudinaryPDFReader({
     ),
   });
 
-  // 2. Récupération des données à l'ouverture
+  // 3. Charger les données
   useEffect(() => {
     async function loadUserData() {
       if (!userId) {
@@ -149,7 +157,7 @@ export default function CloudinaryPDFReader({
     loadUserData();
   }, [userId, bookId]);
 
-  // 3. Sauvegarder la page en cours (Debounce 2s)
+  // 4. Mémoriser la page
   const handlePageChange = (e: any) => {
     if (!userId) return;
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
@@ -163,9 +171,8 @@ export default function CloudinaryPDFReader({
     }, 2000);
   };
 
-  // 4. Ajouter et sauvegarder un surlignage
   const handleAddHighlight = async (renderProps: RenderHighlightTargetProps, color: string) => {
-    renderProps.toggle(); // Ferme le menu
+    renderProps.toggle(); 
 
     const tempId = `temp_${Date.now()}`;
     const newHighlight = {
@@ -175,10 +182,8 @@ export default function CloudinaryPDFReader({
       color: color,
     };
 
-    // Affiche le surlignage instantanément
     setSavedHighlights(prev => [...prev, newHighlight]);
 
-    // Envoi en Base de données
     if (userId) {
       await supabase.from('user_highlights').insert({
         user_id: userId,
@@ -190,7 +195,6 @@ export default function CloudinaryPDFReader({
     }
   };
 
-  // 5. Fonctions Utilitaires
   const handleCopy = async (text: string) => {
     await navigator.clipboard.writeText(text);
     setCopied(true);
@@ -229,25 +233,51 @@ export default function CloudinaryPDFReader({
       )}
 
       {/* Toolbar */}
-      <div className="absolute top-0 left-0 right-0 h-14 flex items-center justify-between px-4 bg-[#0a0a14] border-b border-white/10 z-30">
-        <div className="flex items-center gap-3 min-w-0 flex-1">
+      <div className="absolute top-0 left-0 right-0 h-14 flex items-center justify-between px-2 sm:px-4 bg-[#0a0a14] border-b border-white/10 z-30">
+        
+        {/* Titre (masqué sur très petits écrans si besoin de place) */}
+        <div className="hidden sm:flex items-center gap-3 min-w-0 flex-1">
           <h3 className="text-white text-sm font-bold truncate">{title}</h3>
         </div>
-        <div className="flex items-center gap-3 flex-shrink-0">
+
+        {/* Boutons de Zoom (Desktop & Mobile) */}
+        <div className="flex items-center gap-1 sm:gap-2 mr-auto sm:mr-0 ml-2 sm:ml-0 bg-white/5 rounded-lg p-1">
+          <ZoomOut>
+            {(props) => (
+              <button onClick={props.onClick} className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-all">
+                <ZoomOutIcon size={16} />
+              </button>
+            )}
+          </ZoomOut>
+          <ZoomIn>
+            {(props) => (
+              <button onClick={props.onClick} className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-all">
+                <ZoomInIcon size={16} />
+              </button>
+            )}
+          </ZoomIn>
+        </div>
+
+        {/* Actions principales */}
+        <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0 ml-4">
           <button onClick={handleDownload} className="p-1.5 text-gray-400 hover:text-emerald-400 transition-colors">
             <Download size={18} />
           </button>
           <a href={url} target="_blank" rel="noopener noreferrer" className="p-1.5 text-gray-400 hover:text-blue-400 transition-colors">
             <ExternalLink size={18} />
           </a>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-white transition-colors">
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-red-400 transition-colors ml-2">
             <X size={20} />
           </button>
         </div>
       </div>
 
       {/* Lecteur PDF */}
-      <div className="absolute inset-0 pt-14 bg-[#1a1a2e] overflow-hidden" style={{ touchAction: 'pan-y' }}>
+      {/* NOUVEAU: select-text force le navigateur à autoriser la sélection sur mobile */}
+      <div 
+        className="absolute inset-0 pt-14 bg-[#1a1a2e] overflow-auto select-text [&_*]:select-text" 
+        style={{ WebkitUserSelect: 'text', userSelect: 'text' }}
+      >
         {!isLoadingDB && (
           <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.worker.min.js">
             <div style={{ height: '100%', width: '100%' }}>
@@ -255,8 +285,9 @@ export default function CloudinaryPDFReader({
                 fileUrl={url}
                 initialPage={initialPage}
                 onPageChange={handlePageChange}
-                plugins={[highlightPluginInstance]}
+                plugins={[highlightPluginInstance, zoomPluginInstance]}
                 theme="dark"
+                defaultScale={1} // Ajuste automatiquement à la taille de l'écran
               />
             </div>
           </Worker>
