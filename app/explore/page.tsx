@@ -844,8 +844,15 @@ const HeroCarousel = memo(({ events, lang, isLoading }: {
 
     return (
       <div className="relative h-[60vh] min-h-[440px] rounded-3xl overflow-hidden group">
-        {ad.image_url && (
+               {ad.image_url && (
           <>
+            {/* 1. Fond flouté pour remplir l'écran */}
+            <img
+              src={ad.image_url}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-30 scale-110"
+            />
+            {/* 2. Image ENTIÈRE (non coupée) */}
             <img
               key={`ad-${idx}`}
               src={ad.image_url}
@@ -853,11 +860,10 @@ const HeroCarousel = memo(({ events, lang, isLoading }: {
               loading="lazy"
               decoding="async"
               onLoad={() => setImgLoaded(true)}
-              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${imgLoaded ? 'opacity-100' : 'opacity-0'
-                }`}
+              className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-700 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#020111] via-[#020111]/50 to-transparent" />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#020111]/70 via-transparent to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#020111] via-[#020111]/60 to-transparent pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#020111]/80 via-transparent to-transparent pointer-events-none" />
           </>
         )}
         {!ad.image_url && (
@@ -958,15 +964,25 @@ const HeroCarousel = memo(({ events, lang, isLoading }: {
   return (
     <div className="relative h-[60vh] min-h-[440px] rounded-3xl overflow-hidden group">
        {/* Image principale mieux cadrée */}
+            {/* 1. Fond flouté pour combler les espaces vides si l'image n'est pas au format de l'écran */}
+      <img 
+        src={ev.image} 
+        alt="" 
+        className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-30 scale-110 pointer-events-none" 
+      />
+      
+      {/* 2. Image ENTIÈRE (non coupée) */}
       <img
         key={`ev-${idx}`}
         src={ev.image} alt=""
         loading="lazy" decoding="async"
         onLoad={() => setImgLoaded(true)}
-        className={`absolute inset-0 w-full h-full object-cover object-[center_20%] md:object-center transition-opacity duration-700 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-700 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-[#020111] via-[#020111]/40 to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-r from-[#020111]/60 via-transparent to-transparent" />
+      
+      {/* 3. Gradients assombris pour bien lire le texte */}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#020111] via-[#020111]/60 to-transparent pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-r from-[#020111]/80 via-transparent to-transparent pointer-events-none" />
 
       {slides.length > 1 && (
         <>
