@@ -181,7 +181,6 @@ function LinguaButton({ action, label, disabled, isProcessing, onClick }: {
     </button>
   );
 }
-
 // ============================================================================
 // COLLAGE TAB
 // ============================================================================
@@ -193,9 +192,8 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
   const [uploadingSlot, setUploadingSlot] = useState<number | null>(null);
   const [isSavingLayout, setIsSavingLayout] = useState(false);
 
-  useEffect(() => { fetchCollage(); }, []);
-
-  async function fetchCollage() {
+  // 1. On mémorise la fonction fetch pour pouvoir l'appeler après une suppression
+  const fetchCollage = useCallback(async () => {
     setIsLoading(true);
     const [slotsRes, settingsRes] = await Promise.all([
       supabase.from('library_collage').select('*').order('slot_index'),
@@ -204,9 +202,11 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
     if (slotsRes.data) setSlots(slotsRes.data as CollageSlot[]);
     if (settingsRes.data) setSettings(settingsRes.data as CollageSettings);
     setIsLoading(false);
-  }
+  }, []);
 
-   const handleUploadSlot = useCallback((slotIndex: number) => {
+  useEffect(() => { fetchCollage(); }, [fetchCollage]);
+
+  const handleUploadSlot = useCallback((slotIndex: number) => {
     setUploadingSlot(slotIndex);
 
     const doUpload = () => {
@@ -228,7 +228,7 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
           const slot = slots.find(s => s.slot_index === slotIndex);
           
           if (slot) {
-            // MISE À JOUR si la zone existe déjà
+            // Mise à jour si la zone existe
             const { error: updateError } = await supabase
               .from('library_collage')
               .update({ url, is_active: true })
@@ -238,7 +238,7 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
               fetchCollage();
             } else showMsg('error', updateError.message);
           } else {
-            // CRÉATION si la zone est totalement nouvelle (C'était ça le bug !)
+            // Création si la zone est vide
             const { error: insertError } = await supabase
               .from('library_collage')
               .insert({ slot_index: slotIndex, url, is_active: true, label: `Zone ${slotIndex + 1}` });
@@ -260,20 +260,22 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
       script.onerror = () => { setUploadingSlot(null); showMsg('error', 'Cloudinary indisponible'); };
       document.body.appendChild(script);
     } else { doUpload(); }
-  }, [slots, showMsg]); // Ne pas oublier de garder ces dépendances
+  }, [slots, showMsg, fetchCollage]);
 
-  const handleClearSlot = useCallback(async (slotId: string, slotIndex: number) => {
+  // CORRECTION : On SUPPRIME physiquement la ligne de la base de données
+  const handleClearSlot = useCallback(async (slotIndex: number) => {
     const { error } = await supabase
       .from('library_collage')
-      .update({ url: null, is_active: false })
-      .eq('id', slotId);
+      .delete()
+      .eq('slot_index', slotIndex); // On utilise l'index, c'est infaillible
+
     if (!error) {
       showMsg('success', `Zone ${slotIndex + 1} vidée.`);
       fetchCollage();
     } else {
       showMsg('error', error.message);
     }
-  }, [showMsg]);
+  }, [showMsg, fetchCollage]);
 
   const handleToggleSlot = useCallback(async (slot: CollageSlot) => {
     if (!slot.url) return;
@@ -287,7 +289,7 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
     } else {
       showMsg('error', error.message);
     }
-  }, [showMsg]);
+  }, [showMsg, fetchCollage]);
 
   const handleLayoutChange = useCallback(async (layoutIndex: number) => {
     if (!settings) return;
@@ -416,14 +418,12 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
                 <div className="aspect-[4/3] relative bg-[#0a0a18]">
                   {hasImage ? (
                     <>
-                      <img
-                        src={slot!.url!}
-                        alt={`Zone ${idx + 1}`}
-                        className="w-full h-full object-cover bg-[#1a1a2e]"
-                        onError={(e) => {
-                          // Si l'image n'existe plus sur Cloudinary, on la masque pour éviter le bug visuel
-                          e.currentTarget.style.display = 'none';
-                        }}
+                      {/* CORRECTION : onError masque l'image si Cloudinary renvoie une 404 */}
+                      <img 
+                        src={slot!.url!} 
+                        alt={`Zone ${idx + 1}`} 
+                        className="w-full h-full object-cover" 
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
                       />
                       {!isActive && (
                         <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
@@ -463,7 +463,8 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
                   )}
 
                   {hasImage && (
-                    <button onClick={() => slot && handleClearSlot(slot.id, idx)}
+                    // CORRECTION : On envoie l'index (idx) pour supprimer de façon certaine
+                    <button onClick={() => handleClearSlot(idx)}
                       className="p-1.5 rounded-lg bg-white/5 text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-all"
                       title="Vider cette zone">
                       <Trash2 size={12} />
@@ -478,7 +479,6 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
     </div>
   );
 }
-
 // ============================================================================
 // BOOK STATS MODAL
 // ============================================================================
