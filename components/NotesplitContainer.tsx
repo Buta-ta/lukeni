@@ -3,9 +3,7 @@
 import React, { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    X, Loader2, AlertCircle, Clock, Download,
-    FileText, FileJson, Bold, Italic, Underline,
-    Highlighter, List, Languages, Sparkles, Moon, Star
+    X, Loader2, Clock, Moon
 } from 'lucide-react';
 import { useNotesplit } from '@/lib/hooks/useNotesplit';
 
@@ -19,12 +17,12 @@ interface NotesplitContainerProps {
     mode?: 'bottom' | 'side';
 }
 
-// ─── HOOK MOBILE (Pour optimiser les performances) ───────────────────────────
+// ─── HOOK MOBILE ───────────────────────────
 function useIsMobile() {
     const [isMobile, setIsMobile] = useState(false);
     useEffect(() => {
         const check = () => setIsMobile(window.innerWidth < 768);
-        check(); // Check initial
+        check(); 
         window.addEventListener('resize', check);
         return () => window.removeEventListener('resize', check);
     }, []);
@@ -41,13 +39,10 @@ const CaurisIcon = ({ className, style }: { className?: string; style?: React.CS
 );
 
 // ─── STARFIELD OPTIMISÉ ───────────────────────────────────────────────────────
-
 interface StarData { id: number; x: number; y: number; size: number; duration: number; delay: number; depth: number; }
-interface ShootingStarData { id: number; startX: number; startY: number; angle: number; duration: number; delay: number; length: number; }
 interface NebulaData { id: number; x: number; y: number; size: number; color: string; opacity: number; }
 
 function NotesStarField({ catColor, isMobile }: { catColor: string, isMobile: boolean }) {
-    // 🔥 OPTIMISATION: Seulement 30 étoiles sur mobile au lieu de 120
     const stars = useMemo<StarData[]>(() =>
         Array.from({ length: isMobile ? 30 : 120 }).map((_, i) => ({
             id: i,
@@ -59,19 +54,6 @@ function NotesStarField({ catColor, isMobile }: { catColor: string, isMobile: bo
             depth: Math.random() * 10 + 2,
         })), [isMobile]);
 
-    // 🔥 OPTIMISATION: 1 seule étoile filante sur mobile au lieu de 4
-    const shootingStars = useMemo<ShootingStarData[]>(() =>
-        Array.from({ length: isMobile ? 1 : 4 }).map((_, i) => ({
-            id: i,
-            startX: Math.random() * 80 + 10,
-            startY: Math.random() * 40,
-            angle: 35 + Math.random() * 20,
-            duration: 1.2 + Math.random() * 0.8,
-            delay: i * 7 + Math.random() * 5,
-            length: 60 + Math.random() * 40,
-        })), [isMobile]);
-
-    // 🔥 OPTIMISATION: Moins de nébuleuses sur mobile pour éviter de saturer le GPU
     const nebulae = useMemo<NebulaData[]>(() => {
         if (isMobile) return [{ id: 1, x: 50, y: 50, size: 200, color: catColor, opacity: 0.05 }];
         return [
@@ -93,7 +75,6 @@ function NotesStarField({ catColor, isMobile }: { catColor: string, isMobile: bo
                         width: nebula.size, height: nebula.size,
                         transform: 'translate(-50%, -50%)',
                         background: `radial-gradient(circle, ${nebula.color}${Math.round(nebula.opacity * 255).toString(16).padStart(2, '0')} 0%, transparent 70%)`,
-                        // 🔥 OPTIMISATION: Pas de filtre blur sur mobile (tueur de perf GPU)
                         filter: isMobile ? 'none' : 'blur(30px)',
                         willChange: 'opacity, transform'
                     }}
@@ -110,7 +91,6 @@ function NotesStarField({ catColor, isMobile }: { catColor: string, isMobile: bo
                     transition={{ duration: star.duration, repeat: Infinity, delay: star.delay, ease: 'easeInOut' }}
                 />
             ))}
-            {/* Lignes connectées supprimées sur mobile pour soulager la batterie */}
             {!isMobile && (
                 <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.08 }}>
                     <motion.line x1="15%" y1="20%" x2="30%" y2="35%" stroke="white" strokeWidth="0.5" animate={{ opacity: [0.3, 0.8, 0.3] }} transition={{ duration: 6, repeat: Infinity }} />
@@ -120,40 +100,6 @@ function NotesStarField({ catColor, isMobile }: { catColor: string, isMobile: bo
             )}
         </div>
     );
-}
-
-// ─── HELPERS ─────────────────────────────────────────────────────────────
-function prettifyItemId(raw: string): string {
-    if (!raw) return '';
-    const withoutUuid = raw.replace(/^[0-9a-f]{6,8}-/i, '');
-    return withoutUuid.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-}
-
-function markdownToHtml(text: string): string {
-    const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const lines = escaped.split('\n');
-    const result: string[] = [];
-    let inUl = false;
-    for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('- ')) {
-            if (!inUl) { result.push('<ul>'); inUl = true; }
-            result.push(`<li>${formatInline(trimmed.slice(2))}</li>`);
-        } else {
-            if (inUl) { result.push('</ul>'); inUl = false; }
-            if (!trimmed) result.push('<br>');
-            else result.push(`<p>${formatInline(trimmed)}</p>`);
-        }
-    }
-    if (inUl) result.push('</ul>');
-    return result.join('\n');
-}
-
-function formatInline(text: string): string {
-    return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/__(.*?)__/g, '<u>$1</u>')
-        .replace(/==(.*?)==/g, '<mark>$1</mark>');
 }
 
 // ─── COMPOSANT PRINCIPAL ──────────────────────────────────────────────────────
@@ -168,12 +114,11 @@ export function NotesplitContainer({
     mode = 'bottom',
 }: NotesplitContainerProps) {
     const {
-        content, isOpen, isSaving, lastSaved, error, isOnline,
-        pendingSync, tags, handleContentChange, toggleNotes, removeTag, handleTagInput,
+        content, isOpen, isSaving, lastSaved, error,
+        handleContentChange, toggleNotes,
     } = useNotesplit({ itemId, itemType, userId });
 
     const isMobile = useIsMobile();
-
     const [notesHeight, setNotesHeight] = useState(340);
     const [notesWidth, setNotesWidth] = useState(380);
     const isDragging = useRef(false);
@@ -181,14 +126,8 @@ export function NotesplitContainer({
     const startSize = useRef(0);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-    const [isTranslating, setIsTranslating] = useState(false);
-    const [translatedContent, setTranslatedContent] = useState<string | null>(null);
-    const [displayLang, setDisplayLang] = useState<'fr' | 'en'>(lang);
-
     const [cursorParticles, setCursorParticles] = useState<{ id: number; x: number; y: number }[]>([]);
     const particleIdRef = useRef(0);
-
-    useEffect(() => { setDisplayLang(lang); setTranslatedContent(null); }, [lang]);
 
     // ── Resizing ──
     const onResizeMouseDown = useCallback((e: React.MouseEvent) => {
@@ -217,9 +156,9 @@ export function NotesplitContainer({
         return () => { window.removeEventListener('mousemove', onMouseMove); window.removeEventListener('mouseup', onUp); window.removeEventListener('touchmove', onTouchMove); window.removeEventListener('touchend', onUp); };
     }, [mode]);
 
-    // ── Particules curseur (Désactivé sur mobile pour perf) ──
+    // ── Particules curseur ──
     const handleTextareaMouseMove = useCallback((e: React.MouseEvent<HTMLTextAreaElement>) => {
-        if (isMobile) return; // 🔥 OPTIMISATION: Pas de calcul de particules lors d'un scroll tactile
+        if (isMobile) return; 
         if (Math.random() > 0.85) {
             const rect = e.currentTarget.getBoundingClientRect();
             const newParticle = { id: particleIdRef.current++, x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -227,28 +166,6 @@ export function NotesplitContainer({
             setTimeout(() => setCursorParticles(prev => prev.filter(p => p.id !== newParticle.id)), 800);
         }
     }, [isMobile]);
-
-    // ── Traduction & Exports (inchangés) ──
-    const handleTranslate = useCallback(async () => { /* Inchangé, gardé court pour l'exemple */ }, []);
-    const exportToTXT = useCallback(() => { /* Inchangé */ }, []);
-    const exportToJSON = useCallback(() => { /* Inchangé */ }, []);
-    const exportToPDF = useCallback(() => { /* Inchangé */ }, []);
-
-    // ── Formatting ──
-    const wrapSelection = useCallback((wrapper: string) => { /* Inchangé */ }, [content, handleContentChange]);
-    const handleBold = useCallback(() => wrapSelection('bold'), [wrapSelection]);
-    const handleItalic = useCallback(() => wrapSelection('italic'), [wrapSelection]);
-    const handleUnderline = useCallback(() => wrapSelection('underline'), [wrapSelection]);
-    const handleHighlight = useCallback(() => wrapSelection('highlight'), [wrapSelection]);
-    const handleList = useCallback(() => wrapSelection('list'), [wrapSelection]);
-
-    const TOOLBAR = [
-        { icon: <Bold size={13} />, handler: handleBold, title: 'Gras', key: 'bold' },
-        { icon: <Italic size={13} />, handler: handleItalic, title: 'Italique', key: 'italic' },
-        { icon: <Underline size={13} />, handler: handleUnderline, title: 'Souligné', key: 'underline' },
-        { icon: <Highlighter size={13} />, handler: handleHighlight, title: 'Surligné', key: 'highlight' },
-        { icon: <List size={13} />, handler: handleList, title: 'Liste', key: 'list' },
-    ];
 
     const panelContent = (
         <>
@@ -267,7 +184,6 @@ export function NotesplitContainer({
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    {/* Statuts */}
                     {isSaving && <Loader2 size={13} className="animate-spin" style={{ color: catColor }} />}
                     {!isSaving && !error && lastSaved && <span className="hidden sm:flex items-center gap-1 text-green-400 text-[10px]"><Clock size={11} /> Synced</span>}
                     
@@ -275,14 +191,6 @@ export function NotesplitContainer({
                         <X size={15} />
                     </button>
                 </div>
-            </div>
-
-            <div className="flex-shrink-0 flex items-center gap-1 px-5 py-2 z-10" style={{ borderBottom: `1px solid rgba(255,255,255,0.05)`, background: 'rgba(255,255,255,0.01)' }}>
-                {TOOLBAR.map(({ icon, handler, title, key }) => (
-                    <button key={key} onClick={handler} title={title} className="p-1.5 rounded-lg transition-all active:scale-95" style={{ backgroundColor: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.4)' }}>
-                        {icon}
-                    </button>
-                ))}
             </div>
 
             <div className="flex-1 relative z-10 overflow-hidden">
@@ -294,7 +202,7 @@ export function NotesplitContainer({
                     ))}
                     <textarea ref={textareaRef} value={content} onChange={(e) => handleContentChange(e.target.value)} onMouseMove={handleTextareaMouseMove}
                         placeholder={userId ? (lang === 'fr' ? '✨ Vos notes personnelles (visibles uniquement par vous)...' : '✨ Your personal notes (visible only to you)...') : (lang === 'fr' ? '🌙 Connectez-vous pour sauvegarder vos notes...' : '🌙 Sign in to save your notes...')}
-                        className="absolute inset-0 w-full h-full px-5 py-3 bg-transparent outline-none resize-none text-sm leading-relaxed"
+                        className="absolute inset-0 w-full h-full px-5 py-4 bg-transparent outline-none resize-none text-sm leading-relaxed"
                         style={{ fontFamily: 'system-ui, -apple-system, sans-serif', color: 'rgba(255,255,255,0.85)', caretColor: catColor }} dir="ltr" />
                 </div>
             </div>
@@ -305,7 +213,6 @@ export function NotesplitContainer({
         </>
     );
 
-    // MODE BOTTOM
     if (mode === 'bottom') {
         return (
             <>
@@ -336,7 +243,6 @@ export function NotesplitContainer({
         );
     }
 
-    // MODE SIDE
     return (
         <>
             {children}

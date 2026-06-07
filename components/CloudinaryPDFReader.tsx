@@ -217,7 +217,10 @@ export default function CloudinaryPDFReader({
   };
 
   const handleAddHighlight = async (renderProps: RenderHighlightTargetProps, color: string, autoClear: boolean) => {
-    renderProps.toggle(); // Ferme le menu de la librairie PDF
+    // 1. Sur Desktop (autoClear = false), on ferme le menu normalement
+    if (!autoClear) {
+      renderProps.toggle();
+    }
 
     const tempId = `temp_${Date.now()}`;
     const newHighlight = {
@@ -227,14 +230,17 @@ export default function CloudinaryPDFReader({
       color: color,
     };
 
+    // 2. On injecte la couleur dans le PDF
     setSavedHighlights(prev => [...prev, newHighlight]);
 
-    // MAGIE DU MODE SURLIGNEUR : On efface la sélection de texte du navigateur.
-    // Ça tue instantanément le menu natif "Copier/Traduire" d'Apple et d'Android !
+    // 3. Sur Mobile (autoClear = true), on attend 50ms que la couleur soit bien peinte avant de détruire la sélection bleue du téléphone
     if (autoClear) {
-      window.getSelection()?.removeAllRanges();
+      setTimeout(() => {
+        window.getSelection()?.removeAllRanges();
+      }, 50);
     }
 
+    // 4. Sauvegarde en base de données
     if (userId) {
       await supabase.from('user_highlights').insert({
         user_id: userId,
