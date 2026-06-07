@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, ExternalLink, Loader2, Share2, Copy, Check, ZoomIn as ZoomInIcon, ZoomOut as ZoomOutIcon } from 'lucide-react';
+import { X, Loader2, Share2, Copy, Check, ZoomIn as ZoomInIcon, ZoomOut as ZoomOutIcon, PenTool } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 // React PDF Viewer imports
@@ -28,6 +28,25 @@ const HIGHLIGHT_COLORS = [
   { id: 'pink', value: '#fbcfe8' },
 ];
 
+// NOUVEAU : Composant invisible qui déclenche le surlignage automatique (Pour le Mode Surligneur)
+function AutoHighlighter({
+  renderProps,
+  onHighlight
+}: {
+  renderProps: RenderHighlightTargetProps;
+  onHighlight: (props: RenderHighlightTargetProps) => void;
+}) {
+  useEffect(() => {
+    // Un tout petit délai (100ms) pour laisser le téléphone finir sa sélection
+    const timer = setTimeout(() => {
+      onHighlight(renderProps);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [renderProps, onHighlight]);
+
+  return null;
+}
+
 export default function CloudinaryPDFReader({ 
   url, 
   title, 
@@ -41,6 +60,10 @@ export default function CloudinaryPDFReader({
   const [initialPage, setInitialPage] = useState(0);
   const [savedHighlights, setSavedHighlights] = useState<any[]>([]);
   const [copied, setCopied] = useState(false);
+  
+  // NOUVEAU : État pour le Mode Surligneur
+  const [isHighlighterMode, setIsHighlighterMode] = useState(false);
+  
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 1. Initialiser le plugin de Zoom
@@ -51,19 +74,29 @@ export default function CloudinaryPDFReader({
 
   // 2. Initialiser le plugin de surlignage
   const highlightPluginInstance = highlightPlugin({
-    // Le menu apparait TOUJOURS en bas de l'écran (Fixed Bottom Bar), parfait pour le mobile !
+    
     renderHighlightTarget: (renderProps: RenderHighlightTargetProps) => {
+      
+      // SI MODE SURLIGNEUR ACTIF (Magie pour le Mobile)
+      if (isHighlighterMode) {
+        return <AutoHighlighter 
+          renderProps={renderProps} 
+          onHighlight={(props) => handleAddHighlight(props, '#fef08a', true)} 
+        />;
+      }
+
+      // SINON, MODE CLASSIQUE (Barre d'action en bas pour le Desktop)
       return (
         <div 
           className="fixed bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-[#0a0a14]/95 backdrop-blur-xl border border-emerald-500/40 px-4 py-3 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.9)]"
-          style={{ zIndex: 2147483647 }} // Z-index maximal absolu
+          style={{ zIndex: 2147483647 }}
         >
           {/* Couleurs */}
           <div className="flex items-center gap-3">
             {HIGHLIGHT_COLORS.map(color => (
               <button
                 key={color.id}
-                onClick={() => handleAddHighlight(renderProps, color.value)}
+                onClick={() => handleAddHighlight(renderProps, color.value, false)}
                 className="w-7 h-7 rounded-full border border-white/20 hover:scale-110 transition-transform shadow-inner active:scale-95"
                 style={{ backgroundColor: color.value }}
               />
@@ -183,8 +216,8 @@ export default function CloudinaryPDFReader({
     }, 2000);
   };
 
-  const handleAddHighlight = async (renderProps: RenderHighlightTargetProps, color: string) => {
-    renderProps.toggle(); // Ferme le menu
+  const handleAddHighlight = async (renderProps: RenderHighlightTargetProps, color: string, autoClear: boolean) => {
+    renderProps.toggle(); // Ferme le menu de la librairie PDF
 
     const tempId = `temp_${Date.now()}`;
     const newHighlight = {
@@ -195,6 +228,12 @@ export default function CloudinaryPDFReader({
     };
 
     setSavedHighlights(prev => [...prev, newHighlight]);
+
+    // MAGIE DU MODE SURLIGNEUR : On efface la sélection de texte du navigateur.
+    // Ça tue instantanément le menu natif "Copier/Traduire" d'Apple et d'Android !
+    if (autoClear) {
+      window.getSelection()?.removeAllRanges();
+    }
 
     if (userId) {
       await supabase.from('user_highlights').insert({
@@ -212,7 +251,7 @@ export default function CloudinaryPDFReader({
     setCopied(true);
     setTimeout(() => {
       setCopied(false);
-      renderProps.toggle(); // Ferme le menu après copie
+      renderProps.toggle();
     }, 1500);
   };
 
@@ -225,7 +264,7 @@ export default function CloudinaryPDFReader({
     } catch (err) {
       console.log('Partage annulé ou non supporté');
     }
-    renderProps.toggle(); // Ferme le menu après partage
+    renderProps.toggle();
   };
 
   return (
@@ -239,14 +278,14 @@ export default function CloudinaryPDFReader({
         </div>
       )}
 
-      {/* Toolbar en haut (Titre, Zoom, Fermer) */}
+      {/* Toolbar en haut */}
       <div className="absolute top-0 left-0 right-0 h-14 bg-[#0a0a14] border-b border-white/10 z-30 flex items-center justify-between px-2 sm:px-4">
         
         <div className="hidden sm:flex items-center gap-3 min-w-0 flex-1">
           <h3 className="text-white text-sm font-bold truncate">{title}</h3>
         </div>
 
-        {/* Boutons de Zoom */}
+        {/* Boutons de Zoom et Mode Surligneur */}
         <div className="flex items-center gap-1 sm:gap-2 mr-auto sm:mr-0 ml-2 sm:ml-0 bg-white/5 rounded-lg p-1">
           <ZoomOut>
             {(props) => (
@@ -262,14 +301,22 @@ export default function CloudinaryPDFReader({
               </button>
             )}
           </ZoomIn>
+
+          <div className="w-px h-4 bg-white/20 mx-1" />
+
+          {/* LE BOUTON MAGIQUE */}
+          <button 
+            onClick={() => setIsHighlighterMode(!isHighlighterMode)}
+            className={`p-1.5 rounded transition-all flex items-center gap-1 ${isHighlighterMode ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}
+            title={lang === 'fr' ? 'Mode Surligneur Actif' : 'Highlighter Mode'}
+          >
+            <PenTool size={16} />
+          </button>
         </div>
 
-        {/* Actions d'entête (External et Fermer, le téléchargement a été retiré) */}
-        <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0 ml-4">
-          <a href={url} target="_blank" rel="noopener noreferrer" className="p-1.5 text-gray-400 hover:text-blue-400 transition-colors">
-            <ExternalLink size={18} />
-          </a>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-red-400 transition-colors ml-2 bg-white/5 rounded-lg">
+        {/* Actions d'entête (Il ne reste que la Croix pour fermer) */}
+        <div className="flex items-center flex-shrink-0 ml-4">
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-red-400 transition-colors bg-white/5 rounded-lg">
             <X size={20} />
           </button>
         </div>
