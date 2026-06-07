@@ -103,9 +103,13 @@ const CollageBackground = memo(({ slots, settings }: {
         {SLOT_LETTERS.map((letter, idx) => {
           const slot = activeSlots.find(s => s.slot_index === idx);
           return (
-            <div key={idx} className="relative overflow-hidden rounded-sm" style={{ gridArea: letter }}>
+            <div key={idx} className="relative overflow-hidden rounded-sm flex items-center justify-center bg-[#0a0a18]" style={{ gridArea: letter }}>
               {slot?.url ? (
-                <><img src={slot.url} alt="" loading="lazy" className="w-full h-full object-cover" /><div className="absolute inset-0 bg-[#020111]/40" /></>
+                <>
+                  {/* MODIFICATION ICI : object-contain au lieu de object-cover */}
+                  <img src={slot.url} alt="" loading="lazy" className="w-full h-full object-contain" />
+                  <div className="absolute inset-0 bg-[#020111]/40" />
+                </>
               ) : (
                 <div className="w-full h-full bg-[#0a0a18]" />
               )}
@@ -116,9 +120,13 @@ const CollageBackground = memo(({ slots, settings }: {
       <div className="absolute inset-0 md:hidden grid gap-1 p-1"
         style={{ gridTemplateColumns: 'repeat(2, 1fr)', gridTemplateRows: 'repeat(5, 1fr)' }}>
         {activeSlots.slice(0, 9).map((slot, idx) => (
-          <div key={idx} className={`relative overflow-hidden rounded-sm ${idx === 0 ? 'col-span-2' : ''}`}>
+          <div key={idx} className={`relative overflow-hidden rounded-sm flex items-center justify-center bg-[#0a0a18] ${idx === 0 ? 'col-span-2' : ''}`}>
             {slot?.url ? (
-              <><img src={slot.url} alt="" loading="lazy" className="w-full h-full object-cover" /><div className="absolute inset-0 bg-[#020111]/40" /></>
+              <>
+                {/* MODIFICATION ICI : object-contain au lieu de object-cover */}
+                <img src={slot.url} alt="" loading="lazy" className="w-full h-full object-contain" />
+                <div className="absolute inset-0 bg-[#020111]/40" />
+              </>
             ) : <div className="w-full h-full bg-[#0a0a18]" />}
           </div>
         ))}
