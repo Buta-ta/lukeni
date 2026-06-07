@@ -37,10 +37,11 @@ function AutoHighlighter({
   onHighlight: (props: RenderHighlightTargetProps) => void;
 }) {
   useEffect(() => {
-    // Un tout petit délai (100ms) pour laisser le téléphone finir sa sélection
+    // On augmente le délai (300ms) pour laisser le navigateur mobile 
+    // calculer les coordonnées de la sélection avant de surligner.
     const timer = setTimeout(() => {
       onHighlight(renderProps);
-    }, 100);
+    }, 300);
     return () => clearTimeout(timer);
   }, [renderProps, onHighlight]);
 
@@ -216,10 +217,9 @@ export default function CloudinaryPDFReader({
     }, 2000);
   };
 
-  const handleAddHighlight = async (renderProps: RenderHighlightTargetProps, color: string, autoClear: boolean) => {
-    // 1. Sur Desktop (autoClear = false), on ferme le menu normalement
+   const handleAddHighlight = async (renderProps: RenderHighlightTargetProps, color: string, autoClear: boolean) => {
     if (!autoClear) {
-      renderProps.toggle();
+      renderProps.toggle(); // Mode normal : on ferme le menu
     }
 
     const tempId = `temp_${Date.now()}`;
@@ -230,17 +230,17 @@ export default function CloudinaryPDFReader({
       color: color,
     };
 
-    // 2. On injecte la couleur dans le PDF
     setSavedHighlights(prev => [...prev, newHighlight]);
 
-    // 3. Sur Mobile (autoClear = true), on attend 50ms que la couleur soit bien peinte avant de détruire la sélection bleue du téléphone
+    // Mode surligneur mobile : on laisse 300ms à React pour dessiner la couleur jaune 
+    // AVANT de tuer la sélection native du téléphone.
     if (autoClear) {
       setTimeout(() => {
         window.getSelection()?.removeAllRanges();
-      }, 50);
+        renderProps.cancel(); // Force la librairie PDF à relâcher la zone
+      }, 300);
     }
 
-    // 4. Sauvegarde en base de données
     if (userId) {
       await supabase.from('user_highlights').insert({
         user_id: userId,

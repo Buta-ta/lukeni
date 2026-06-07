@@ -206,7 +206,7 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
     setIsLoading(false);
   }
 
-  const handleUploadSlot = useCallback((slotIndex: number) => {
+   const handleUploadSlot = useCallback((slotIndex: number) => {
     setUploadingSlot(slotIndex);
 
     const doUpload = () => {
@@ -226,7 +226,9 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
         if (result.event === 'success') {
           const url = result.info.secure_url;
           const slot = slots.find(s => s.slot_index === slotIndex);
+          
           if (slot) {
+            // MISE À JOUR si la zone existe déjà
             const { error: updateError } = await supabase
               .from('library_collage')
               .update({ url, is_active: true })
@@ -234,9 +236,16 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
             if (!updateError) {
               showMsg('success', `Zone ${slotIndex + 1} mise à jour !`);
               fetchCollage();
-            } else {
-              showMsg('error', updateError.message);
-            }
+            } else showMsg('error', updateError.message);
+          } else {
+            // CRÉATION si la zone est totalement nouvelle (C'était ça le bug !)
+            const { error: insertError } = await supabase
+              .from('library_collage')
+              .insert({ slot_index: slotIndex, url, is_active: true, label: `Zone ${slotIndex + 1}` });
+            if (!insertError) {
+              showMsg('success', `Zone ${slotIndex + 1} créée !`);
+              fetchCollage();
+            } else showMsg('error', insertError.message);
           }
         }
       });
@@ -251,7 +260,7 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
       script.onerror = () => { setUploadingSlot(null); showMsg('error', 'Cloudinary indisponible'); };
       document.body.appendChild(script);
     } else { doUpload(); }
-  }, [slots, showMsg]);
+  }, [slots, showMsg]); // Ne pas oublier de garder ces dépendances
 
   const handleClearSlot = useCallback(async (slotId: string, slotIndex: number) => {
     const { error } = await supabase
