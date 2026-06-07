@@ -181,8 +181,9 @@ function LinguaButton({ action, label, disabled, isProcessing, onClick }: {
     </button>
   );
 }
+
 // ============================================================================
-// COLLAGE TAB
+// COLLAGE TAB (VERSION CORRIGÉE)
 // ============================================================================
 
 function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: string) => void }) {
@@ -191,7 +192,7 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
   const [isLoading, setIsLoading] = useState(true);
   const [uploadingSlot, setUploadingSlot] = useState<number | null>(null);
   const [isSavingLayout, setIsSavingLayout] = useState(false);
-  const [brokenImages, setBrokenImages] = useState<number[]>([]); // Pour traquer les images 404
+  const [brokenImages, setBrokenImages] = useState<number[]>([]);
 
   const fetchCollage = useCallback(async () => {
     setIsLoading(true);
@@ -201,7 +202,7 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
     ]);
     if (slotsRes.data) setSlots(slotsRes.data as CollageSlot[]);
     if (settingsRes.data) setSettings(settingsRes.data as CollageSettings);
-    setBrokenImages([]); // Reset des erreurs au rechargement
+    setBrokenImages([]);
     setIsLoading(false);
   }, []);
 
@@ -261,7 +262,6 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
     } else { doUpload(); }
   }, [slots, showMsg, fetchCollage]);
 
-  // LA CORRECTION EST ICI : On "Update" la ligne pour mettre url à NULL au lieu de "Delete"
   const handleClearSlot = useCallback(async (slotId: string, slotIndex: number) => {
     const { error } = await supabase
       .from('library_collage')
@@ -357,6 +357,7 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
         </div>
       </div>
 
+      {/* Layout Preview */}
       <div>
         <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-3 flex items-center gap-2">
           <LayoutGrid size={12} />Disposition (layout)
@@ -369,10 +370,7 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
               disabled={isSavingLayout}
               className={`relative p-3 rounded-xl border transition-all ${settings?.layout_index === idx ? 'border-emerald-500 bg-emerald-500/10' : 'border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/5'}`}
             >
-              <div
-                className="w-full aspect-square mb-2 grid gap-0.5"
-                style={{ gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: 'repeat(4, 1fr)' }}
-              >
+              <div className="w-full aspect-square mb-2 grid gap-0.5" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gridTemplateRows: 'repeat(4, 1fr)' }}>
                 {layout.grid.map((cell, cellIdx) => (
                   <div
                     key={cellIdx}
@@ -397,6 +395,7 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
         </div>
       </div>
 
+      {/* Zones d'images */}
       <div>
         <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-3 flex items-center gap-2">
           <Image size={12} />Zones d'images ({filledCount}/9)
@@ -416,49 +415,28 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
                 className={`relative rounded-xl overflow-hidden border transition-all ${hasImage ? (isActive ? 'border-emerald-500/40' : 'border-white/10 opacity-60') : 'border-dashed border-white/15'}`}
               >
                 <div className="aspect-[4/3] relative bg-[#0a0a18]">
-                  {hasImage ? (
-                    <>
-<<<<<<< HEAD
-                      <img
-                        src={slot!.url!}
-                        alt={`Zone ${idx + 1}`}
-                        className="w-full h-full object-cover bg-[#1a1a2e]"
-                        onError={(e) => {
-                          // Si l'image n'existe plus sur Cloudinary, on la masque pour éviter le bug visuel
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                      {!isActive && (
-=======
-                      {/* Affichage de l'image (si elle ne crash pas) */}
-                      {!isBroken && (
-                        <img 
-                          src={slot!.url!} 
-                          alt={`Zone ${idx + 1}`} 
-                          className="w-full h-full object-cover" 
-                          onError={() => setBrokenImages(prev => [...prev, idx])}
-                        />
-                      )}
-                      
-                      {/* Si l'image est 404 (supprimée de Cloudinary) */}
-                      {isBroken && (
-                        <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-red-950/20">
-                          <AlertCircle size={24} className="text-red-500" />
-                          <span className="text-[10px] text-red-400 font-bold text-center px-2">Image supprimée<br/>Veuillez la vider</span>
-                        </div>
-                      )}
-
-                      {!isActive && !isBroken && (
->>>>>>> c8ed6fae2f2bfb1046da33660638af2e6d8f4788
-                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Masquée</span>
-                        </div>
-                      )}
-                    </>
+                  {hasImage && !isBroken ? (
+                    <img
+                      src={slot!.url!}
+                      alt={`Zone ${idx + 1}`}
+                      className="w-full h-full object-cover"
+                      onError={() => setBrokenImages(prev => [...prev, idx])}
+                    />
+                  ) : isBroken ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-red-950/30">
+                      <AlertCircle size={24} className="text-red-400" />
+                      <span className="text-[10px] text-red-400 font-bold text-center px-2">Image supprimée<br/>Veuillez la vider</span>
+                    </div>
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-                      <Image size={24} className="text-gray-800" />
+                      <Image size={24} className="text-gray-700" />
                       <span className="text-[10px] text-gray-700">Vide</span>
+                    </div>
+                  )}
+
+                  {!isBroken && !isActive && hasImage && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Masquée</span>
                     </div>
                   )}
 
@@ -472,26 +450,33 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
                 </div>
 
                 <div className="p-2 bg-[#0f0f0f] flex items-center gap-1.5 z-20 relative">
-                  <button onClick={() => handleUploadSlot(idx)} disabled={isUploading}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-white/5 text-gray-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg text-[10px] font-bold transition-all disabled:opacity-50">
+                  <button 
+                    onClick={() => handleUploadSlot(idx)} 
+                    disabled={isUploading}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-white/5 text-gray-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg text-[10px] font-bold transition-all disabled:opacity-50"
+                  >
                     {isUploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
                     {hasImage ? 'Remplacer' : 'Uploader'}
                   </button>
 
                   {hasImage && (
-                    <button onClick={() => slot && handleToggleSlot(slot)}
-                      className={`p-1.5 rounded-lg text-[10px] transition-all ${isActive ? 'bg-emerald-500/10 text-emerald-400 hover:bg-red-500/10 hover:text-red-400' : 'bg-white/5 text-gray-600 hover:text-emerald-400 hover:bg-emerald-500/10'}`}
-                      title={isActive ? 'Masquer' : 'Afficher'}>
-                      <Eye size={12} />
-                    </button>
-                  )}
+                    <>
+                      <button 
+                        onClick={() => slot && handleToggleSlot(slot)}
+                        className={`p-1.5 rounded-lg text-[10px] transition-all ${isActive ? 'bg-emerald-500/10 text-emerald-400 hover:bg-red-500/10 hover:text-red-400' : 'bg-white/5 text-gray-600 hover:text-emerald-400 hover:bg-emerald-500/10'}`}
+                        title={isActive ? 'Masquer' : 'Afficher'}
+                      >
+                        <Eye size={12} />
+                      </button>
 
-                  {hasImage && (
-                    <button onClick={() => slot && handleClearSlot(slot.id, idx)}
-                      className="p-1.5 rounded-lg bg-white/5 text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-all"
-                      title="Vider cette zone">
-                      <Trash2 size={12} />
-                    </button>
+                      <button 
+                        onClick={() => slot && handleClearSlot(slot.id, idx)}
+                        className="p-1.5 rounded-lg bg-white/5 text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                        title="Vider cette zone"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </>
                   )}
                 </div>
               </motion.div>
