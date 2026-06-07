@@ -407,7 +407,15 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
                 <div className="aspect-[4/3] relative bg-[#0a0a18]">
                   {hasImage ? (
                     <>
-                      <img src={slot!.url!} alt={`Zone ${idx + 1}`} className="w-full h-full object-cover" />
+                      <img
+                        src={slot!.url!}
+                        alt={`Zone ${idx + 1}`}
+                        className="w-full h-full object-cover bg-[#1a1a2e]"
+                        onError={(e) => {
+                          // Si l'image n'existe plus sur Cloudinary, on la masque pour éviter le bug visuel
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
                       {!isActive && (
                         <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                           <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Masquée</span>
@@ -521,7 +529,7 @@ function BookDetailsModal({ book, lang, onClose, isOpen }: { book: Book | null; 
         <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
           onClick={e => e.stopPropagation()}
           className="relative bg-gradient-to-br from-[#0d0d1a] to-[#080810] border border-white/10 rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto scrollbar-hide shadow-[0_0_80px_rgba(16,185,129,0.08)]">
-          
+
           <button onClick={onClose} className="sticky top-4 right-4 z-10 p-2 text-gray-600 hover:text-white transition-colors float-right">
             <X size={20} />
           </button>
@@ -1027,7 +1035,7 @@ export default function LibraryTab({ showMsg }: { showMsg: (type: 'success' | 'e
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterSuggStatus, setFilterSuggStatus] = useState<string>('pending');
-  
+
   const [deleteTarget, setDeleteTarget] = useState<Book | null>(null);
   const [deleteSuggTarget, setDeleteSuggTarget] = useState<BookSuggestion | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -1118,7 +1126,7 @@ export default function LibraryTab({ showMsg }: { showMsg: (type: 'success' | 'e
         'translate-fr-desc': setDescFr, 'translate-en-desc': setDescEn,
         'correct-fr-desc': setDescFr, 'correct-en-desc': setDescEn,
       };
-      
+
       const mapKey = `${action}-${field}`;
       const sourceText = sourceMap[mapKey];
       const setter = setterMap[mapKey];
@@ -1129,16 +1137,16 @@ export default function LibraryTab({ showMsg }: { showMsg: (type: 'success' | 'e
       // L'API /api/lingua (ou autoTranslate) s'attend à recevoir la langue SOURCE dans le paramètre.
       // Donc si on demande de traduire vers l'anglais ('translate-en'), la langue source qu'il faut indiquer à l'API est le français ('fr').
       let sourceLangForApi: 'fr' | 'en' = 'fr';
-      
-      if (action === 'translate-en') sourceLangForApi = 'fr'; 
-      if (action === 'translate-fr') sourceLangForApi = 'en'; 
+
+      if (action === 'translate-en') sourceLangForApi = 'fr';
+      if (action === 'translate-fr') sourceLangForApi = 'en';
       if (action === 'correct-en') sourceLangForApi = 'en';
       if (action === 'correct-fr') sourceLangForApi = 'fr';
 
-      const result = action.startsWith('translate') 
-        ? await autoTranslate(sourceText, sourceLangForApi) 
+      const result = action.startsWith('translate')
+        ? await autoTranslate(sourceText, sourceLangForApi)
         : await autoCorrect(sourceText, sourceLangForApi);
-        
+
       setter(result);
       showMsg('success', action.startsWith('translate') ? 'Traduction appliquée !' : 'Correction appliquée !');
     } catch (e) { showMsg('error', 'Erreur Lingua'); }
@@ -1180,7 +1188,7 @@ export default function LibraryTab({ showMsg }: { showMsg: (type: 'success' | 'e
 
   const handleSave = useCallback(async () => {
     if (!titleFr.trim()) return showMsg('error', 'Le titre français est requis.');
-    if (!categoryId) return showMsg('error', 'Veuillez sélectionner une catégorie.'); 
+    if (!categoryId) return showMsg('error', 'Veuillez sélectionner une catégorie.');
     setIsSaving(true);
     const payload = {
       title_fr: titleFr.trim(), title_en: titleEn.trim() || null,
@@ -1203,30 +1211,30 @@ export default function LibraryTab({ showMsg }: { showMsg: (type: 'success' | 'e
   const handleConfirmDelete = useCallback(async () => {
     if (!deleteTarget) return;
     setIsDeleting(true);
-    
+
     const { data, error } = await supabase
       .from('library_books')
       .delete()
       .eq('id', deleteTarget.id)
-      .select(); 
+      .select();
 
     if (error) {
       showMsg('error', error.message);
     } else if (!data || data.length === 0) {
       showMsg('error', 'Suppression bloquée par les permissions Supabase (RLS).');
     } else {
-      setBooks(prev => prev.filter(b => b.id !== deleteTarget.id)); 
+      setBooks(prev => prev.filter(b => b.id !== deleteTarget.id));
       showMsg('success', 'Livre supprimé.');
     }
-    
-    setIsDeleting(false); 
+
+    setIsDeleting(false);
     setDeleteTarget(null);
   }, [deleteTarget, showMsg]);
 
   const handleConfirmDeleteSuggestion = useCallback(async () => {
     if (!deleteSuggTarget) return;
     setIsDeleting(true);
-    
+
     const { data, error } = await supabase
       .from('book_suggestions')
       .delete()
@@ -1238,11 +1246,11 @@ export default function LibraryTab({ showMsg }: { showMsg: (type: 'success' | 'e
     } else if (!data || data.length === 0) {
       showMsg('error', 'Suppression bloquée par les permissions Supabase (RLS).');
     } else {
-      setSuggestions(prev => prev.filter(s => s.id !== deleteSuggTarget.id)); 
+      setSuggestions(prev => prev.filter(s => s.id !== deleteSuggTarget.id));
       showMsg('success', 'Demande supprimée définitivement.');
     }
-    
-    setIsDeleting(false); 
+
+    setIsDeleting(false);
     setDeleteSuggTarget(null);
   }, [deleteSuggTarget, showMsg]);
 
@@ -1541,14 +1549,14 @@ export default function LibraryTab({ showMsg }: { showMsg: (type: 'success' | 'e
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredSuggestions.map(s => (
-                <SuggestionCard 
-                  key={s.id} 
-                  suggestion={s} 
-                  onAccept={handleAcceptSuggestion} 
-                  onReject={handleRejectSuggestion} 
-                  onConvertToBook={handleConvertSuggestionToBook} 
+                <SuggestionCard
+                  key={s.id}
+                  suggestion={s}
+                  onAccept={handleAcceptSuggestion}
+                  onReject={handleRejectSuggestion}
+                  onConvertToBook={handleConvertSuggestionToBook}
                   onDelete={setDeleteSuggTarget}
-                  isProcessing={suggestionProcessing} 
+                  isProcessing={suggestionProcessing}
                 />
               ))}
             </div>
