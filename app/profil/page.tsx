@@ -199,7 +199,60 @@ const FavoriteCard = memo(({ item, lang, onRemove }: {
 });
 FavoriteCard.displayName = 'FavoriteCard';
 
+// ============================================================================
+// TOAST/NOTIFICATION MODAL
+// ============================================================================
 
+const NotificationModal = memo(({ 
+  isOpen, 
+  type, 
+  message, 
+  onClose,
+  lang 
+}: { 
+  isOpen: boolean; 
+  type: 'success' | 'error'; 
+  message: string; 
+  onClose: () => void;
+  lang: 'fr' | 'en';
+}) => {
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(onClose, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, onClose]);
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          className="fixed top-6 right-6 z-[9999]"
+        >
+          <motion.div
+            className={`flex items-center gap-3 px-6 py-4 rounded-2xl border backdrop-blur-md ${
+              type === 'success'
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                : 'bg-red-500/10 border-red-500/30 text-red-300'
+            }`}
+            layout
+          >
+            {type === 'success' ? (
+              <CheckCircle size={20} className="flex-shrink-0" />
+            ) : (
+              <AlertCircle size={20} className="flex-shrink-0" />
+            )}
+            <p className="text-sm font-medium">{message}</p>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+});
+NotificationModal.displayName = 'NotificationModal';
 // ============================================================================
 // USER CIRCLES — Gestion des cercles de lecture
 // ============================================================================
@@ -209,6 +262,8 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [circleToDelete, setCircleToDelete] = useState<any>(null);
   const [isDeletingCircle, setIsDeletingCircle] = useState(false);
+
+    const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const [myCircles, setMyCircles] = useState<any[]>([]);
   const [joinedCircles, setJoinedCircles] = useState<any[]>([]);
@@ -432,7 +487,7 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
   }, [lang]);
 
 
-     const handleDeleteCircle = useCallback(async () => {
+  const handleDeleteCircle = useCallback(async () => {
     if (!circleToDelete) return;
 
     setIsDeletingCircle(true);
@@ -475,13 +530,20 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
       setShowDeleteModal(false);
       setCircleToDelete(null);
       
-      alert(lang === 'fr' ? '✅ Cercle supprimé avec succès' : '✅ Circle deleted successfully');
+      // ✅ MODAL de succès au lieu d'alert
+      setNotification({
+        type: 'success',
+        message: lang === 'fr' ? '✅ Cercle supprimé avec succès' : '✅ Circle deleted successfully'
+      });
     } catch (err: any) {
       console.error('Delete circle error:', err);
-      alert(
-        err.message || 
-        (lang === 'fr' ? "Erreur lors de la suppression du cercle" : 'Circle deletion error')
-      );
+      
+      // ✅ MODAL d'erreur au lieu d'alert
+      setNotification({
+        type: 'error',
+        message: err.message || 
+          (lang === 'fr' ? "Erreur lors de la suppression du cercle" : 'Circle deletion error')
+      });
     } finally {
       setIsDeletingCircle(false);
     }
@@ -520,6 +582,17 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
 
    return (
     <>
+
+
+     {/* ✅ NOTIFICATION MODAL */}
+      <NotificationModal
+        isOpen={!!notification}
+        type={notification?.type || 'success'}
+        message={notification?.message || ''}
+        onClose={() => setNotification(null)}
+        lang={lang}
+      />
+
       {/* ═══════════════════════════════════════════════════════════
           MODAL DE SUPPRESSION
       ═══════════════════════════════════════════════════════════ */}
