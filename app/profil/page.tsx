@@ -205,6 +205,11 @@ FavoriteCard.displayName = 'FavoriteCard';
 // ============================================================================
 
 function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [circleToDelete, setCircleToDelete] = useState<any>(null);
+  const [isDeletingCircle, setIsDeletingCircle] = useState(false);
+  
   const [myCircles, setMyCircles] = useState<any[]>([]);
   const [joinedCircles, setJoinedCircles] = useState<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
