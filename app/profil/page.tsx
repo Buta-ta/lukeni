@@ -310,16 +310,17 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
           
           const booksMap = new Map(books?.map(b => [b.id, b]) || []);
 
-                   enrichedPending = pending.map(p => {
-            const circle = circlesMap.get(p.circle_id);
-            return {
-              ...p,
-              reading_circles: circle ? {
-                ...circle,
-                library_books: booksMap.get(circle.book_id),
-              } : null,
-            };
-          });
+                  enrichedIncoming = incoming
+            .filter(req => myCircleIds.includes(req.circle_id))
+            .map(r => {
+              const circle = circlesMap.get(r.circle_id) as any;
+              const profile = profilesMap.get(r.user_id) as any;
+              return {
+                ...r,
+                reading_circles: circle || null,
+                profiles: profile || null,
+              };
+            });
         }
 
         // 4. Demandes entrantes (pour mes cercles)
