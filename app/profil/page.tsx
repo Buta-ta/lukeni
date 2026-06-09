@@ -12,7 +12,7 @@ import {
   Bell, BellOff, Star, Calendar, FileText,
   Edit3, ChevronRight, TrendingUp, Clock,
   CheckCircle, Search,
-  Trash2, ShieldAlert, TriangleAlert?,Users
+  Trash2, ShieldAlert, TriangleAlert,Users
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 
