@@ -66,6 +66,10 @@ interface Book {
 // COMPOSANT PRINCIPAL
 // ============================================================================
 export default function CirclePage() {
+
+
+
+  
   const params = useParams();
   const router = useRouter();
   const circleId = params.id as string;
@@ -91,6 +95,7 @@ export default function CirclePage() {
 
   // UI State - Chat
   const [sidebarMode, setSidebarMode] = useState<'chat' | 'notes' | 'members' | 'reading'>('chat');
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
   const [chatInput, setChatInput] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -147,6 +152,31 @@ export default function CirclePage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+
+    // ✅ Vérifier que l'utilisateur est toujours membre
+  useEffect(() => {
+    if (!user || !circle) return;
+
+    const checkMembership = async () => {
+      const { data: memberData } = await supabase
+        .from('circle_members')
+        .select('id')
+        .eq('circle_id', circle.id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      // Si pas membre et pas créateur → rediriger
+      if (!memberData && circle.creator_id !== user.id) {
+        router.push('/bibliotheque');
+      }
+    };
+
+    checkMembership();
+
+    // Vérifier chaque 5 secondes (pour détecter si quelqu'un te kick)
+    const interval = setInterval(checkMembership, 5000);
+    return () => clearInterval(interval);
+  }, [user, circle, router]);
   // ============================================================================
   // FONCTIONS : Chat Features
   // ============================================================================
@@ -372,339 +402,344 @@ export default function CirclePage() {
         )}
       </div>
 
-          {/* ═══════════════════════════════════════════════════════════
+           {/* ═══════════════════════════════════════════════════════════
           PANNEAU LATÉRAL (droite / bas) - RÉDUCTIBLE
       ═══════════════════════════════════════════════════════════ */}
-      <div className={`${
-        sidebarMode === 'chat' ? 'w-full md:w-96' : 'w-full md:w-80'
-      } transition-all bg-[#0a0a14] border-l border-white/10 flex flex-col max-h-screen md:max-h-none overflow-hidden relative group`}>
-        
-        {/* Bouton de réduction (visible au hover sur desktop) */}
-        <motion.button
-          initial={{ opacity: 0 }}
-          whileHover={{ opacity: 1 }}
-          className="absolute top-1/2 -right-4 -translate-y-1/2 z-20 hidden md:flex w-8 h-12 rounded-r bg-white/10 hover:bg-white/20 transition-colors items-center justify-center text-xs font-bold text-gray-500 hover:text-white group-hover:opacity-100"
-          title={lang === 'fr' ? 'Réduire' : 'Collapse'}
-          onClick={() => {
-            // Ici tu pourrais ajouter une state pour vraiment réduire le sidebar
-            // Pour l'instant c'est juste un placeholder
-          }}
-        >
-          ◄
-        </motion.button>
+      <motion.div
+        animate={{ width: isSidebarExpanded ? 'auto' : '0px', opacity: isSidebarExpanded ? 1 : 0 }}
+        transition={{ duration: 0.3 }}
+        className="bg-[#0a0a14] border-l border-white/10 flex flex-col max-h-screen md:max-h-none overflow-hidden"
+      >
+        {isSidebarExpanded && (
+          <>
+            {/* Tabs */}
+            <div className="flex border-b border-white/10 flex-shrink-0 overflow-x-auto">
+              {[
+                { key: 'chat' as const, icon: MessageCircle, label: lang === 'fr' ? 'Chat' : 'Chat' },
+                { key: 'reading' as const, icon: BookOpen, label: lang === 'fr' ? 'Lecture' : 'Reading' },
+                { key: 'notes' as const, icon: FileText, label: lang === 'fr' ? 'Notes' : 'Notes' },
+                { key: 'members' as const, icon: Users, label: lang === 'fr' ? 'Membres' : 'Members' },
+              ].map(({ key, icon: Icon, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setSidebarMode(key)}
+                  className={`flex items-center justify-center gap-2 py-3 px-3 text-sm font-bold transition-all flex-shrink-0 whitespace-nowrap ${
+                    sidebarMode === key
+                      ? 'text-emerald-400 border-b-2 border-emerald-400'
+                      : 'text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  <Icon size={16} />
+                  <span className="hidden sm:inline">{label}</span>
+                </button>
+              ))}
+            </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-white/10 flex-shrink-0 overflow-x-auto">
-          {[
-            { key: 'chat' as const, icon: MessageCircle, label: lang === 'fr' ? 'Chat' : 'Chat' },
-            { key: 'reading' as const, icon: BookOpen, label: lang === 'fr' ? 'Lecture' : 'Reading' },
-            { key: 'notes' as const, icon: FileText, label: lang === 'fr' ? 'Notes' : 'Notes' },
-            { key: 'members' as const, icon: Users, label: lang === 'fr' ? 'Membres' : 'Members' },
-          ].map(({ key, icon: Icon, label }) => (
-            <button
-              key={key}
-              onClick={() => setSidebarMode(key)}
-              className={`flex items-center justify-center gap-2 py-3 px-3 text-sm font-bold transition-all flex-shrink-0 whitespace-nowrap ${
-                sidebarMode === key
-                  ? 'text-emerald-400 border-b-2 border-emerald-400'
-                  : 'text-gray-500 hover:text-gray-300'
-              }`}
-            >
-              <Icon size={16} />
-              <span className="hidden sm:inline">{label}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-hidden flex flex-col">
-          {sidebarMode === 'chat' && (
-            <>
-              {/* INDICATEUR DE PRÉSENCE */}
-              <div className="p-3 border-b border-white/10 flex-shrink-0">
-                <PresenceIndicator
-                  presentUsers={presentUsers}
-                  allMembers={members}
-                  lang={lang}
-                />
-              </div>
-
-              {/* MESSAGES ÉPINGLÉS */}
-              {pinnedMessages.length > 0 && (
-                <div className="p-3 border-b border-white/10 flex-shrink-0">
-                  <PinnedMessagesPanel
-                    pinnedMessages={pinnedMessages}
-                    onUnpin={(msgId) => unpinMessage(msgId)}
-                    lang={lang}
-                  />
-                </div>
-              )}
-
-              {/* BARRE DE RECHERCHE */}
-              <div className="p-3 border-b border-white/10 flex-shrink-0">
-                <ChatSearch
-                  onSearch={setSearchQuery}
-                  lang={lang}
-                />
-              </div>
-
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {filteredMessages.length === 0 ? (
-                  <div className="flex items-center justify-center h-full text-center text-gray-500">
-                    <p>{lang === 'fr' ? 'Aucun message' : 'No messages'}</p>
+            {/* Content */}
+            <div className="flex-1 overflow-hidden flex flex-col">
+              {sidebarMode === 'chat' && (
+                <>
+                  {/* INDICATEUR DE PRÉSENCE */}
+                  <div className="p-3 border-b border-white/10 flex-shrink-0">
+                    <PresenceIndicator
+                      presentUsers={presentUsers}
+                      allMembers={members}
+                      lang={lang}
+                    />
                   </div>
-                ) : (
-                  <>
-                    {filteredMessages.map((msg) => {
-                      const memberProfile = members.find(m => m.user_id === msg.user_id)?.profiles;
-                      const displayName = memberProfile?.full_name || msg.profiles?.full_name || 'Anonyme';
-                      const isOnline = presentUsers.some(u => u.user_id === msg.user_id);
 
-                      return (
-                        <motion.div
-                          key={msg.id}
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="group flex gap-2"
-                        >
-                          <div className="relative flex-shrink-0">
-                            <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-xs font-bold">
-                              {displayName?.[0]?.toUpperCase() || '?'}
-                            </div>
-                            {isOnline && (
-                              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-[#0a0a14]" />
-                            )}
-                          </div>
+                  {/* MESSAGES ÉPINGLÉS */}
+                  {pinnedMessages.length > 0 && (
+                    <div className="p-3 border-b border-white/10 flex-shrink-0">
+                      <PinnedMessagesPanel
+                        pinnedMessages={pinnedMessages}
+                        onUnpin={(msgId) => unpinMessage(msgId)}
+                        isCreator={isCreator}
+                        userId={user?.id}
+                        lang={lang}
+                      />
+                    </div>
+                  )}
 
-                          <div className="flex-1 min-w-0">
-                            {msg.repliedToMessage && (
-                              <MessageQuotePreview message={msg.repliedToMessage} />
-                            )}
+                  {/* BARRE DE RECHERCHE */}
+                  <div className="p-3 border-b border-white/10 flex-shrink-0">
+                    <ChatSearch
+                      onSearch={setSearchQuery}
+                      lang={lang}
+                    />
+                  </div>
 
-                            <div className="flex items-center gap-2 mb-0.5">
-                              <span className="text-white text-xs font-bold">
-                                {displayName}
-                                {user?.id === msg.user_id && (
-                                  <span className="text-gray-500 text-[10px] ml-1">(vous)</span>
+                  {/* Messages */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                    {filteredMessages.length === 0 ? (
+                      <div className="flex items-center justify-center h-full text-center text-gray-500">
+                        <p>{lang === 'fr' ? 'Aucun message' : 'No messages'}</p>
+                      </div>
+                    ) : (
+                      <>
+                        {filteredMessages.map((msg) => {
+                          const memberProfile = members.find(m => m.user_id === msg.user_id)?.profiles;
+                          const displayName = memberProfile?.full_name || msg.profiles?.full_name || 'Anonyme';
+                          const isOnline = presentUsers.some(u => u.user_id === msg.user_id);
+
+                          return (
+                            <motion.div
+                              key={msg.id}
+                              initial={{ opacity: 0, y: 8 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="group flex gap-2"
+                            >
+                              <div className="relative flex-shrink-0">
+                                <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-xs font-bold">
+                                  {displayName?.[0]?.toUpperCase() || '?'}
+                                </div>
+                                {isOnline && (
+                                  <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-[#0a0a14]" />
                                 )}
-                              </span>
-                              {msg.page_number && (
-                                <span className="text-gray-600 text-[10px] flex items-center gap-0.5">
-                                  <Clock size={10} /> p.{msg.page_number}
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-gray-300 text-sm break-words">{msg.content}</p>
+                              </div>
 
-                            {msg.reactions && msg.reactions.length > 0 && (
-                              <MessageReactions
-                                reactions={msg.reactions}
-                                onAddReaction={(emoji) => addReaction(msg.id, emoji)}
-                                onRemoveReaction={(emoji) => removeReaction(msg.id, emoji)}
-                              />
-                            )}
+                              <div className="flex-1 min-w-0">
+                                {msg.repliedToMessage && (
+                                  <MessageQuotePreview message={msg.repliedToMessage} />
+                                )}
 
-                            <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button
-                                onClick={() => setRepliedToMessage(msg)}
-                                className="p-1 text-gray-600 hover:text-blue-400 transition-colors rounded"
-                                title={lang === 'fr' ? 'Répondre' : 'Reply'}
-                              >
-                                <MessageCircle size={12} />
-                              </button>
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <span className="text-white text-xs font-bold">
+                                    {displayName}
+                                    {user?.id === msg.user_id && (
+                                      <span className="text-gray-500 text-[10px] ml-1">(vous)</span>
+                                    )}
+                                  </span>
+                                  {msg.page_number && (
+                                    <span className="text-gray-600 text-[10px] flex items-center gap-0.5">
+                                      <Clock size={10} /> p.{msg.page_number}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-gray-300 text-sm break-words">{msg.content}</p>
 
-                              <button
-                                onClick={() => addReaction(msg.id, '👍')}
-                                className="p-1 text-gray-600 hover:text-yellow-400 transition-colors rounded"
-                                title={lang === 'fr' ? 'Aimer' : 'React'}
-                              >
-                                <Heart size={12} />
-                              </button>
+                                {msg.reactions && msg.reactions.length > 0 && (
+                                  <MessageReactions
+                                    reactions={msg.reactions}
+                                    onAddReaction={(emoji) => addReaction(msg.id, emoji)}
+                                    onRemoveReaction={(emoji) => removeReaction(msg.id, emoji)}
+                                  />
+                                )}
 
-                              {isCreator && (
-                                <button
-                                  onClick={() => msg.isPinned ? unpinMessage(msg.id) : pinMessage(circleId, msg.id)}
-                                  className={`p-1 transition-colors rounded ${
-                                    msg.isPinned
-                                      ? 'text-amber-400'
-                                      : 'text-gray-600 hover:text-amber-400'
-                                  }`}
-                                  title={lang === 'fr' ? 'Épingler' : 'Pin'}
-                                >
-                                  <Pin size={12} />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-                    <div ref={messagesEndRef} />
-                  </>
-                )}
-              </div>
+                                <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    onClick={() => setRepliedToMessage(msg)}
+                                    className="p-1 text-gray-600 hover:text-blue-400 transition-colors rounded"
+                                    title={lang === 'fr' ? 'Répondre' : 'Reply'}
+                                  >
+                                    <MessageCircle size={12} />
+                                  </button>
 
-              {repliedToMessage && (
-                <div className="px-4 pt-2 flex items-start gap-2 pb-2 border-t border-white/10">
-                  <MessageQuotePreview message={repliedToMessage} />
-                  <button
-                    onClick={() => setRepliedToMessage(null)}
-                    className="p-1 text-gray-600 hover:text-white transition-colors flex-shrink-0"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
+                                  <button
+                                    onClick={() => addReaction(msg.id, '👍')}
+                                    className="p-1 text-gray-600 hover:text-yellow-400 transition-colors rounded"
+                                    title={lang === 'fr' ? 'Aimer' : 'React'}
+                                  >
+                                    <Heart size={12} />
+                                  </button>
+
+                                  {isCreator && (
+                                    <button
+                                      onClick={() => msg.isPinned ? unpinMessage(msg.id) : pinMessage(circleId, msg.id)}
+                                      className={`p-1 transition-colors rounded ${
+                                        msg.isPinned
+                                          ? 'text-amber-400'
+                                          : 'text-gray-600 hover:text-amber-400'
+                                      }`}
+                                      title={lang === 'fr' ? 'Épingler' : 'Pin'}
+                                    >
+                                      <Pin size={12} />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </motion.div>
+                          );
+                        })}
+                        <div ref={messagesEndRef} />
+                      </>
+                    )}
+                  </div>
+
+                  {repliedToMessage && (
+                    <div className="px-4 pt-2 flex items-start gap-2 pb-2 border-t border-white/10">
+                      <MessageQuotePreview message={repliedToMessage} />
+                      <button
+                        onClick={() => setRepliedToMessage(null)}
+                        className="p-1 text-gray-600 hover:text-white transition-colors flex-shrink-0"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Input */}
+                  <div className="p-4 border-t border-white/10 flex-shrink-0 space-y-2">
+                    {showMentions && (
+                      <MentionsList
+                        members={members}
+                        onSelectMember={handleSelectMention}
+                        lang={lang}
+                      />
+                    )}
+
+                    <div className="flex gap-2 relative">
+                      <input
+                        type="text"
+                        value={chatInput}
+                        onChange={(e) => {
+                          setChatInput(e.target.value);
+                          handleMentionInput(e.target.value);
+                        }}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                        placeholder={lang === 'fr' ? 'Message... (@ pour mentionner)' : 'Message... (@ to mention)'}
+                        disabled={isSendingMessage}
+                        className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50 placeholder:text-gray-600"
+                      />
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={handleSendMessage}
+                        disabled={!chatInput.trim() || isSendingMessage}
+                        className="px-3 py-2 bg-emerald-500 text-black rounded-lg font-bold text-sm hover:bg-white transition-colors disabled:opacity-50"
+                      >
+                        {isSendingMessage ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                      </motion.button>
+                    </div>
+                  </div>
+                </>
               )}
 
-              {/* Input */}
-              <div className="p-4 border-t border-white/10 flex-shrink-0 space-y-2">
-                {showMentions && (
-                  <MentionsList
-                    members={members}
-                    onSelectMember={handleSelectMention}
+              {sidebarMode === 'reading' && (
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {/* Statistiques */}
+                  {enrichedStats && (
+                    <ReadingStatsPanel stats={enrichedStats} lang={lang} />
+                  )}
+
+                  {/* Repères */}
+                  <BookmarksPanel
+                    bookmarks={bookmarks}
+                    onAddBookmark={addBookmark}
+                    onRemoveBookmark={removeBookmark}
+                    currentPage={currentMember?.current_page || 1}
                     lang={lang}
                   />
-                )}
 
-                <div className="flex gap-2 relative">
-                  <input
-                    type="text"
-                    value={chatInput}
-                    onChange={(e) => {
-                      setChatInput(e.target.value);
-                      handleMentionInput(e.target.value);
-                    }}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                    placeholder={lang === 'fr' ? 'Message... (@ pour mentionner)' : 'Message... (@ to mention)'}
-                    disabled={isSendingMessage}
-                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50 placeholder:text-gray-600"
-                  />
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleSendMessage}
-                    disabled={!chatInput.trim() || isSendingMessage}
-                    className="px-3 py-2 bg-emerald-500 text-black rounded-lg font-bold text-sm hover:bg-white transition-colors disabled:opacity-50"
-                  >
-                    {isSendingMessage ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                  </motion.button>
+                  {/* Timeline */}
+                  {events.length > 0 && (
+                    <EventsTimeline events={events} lang={lang} />
+                  )}
+
+                  {/* Sondages */}
+                  {polls.length > 0 && (
+                    <PollsPanel polls={polls} onVote={votePoll} lang={lang} />
+                  )}
+
+                  {/* Résumés */}
+                  {summaries.length > 0 && (
+                    <SummariesPanel summaries={summaries} onVote={voteSummary} lang={lang} />
+                  )}
+
+                  {/* Questions */}
+                  {quizzes.length > 0 && (
+                    <QuizzesPanel quizzes={quizzes} onAnswer={answerQuiz} lang={lang} />
+                  )}
                 </div>
-              </div>
-            </>
-          )}
-
-          {sidebarMode === 'reading' && (
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {/* Statistiques */}
-              {enrichedStats && (
-                <ReadingStatsPanel stats={enrichedStats} lang={lang} />
               )}
 
-              {/* Repères */}
-              <BookmarksPanel
-                bookmarks={bookmarks}
-                onAddBookmark={addBookmark}
-                currentPage={currentMember?.current_page || 1}
-                lang={lang}
-              />
-
-              {/* Timeline */}
-              {events.length > 0 && (
-                <EventsTimeline events={events} lang={lang} />
+              {sidebarMode === 'notes' && (
+                <NotesplitContainer
+                  itemId={book.id}
+                  itemType="book"
+                  userId={user?.id}
+                  lang={lang}
+                  mode="side"
+                >
+                  <div />
+                </NotesplitContainer>
               )}
 
-              {/* Sondages */}
-              {polls.length > 0 && (
-                <PollsPanel polls={polls} onVote={votePoll} lang={lang} />
-              )}
+              {sidebarMode === 'members' && (
+                <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                  {members.map((member) => {
+                    const isOnline = presentUsers.some(u => u.user_id === member.user_id);
 
-              {/* Résumés */}
-              {summaries.length > 0 && (
-                <SummariesPanel summaries={summaries} onVote={voteSummary} lang={lang} />
-              )}
-
-              {/* Questions */}
-              {quizzes.length > 0 && (
-                <QuizzesPanel quizzes={quizzes} onAnswer={answerQuiz} lang={lang} />
-              )}
-            </div>
-          )}
-
-          {sidebarMode === 'notes' && (
-            <NotesplitContainer
-              itemId={book.id}
-              itemType="book"
-              userId={user?.id}
-              lang={lang}
-              mode="side"
-            >
-              <div />
-            </NotesplitContainer>
-          )}
-
-          {sidebarMode === 'members' && (
-            <div className="flex-1 overflow-y-auto p-4 space-y-2">
-              {members.map((member) => {
-                const isOnline = presentUsers.some(u => u.user_id === member.user_id);
-
-                return (
-                  <motion.div
-                    key={member.id}
-                    initial={{ opacity: 0, x: 8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-lg hover:border-white/10 transition-all"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="relative">
-                          <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex-shrink-0 flex items-center justify-center text-emerald-400 text-xs font-bold">
-                            {member.profiles?.full_name?.[0] || '?'}
+                    return (
+                      <motion.div
+                        key={member.id}
+                        initial={{ opacity: 0, x: 8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-lg hover:border-white/10 transition-all"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="relative">
+                              <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex-shrink-0 flex items-center justify-center text-emerald-400 text-xs font-bold">
+                                {member.profiles?.full_name?.[0] || '?'}
+                              </div>
+                              {isOnline && (
+                                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-[#0a0a14]" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-white text-sm font-medium truncate">
+                                {member.profiles?.full_name || 'Utilisateur'}
+                              </p>
+                              {member.role === 'creator' && (
+                                <span className="text-[10px] text-emerald-400 font-bold">👑 Créateur</span>
+                              )}
+                            </div>
                           </div>
-                          {isOnline && (
-                            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-[#0a0a14]" />
+                          {user?.id === member.user_id && (
+                            <span className="text-[10px] text-gray-500">Vous</span>
                           )}
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-white text-sm font-medium truncate">
-                            {member.profiles?.full_name || 'Utilisateur'}
-                          </p>
-                          {member.role === 'creator' && (
-                            <span className="text-[10px] text-emerald-400 font-bold">👑 Créateur</span>
-                          )}
-                        </div>
-                      </div>
-                      {user?.id === member.user_id && (
-                        <span className="text-[10px] text-gray-500">Vous</span>
-                      )}
-                    </div>
 
-                    {/* Progress bar */}
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[10px] text-gray-600">
-                        <span>p. {member.current_page}</span>
-                        {member.last_active_at && (
-                          <span className="text-gray-700">
-                            {Math.round((Date.now() - new Date(member.last_active_at).getTime()) / 1000 / 60)} min
-                          </span>
-                        )}
-                      </div>
-                      <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${(member.current_page / 200) * 100}%` }}
-                          transition={{ type: 'spring', stiffness: 100 }}
-                          className="h-full bg-emerald-500"
-                        />
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
+                        {/* Progress bar */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[10px] text-gray-600">
+                            <span>p. {member.current_page}</span>
+                            {member.last_active_at && (
+                              <span className="text-gray-700">
+                                {Math.round((Date.now() - new Date(member.last_active_at).getTime()) / 1000 / 60)} min
+                              </span>
+                            )}
+                          </div>
+                          <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${(member.current_page / 200) * 100}%` }}
+                              transition={{ type: 'spring', stiffness: 100 }}
+                              className="h-full bg-emerald-500"
+                            />
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </div>
+          </>
+        )}
+      </motion.div>
+
+      {/* ✅ BOUTON TOGGLE SIDEBAR */}
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}
+        className="fixed right-6 bottom-6 md:bottom-auto md:top-20 z-40 w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all flex items-center justify-center font-bold"
+        title={lang === 'fr' ? (isSidebarExpanded ? 'Réduire' : 'Agrandir') : (isSidebarExpanded ? 'Collapse' : 'Expand')}
+      >
+        {isSidebarExpanded ? '◄' : '►'}
+      </motion.button>
 
       {/* ═══════════════════════════════════════════════════════════
           SETTINGS MODAL

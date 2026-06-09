@@ -21,11 +21,13 @@ import type {
 export function BookmarksPanel({
   bookmarks,
   onAddBookmark,
+  onRemoveBookmark,  // ✅ AJOUTER
   currentPage,
   lang = 'fr',
 }: {
   bookmarks: CircleBookmark[];
   onAddBookmark: (page: number, label: string, category: string) => void;
+  onRemoveBookmark: (bookmarkId: string) => void;  // ✅ AJOUTER
   currentPage: number;
   lang?: 'fr' | 'en';
 }) {
@@ -100,7 +102,7 @@ export function BookmarksPanel({
                   maxLength={50}
                   className="w-full px-2 py-1 bg-white/5 border border-white/10 rounded text-xs text-white outline-none focus:border-blue-500/40 placeholder:text-gray-400"
                 />
-                
+
                 {/* ✅ Catégories avec emojis visibles */}
                 <div className="space-y-1">
                   <label className="text-[10px] text-gray-400 font-bold">
@@ -111,11 +113,10 @@ export function BookmarksPanel({
                       <button
                         key={cat.key}
                         onClick={() => setSelectedCategory(cat.key)}
-                        className={`p-2 rounded text-center text-lg transition-all ${
-                          selectedCategory === cat.key
+                        className={`p-2 rounded text-center text-lg transition-all ${selectedCategory === cat.key
                             ? 'bg-blue-500/40 border border-blue-400'
                             : 'bg-white/5 border border-white/10 hover:bg-white/10'
-                        }`}
+                          }`}
                         title={lang === 'fr' ? cat.label_fr : cat.label_en}
                       >
                         {cat.emoji}
@@ -143,7 +144,7 @@ export function BookmarksPanel({
             )}
           </div>
 
-          {/* Repères actuels */}
+                    {/* Repères actuels */}
           {pageBookmarks.length > 0 && (
             <div className="p-3 space-y-2">
               <p className="text-blue-300 text-xs font-bold mb-2">
@@ -152,12 +153,19 @@ export function BookmarksPanel({
               {pageBookmarks.map(bookmark => {
                 const cat = CATEGORIES.find(c => c.key === bookmark.category);
                 return (
-                  <div key={bookmark.id} className="flex items-start gap-2 p-2 bg-white/[0.03] rounded text-xs">
+                  <div key={bookmark.id} className="flex items-start gap-2 p-2 bg-white/[0.03] rounded text-xs group">
                     <span className="text-lg flex-shrink-0">{cat?.emoji}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-white font-bold truncate">{bookmark.label}</p>
                       <p className="text-gray-600 text-[10px]">{bookmark.profiles?.full_name}</p>
                     </div>
+                    <button
+                      onClick={() => onRemoveBookmark(bookmark.id)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-600 hover:text-red-400 flex-shrink-0"
+                      title={lang === 'fr' ? 'Supprimer' : 'Delete'}
+                    >
+                      <X size={12} />
+                    </button>
                   </div>
                 );
               })}
@@ -174,11 +182,10 @@ export function BookmarksPanel({
                 {allPagesWithBookmarks.map(page => (
                   <span
                     key={page}
-                    className={`px-2 py-1 rounded text-xs font-bold ${
-                      page === currentPage
+                    className={`px-2 py-1 rounded text-xs font-bold ${page === currentPage
                         ? 'bg-blue-500 text-black'
                         : 'bg-white/5 text-gray-400'
-                    }`}
+                      }`}
                   >
                     p.{page}
                   </span>
@@ -581,13 +588,12 @@ export function QuizzesPanel({
                   {quiz.options.map((option, idx) => (
                     <div
                       key={idx}
-                      className={`p-2 rounded text-xs ${
-                        idx === quiz.userResponse?.selected_option_index
+                      className={`p-2 rounded text-xs ${idx === quiz.userResponse?.selected_option_index
                           ? quiz.userResponse?.is_correct
                             ? 'bg-green-500/20 text-green-400 border border-green-500/50'
                             : 'bg-red-500/20 text-red-400 border border-red-500/50'
                           : 'bg-white/5 text-gray-400'
-                      }`}
+                        }`}
                     >
                       {option}
                     </div>

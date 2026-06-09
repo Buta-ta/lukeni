@@ -256,10 +256,14 @@ export function ChatSearch({
 export function PinnedMessagesPanel({
   pinnedMessages,
   onUnpin,
+  isCreator = false,
+  userId,
   lang = 'fr',
 }: {
   pinnedMessages: ChatMessage[];
   onUnpin: (messageId: string) => void;
+  isCreator?: boolean;
+  userId?: string;
   lang?: 'fr' | 'en';
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -298,12 +302,18 @@ export function PinnedMessagesPanel({
                 </p>
                 <p className="text-gray-300 text-sm truncate">{msg.content}</p>
               </div>
-              <button
-                onClick={() => onUnpin(msg.id)}
-                className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-600 hover:text-amber-400"
-              >
-                <PinOff size={12} />
-              </button>
+              {/* ✅ DÉPINGLER (créateur seulement) */}
+              {isCreator && (
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => onUnpin(msg.id)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-600 hover:text-amber-400 flex-shrink-0"
+                  title={lang === 'fr' ? 'Dépingler' : 'Unpin'}
+                >
+                  <PinOff size={12} />
+                </motion.button>
+              )}
             </div>
           ))}
         </motion.div>
