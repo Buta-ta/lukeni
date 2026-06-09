@@ -372,10 +372,27 @@ export default function CirclePage() {
         )}
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════
-          PANNEAU LATÉRAL (droite / bas)
+          {/* ═══════════════════════════════════════════════════════════
+          PANNEAU LATÉRAL (droite / bas) - RÉDUCTIBLE
       ═══════════════════════════════════════════════════════════ */}
-      <div className="w-full md:w-96 bg-[#0a0a14] border-l border-white/10 flex flex-col max-h-screen md:max-h-none overflow-hidden">
+      <div className={`${
+        sidebarMode === 'chat' ? 'w-full md:w-96' : 'w-full md:w-80'
+      } transition-all bg-[#0a0a14] border-l border-white/10 flex flex-col max-h-screen md:max-h-none overflow-hidden relative group`}>
+        
+        {/* Bouton de réduction (visible au hover sur desktop) */}
+        <motion.button
+          initial={{ opacity: 0 }}
+          whileHover={{ opacity: 1 }}
+          className="absolute top-1/2 -right-4 -translate-y-1/2 z-20 hidden md:flex w-8 h-12 rounded-r bg-white/10 hover:bg-white/20 transition-colors items-center justify-center text-xs font-bold text-gray-500 hover:text-white group-hover:opacity-100"
+          title={lang === 'fr' ? 'Réduire' : 'Collapse'}
+          onClick={() => {
+            // Ici tu pourrais ajouter une state pour vraiment réduire le sidebar
+            // Pour l'instant c'est juste un placeholder
+          }}
+        >
+          ◄
+        </motion.button>
+
         {/* Tabs */}
         <div className="flex border-b border-white/10 flex-shrink-0 overflow-x-auto">
           {[

@@ -16,7 +16,7 @@ import type {
 } from '@/lib/hooks/useCircleReadingFeatures';
 
 // ============================================================================
-// 1. COMPOSANT : Repères collectifs (Bookmarks)
+// 1. COMPOSANT : Repères collectifs (Bookmarks) - MODIFIÉ
 // ============================================================================
 export function BookmarksPanel({
   bookmarks,
@@ -35,11 +35,11 @@ export function BookmarksPanel({
   const [selectedCategory, setSelectedCategory] = useState('note');
 
   const CATEGORIES = [
-    { key: 'spoiler', label_fr: '⚠️ Spoiler', label_en: '⚠️ Spoiler', color: 'red' },
-    { key: 'concept', label_fr: '💡 Concept', label_en: '💡 Concept', color: 'blue' },
-    { key: 'citation', label_fr: '✨ Citation', label_en: '✨ Citation', color: 'yellow' },
-    { key: 'important', label_fr: '🔴 Important', label_en: '🔴 Important', color: 'orange' },
-    { key: 'note', label_fr: '📝 Note', label_en: '📝 Note', color: 'gray' },
+    { key: 'spoiler', label_fr: '⚠️ Spoiler', label_en: '⚠️ Spoiler', emoji: '⚠️', color: 'red' },
+    { key: 'concept', label_fr: '💡 Concept', label_en: '💡 Concept', emoji: '💡', color: 'blue' },
+    { key: 'citation', label_fr: '✨ Citation', label_en: '✨ Citation', emoji: '✨', color: 'yellow' },
+    { key: 'important', label_fr: '🔴 Important', label_en: '🔴 Important', emoji: '🔴', color: 'orange' },
+    { key: 'note', label_fr: '📝 Note', label_en: '📝 Note', emoji: '📝', color: 'gray' },
   ];
 
   const pageBookmarks = bookmarks.filter(b => b.page_number === currentPage);
@@ -98,19 +98,32 @@ export function BookmarksPanel({
                   onChange={e => setNewLabel(e.target.value)}
                   placeholder={lang === 'fr' ? 'Label du repère' : 'Bookmark label'}
                   maxLength={50}
-                  className="w-full px-2 py-1 bg-white/5 border border-white/10 rounded text-xs text-white outline-none focus:border-blue-500/40 placeholder:text-gray-600"
+                  className="w-full px-2 py-1 bg-white/5 border border-white/10 rounded text-xs text-white outline-none focus:border-blue-500/40 placeholder:text-gray-400"
                 />
-                <select
-                  value={selectedCategory}
-                  onChange={e => setSelectedCategory(e.target.value)}
-                  className="w-full px-2 py-1 bg-white/5 border border-white/10 rounded text-xs text-white outline-none focus:border-blue-500/40"
-                >
-                  {CATEGORIES.map(cat => (
-                    <option key={cat.key} value={cat.key}>
-                      {lang === 'fr' ? cat.label_fr : cat.label_en}
-                    </option>
-                  ))}
-                </select>
+                
+                {/* ✅ Catégories avec emojis visibles */}
+                <div className="space-y-1">
+                  <label className="text-[10px] text-gray-400 font-bold">
+                    {lang === 'fr' ? 'Catégorie' : 'Category'}
+                  </label>
+                  <div className="grid grid-cols-5 gap-1">
+                    {CATEGORIES.map(cat => (
+                      <button
+                        key={cat.key}
+                        onClick={() => setSelectedCategory(cat.key)}
+                        className={`p-2 rounded text-center text-lg transition-all ${
+                          selectedCategory === cat.key
+                            ? 'bg-blue-500/40 border border-blue-400'
+                            : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                        }`}
+                        title={lang === 'fr' ? cat.label_fr : cat.label_en}
+                      >
+                        {cat.emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="flex gap-2">
                   <button
                     onClick={handleAdd}
@@ -140,7 +153,7 @@ export function BookmarksPanel({
                 const cat = CATEGORIES.find(c => c.key === bookmark.category);
                 return (
                   <div key={bookmark.id} className="flex items-start gap-2 p-2 bg-white/[0.03] rounded text-xs">
-                    <span className="text-lg flex-shrink-0">{cat?.label_fr.split(' ')[0]}</span>
+                    <span className="text-lg flex-shrink-0">{cat?.emoji}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-white font-bold truncate">{bookmark.label}</p>
                       <p className="text-gray-600 text-[10px]">{bookmark.profiles?.full_name}</p>
