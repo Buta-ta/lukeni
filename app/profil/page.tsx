@@ -220,7 +220,14 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
     if (!userId) { setIsLoading(false); return; }
 
           const fetchCirclesData = async () => {
+
+
       try {
+
+        let enrichedCreated: any[] = [];
+        let joinedCircles: any[] = [];
+        let enrichedPending: any[] = [];
+        let enrichedIncoming: any[] = [];
         // 1. Cercles créés par moi (SANS nested select)
         const { data: created, error: createdError } = await supabase
           .from('reading_circles')
@@ -231,7 +238,7 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
         if (createdError) console.error('Created circles error:', createdError);
 
         // Enrichir avec les livres
-        let enrichedCreated = [];
+         enrichedCreated = [...]  
         if (created && created.length > 0) {
           const bookIds = created.map(c => c.book_id);
           const { data: books } = await supabase
@@ -291,7 +298,7 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
         if (pendingError) console.error('Pending requests error:', pendingError);
 
         // Enrichir avec les infos des cercles
-        let enrichedPending = [];
+         enrichedPending = [...]
         if (pending && pending.length > 0) {
           const circleIds = pending.map(p => p.circle_id);
           const { data: circles } = await supabase
@@ -333,7 +340,7 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
         if (incomingError) console.error('Incoming requests error:', incomingError);
 
         // Enrichir avec les infos des cercles
-        let enrichedIncoming = [];
+        enrichedIncoming = [...]
         if (incoming && incoming.length > 0) {
           const circleIds = incoming.map(r => r.circle_id);
           const { data: circles } = await supabase
