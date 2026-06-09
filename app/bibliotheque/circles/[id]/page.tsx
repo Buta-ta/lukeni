@@ -1,20 +1,29 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Loader2, Send, Users, MessageCircle, FileText,
   ChevronLeft, ChevronRight, Copy, CheckCircle, Clock,
-  Settings, LogOut, AlertCircle, Eye, AlertCircleIcon
+  Settings, LogOut, AlertCircle, Eye, AlertCircleIcon, Pin, Heart
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { useReadingCircle, type ReadingCircle, type CircleMember } from '@/lib/hooks/useReadingCircle';
 import { useCircleChat, type ChatMessage } from '@/lib/hooks/useCircleChat';
+import { useCirclePresence } from '@/lib/hooks/useCirclePresence';
 import CloudinaryPDFReader from '@/components/CloudinaryPDFReaderWrapper';
 import { NotesplitContainer } from '@/components/NotesplitContainer';
 import CircleLoadingScreen from '@/components/CircleLoadingScreen';
+import {
+  MessageReactions,
+  MessageQuotePreview,
+  PresenceIndicator,
+  MentionsList,
+  ChatSearch,
+  PinnedMessagesPanel,
+} from '@/components/CircleChatFeatures';
 
 const CaurisIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 100 100" className={className} fill="currentColor">
@@ -36,335 +45,6 @@ interface Book {
 }
 
 // ============================================================================
-// COMPOSANT : Écran de blocage pour les non-membres
-// ============================================================================
-function AccessBlockedScreen({
-  circle,
-  book,
-  user,
-  lang,
-  onSubmitRequest,
-  isSubmitting,
-  joinRequestStatus,
-}: {
-  circle: ReadingCircle;
-  book: Book | null;
-  user: User | null;
-  lang: 'fr' | 'en';
-  onSubmitRequest: (message: string) => void;
-  isSubmitting: boolean;
-  joinRequestStatus: 'none' | 'pending' | 'approved' | 'rejected';
-}) {
-  const [joinMessage, setJoinMessage] = useState('');
-
-  if (!user) {
-    return (
-      <div className="fixed inset-0 bg-[#020111] flex items-center justify-center p-4">
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="max-w-md w-full space-y-6"
-        >
-          <div className="text-center space-y-3">
-            <h1 className="text-3xl font-serif font-bold text-white">
-              {lang === 'fr' ? 'Connexion requise' : 'Sign in required'}
-            </h1>
-            <p className="text-gray-400">
-              {lang === 'fr'
-                ? 'Veuillez vous connecter pour accéder aux cercles de lecture'
-                : 'Please sign in to access reading circles'}
-            </p>
-          </div>
-
-          <div className="bg-gradient-to-br from-[#0d0d1a] to-[#080810] border border-white/[0.07] rounded-3xl p-6">
-            {book && (
-              <div className="flex gap-4 mb-6 pb-6 border-b border-white/[0.06]">
-                <div className="w-16 h-24 rounded-lg overflow-hidden flex-shrink-0">
-                  <img src={book.cover_url} alt="" className="w-full h-full object-cover" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-emerald-400 text-[10px] font-bold tracking-widest uppercase mb-1">
-                    {lang === 'fr' ? 'Livre à lire' : 'Book to read'}
-                  </p>
-                  <h3 className="text-white font-serif text-lg font-bold line-clamp-2">{book.title_fr}</h3>
-                  <p className="text-gray-400 text-xs mt-1">{book.author_fr}</p>
-                </div>
-              </div>
-            )}
-
-            <div>
-              <p className="text-[10px] font-bold text-gray-600 tracking-widest uppercase mb-1">
-                {lang === 'fr' ? 'Cercle' : 'Circle'}
-              </p>
-              <h2 className="text-white text-xl font-bold mb-2">{circle.name}</h2>
-              <p className="text-gray-400 text-sm">{circle.description || ''}</p>
-            </div>
-          </div>
-
-          <a
-            href="/auth"
-            className="w-full py-3 bg-emerald-500 text-black rounded-xl font-bold text-sm hover:bg-white transition-colors flex items-center justify-center"
-          >
-            {lang === 'fr' ? 'Se connecter' : 'Sign in'}
-          </a>
-        </motion.div>
-      </div>
-    );
-  }
-
-  // ── Utilisateur connecté mais pas membre ──
-  if (joinRequestStatus === 'pending') {
-    return (
-      <div className="fixed inset-0 bg-[#020111] flex items-center justify-center p-4">
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="max-w-md w-full space-y-6"
-        >
-          <div className="text-center space-y-3">
-            <div className="w-16 h-16 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mx-auto mb-4">
-              <Clock size={32} className="text-amber-400" />
-            </div>
-            <h1 className="text-3xl font-serif font-bold text-white">
-              {lang === 'fr' ? '⏳ En attente' : '⏳ Pending'}
-            </h1>
-            <p className="text-gray-400">
-              {lang === 'fr'
-                ? 'Votre demande d\'adhésion est en attente d\'approbation'
-                : 'Your membership request is awaiting approval'}
-            </p>
-          </div>
-
-          <div className="bg-gradient-to-br from-[#0d0d1a] to-[#080810] border border-amber-500/20 rounded-3xl p-6">
-            {book && (
-              <div className="flex gap-4 mb-6 pb-6 border-b border-white/[0.06]">
-                <div className="w-16 h-24 rounded-lg overflow-hidden flex-shrink-0">
-                  <img src={book.cover_url} alt="" className="w-full h-full object-cover" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-white font-serif text-lg font-bold line-clamp-2">{book.title_fr}</h3>
-                  <p className="text-gray-400 text-xs mt-2">{book.author_fr}</p>
-                </div>
-              </div>
-            )}
-
-            <div>
-              <p className="text-[10px] font-bold text-gray-600 tracking-widest uppercase mb-1">
-                {lang === 'fr' ? 'Cercle' : 'Circle'}
-              </p>
-              <h2 className="text-white text-xl font-bold">{circle.name}</h2>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-            <AlertCircle size={14} className="text-blue-400 flex-shrink-0 mt-0.5" />
-            <p className="text-blue-300 text-xs">
-              {lang === 'fr'
-                ? 'Le créateur examinera votre demande et vous notifiera de sa réponse'
-                : 'The creator will review your request and notify you'}
-            </p>
-          </div>
-
-          <a
-            href="/bibliotheque"
-            className="w-full py-3 bg-white/5 border border-white/10 text-white rounded-xl font-bold text-sm hover:bg-white/10 transition-colors flex items-center justify-center"
-          >
-            {lang === 'fr' ? 'Retour à la bibliothèque' : 'Back to library'}
-          </a>
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (joinRequestStatus === 'rejected') {
-    return (
-      <div className="fixed inset-0 bg-[#020111] flex items-center justify-center p-4">
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="max-w-md w-full space-y-6"
-        >
-          <div className="text-center space-y-3">
-            <div className="w-16 h-16 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center mx-auto mb-4">
-              <AlertCircleIcon size={32} className="text-red-400" />
-            </div>
-            <h1 className="text-3xl font-serif font-bold text-white">
-              {lang === 'fr' ? '❌ Demande refusée' : '❌ Request rejected'}
-            </h1>
-            <p className="text-gray-400">
-              {lang === 'fr'
-                ? 'Le créateur a refusé votre demande d\'adhésion'
-                : 'The creator rejected your membership request'}
-            </p>
-          </div>
-
-          <div className="bg-gradient-to-br from-[#0d0d1a] to-[#080810] border border-red-500/20 rounded-3xl p-6">
-            {book && (
-              <div className="flex gap-4 mb-6 pb-6 border-b border-white/[0.06]">
-                <div className="w-16 h-24 rounded-lg overflow-hidden flex-shrink-0">
-                  <img src={book.cover_url} alt="" className="w-full h-full object-cover" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-white font-serif text-lg font-bold line-clamp-2">{book.title_fr}</h3>
-                  <p className="text-gray-400 text-xs mt-2">{book.author_fr}</p>
-                </div>
-              </div>
-            )}
-
-            <div>
-              <p className="text-[10px] font-bold text-gray-600 tracking-widest uppercase mb-1">
-                {lang === 'fr' ? 'Cercle' : 'Circle'}
-              </p>
-              <h2 className="text-white text-xl font-bold">{circle.name}</h2>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-            <AlertCircle size={14} className="text-amber-400 flex-shrink-0 mt-0.5" />
-            <p className="text-amber-300 text-xs">
-              {lang === 'fr'
-                ? 'Vous pouvez envoyer une nouvelle demande (maximum 2 tentatives)'
-                : 'You can submit another request (maximum 2 attempts)'}
-            </p>
-          </div>
-
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => window.location.reload()}
-            className="w-full py-3 bg-amber-500 text-black rounded-xl font-bold text-sm hover:bg-white transition-colors"
-          >
-            {lang === 'fr' ? 'Envoyer une nouvelle demande' : 'Send another request'}
-          </motion.button>
-
-          <a
-            href="/bibliotheque"
-            className="w-full py-3 bg-white/5 border border-white/10 text-white rounded-xl font-bold text-sm hover:bg-white/10 transition-colors flex items-center justify-center"
-          >
-            {lang === 'fr' ? 'Retour à la bibliothèque' : 'Back to library'}
-          </a>
-        </motion.div>
-      </div>
-    );
-  }
-
-  // ── État par défaut : Pas encore de demande ──
-  return (
-    <div className="fixed inset-0 bg-[#020111] flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="max-w-md w-full space-y-6"
-      >
-        <div className="text-center space-y-3">
-          <h1 className="text-3xl font-serif font-bold text-white">
-            {lang === 'fr' ? 'Demander à rejoindre' : 'Request to join'}
-          </h1>
-          <p className="text-gray-400">
-            {lang === 'fr'
-              ? 'Ce cercle est privé. Envoyez une demande au créateur'
-              : 'This circle is private. Send a request to the creator'}
-          </p>
-        </div>
-
-        <div className="bg-gradient-to-br from-[#0d0d1a] to-[#080810] border border-white/[0.07] rounded-3xl overflow-hidden">
-          <div className="h-1 w-full bg-gradient-to-r from-purple-500 to-purple-400" />
-
-          <div className="p-6 space-y-4">
-            {book && (
-              <div className="flex gap-4 pb-4 border-b border-white/[0.06]">
-                <div className="w-16 h-24 rounded-lg overflow-hidden flex-shrink-0">
-                  <img src={book.cover_url} alt="" className="w-full h-full object-cover" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-purple-400 text-[10px] font-bold tracking-widest uppercase mb-1">
-                    {lang === 'fr' ? 'Livre à lire' : 'Book to read'}
-                  </p>
-                  <h3 className="text-white font-serif text-lg font-bold line-clamp-2">{book.title_fr}</h3>
-                  <p className="text-gray-400 text-xs mt-1">{book.author_fr}</p>
-                </div>
-              </div>
-            )}
-
-            <div>
-              <p className="text-[10px] font-bold text-gray-600 tracking-widest uppercase mb-1">
-                {lang === 'fr' ? 'Nom du cercle' : 'Circle name'}
-              </p>
-              <h2 className="text-white text-xl font-bold">{circle.name}</h2>
-            </div>
-
-            {circle.description && (
-              <div>
-                <p className="text-[10px] font-bold text-gray-600 tracking-widest uppercase mb-1">
-                  Description
-                </p>
-                <p className="text-gray-300 text-sm">{circle.description}</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-[10px] font-bold text-gray-600 tracking-widest uppercase mb-2">
-            {lang === 'fr' ? 'Message au créateur' : 'Message to creator'}
-          </label>
-          <textarea
-            value={joinMessage}
-            onChange={(e) => setJoinMessage(e.target.value)}
-            placeholder={
-              lang === 'fr'
-                ? 'Ex: Je suis passionnée par ce livre et j\'aimerais rejoindre votre groupe...'
-                : 'Ex: I\'m passionate about this book and would love to join your group...'
-            }
-            maxLength={300}
-            rows={4}
-            className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-purple-500/50 transition-colors resize-none placeholder:text-gray-600"
-          />
-          <p className="text-gray-600 text-[10px] mt-1">{joinMessage.length}/300</p>
-        </div>
-
-        <div className="flex items-start gap-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-          <AlertCircle size={14} className="text-blue-400 flex-shrink-0 mt-0.5" />
-          <p className="text-blue-300 text-xs">
-            {lang === 'fr'
-              ? 'Le créateur examinera votre demande et vous notifiera de sa réponse'
-              : 'The creator will review your request and notify you'}
-          </p>
-        </div>
-
-        <div className="flex gap-3">
-          <a
-            href="/bibliotheque"
-            className="flex-1 py-3 bg-white/5 border border-white/10 text-white rounded-xl font-bold text-sm hover:bg-white/10 transition-colors flex items-center justify-center"
-          >
-            {lang === 'fr' ? 'Annuler' : 'Cancel'}
-          </a>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => onSubmitRequest(joinMessage)}
-            disabled={!joinMessage.trim() || isSubmitting}
-            className="flex-1 py-3 bg-purple-500 text-white rounded-xl font-bold text-sm hover:bg-purple-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 size={14} className="animate-spin" />
-                {lang === 'fr' ? 'Envoi...' : 'Sending...'}
-              </>
-            ) : (
-              <>
-                <Send size={14} />
-                {lang === 'fr' ? 'Envoyer' : 'Send'}
-              </>
-            )}
-          </motion.button>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
-// ============================================================================
 // COMPOSANT PRINCIPAL
 // ============================================================================
 export default function CirclePage() {
@@ -379,7 +59,8 @@ export default function CirclePage() {
 
   // Hooks Realtime
   const { circle, members, changePage, updateMyProgress } = useReadingCircle(circleId, user?.id);
-  const { messages, sendMessage } = useCircleChat(circleId, user?.id);
+  const { messages, sendMessage, addReaction, removeReaction, pinMessage, unpinMessage } = useCircleChat(circleId, user?.id);
+  const { presentUsers } = useCirclePresence(circleId, user?.id);
 
   // UI State
   const [sidebarMode, setSidebarMode] = useState<'chat' | 'notes' | 'members'>('chat');
@@ -389,9 +70,11 @@ export default function CirclePage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // ✅ État pour la vérification du statut membre
-  const [joinRequestStatus, setJoinRequestStatus] = useState<'none' | 'pending' | 'approved' | 'rejected'>('none');
-  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
+  // ✅ NOUVELLE STATE : Chat Features
+  const [showMentions, setShowMentions] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [repliedToMessage, setRepliedToMessage] = useState<ChatMessage | null>(null);
+  const [mentions, setMentions] = useState<string[]>([]);
 
   // ── Auth ──
   useEffect(() => {
@@ -409,50 +92,6 @@ export default function CirclePage() {
     if (savedLang) setLang(savedLang);
   }, [router]);
 
-  // ✅ Vérifier le statut de l'utilisateur (membre, demande en attente, etc.)
-  useEffect(() => {
-    if (!user || !circleId) return;
-
-    const checkMemberStatus = async () => {
-      try {
-        // 1. Vérifier si l'utilisateur est déjà membre
-        const { data: memberData } = await supabase
-          .from('circle_members')
-          .select('id')
-          .eq('circle_id', circleId)
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (memberData) {
-          setJoinRequestStatus('approved');
-          setIsLoading(false);
-          return;
-        }
-
-        // 2. Vérifier s'il y a une demande existante
-        const { data: requestData } = await supabase
-          .from('circle_join_requests')
-          .select('id, status')
-          .eq('circle_id', circleId)
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (requestData) {
-          setJoinRequestStatus(requestData.status as any);
-        } else {
-          setJoinRequestStatus('none');
-        }
-
-        setIsLoading(false);
-      } catch (err) {
-        console.error('Check member status error:', err);
-        setIsLoading(false);
-      }
-    };
-
-    checkMemberStatus();
-  }, [user, circleId]);
-
   // ── Charger le livre ──
   useEffect(() => {
     if (!circle) return;
@@ -468,6 +107,8 @@ export default function CirclePage() {
         setBook(data);
       } catch (err) {
         console.error('Load book error:', err);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -479,89 +120,63 @@ export default function CirclePage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // ── Envoyer message ──
+  // ============================================================================
+  // ✅ NOUVELLES FONCTIONS : Chat Features
+  // ============================================================================
+
+  // Gérer les mentions (@membre)
+  const handleMentionInput = useCallback((input: string) => {
+    const atIndex = input.lastIndexOf('@');
+    if (atIndex !== -1) {
+      const after = input.substring(atIndex + 1);
+      if (after.length > 0 && !after.includes(' ')) {
+        setShowMentions(true);
+      } else {
+        setShowMentions(false);
+      }
+    } else {
+      setShowMentions(false);
+    }
+  }, []);
+
+  const handleSelectMention = useCallback((userId: string) => {
+    const member = members.find(m => m.user_id === userId);
+    if (!member) return;
+
+    const atIndex = chatInput.lastIndexOf('@');
+    const beforeAt = chatInput.substring(0, atIndex);
+    const newInput = `${beforeAt}@${member.profiles?.username || member.profiles?.full_name || userId} `;
+
+    setChatInput(newInput);
+    setShowMentions(false);
+    setMentions([...mentions, userId]);
+  }, [chatInput, members, mentions]);
+
+  // Envoyer message avec features
   const handleSendMessage = useCallback(async () => {
     if (!chatInput.trim() || isSendingMessage) return;
 
     setIsSendingMessage(true);
     try {
-      await sendMessage(chatInput, circle?.current_page);
+      await sendMessage(chatInput, circle?.current_page, mentions, repliedToMessage?.id);
       setChatInput('');
+      setMentions([]);
+      setRepliedToMessage(null);
     } catch (err) {
       console.error('Send message error:', err);
     } finally {
       setIsSendingMessage(false);
     }
-  }, [chatInput, sendMessage, circle, isSendingMessage]);
+  }, [chatInput, sendMessage, circle, isSendingMessage, mentions, repliedToMessage]);
 
-  // ── Copier code ──
+  // Copier code
   const handleCopyCode = useCallback(async (code: string) => {
     await navigator.clipboard.writeText(code);
     setCopiedCode(code);
     setTimeout(() => setCopiedCode(null), 2000);
   }, []);
 
-  // ============================================================================
-  // ✅ NOUVELLE FONCTION : Soumettre une demande d'adhésion
-  // ============================================================================
-  const handleSubmitJoinRequest = useCallback(async (message: string) => {
-    if (!user || !circle || !message.trim()) return;
-
-    setIsSubmittingRequest(true);
-    try {
-      // Compter les demandes existantes (acceptées + refusées)
-      const { data: existingRequests } = await supabase
-        .from('circle_join_requests')
-        .select('id, status')
-        .eq('circle_id', circle.id)
-        .eq('user_id', user.id);
-
-      // Vérifier si max 2 demandes atteint
-      const rejectedCount = (existingRequests || []).filter(r => r.status === 'rejected').length;
-      if (rejectedCount >= 2) {
-        alert(
-          lang === 'fr'
-            ? 'Vous avez atteint le nombre maximum de demandes pour ce cercle'
-            : 'You have reached the maximum number of requests for this circle'
-        );
-        setIsSubmittingRequest(false);
-        return;
-      }
-
-      // Insérer une nouvelle demande d'adhésion
-      const { error } = await supabase
-        .from('circle_join_requests')
-        .insert({
-          circle_id: circle.id,
-          user_id: user.id,
-          message: message.trim(),
-          status: 'pending',
-        });
-
-      if (error) {
-        if (error.code === '23505') {
-          alert(
-            lang === 'fr'
-              ? 'Vous avez déjà une demande en attente pour ce cercle'
-              : 'You already have a pending request for this circle'
-          );
-        } else {
-          throw error;
-        }
-        setIsSubmittingRequest(false);
-        return;
-      }
-
-      setJoinRequestStatus('pending');
-    } catch (err: any) {
-      console.error('Submit join request error:', err);
-      alert(lang === 'fr' ? 'Erreur lors de l\'envoi' : 'Error sending request');
-    } finally {
-      setIsSubmittingRequest(false);
-    }
-  }, [user, circle, lang]);
-
-  // ── Quitter le cercle ──
+  // Quitter le cercle
   const handleLeaveCircle = useCallback(async () => {
     if (!user || !circle) return;
 
@@ -583,34 +198,23 @@ export default function CirclePage() {
     }
   }, [user, circle, lang, router]);
 
-  // ============================================================================
-  // ✅ CONDITION DE CHARGEMENT INITIAL
-  // ============================================================================
-  if (isLoading) {
-    return <CircleLoadingScreen lang={lang} />;
-  }
-
-  // ============================================================================
-  // ✅ CONDITION : Non-membre → Afficher l'écran de blocage
-  // ============================================================================
-  if (joinRequestStatus !== 'approved') {
-    return (
-      <AccessBlockedScreen
-        circle={circle!}
-        book={book}
-        user={user}
-        lang={lang}
-        onSubmitRequest={handleSubmitJoinRequest}
-        isSubmitting={isSubmittingRequest}
-        joinRequestStatus={joinRequestStatus}
-      />
+  // ✅ Filtrer les messages selon la recherche
+  const filteredMessages = useMemo(() => {
+    if (!searchQuery.trim()) return messages;
+    
+    const query = searchQuery.toLowerCase();
+    return messages.filter(msg =>
+      msg.content.toLowerCase().includes(query) ||
+      (msg.profiles?.full_name || '').toLowerCase().includes(query)
     );
-  }
+  }, [messages, searchQuery]);
 
-  // ============================================================================
-  // ✅ CONTENU NORMAL : Utilisateur est membre
-  // ============================================================================
-  if (!circle || !book) {
+  // ✅ Obtenir les messages épinglés
+  const pinnedMessages = useMemo(() => {
+    return messages.filter(msg => msg.isPinned);
+  }, [messages]);
+
+  if (isLoading || !circle || !book) {
     return <CircleLoadingScreen lang={lang} />;
   }
 
@@ -735,7 +339,7 @@ export default function CirclePage() {
       {/* ═══════════════════════════════════════════════════════════
           PANNEAU LATÉRAL (droite / bas)
       ═══════════════════════════════════════════════════════════ */}
-      <div className="w-full md:w-96 bg-[#0a0a14] border-l border-white/10 flex flex-col max-h-screen md:max-h-none">
+      <div className="w-full md:w-96 bg-[#0a0a14] border-l border-white/10 flex flex-col max-h-screen md:max-h-none overflow-hidden">
         {/* Tabs */}
         <div className="flex border-b border-white/10 flex-shrink-0">
           {[
@@ -762,30 +366,70 @@ export default function CirclePage() {
         <div className="flex-1 overflow-hidden flex flex-col">
           {sidebarMode === 'chat' && (
             <>
+              {/* ✅ INDICATEUR DE PRÉSENCE */}
+              <div className="p-3 border-b border-white/10 flex-shrink-0">
+                <PresenceIndicator
+                  presentUsers={presentUsers}
+                  allMembers={members}
+                  lang={lang}
+                />
+              </div>
+
+              {/* ✅ MESSAGES ÉPINGLÉS */}
+              {pinnedMessages.length > 0 && (
+                <div className="p-3 border-b border-white/10 flex-shrink-0">
+                  <PinnedMessagesPanel
+                    pinnedMessages={pinnedMessages}
+                    onUnpin={(msgId) => unpinMessage(msgId)}
+                    lang={lang}
+                  />
+                </div>
+              )}
+
+              {/* ✅ BARRE DE RECHERCHE */}
+              <div className="p-3 border-b border-white/10 flex-shrink-0">
+                <ChatSearch
+                  onSearch={setSearchQuery}
+                  lang={lang}
+                />
+              </div>
+
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {messages.length === 0 ? (
+                {filteredMessages.length === 0 ? (
                   <div className="flex items-center justify-center h-full text-center text-gray-500">
                     <p>{lang === 'fr' ? 'Aucun message' : 'No messages'}</p>
                   </div>
                 ) : (
                   <>
-                    {messages.map((msg) => {
-                      // ✅ Chercher le profil du message dans les membres
+                    {filteredMessages.map((msg) => {
                       const memberProfile = members.find(m => m.user_id === msg.user_id)?.profiles;
                       const displayName = memberProfile?.full_name || msg.profiles?.full_name || 'Anonyme';
+                      const isOnline = presentUsers.some(u => u.user_id === msg.user_id);
 
                       return (
                         <motion.div
                           key={msg.id}
                           initial={{ opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="flex gap-2"
+                          className="group flex gap-2"
                         >
-                          <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex-shrink-0 flex items-center justify-center text-emerald-400 text-xs font-bold">
-                            {displayName?.[0]?.toUpperCase() || '?'}
+                          <div className="relative flex-shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-xs font-bold">
+                              {displayName?.[0]?.toUpperCase() || '?'}
+                            </div>
+                            {isOnline && (
+                              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-[#0a0a14]" />
+                            )}
                           </div>
+
                           <div className="flex-1 min-w-0">
+                            {/* Citation si réponse */}
+                            {msg.repliedToMessage && (
+                              <MessageQuotePreview message={msg.repliedToMessage} />
+                            )}
+
+                            {/* Contenu du message */}
                             <div className="flex items-center gap-2 mb-0.5">
                               <span className="text-white text-xs font-bold">
                                 {displayName}
@@ -800,6 +444,51 @@ export default function CirclePage() {
                               )}
                             </div>
                             <p className="text-gray-300 text-sm break-words">{msg.content}</p>
+
+                            {/* ✅ RÉACTIONS */}
+                            {msg.reactions && msg.reactions.length > 0 && (
+                              <MessageReactions
+                                reactions={msg.reactions}
+                                onAddReaction={(emoji) => addReaction(msg.id, emoji)}
+                                onRemoveReaction={(emoji) => removeReaction(msg.id, emoji)}
+                              />
+                            )}
+
+                            {/* Boutons d'action (au hover) */}
+                            <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              {/* Répondre */}
+                              <button
+                                onClick={() => setRepliedToMessage(msg)}
+                                className="p-1 text-gray-600 hover:text-blue-400 transition-colors rounded"
+                                title={lang === 'fr' ? 'Répondre' : 'Reply'}
+                              >
+                                <MessageCircle size={12} />
+                              </button>
+
+                              {/* Ajouter réaction */}
+                              <button
+                                onClick={() => addReaction(msg.id, '👍')}
+                                className="p-1 text-gray-600 hover:text-yellow-400 transition-colors rounded"
+                                title={lang === 'fr' ? 'Aimer' : 'React'}
+                              >
+                                <Heart size={12} />
+                              </button>
+
+                              {/* Épingler (créateur) */}
+                              {isCreator && (
+                                <button
+                                  onClick={() => msg.isPinned ? unpinMessage(msg.id) : pinMessage(circleId, msg.id)}
+                                  className={`p-1 transition-colors rounded ${
+                                    msg.isPinned
+                                      ? 'text-amber-400'
+                                      : 'text-gray-600 hover:text-amber-400'
+                                  }`}
+                                  title={lang === 'fr' ? 'Épingler' : 'Pin'}
+                                >
+                                  <Pin size={12} />
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </motion.div>
                       );
@@ -809,17 +498,42 @@ export default function CirclePage() {
                 )}
               </div>
 
+              {/* Citation en cours */}
+              {repliedToMessage && (
+                <div className="px-4 pt-2 flex items-start gap-2 pb-2 border-t border-white/10">
+                  <MessageQuotePreview message={repliedToMessage} />
+                  <button
+                    onClick={() => setRepliedToMessage(null)}
+                    className="p-1 text-gray-600 hover:text-white transition-colors flex-shrink-0"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+
               {/* Input */}
-              <div className="p-4 border-t border-white/10 flex-shrink-0">
-                <div className="flex gap-2">
+              <div className="p-4 border-t border-white/10 flex-shrink-0 space-y-2">
+                {/* ✅ MENTIONS DROPDOWN */}
+                {showMentions && (
+                  <MentionsList
+                    members={members}
+                    onSelectMember={handleSelectMention}
+                    lang={lang}
+                  />
+                )}
+
+                <div className="flex gap-2 relative">
                   <input
                     type="text"
                     value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
+                    onChange={(e) => {
+                      setChatInput(e.target.value);
+                      handleMentionInput(e.target.value);
+                    }}
                     onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                    placeholder={lang === 'fr' ? 'Message...' : 'Message...'}
+                    placeholder={lang === 'fr' ? 'Message... (@ pour mentionner)' : 'Message... (@ to mention)'}
                     disabled={isSendingMessage}
-                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
+                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50 placeholder:text-gray-600"
                   />
                   <motion.button
                     whileHover={{ scale: 1.05 }}
@@ -849,53 +563,63 @@ export default function CirclePage() {
 
           {sidebarMode === 'members' && (
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
-              {members.map((member) => (
-                <motion.div
-                  key={member.id}
-                  initial={{ opacity: 0, x: 8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-lg hover:border-white/10 transition-all"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex-shrink-0 flex items-center justify-center text-emerald-400 text-xs font-bold">
-                        {member.profiles?.full_name?.[0] || '?'}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-white text-sm font-medium truncate">
-                          {member.profiles?.full_name || 'Utilisateur'}
-                        </p>
-                        {member.role === 'creator' && (
-                          <span className="text-[10px] text-emerald-400 font-bold">👑 Créateur</span>
-                        )}
-                      </div>
-                    </div>
-                    {user?.id === member.user_id && (
-                      <span className="text-[10px] text-gray-500">Vous</span>
-                    )}
-                  </div>
+              {members.map((member) => {
+                const isOnline = presentUsers.some(u => u.user_id === member.user_id);
 
-                  {/* Progress bar */}
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] text-gray-600">
-                      <span>p. {member.current_page}</span>
-                      {member.last_active_at && (
-                        <span className="text-gray-700">
-                          {Math.round((Date.now() - new Date(member.last_active_at).getTime()) / 1000 / 60)} min
-                        </span>
+                return (
+                  <motion.div
+                    key={member.id}
+                    initial={{ opacity: 0, x: 8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="p-3 bg-white/[0.02] border border-white/[0.06] rounded-lg hover:border-white/10 transition-all"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="relative">
+                          <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex-shrink-0 flex items-center justify-center text-emerald-400 text-xs font-bold">
+                            {member.profiles?.full_name?.[0] || '?'}
+                          </div>
+                          {/* ✅ Indicateur en ligne */}
+                          {isOnline && (
+                            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-[#0a0a14]" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-white text-sm font-medium truncate">
+                            {member.profiles?.full_name || 'Utilisateur'}
+                          </p>
+                          {member.role === 'creator' && (
+                            <span className="text-[10px] text-emerald-400 font-bold">👑 Créateur</span>
+                          )}
+                        </div>
+                      </div>
+                      {user?.id === member.user_id && (
+                        <span className="text-[10px] text-gray-500">Vous</span>
                       )}
                     </div>
-                    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${(member.current_page / 200) * 100}%` }}
-                        transition={{ type: 'spring', stiffness: 100 }}
-                        className="h-full bg-emerald-500"
-                      />
+
+                    {/* Progress bar */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[10px] text-gray-600">
+                        <span>p. {member.current_page}</span>
+                        {member.last_active_at && (
+                          <span className="text-gray-700">
+                            {Math.round((Date.now() - new Date(member.last_active_at).getTime()) / 1000 / 60)} min
+                          </span>
+                        )}
+                      </div>
+                      <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${(member.current_page / 200) * 100}%` }}
+                          transition={{ type: 'spring', stiffness: 100 }}
+                          className="h-full bg-emerald-500"
+                        />
+                      </div>
                     </div>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                );
+              })}
             </div>
           )}
         </div>
