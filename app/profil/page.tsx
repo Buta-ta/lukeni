@@ -291,7 +291,7 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
       setIncomingRequests(prev => prev.filter(r => r.id !== requestId));
     } catch (err) {
       console.error('Approve error:', err);
-      alert(lang === 'fr' ? 'Erreur lors de l'approbation' : 'Approval error');
+      alert(lang === 'fr' ? "Erreur lors de l'approbation" : 'Approval error');
     }
   }, [lang]);
 
@@ -311,7 +311,7 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
       setIncomingRequests(prev => prev.filter(r => r.id !== requestId));
     } catch (err) {
       console.error('Reject error:', err);
-      alert(lang === 'fr' ? 'Erreur lors du refus' : 'Rejection error');
+      alert(lang === 'fr' ? "Erreur lors du refus" : 'Rejection error');
     }
   }, [lang]);
 
