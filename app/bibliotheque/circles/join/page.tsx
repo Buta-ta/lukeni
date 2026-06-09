@@ -5,9 +5,9 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Loader2, CheckCircle, AlertCircle, Copy } from 'lucide-react';
+import { ArrowLeft, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
-import CircleLoadingScreen from '@/components/CircleLoadingScreen'; // ✅ AJOUT
+import CircleLoadingScreen from '@/components/CircleLoadingScreen';
 
 const CaurisIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 100 100" className={className} fill="currentColor">
@@ -18,11 +18,11 @@ const CaurisIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-// ✅ NOUVEAU : Composant client qui utilise useSearchParams
 function JoinCircleContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const code = searchParams.get('code');
+  const urlCode = searchParams.get('code');
+  
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
   const [user, setUser] = useState<User | null>(null);
   const [circle, setCircle] = useState<any>(null);
@@ -32,6 +32,13 @@ function JoinCircleContent() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [manualCode, setManualCode] = useState('');
+
+  // ✅ Initialiser manualCode avec le code URL au montage
+  useEffect(() => {
+    if (urlCode) {
+      setManualCode(urlCode.toUpperCase());
+    }
+  }, [urlCode]);
 
   useEffect(() => {
     const savedLang = localStorage.getItem('lukeni_lang') as 'fr' | 'en' | null;
@@ -44,8 +51,11 @@ function JoinCircleContent() {
     getSession();
   }, []);
 
+  // ✅ Charger le cercle dès qu'on a un code (URL ou manuel)
   useEffect(() => {
-    if (!code && !manualCode) {
+    const effectiveCode = urlCode || manualCode;
+    
+    if (!effectiveCode) {
       setIsLoading(false);
       return;
     }
@@ -55,11 +65,10 @@ function JoinCircleContent() {
       setError(null);
 
       try {
-        const searchCode = code || manualCode;
         const { data: circleData, error: circleError } = await supabase
           .from('reading_circles')
           .select('*')
-          .eq('access_code', searchCode.toUpperCase())
+          .eq('access_code', effectiveCode.toUpperCase())
           .single();
 
         if (circleError || !circleData) {
@@ -87,7 +96,7 @@ function JoinCircleContent() {
 
     const timer = setTimeout(loadCircle, 300);
     return () => clearTimeout(timer);
-  }, [code, manualCode, lang]);
+  }, [urlCode, manualCode, lang]);
 
   const handleJoin = async () => {
     if (!user || !circle) return;
@@ -129,8 +138,8 @@ function JoinCircleContent() {
     }
   };
 
-  // ✅ CHANGEMENT ICI : Utilisation de CircleLoadingScreen
-  if (isLoading && code) {
+  // ✅ Meilleure condition de loading
+  if (isLoading && (urlCode || manualCode)) {
     return <CircleLoadingScreen lang={lang} />;
   }
 
@@ -338,13 +347,10 @@ function JoinCircleContent() {
   );
 }
 
-// ✅ Page wrapper avec Suspense
 export default function JoinCirclePage() {
   return (
-    <Suspense fallback={<CircleLoadingScreen />}> {/* ✅ CHANGEMENT ICI */}
+    <Suspense fallback={<CircleLoadingScreen />}>
       <JoinCircleContent />
     </Suspense>
   );
 }
-
-// ✅ SUPPRIMÉ : function LoadingFallback (plus nécessaire)
