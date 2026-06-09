@@ -315,6 +315,49 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
     }
   }, [lang]);
 
+
+    // ── Supprimer un cercle ──
+  const handleDeleteCircle = useCallback(async () => {
+    if (!circleToDelete) return;
+
+    setIsDeletingCircle(true);
+    try {
+      // 1. Supprimer tous les membres du cercle
+      const { error: membersError } = await supabase
+        .from('circle_members')
+        .delete()
+        .eq('circle_id', circleToDelete.id);
+
+      if (membersError) throw membersError;
+
+      // 2. Supprimer toutes les demandes d'adhésion
+      const { error: requestsError } = await supabase
+        .from('circle_join_requests')
+        .delete()
+        .eq('circle_id', circleToDelete.id);
+
+      if (requestsError) throw requestsError;
+
+      // 3. Supprimer le cercle lui-même
+      const { error: circleError } = await supabase
+        .from('reading_circles')
+        .delete()
+        .eq('id', circleToDelete.id);
+
+      if (circleError) throw circleError;
+
+      // Retirer de la liste locale
+      setMyCircles(prev => prev.filter(c => c.id !== circleToDelete.id));
+      setShowDeleteModal(false);
+      setCircleToDelete(null);
+    } catch (err) {
+      console.error('Delete circle error:', err);
+      alert(lang === 'fr' ? "Erreur lors de la suppression du cercle" : 'Circle deletion error');
+    } finally {
+      setIsDeletingCircle(false);
+    }
+  }, [circleToDelete, lang]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -346,139 +389,252 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
     );
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Demandes entrantes (créateur) */}
-      {incomingRequests.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-xs font-bold text-purple-400 uppercase tracking-wider flex items-center gap-2">
-            <Bell size={12} />
-            {lang === 'fr' ? 'Demandes reçues' : 'Incoming requests'} ({incomingRequests.length})
-          </h3>
-          {incomingRequests.map(req => (
-            <div key={req.id}
-              className="p-4 bg-purple-500/5 border border-purple-500/20 rounded-xl space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full overflow-hidden bg-purple-500/20 flex-shrink-0">
-                  {req.profiles?.avatar_url ? (
-                    <img src={req.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <UserIcon size={18} className="text-purple-400" />
+   return (
+    <>
+      {/* ═══════════════════════════════════════════════════════════
+          MODAL DE SUPPRESSION
+      ═══════════════════════════════════════════════════════════ */}
+      <AnimatePresence>
+        {showDeleteModal && circleToDelete && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+            onClick={() => !isDeletingCircle && setShowDeleteModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative bg-gradient-to-br from-[#0d0d1a] to-[#080810] border border-red-500/20 rounded-3xl w-full max-w-md overflow-hidden"
+            >
+              <div className="h-1 w-full bg-gradient-to-r from-red-600 via-red-400 to-red-600" />
+
+              <div className="p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-white font-serif text-xl font-bold">
+                    {lang === 'fr' ? 'Supprimer le cercle ?' : 'Delete circle?'}
+                  </h2>
+                  <button
+                    onClick={() => setShowDeleteModal(false)}
+                    disabled={isDeletingCircle}
+                    className="p-1.5 text-gray-600 hover:text-white transition-colors disabled:opacity-50"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* Circle info */}
+                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+                  <p className="text-red-300 text-xs font-bold mb-1">
+                    {lang === 'fr' ? 'Cercle à supprimer' : 'Circle to delete'}
+                  </p>
+                  <p className="text-white text-sm font-bold">{circleToDelete.name}</p>
+                  {circleToDelete.library_books && (
+                    <p className="text-gray-400 text-xs mt-1">
+                      📖 {lang === 'fr' ? circleToDelete.library_books.title_fr : circleToDelete.library_books.title_en}
+                    </p>
+                  )}
+                </div>
+
+                {/* Warning */}
+                <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                  <AlertCircle size={14} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-amber-300 text-xs">
+                    {lang === 'fr'
+                      ? "Cette action supprimera définitivement le cercle, tous ses membres et toutes les demandes en attente."
+                      : 'This will permanently delete the circle, all its members, and all pending requests.'}
+                  </p>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => setShowDeleteModal(false)}
+                    disabled={isDeletingCircle}
+                    className="flex-1 py-2.5 bg-white/5 border border-white/10 text-white rounded-xl font-bold text-sm hover:bg-white/10 transition-colors disabled:opacity-50"
+                  >
+                    {lang === 'fr' ? 'Annuler' : 'Cancel'}
+                  </button>
+                  <motion.button
+                    whileHover={!isDeletingCircle ? { scale: 1.02 } : {}}
+                    whileTap={!isDeletingCircle ? { scale: 0.98 } : {}}
+                    onClick={handleDeleteCircle}
+                    disabled={isDeletingCircle}
+                    className="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-bold text-sm hover:bg-red-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isDeletingCircle ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        {lang === 'fr' ? 'Suppression...' : 'Deleting...'}
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 size={14} />
+                        {lang === 'fr' ? 'Supprimer' : 'Delete'}
+                      </>
+                    )}
+                  </motion.button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ═══════════════════════════════════════════════════════════
+          CONTENU PRINCIPAL
+      ═══════════════════════════════════════════════════════════ */}
+      <div className="space-y-6">
+        {/* Demandes entrantes (créateur) */}
+        {incomingRequests.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold text-purple-400 uppercase tracking-wider flex items-center gap-2">
+              <Bell size={12} />
+              {lang === 'fr' ? 'Demandes reçues' : 'Incoming requests'} ({incomingRequests.length})
+            </h3>
+            {incomingRequests.map(req => (
+              <div key={req.id}
+                className="p-4 bg-purple-500/5 border border-purple-500/20 rounded-xl space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full overflow-hidden bg-purple-500/20 flex-shrink-0">
+                    {req.profiles?.avatar_url ? (
+                      <img src={req.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <UserIcon size={18} className="text-purple-400" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-bold">
+                      {req.profiles?.full_name || req.profiles?.username || 'Utilisateur'}
+                    </p>
+                    <p className="text-gray-500 text-xs">
+                      {lang === 'fr' ? 'Veut rejoindre' : 'Wants to join'} <span className="text-purple-400">{req.reading_circles?.name}</span>
+                    </p>
+                    {req.message && (
+                      <p className="text-gray-400 text-xs mt-2 italic">« {req.message} »</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleApprove(req.id, req.circle_id, req.user_id)}
+                    className="flex-1 py-2 bg-purple-500 text-white rounded-lg text-xs font-bold hover:bg-purple-600 transition-colors flex items-center justify-center gap-1">
+                    <CheckCircle size={12} />
+                    {lang === 'fr' ? 'Accepter' : 'Accept'}
+                  </button>
+                  <button
+                    onClick={() => handleReject(req.id)}
+                    className="flex-1 py-2 bg-white/5 text-gray-400 rounded-lg text-xs font-bold hover:bg-white/10 transition-colors flex items-center justify-center gap-1">
+                    <X size={12} />
+                    {lang === 'fr' ? 'Refuser' : 'Reject'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Mes demandes en attente */}
+        {pendingRequests.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+              <Clock size={12} />
+              {lang === 'fr' ? 'Demandes en attente' : 'Pending requests'} ({pendingRequests.length})
+            </h3>
+            {pendingRequests.map(req => (
+              <div key={req.id}
+                className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl flex items-center justify-between">
+                <div>
+                  <p className="text-white text-sm font-medium">{req.reading_circles?.name}</p>
+                  <p className="text-gray-500 text-xs mt-0.5">
+                    {lang === 'fr' ? 'En attente de réponse...' : 'Waiting for response...'}
+                  </p>
+                </div>
+                <Loader2 size={14} className="animate-spin text-amber-400" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Mes cercles */}
+        {myCircles.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+              <Star size={12} />
+              {lang === 'fr' ? 'Mes cercles' : 'My circles'} ({myCircles.length})
+            </h3>
+            {myCircles.map(circle => (
+              <div key={circle.id}
+                className="group flex items-center gap-3 p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl hover:border-emerald-500/30 transition-all">
+                <Link href={`/bibliotheque/circles/${circle.id}`}
+                  className="flex-1 flex items-center gap-3 min-w-0">
+                  {circle.library_books?.cover_url && (
+                    <div className="w-12 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                      <img src={circle.library_books.cover_url} alt="" className="w-full h-full object-cover" />
                     </div>
                   )}
-                </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-bold group-hover:text-emerald-400 transition-colors">{circle.name}</p>
+                    {circle.library_books && (
+                      <p className="text-gray-500 text-xs truncate">
+                        📖 {lang === 'fr' ? circle.library_books.title_fr : circle.library_books.title_en}
+                      </p>
+                    )}
+                  </div>
+                  <ChevronRight size={14} className="text-gray-700 group-hover:text-emerald-400" />
+                </Link>
+                
+                {/* ✅ Bouton supprimer */}
+                <button
+                  onClick={() => {
+                    setCircleToDelete(circle);
+                    setShowDeleteModal(true);
+                  }}
+                  className="p-2 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-400/10 transition-all opacity-0 group-hover:opacity-100 flex-shrink-0"
+                  title={lang === 'fr' ? 'Supprimer ce cercle' : 'Delete this circle'}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Cercles rejoints */}
+        {joinedCircles.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+              <Users size={12} />
+              {lang === 'fr' ? 'Cercles rejoints' : 'Joined circles'} ({joinedCircles.length})
+            </h3>
+            {joinedCircles.map(circle => (
+              <Link key={circle.id} href={`/bibliotheque/circles/${circle.id}`}
+                className="flex items-center gap-3 p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl hover:border-blue-500/30 transition-all group">
+                {circle.library_books?.cover_url && (
+                  <div className="w-12 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                    <img src={circle.library_books.cover_url} alt="" className="w-full h-full object-cover" />
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm font-bold">
-                    {req.profiles?.full_name || req.profiles?.username || 'Utilisateur'}
-                  </p>
-                  <p className="text-gray-500 text-xs">
-                    {lang === 'fr' ? 'Veut rejoindre' : 'Wants to join'} <span className="text-purple-400">{req.reading_circles?.name}</span>
-                  </p>
-                  {req.message && (
-                    <p className="text-gray-400 text-xs mt-2 italic">« {req.message} »</p>
+                  <p className="text-white text-sm font-bold group-hover:text-blue-400 transition-colors">{circle.name}</p>
+                  {circle.library_books && (
+                    <p className="text-gray-500 text-xs truncate">
+                      📖 {lang === 'fr' ? circle.library_books.title_fr : circle.library_books.title_en}
+                    </p>
                   )}
                 </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleApprove(req.id, req.circle_id, req.user_id)}
-                  className="flex-1 py-2 bg-purple-500 text-white rounded-lg text-xs font-bold hover:bg-purple-600 transition-colors flex items-center justify-center gap-1">
-                  <CheckCircle size={12} />
-                  {lang === 'fr' ? 'Accepter' : 'Accept'}
-                </button>
-                <button
-                  onClick={() => handleReject(req.id)}
-                  className="flex-1 py-2 bg-white/5 text-gray-400 rounded-lg text-xs font-bold hover:bg-white/10 transition-colors flex items-center justify-center gap-1">
-                  <X size={12} />
-                  {lang === 'fr' ? 'Refuser' : 'Reject'}
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Mes demandes en attente */}
-      {pendingRequests.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
-            <Clock size={12} />
-            {lang === 'fr' ? 'Demandes en attente' : 'Pending requests'} ({pendingRequests.length})
-          </h3>
-          {pendingRequests.map(req => (
-            <div key={req.id}
-              className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl flex items-center justify-between">
-              <div>
-                <p className="text-white text-sm font-medium">{req.reading_circles?.name}</p>
-                <p className="text-gray-500 text-xs mt-0.5">
-                  {lang === 'fr' ? 'En attente de réponse...' : 'Waiting for response...'}
-                </p>
-              </div>
-              <Loader2 size={14} className="animate-spin text-amber-400" />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Mes cercles */}
-      {myCircles.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
-            <Star size={12} />
-            {lang === 'fr' ? 'Mes cercles' : 'My circles'} ({myCircles.length})
-          </h3>
-          {myCircles.map(circle => (
-            <Link key={circle.id} href={`/bibliotheque/circles/${circle.id}`}
-              className="flex items-center gap-3 p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl hover:border-emerald-500/30 transition-all group">
-              {circle.library_books?.cover_url && (
-                <div className="w-12 h-16 rounded-lg overflow-hidden flex-shrink-0">
-                  <img src={circle.library_books.cover_url} alt="" className="w-full h-full object-cover" />
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-white text-sm font-bold group-hover:text-emerald-400 transition-colors">{circle.name}</p>
-                {circle.library_books && (
-                  <p className="text-gray-500 text-xs truncate">
-                    📖 {lang === 'fr' ? circle.library_books.title_fr : circle.library_books.title_en}
-                  </p>
-                )}
-              </div>
-              <ChevronRight size={14} className="text-gray-700 group-hover:text-emerald-400" />
-            </Link>
-          ))}
-        </div>
-      )}
-
-      {/* Cercles rejoints */}
-      {joinedCircles.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
-            <Users size={12} />
-            {lang === 'fr' ? 'Cercles rejoints' : 'Joined circles'} ({joinedCircles.length})
-          </h3>
-          {joinedCircles.map(circle => (
-            <Link key={circle.id} href={`/bibliotheque/circles/${circle.id}`}
-              className="flex items-center gap-3 p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl hover:border-blue-500/30 transition-all group">
-              {circle.library_books?.cover_url && (
-                <div className="w-12 h-16 rounded-lg overflow-hidden flex-shrink-0">
-                  <img src={circle.library_books.cover_url} alt="" className="w-full h-full object-cover" />
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-white text-sm font-bold group-hover:text-blue-400 transition-colors">{circle.name}</p>
-                {circle.library_books && (
-                  <p className="text-gray-500 text-xs truncate">
-                    📖 {lang === 'fr' ? circle.library_books.title_fr : circle.library_books.title_en}
-                  </p>
-                )}
-              </div>
-              <ChevronRight size={14} className="text-gray-700 group-hover:text-blue-400" />
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
+                <ChevronRight size={14} className="text-gray-700 group-hover:text-blue-400" />
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -492,6 +648,10 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
 function UserFavorites({ lang }: { lang: 'fr' | 'en' }) {
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [circleToDelete, setCircleToDelete] = useState<any>(null);
+  const [isDeletingCircle, setIsDeletingCircle] = useState(false);
   const [filter, setFilter] = useState<'all' | 'article' | 'press' | 'book' | 'event' | 'wiki'>('all');
 
   useEffect(() => {
