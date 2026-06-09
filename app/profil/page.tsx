@@ -316,7 +316,7 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
   }, [lang]);
 
 
-    // ── Supprimer un cercle ──
+   // ── Supprimer un cercle ──
   const handleDeleteCircle = useCallback(async () => {
     if (!circleToDelete) return;
 
