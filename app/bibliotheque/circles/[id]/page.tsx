@@ -108,6 +108,8 @@ export default function CirclePage() {
   const [repliedToMessage, setRepliedToMessage] = useState<ChatMessage | null>(null);
   const [mentions, setMentions] = useState<string[]>([]);
 
+  const [rejectedRequestsCount, setRejectedRequestsCount] = useState(0);
+
   // ── Auth ──
   useEffect(() => {
     const getSession = async () => {
@@ -154,6 +156,7 @@ export default function CirclePage() {
 
 
   // ✅ Vérifier que l'utilisateur est toujours membre
+  // ✅ Vérifier que l'utilisateur est toujours membre + compter les demandes rejetées
   useEffect(() => {
     if (!user || !circle) return;
 
@@ -165,18 +168,50 @@ export default function CirclePage() {
         .eq('user_id', user.id)
         .maybeSingle();
 
-      // Si pas membre et pas créateur → rediriger
+      // Si pas membre et pas créateur
       if (!memberData && circle.creator_id !== user.id) {
-        router.push('/bibliotheque');
+        // Vérifier les demandes rejetées
+        const { data: rejectedRequests } = await supabase
+          .from('circle_join_requests')
+          .select('id, status')
+          .eq('circle_id', circle.id)
+          .eq('user_id', user.id)
+          .eq('status', 'rejected');
+
+        const rejectedCount = rejectedRequests?.length || 0;
+
+        // Si 3 rejets → bloquer l'accès
+        if (rejectedCount >= 3) {
+          router.push('/bibliotheque');
+        }
       }
     };
 
     checkMembership();
 
-    // Vérifier chaque 5 secondes (pour détecter si quelqu'un te kick)
+    // Vérifier chaque 5 secondes
     const interval = setInterval(checkMembership, 5000);
     return () => clearInterval(interval);
   }, [user, circle, router]);
+
+
+  // ✅ Charger le compte des demandes rejetées
+  useEffect(() => {
+    if (!user || !circle) return;
+
+    const loadRejectedCount = async () => {
+      const { data: rejectedRequests } = await supabase
+        .from('circle_join_requests')
+        .select('id')
+        .eq('circle_id', circle.id)
+        .eq('user_id', user.id)
+        .eq('status', 'rejected');
+
+      setRejectedRequestsCount(rejectedRequests?.length || 0);
+    };
+
+    loadRejectedCount();
+  }, [user, circle]);
   // ============================================================================
   // FONCTIONS : Chat Features
   // ============================================================================
@@ -289,7 +324,64 @@ export default function CirclePage() {
   const avgProgress = members.length > 0
     ? Math.round(members.reduce((acc, m) => acc + m.current_page, 0) / members.length)
     : 0;
+  
 
+
+
+  // ✅ AJOUTE CECI ICI
+  if (
+    !isCreator &&
+    !members.some(m => m.user_id === user?.id) &&
+    rejectedRequestsCount >= 3
+  ) {
+    return (
+      <div className="fixed inset-0 bg-[#020111] flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-md w-full space-y-6"
+        >
+          <div className="text-center space-y-3">
+            <div className="w-16 h-16 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center mx-auto mb-4">
+              <AlertCircleIcon size={32} className="text-red-400" />
+            </div>
+            <h1 className="text-3xl font-serif font-bold text-white">
+              {lang === 'fr' ? '❌ Accès refusé' : '❌ Access denied'}
+            </h1>
+            <p className="text-gray-400">
+              {lang === 'fr'
+                ? "Vous avez dépassé le nombre de demandes d'adhésion pour ce cercle."
+                : 'You have exceeded the number of membership requests for this circle.'}
+            </p>
+          </div>
+
+          <div className="bg-gradient-to-br from-[#0d0d1a] to-[#080810] border border-red-500/20 rounded-3xl p-6">
+            <p className="text-red-300 text-sm mb-2">
+              {lang === 'fr' ? '📋 Votre historique' : '📋 Your history'}
+            </p>
+            <div className="space-y-1">
+              <p className="text-white text-xs">
+                <span className="text-red-400 font-bold">3/3</span> {lang === 'fr' ? 'demandes rejetées' : 'requests rejected'}
+              </p>
+              <p className="text-gray-500 text-xs">
+                {lang === 'fr'
+                  ? 'Le créateur a refusé vos demandes.'
+                  : 'The creator rejected your requests.'}
+              </p>
+            </div>
+          </div>
+
+          <a
+            href="/bibliotheque"
+            className="w-full py-3 bg-white/5 border border-white/10 text-white rounded-xl font-bold text-sm hover:bg-white/10 transition-colors flex items-center justify-center"
+          >
+            {lang === 'fr' ? 'Retour à la bibliothèque' : 'Back to library'}
+          </a>
+        </motion.div>
+      </div>
+    );
+  }
+  
   return (
     <div className="fixed inset-0 bg-[#020111] flex flex-col md:flex-row text-white overflow-hidden">
       {/* ═══════════════════════════════════════════════════════════
@@ -488,12 +580,16 @@ export default function CirclePage() {
                               animate={{ opacity: 1, y: 0 }}
                               className="group flex gap-2"
                             >
-                              <div className="relative flex-shrink-0">
-                                <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-xs font-bold">
-                                  {displayName?.[0]?.toUpperCase() || '?'}
+                              <div className="relative w-8 h-8 flex-shrink-0">
+                                <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-xs font-bold overflow-hidden">
+                                  {memberProfile?.avatar_url ? (
+                                    <img src={memberProfile.avatar_url} alt={displayName} className="w-full h-full object-cover" />
+                                  ) : (
+                                    displayName?.[0]?.toUpperCase() || '?'
+                                  )}
                                 </div>
                                 {isOnline && (
-                                  <div className="absolute bottom-0.5 right-0.5 w-2 h-2 rounded-full bg-emerald-500 border border-[#0a0a14] shadow-lg" />
+                                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[#0a0a14] shadow-lg" />
                                 )}
                               </div>
 
@@ -677,12 +773,16 @@ export default function CirclePage() {
                       >
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2 min-w-0">
-                            <div className="relative">
-                              <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex-shrink-0 flex items-center justify-center text-emerald-400 text-xs font-bold">
-                                {member.profiles?.full_name?.[0] || '?'}
+                            <div className="relative w-8 h-8 flex-shrink-0">
+                              <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex-shrink-0 flex items-center justify-center text-emerald-400 text-xs font-bold overflow-hidden">
+                                {member.profiles?.avatar_url ? (
+                                  <img src={member.profiles.avatar_url} alt={member.profiles?.full_name} className="w-full h-full object-cover" />
+                                ) : (
+                                  member.profiles?.full_name?.[0] || '?'
+                                )}
                               </div>
                               {isOnline && (
-                                <div className="absolute bottom-0.5 right-0.5 w-2 h-2 rounded-full bg-emerald-500 border border-[#0a0a14] shadow-lg" />
+                                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[#0a0a14] shadow-lg" />
                               )}
                             </div>
                             <div className="min-w-0">
