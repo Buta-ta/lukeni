@@ -238,13 +238,17 @@ export default function CirclePage() {
   }, [messages]);
 
   // ✅ Préparer les stats enrichies
+  // ✅ Préparer les stats enrichies
   const enrichedStats = useMemo(() => {
-    if (!stats || !currentMember) return null;
+    if (!stats) return null;
+    const member = members.find(m => m.user_id === user?.id);
+    if (!member) return stats;
+    
     return {
       ...stats,
-      your_page: currentMember.current_page,
+      your_page: member.current_page,
     };
-  }, [stats, members, user]);
+  }, [stats, members, user?.id]);
 
   if (isLoading || !circle || !book) {
     return <CircleLoadingScreen lang={lang} />;
