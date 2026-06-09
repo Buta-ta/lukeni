@@ -310,13 +310,16 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
           
           const booksMap = new Map(books?.map(b => [b.id, b]) || []);
 
-          enrichedPending = pending.map(p => ({
-            ...p,
-            reading_circles: {
-              ...circlesMap.get(p.circle_id),
-              library_books: booksMap.get(circlesMap.get(p.circle_id)?.book_id),
-            },
-          }));
+                   enrichedPending = pending.map(p => {
+            const circle = circlesMap.get(p.circle_id);
+            return {
+              ...p,
+              reading_circles: circle ? {
+                ...circle,
+                library_books: booksMap.get(circle.book_id),
+              } : null,
+            };
+          });
         }
 
         // 4. Demandes entrantes (pour mes cercles)
@@ -349,12 +352,12 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
 
           const profilesMap = new Map(profiles?.map(p => [p.id, p]) || []);
 
-          enrichedIncoming = incoming
+                    enrichedIncoming = incoming
             .filter(req => myCircleIds.includes(req.circle_id))
             .map(r => ({
               ...r,
-              reading_circles: circlesMap.get(r.circle_id),
-              profiles: profilesMap.get(r.user_id),
+              reading_circles: circlesMap.get(r.circle_id) || null,
+              profiles: profilesMap.get(r.user_id) || null,
             }));
         }
 
