@@ -69,7 +69,7 @@ export default function CirclePage() {
 
 
 
-  
+
   const params = useParams();
   const router = useRouter();
   const circleId = params.id as string;
@@ -153,7 +153,7 @@ export default function CirclePage() {
   }, [messages]);
 
 
-    // ✅ Vérifier que l'utilisateur est toujours membre
+  // ✅ Vérifier que l'utilisateur est toujours membre
   useEffect(() => {
     if (!user || !circle) return;
 
@@ -254,7 +254,7 @@ export default function CirclePage() {
   // ✅ Filtrer les messages
   const filteredMessages = useMemo(() => {
     if (!searchQuery.trim()) return messages;
-    
+
     const query = searchQuery.toLowerCase();
     return messages.filter(msg =>
       msg.content.toLowerCase().includes(query) ||
@@ -273,7 +273,7 @@ export default function CirclePage() {
     if (!stats) return null;
     const member = members.find(m => m.user_id === user?.id);
     if (!member) return stats;
-    
+
     return {
       ...stats,
       your_page: member.current_page,
@@ -402,7 +402,7 @@ export default function CirclePage() {
         )}
       </div>
 
-           {/* ═══════════════════════════════════════════════════════════
+      {/* ═══════════════════════════════════════════════════════════
           PANNEAU LATÉRAL (droite / bas) - RÉDUCTIBLE
       ═══════════════════════════════════════════════════════════ */}
       <motion.div
@@ -423,11 +423,10 @@ export default function CirclePage() {
                 <button
                   key={key}
                   onClick={() => setSidebarMode(key)}
-                  className={`flex items-center justify-center gap-2 py-3 px-3 text-sm font-bold transition-all flex-shrink-0 whitespace-nowrap ${
-                    sidebarMode === key
-                      ? 'text-emerald-400 border-b-2 border-emerald-400'
-                      : 'text-gray-500 hover:text-gray-300'
-                  }`}
+                  className={`flex items-center justify-center gap-2 py-3 px-3 text-sm font-bold transition-all flex-shrink-0 whitespace-nowrap ${sidebarMode === key
+                    ? 'text-emerald-400 border-b-2 border-emerald-400'
+                    : 'text-gray-500 hover:text-gray-300'
+                    }`}
                 >
                   <Icon size={16} />
                   <span className="hidden sm:inline">{label}</span>
@@ -494,7 +493,7 @@ export default function CirclePage() {
                                   {displayName?.[0]?.toUpperCase() || '?'}
                                 </div>
                                 {isOnline && (
-                                  <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-[#0a0a14]" />
+                                  <div className="absolute bottom-0.5 right-0.5 w-2 h-2 rounded-full bg-emerald-500 border border-[#0a0a14] shadow-lg" />
                                 )}
                               </div>
 
@@ -546,11 +545,10 @@ export default function CirclePage() {
                                   {isCreator && (
                                     <button
                                       onClick={() => msg.isPinned ? unpinMessage(msg.id) : pinMessage(circleId, msg.id)}
-                                      className={`p-1 transition-colors rounded ${
-                                        msg.isPinned
-                                          ? 'text-amber-400'
-                                          : 'text-gray-600 hover:text-amber-400'
-                                      }`}
+                                      className={`p-1 transition-colors rounded ${msg.isPinned
+                                        ? 'text-amber-400'
+                                        : 'text-gray-600 hover:text-amber-400'
+                                        }`}
                                       title={lang === 'fr' ? 'Épingler' : 'Pin'}
                                     >
                                       <Pin size={12} />
@@ -684,7 +682,7 @@ export default function CirclePage() {
                                 {member.profiles?.full_name?.[0] || '?'}
                               </div>
                               {isOnline && (
-                                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-[#0a0a14]" />
+                                <div className="absolute bottom-0.5 right-0.5 w-2 h-2 rounded-full bg-emerald-500 border border-[#0a0a14] shadow-lg" />
                               )}
                             </div>
                             <div className="min-w-0">
@@ -730,15 +728,43 @@ export default function CirclePage() {
         )}
       </motion.div>
 
-      {/* ✅ BOUTON TOGGLE SIDEBAR */}
+      {/* ✅ BOUTON TOGGLE SIDEBAR - DÉPLAÇABLE */}
       <motion.button
-        whileHover={{ scale: 1.05 }}
+        drag
+        dragMomentum={false}
+        dragElastic={0.2}
+        whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}
-        className="fixed right-6 bottom-6 md:bottom-auto md:top-20 z-40 w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all flex items-center justify-center font-bold"
+        className={`fixed z-50 w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg transition-all cursor-grab active:cursor-grabbing ${isSidebarExpanded
+          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
+          : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
+          }`}
+        style={{
+          bottom: 100,
+          right: 24,
+        }}
         title={lang === 'fr' ? (isSidebarExpanded ? 'Réduire' : 'Agrandir') : (isSidebarExpanded ? 'Collapse' : 'Expand')}
       >
         {isSidebarExpanded ? '◄' : '►'}
+
+        {/* 🔴 NOTIFICATION ROUGE - Nouveau message */}
+        {messages.length > 0 && (
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 border-2 border-[#020111] animate-pulse"
+          />
+        )}
+
+        {/* 🔵 NOTIFICATION BLEU - Nouveau repère */}
+        {bookmarks.length > 0 && (
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-blue-500 border-2 border-[#020111] animate-pulse"
+          />
+        )}
       </motion.button>
 
       {/* ═══════════════════════════════════════════════════════════
