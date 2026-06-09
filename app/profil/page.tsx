@@ -12,7 +12,7 @@ import {
   Bell, BellOff, Star, Calendar, FileText,
   Edit3, ChevronRight, TrendingUp, Clock,
   CheckCircle, Search,
-  Trash2, ShieldAlert, TriangleAlert,Users
+  Trash2, ShieldAlert, TriangleAlert,Users,AlertCircle
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 
@@ -209,7 +209,7 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [circleToDelete, setCircleToDelete] = useState<any>(null);
   const [isDeletingCircle, setIsDeletingCircle] = useState(false);
-  
+
   const [myCircles, setMyCircles] = useState<any[]>([]);
   const [joinedCircles, setJoinedCircles] = useState<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
