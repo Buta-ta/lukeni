@@ -1713,19 +1713,46 @@ export default function BibliothequePage() {
           {lang === 'fr' ? 'Aucun cercle trouvé' : 'No circles found'}
         </div>
       ) : (
-        circles.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase())).map(circle => (
-          <Link key={circle.id} href={`/bibliotheque/circles/${circle.id}`}
-            className="flex items-center gap-3 px-4 py-3 hover:bg-purple-500/10 transition-colors border-b border-white/[0.03] last:border-b-0 cursor-pointer">
-            <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 font-bold text-sm flex-shrink-0">
-              👥
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white text-sm font-bold truncate">{circle.name}</p>
-              <p className="text-gray-500 text-xs truncate">{circle.max_members} {lang === 'fr' ? 'places' : 'spots'}</p>
-            </div>
-            <ChevronRight size={14} className="text-gray-700" />
-          </Link>
-        ))
+        circles
+          .filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()))
+          .map(circle => {
+            // ✅ Récupérer le livre associé
+            const circleBook = books.find(b => b.id === circle.book_id);
+            
+            return (
+              <Link key={circle.id} href={`/bibliotheque/circles/${circle.id}`}
+                className="flex items-center gap-3 px-4 py-3 hover:bg-purple-500/10 transition-colors border-b border-white/[0.03] last:border-b-0 cursor-pointer">
+                
+                {/* ✅ Afficher la couverture du livre */}
+                {circleBook?.cover_url ? (
+                  <div className="w-10 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-purple-500/10">
+                    <img src={circleBook.cover_url} alt="" className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 font-bold text-sm flex-shrink-0">
+                    👥
+                  </div>
+                )}
+
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-sm font-bold truncate">{circle.name}</p>
+                  
+                  {/* ✅ Afficher le titre du livre */}
+                  {circleBook && (
+                    <p className="text-gray-500 text-xs truncate">
+                      📖 {lang === 'fr' ? circleBook.title_fr : circleBook.title_en}
+                    </p>
+                  )}
+                  
+                  <p className="text-gray-600 text-xs truncate mt-0.5">
+                    {circle.max_members} {lang === 'fr' ? 'places' : 'spots'}
+                  </p>
+                </div>
+                
+                <ChevronRight size={14} className="text-gray-700" />
+              </Link>
+            );
+          })
       )}
     </motion.div>
   )}

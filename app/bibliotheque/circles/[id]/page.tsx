@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useCallback as useCallbackAlias } from 'react';
+import { AlertCircle as AlertCircleIcon } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -57,6 +58,13 @@ export default function CirclePage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+    // ── Demande d'adhésion ──
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [joinMessage, setJoinMessage] = useState('');
+  const [isSubmittingJoinRequest, setIsSubmittingJoinRequest] = useState(false);
+  const [joinRequestStatus, setJoinRequestStatus] = useState<'none' | 'pending' | 'approved' | 'rejected'>('none');
+  const [hasExistingRequest, setHasExistingRequest] = useState(false);
+
   // ── Auth ──
   useEffect(() => {
     const getSession = async () => {
@@ -72,6 +80,45 @@ export default function CirclePage() {
     const savedLang = localStorage.getItem('lukeni_lang') as 'fr' | 'en' | null;
     if (savedLang) setLang(savedLang);
   }, [router]);
+
+  // ── Vérifier le statut de la demande d'adhésion ──
+  useEffect(() => {
+    if (!user || !circleId) return;
+
+    const checkJoinRequest = async () => {
+      try {
+        // Vérifier si l'utilisateur est déjà membre
+        const { data: memberData } = await supabase
+          .from('circle_members')
+          .select('id')
+          .eq('circle_id', circleId)
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (memberData) {
+          setJoinRequestStatus('approved');
+          return;
+        }
+
+        // Vérifier s'il y a une demande existante
+        const { data: requestData } = await supabase
+          .from('circle_join_requests')
+          .select('id, status')
+          .eq('circle_id', circleId)
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (requestData) {
+          setHasExistingRequest(true);
+          setJoinRequestStatus(requestData.status as any);
+        }
+      } catch (err) {
+        console.error('Check join request error:', err);
+      }
+    };
+
+    checkJoinRequest();
+  }, [user, circleId]);
 
   // ── Charger le livre ──
   useEffect(() => {
@@ -122,6 +169,53 @@ export default function CirclePage() {
     setCopiedCode(code);
     setTimeout(() => setCopiedCode(null), 2000);
   }, []);
+
+
+    // ── Soumettre une demande d'adhésion ──
+  const handleSubmitJoinRequest = useCallback(async () => {
+    if (!user || !circle || !joinMessage.trim()) return;
+
+    setIsSubmittingJoinRequest(true);
+    try {
+      const { error } = await supabase
+        .from('circle_join_requests')
+        .insert({
+          circle_id: circle.id,
+          user_id: user.id,
+          message: joinMessage.trim(),
+          status: 'pending',
+        });
+
+      if (error) {
+        if (error.code === '23505') {
+          // UNIQUE constraint : demande déjà existante
+          alert(
+            lang === 'fr'
+              ? 'Vous avez déjà une demande en attente pour ce cercle'
+              : 'You already have a pending request for this circle'
+          );
+        } else {
+          throw error;
+        }
+        return;
+      }
+
+      setJoinRequestStatus('pending');
+      setHasExistingRequest(true);
+      setShowJoinModal(false);
+      setJoinMessage('');
+      alert(
+        lang === 'fr'
+          ? '✅ Demande envoyée ! Le créateur répondra bientôt'
+          : '✅ Request sent! The creator will respond soon'
+      );
+    } catch (err) {
+      console.error('Submit join request error:', err);
+      alert(lang === 'fr' ? 'Erreur lors de l\'envoi' : 'Error sending request');
+    } finally {
+      setIsSubmittingJoinRequest(false);
+    }
+  }, [user, circle, joinMessage, lang]);
 
   // ── Quitter le cercle ──
   const handleLeaveCircle = useCallback(async () => {
@@ -176,11 +270,35 @@ export default function CirclePage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex items-center gap-2 flex-shrink-0">
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
               <Eye size={12} className="text-emerald-400" />
               <span className="text-emerald-400 text-xs font-bold">{members.length}</span>
             </div>
+
+            {/* ✅ BOUTON DEMANDER À REJOINDRE */}
+            {!isCreator && joinRequestStatus !== 'approved' && (
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowJoinModal(true)}
+                disabled={joinRequestStatus === 'pending'}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  joinRequestStatus === 'pending'
+                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 cursor-not-allowed'
+                    : joinRequestStatus === 'rejected'
+                    ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                    : 'bg-purple-500/20 text-purple-400 border border-purple-500/30 hover:bg-purple-500/30'
+                }`}
+              >
+                {joinRequestStatus === 'pending'
+                  ? lang === 'fr' ? '⏳ En attente' : '⏳ Pending'
+                  : joinRequestStatus === 'rejected'
+                  ? lang === 'fr' ? '❌ Refusé' : '❌ Rejected'
+                  : lang === 'fr' ? '👥 Demander' : '👥 Request'}
+              </motion.button>
+            )}
+
             {isCreator && (
               <button
                 onClick={() => setShowSettings(!showSettings)}
@@ -548,6 +666,114 @@ export default function CirclePage() {
     <LogOut size={18} />
   </motion.button>
 )}
+
+
+
+      {/* ═══════════════════════════════════════════════════════════
+          MODAL DEMANDE D'ADHÉSION
+      ═══════════════════════════════════════════════════════════ */}
+      <AnimatePresence>
+        {showJoinModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+            onClick={() => setShowJoinModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative bg-gradient-to-br from-[#0d0d1a] to-[#080810] border border-white/[0.07] rounded-3xl w-full max-w-md overflow-hidden"
+            >
+              <div className="h-1 w-full bg-gradient-to-r from-purple-500 to-purple-400" />
+
+              <div className="p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-white font-serif text-xl font-bold">
+                    {lang === 'fr' ? 'Demander à rejoindre' : 'Request to join'}
+                  </h2>
+                  <button
+                    onClick={() => setShowJoinModal(false)}
+                    className="p-1.5 text-gray-600 hover:text-white transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* Circle info */}
+                <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-xl">
+                  <p className="text-purple-300 text-xs font-bold mb-1">
+                    {lang === 'fr' ? 'Cercle' : 'Circle'}
+                  </p>
+                  <p className="text-white text-sm font-bold">{circle?.name}</p>
+                </div>
+
+                {/* Message input */}
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-2">
+                    {lang === 'fr' ? 'Message au créateur' : 'Message to creator'}
+                  </label>
+                  <textarea
+                    value={joinMessage}
+                    onChange={(e) => setJoinMessage(e.target.value)}
+                    placeholder={
+                      lang === 'fr'
+                        ? 'Ex: Je suis passionnée par ce livre et j\'aimerais rejoindre votre groupe...'
+                        : 'Ex: I\'m passionate about this book and would love to join your group...'
+                    }
+                    maxLength={300}
+                    rows={4}
+                    className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-purple-500/50 transition-colors resize-none placeholder:text-gray-600"
+                  />
+                  <p className="text-gray-600 text-[10px] mt-1">{joinMessage.length}/300</p>
+                </div>
+
+                {/* Info */}
+                <div className="flex items-start gap-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                  <AlertCircle size={14} className="text-blue-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-blue-300 text-xs">
+                    {lang === 'fr'
+                      ? 'Le créateur examinera votre demande et vous notifiera de sa réponse'
+                      : 'The creator will review your request and notify you of their response'}
+                  </p>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => setShowJoinModal(false)}
+                    className="flex-1 py-2.5 bg-white/5 border border-white/10 text-white rounded-xl font-bold text-sm hover:bg-white/10 transition-colors"
+                  >
+                    {lang === 'fr' ? 'Annuler' : 'Cancel'}
+                  </button>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleSubmitJoinRequest}
+                    disabled={!joinMessage.trim() || isSubmittingJoinRequest}
+                    className="flex-1 py-2.5 bg-purple-500 text-white rounded-xl font-bold text-sm hover:bg-purple-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isSubmittingJoinRequest ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        {lang === 'fr' ? 'Envoi...' : 'Sending...'}
+                      </>
+                    ) : (
+                      <>
+                        <Send size={14} />
+                        {lang === 'fr' ? 'Envoyer' : 'Send'}
+                      </>
+                    )}
+                  </motion.button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

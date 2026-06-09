@@ -12,7 +12,7 @@ import {
   Bell, BellOff, Star, Calendar, FileText,
   Edit3, ChevronRight, TrendingUp, Clock,
   CheckCircle, Search,
-  Trash2, ShieldAlert, TriangleAlert
+  Trash2, ShieldAlert, TriangleAlert?,Users
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 
@@ -198,6 +198,289 @@ const FavoriteCard = memo(({ item, lang, onRemove }: {
   );
 });
 FavoriteCard.displayName = 'FavoriteCard';
+
+
+// ============================================================================
+// USER CIRCLES — Gestion des cercles de lecture
+// ============================================================================
+
+function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
+  const [myCircles, setMyCircles] = useState<any[]>([]);
+  const [joinedCircles, setJoinedCircles] = useState<any[]>([]);
+  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+  const [incomingRequests, setIncomingRequests] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!userId) { setIsLoading(false); return; }
+
+    const fetchCirclesData = async () => {
+      try {
+        // Cercles créés par moi
+        const { data: created } = await supabase
+          .from('reading_circles')
+          .select('*, library_books(title_fr, title_en, cover_url)')
+          .eq('creator_id', userId)
+          .order('created_at', { ascending: false });
+
+        // Cercles rejoints
+        const { data: joined } = await supabase
+          .from('circle_members')
+          .select('*, reading_circles(*, library_books(title_fr, title_en, cover_url))')
+          .eq('user_id', userId)
+          .neq('role', 'creator')
+          .order('joined_at', { ascending: false });
+
+        // Mes demandes en attente
+        const { data: pending } = await supabase
+          .from('circle_join_requests')
+          .select('*, reading_circles(name, library_books(title_fr, title_en))')
+          .eq('user_id', userId)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false });
+
+        // Demandes entrantes (pour mes cercles)
+        const { data: incoming } = await supabase
+          .from('circle_join_requests')
+          .select(`
+            *,
+            reading_circles!inner(id, name, creator_id),
+            profiles(full_name, username, avatar_url)
+          `)
+          .eq('reading_circles.creator_id', userId)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false });
+
+        setMyCircles(created || []);
+        setJoinedCircles(joined?.map(j => j.reading_circles) || []);
+        setPendingRequests(pending || []);
+        setIncomingRequests(incoming || []);
+      } catch (err) {
+        console.error('Fetch circles error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCirclesData();
+  }, [userId]);
+
+  const handleApprove = useCallback(async (requestId: string, circleId: string, requestUserId: string) => {
+    try {
+      // 1. Ajouter le membre
+      const { error: memberError } = await supabase
+        .from('circle_members')
+        .insert({
+          circle_id: circleId,
+          user_id: requestUserId,
+          role: 'member',
+          current_page: 1,
+        });
+
+      if (memberError) throw memberError;
+
+      // 2. Marquer la demande comme approuvée
+      const { error: updateError } = await supabase
+        .from('circle_join_requests')
+        .update({ status: 'approved', updated_at: new Date().toISOString() })
+        .eq('id', requestId);
+
+      if (updateError) throw updateError;
+
+      // Retirer de la liste
+      setIncomingRequests(prev => prev.filter(r => r.id !== requestId));
+    } catch (err) {
+      console.error('Approve error:', err);
+      alert(lang === 'fr' ? 'Erreur lors de l'approbation' : 'Approval error');
+    }
+  }, [lang]);
+
+  const handleReject = useCallback(async (requestId: string, comment?: string) => {
+    try {
+      const { error } = await supabase
+        .from('circle_join_requests')
+        .update({
+          status: 'rejected',
+          admin_comment: comment || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', requestId);
+
+      if (error) throw error;
+
+      setIncomingRequests(prev => prev.filter(r => r.id !== requestId));
+    } catch (err) {
+      console.error('Reject error:', err);
+      alert(lang === 'fr' ? 'Erreur lors du refus' : 'Rejection error');
+    }
+  }, [lang]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 size={20} className="animate-spin text-purple-400" />
+      </div>
+    );
+  }
+
+  const totalCircles = myCircles.length + joinedCircles.length;
+
+  if (totalCircles === 0 && pendingRequests.length === 0 && incomingRequests.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-14 gap-4 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
+          <Users size={24} className="text-purple-400/60" />
+        </div>
+        <div>
+          <p className="text-white font-medium mb-1">
+            {lang === 'fr' ? 'Aucun cercle' : 'No circles'}
+          </p>
+          <p className="text-gray-500 text-sm">
+            {lang === 'fr' ? 'Créez ou rejoignez un cercle de lecture' : 'Create or join a reading circle'}
+          </p>
+        </div>
+        <Link href="/bibliotheque" className="flex items-center gap-2 text-xs text-purple-400 font-bold hover:underline">
+          <Users size={11} /> {lang === 'fr' ? 'Explorer' : 'Explore'} <ChevronRight size={11} />
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Demandes entrantes (créateur) */}
+      {incomingRequests.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-purple-400 uppercase tracking-wider flex items-center gap-2">
+            <Bell size={12} />
+            {lang === 'fr' ? 'Demandes reçues' : 'Incoming requests'} ({incomingRequests.length})
+          </h3>
+          {incomingRequests.map(req => (
+            <div key={req.id}
+              className="p-4 bg-purple-500/5 border border-purple-500/20 rounded-xl space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full overflow-hidden bg-purple-500/20 flex-shrink-0">
+                  {req.profiles?.avatar_url ? (
+                    <img src={req.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <UserIcon size={18} className="text-purple-400" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-sm font-bold">
+                    {req.profiles?.full_name || req.profiles?.username || 'Utilisateur'}
+                  </p>
+                  <p className="text-gray-500 text-xs">
+                    {lang === 'fr' ? 'Veut rejoindre' : 'Wants to join'} <span className="text-purple-400">{req.reading_circles?.name}</span>
+                  </p>
+                  {req.message && (
+                    <p className="text-gray-400 text-xs mt-2 italic">« {req.message} »</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleApprove(req.id, req.circle_id, req.user_id)}
+                  className="flex-1 py-2 bg-purple-500 text-white rounded-lg text-xs font-bold hover:bg-purple-600 transition-colors flex items-center justify-center gap-1">
+                  <CheckCircle size={12} />
+                  {lang === 'fr' ? 'Accepter' : 'Accept'}
+                </button>
+                <button
+                  onClick={() => handleReject(req.id)}
+                  className="flex-1 py-2 bg-white/5 text-gray-400 rounded-lg text-xs font-bold hover:bg-white/10 transition-colors flex items-center justify-center gap-1">
+                  <X size={12} />
+                  {lang === 'fr' ? 'Refuser' : 'Reject'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Mes demandes en attente */}
+      {pendingRequests.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+            <Clock size={12} />
+            {lang === 'fr' ? 'Demandes en attente' : 'Pending requests'} ({pendingRequests.length})
+          </h3>
+          {pendingRequests.map(req => (
+            <div key={req.id}
+              className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl flex items-center justify-between">
+              <div>
+                <p className="text-white text-sm font-medium">{req.reading_circles?.name}</p>
+                <p className="text-gray-500 text-xs mt-0.5">
+                  {lang === 'fr' ? 'En attente de réponse...' : 'Waiting for response...'}
+                </p>
+              </div>
+              <Loader2 size={14} className="animate-spin text-amber-400" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Mes cercles */}
+      {myCircles.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+            <Star size={12} />
+            {lang === 'fr' ? 'Mes cercles' : 'My circles'} ({myCircles.length})
+          </h3>
+          {myCircles.map(circle => (
+            <Link key={circle.id} href={`/bibliotheque/circles/${circle.id}`}
+              className="flex items-center gap-3 p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl hover:border-emerald-500/30 transition-all group">
+              {circle.library_books?.cover_url && (
+                <div className="w-12 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                  <img src={circle.library_books.cover_url} alt="" className="w-full h-full object-cover" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-white text-sm font-bold group-hover:text-emerald-400 transition-colors">{circle.name}</p>
+                {circle.library_books && (
+                  <p className="text-gray-500 text-xs truncate">
+                    📖 {lang === 'fr' ? circle.library_books.title_fr : circle.library_books.title_en}
+                  </p>
+                )}
+              </div>
+              <ChevronRight size={14} className="text-gray-700 group-hover:text-emerald-400" />
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {/* Cercles rejoints */}
+      {joinedCircles.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+            <Users size={12} />
+            {lang === 'fr' ? 'Cercles rejoints' : 'Joined circles'} ({joinedCircles.length})
+          </h3>
+          {joinedCircles.map(circle => (
+            <Link key={circle.id} href={`/bibliotheque/circles/${circle.id}`}
+              className="flex items-center gap-3 p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl hover:border-blue-500/30 transition-all group">
+              {circle.library_books?.cover_url && (
+                <div className="w-12 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                  <img src={circle.library_books.cover_url} alt="" className="w-full h-full object-cover" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-white text-sm font-bold group-hover:text-blue-400 transition-colors">{circle.name}</p>
+                {circle.library_books && (
+                  <p className="text-gray-500 text-xs truncate">
+                    📖 {lang === 'fr' ? circle.library_books.title_fr : circle.library_books.title_en}
+                  </p>
+                )}
+              </div>
+              <ChevronRight size={14} className="text-gray-700 group-hover:text-blue-400" />
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ============================================================================
 // USER FAVORITES
@@ -1211,7 +1494,7 @@ export default function ProfilePage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
-  const [activeTab, setActiveTab] = useState<'favorites' | 'notes' | 'subscriptions' | 'settings'>('favorites');
+  const [activeTab, setActiveTab] = useState<'favorites' | 'notes' | 'subscriptions' | 'circles' | 'settings'>('favorites');
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
@@ -1403,6 +1686,7 @@ export default function ProfilePage() {
     { key: 'favorites' as const, icon: Heart, label_fr: 'Favoris', label_en: 'Favorites', color: '#EF4444' },
     { key: 'notes' as const, icon: FileText, label_fr: 'Notes', label_en: 'Notes', color: '#A78BFA' },
     { key: 'subscriptions' as const, icon: Bell, label_fr: 'Abonnements', label_en: 'Subs', color: '#D4AF37' },
+    { key: 'circles' as const, icon: Users, label_fr: 'Cercles', label_en: 'Circles', color: '#A855F7' },
     { key: 'settings' as const, icon: Edit3, label_fr: 'Profil', label_en: 'Profile', color: '#60A5FA' },
   ];
 
@@ -1554,6 +1838,8 @@ export default function ProfilePage() {
                     </div>
                   </>
                 )}
+
+                {activeTab === 'circles' && <UserCircles lang={lang} userId={user?.id} />}
                 {activeTab === 'settings' && user && (
                   <SettingsForm
                     user={user} lang={lang}
