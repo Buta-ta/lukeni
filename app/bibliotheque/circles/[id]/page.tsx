@@ -14,6 +14,7 @@ import { useReadingCircle, type ReadingCircle, type CircleMember } from '@/lib/h
 import { useCircleChat, type ChatMessage } from '@/lib/hooks/useCircleChat';
 import CloudinaryPDFReader from '@/components/CloudinaryPDFReaderWrapper';
 import { NotesplitContainer } from '@/components/NotesplitContainer';
+import CircleLoadingScreen from '@/components/CircleLoadingScreen';
 
 const CaurisIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 100 100" className={className} fill="currentColor">
@@ -144,15 +145,9 @@ export default function CirclePage() {
     }
   }, [user, circle, lang, router]);
 
-  if (isLoading || !circle || !book) {
-    return (
-      <div className="min-h-screen bg-[#020111] flex items-center justify-center">
-        <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}>
-          <CaurisIcon className="w-12 h-12 text-emerald-500" />
-        </motion.div>
-      </div>
-    );
-  }
+ if (isLoading || !circle || !book) {
+  return <CircleLoadingScreen lang={lang} />;
+}
 
   const isCreator = user && circle.creator_id === user.id;
   const currentMember = members.find(m => m.user_id === user?.id);
@@ -299,71 +294,81 @@ export default function CirclePage() {
 
         {/* Content */}
         <div className="flex-1 overflow-hidden flex flex-col">
+          
           {sidebarMode === 'chat' && (
-            <>
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {messages.length === 0 ? (
-                  <div className="flex items-center justify-center h-full text-center text-gray-500">
-                    <p>{lang === 'fr' ? 'Aucun message' : 'No messages'}</p>
-                  </div>
-                ) : (
-                  <>
-                    {messages.map((msg) => (
-                      <motion.div
-                        key={msg.id}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="flex gap-2"
-                      >
-                        <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex-shrink-0 flex items-center justify-center text-emerald-400 text-xs font-bold">
-                          {msg.profiles?.full_name?.[0] || '?'}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className="text-white text-xs font-bold">
-                              {msg.profiles?.full_name || 'Anonyme'}
-                            </span>
-                            {msg.page_number && (
-                              <span className="text-gray-600 text-[10px] flex items-center gap-0.5">
-                                <Clock size={10} /> p.{msg.page_number}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-gray-300 text-sm break-words">{msg.content}</p>
-                        </div>
-                      </motion.div>
-                    ))}
-                    <div ref={messagesEndRef} />
-                  </>
-                )}
-              </div>
+  <>
+    {/* Messages */}
+    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      {messages.length === 0 ? (
+        <div className="flex items-center justify-center h-full text-center text-gray-500">
+          <p>{lang === 'fr' ? 'Aucun message' : 'No messages'}</p>
+        </div>
+      ) : (
+        <>
+          {messages.map((msg) => {
+            // ✅ Chercher le profil du message dans les membres
+            const memberProfile = members.find(m => m.user_id === msg.user_id)?.profiles;
+            const displayName = memberProfile?.full_name || msg.profiles?.full_name || 'Anonyme';
 
-              {/* Input */}
-              <div className="p-4 border-t border-white/10 flex-shrink-0">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                    placeholder={lang === 'fr' ? 'Message...' : 'Message...'}
-                    disabled={isSendingMessage}
-                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
-                  />
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleSendMessage}
-                    disabled={!chatInput.trim() || isSendingMessage}
-                    className="px-3 py-2 bg-emerald-500 text-black rounded-lg font-bold text-sm hover:bg-white transition-colors disabled:opacity-50"
-                  >
-                    {isSendingMessage ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                  </motion.button>
+            return (
+              <motion.div
+                key={msg.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex gap-2"
+              >
+                <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex-shrink-0 flex items-center justify-center text-emerald-400 text-xs font-bold">
+                  {displayName?.[0]?.toUpperCase() || '?'}
                 </div>
-              </div>
-            </>
-          )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-white text-xs font-bold">
+                      {displayName}
+                      {user?.id === msg.user_id && (
+                        <span className="text-gray-500 text-[10px] ml-1">(vous)</span>
+                      )}
+                    </span>
+                    {msg.page_number && (
+                      <span className="text-gray-600 text-[10px] flex items-center gap-0.5">
+                        <Clock size={10} /> p.{msg.page_number}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-gray-300 text-sm break-words">{msg.content}</p>
+                </div>
+              </motion.div>
+            );
+          })}
+          <div ref={messagesEndRef} />
+        </>
+      )}
+    </div>
+
+    {/* Input */}
+    <div className="p-4 border-t border-white/10 flex-shrink-0">
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={chatInput}
+          onChange={(e) => setChatInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+          placeholder={lang === 'fr' ? 'Message...' : 'Message...'}
+          disabled={isSendingMessage}
+          className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
+        />
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={handleSendMessage}
+          disabled={!chatInput.trim() || isSendingMessage}
+          className="px-3 py-2 bg-emerald-500 text-black rounded-lg font-bold text-sm hover:bg-white transition-colors disabled:opacity-50"
+        >
+          {isSendingMessage ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+        </motion.button>
+      </div>
+    </div>
+  </>
+)}
 
           {sidebarMode === 'notes' && (
             <NotesplitContainer
@@ -531,17 +536,18 @@ export default function CirclePage() {
       </AnimatePresence>
 
       {/* Non-creator leave button */}
-      {!isCreator && (
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={handleLeaveCircle}
-          className="fixed bottom-6 right-6 z-40 p-3 rounded-full bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors border border-red-500/30"
-          title={lang === 'fr' ? 'Quitter le cercle' : 'Leave circle'}
-        >
-          <LogOut size={18} />
-        </motion.button>
-      )}
+      {/* Non-creator leave button */}
+{!isCreator && (
+  <motion.button
+    whileHover={{ scale: 1.05 }}
+    whileTap={{ scale: 0.95 }}
+    onClick={handleLeaveCircle}
+    className="fixed bottom-20 right-6 md:bottom-6 z-40 p-3 rounded-full bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors border border-red-500/30"
+    title={lang === 'fr' ? 'Quitter le cercle' : 'Leave circle'}
+  >
+    <LogOut size={18} />
+  </motion.button>
+)}
     </div>
   );
 }

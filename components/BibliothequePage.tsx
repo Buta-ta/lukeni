@@ -1536,10 +1536,29 @@ export default function BibliothequePage() {
   const [selectedOLBook, setSelectedOLBook] = useState<EnrichedOLBook | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
 
+  const [circles, setCircles] = useState<any[]>([]);
+  const [searchMode, setSearchMode] = useState<'books' | 'circles'>('books');
+
+
   useEffect(() => {
     setMounted(true);
     const savedLang = localStorage.getItem('lukeni_lang') as 'fr' | 'en' | null;
     if (savedLang) setLang(savedLang);
+  }, []);
+
+
+   useEffect(() => {
+    const loadCircles = async () => {
+      const { data } = await supabase
+        .from('reading_circles')
+        .select('*')
+        .eq('is_public', true)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (data) setCircles(data);
+    };
+    loadCircles();
   }, []);
 
   useEffect(() => {
@@ -1628,35 +1647,89 @@ export default function BibliothequePage() {
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6">
         <HeroSection lang={lang} bookCount={books.length} />
 
-        {/* Search */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 2 }}
-          className="relative max-w-2xl mx-auto mb-8">
-          <div className="relative group">
-            <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-emerald-500 transition-colors pointer-events-none" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              placeholder={lang === 'fr' ? 'Rechercher un livre, un auteur...' : 'Search a book, an author...'}
-              className="w-full bg-black/50 backdrop-blur-md border border-white/10 rounded-2xl pl-12 pr-12 py-4 text-white text-base outline-none focus:border-emerald-500/40 focus:bg-black/70 transition-all placeholder:text-gray-700"
-            />
-            {searchTerm && (
-              <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white transition-colors">
-                <X size={16} />
-              </button>
-            )}
-          </div>
+      {/* Search avec tab pour cercles */}
+<motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 2 }}
+  className="relative max-w-2xl mx-auto mb-8">
+  {/* Tabs : Livres / Cercles */}
+  <div className="flex gap-2 mb-3">
+    <button
+      onClick={() => { setSearchMode('books'); setSearchTerm(''); }}
+      className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+        searchMode === 'books'
+          ? 'bg-emerald-500 text-black'
+          : 'bg-white/5 text-gray-400 hover:text-white'
+      }`}
+    >
+      📚 {lang === 'fr' ? 'Livres' : 'Books'}
+    </button>
+    <button
+      onClick={() => { setSearchMode('circles'); setSearchTerm(''); }}
+      className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+        searchMode === 'circles'
+          ? 'bg-purple-500 text-black'
+          : 'bg-white/5 text-gray-400 hover:text-white'
+      }`}
+    >
+      👥 {lang === 'fr' ? 'Cercles' : 'Circles'}
+    </button>
+  </div>
 
-          {/* Dropdown unifié */}
-          <LibrarySearchDropdown
-            searchTerm={searchTerm}
-            lang={lang}
-            lukeniBooks={filtered}
-            onSelectBook={book => setSelectedBook(book)}
-            onSelectOLBook={book => setSelectedOLBook(book)}
-            onClose={() => setSearchTerm('')}
-          />
-        </motion.div>
+  <div className="relative group">
+    <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-emerald-500 transition-colors pointer-events-none" />
+    <input
+      type="text"
+      value={searchTerm}
+      onChange={e => setSearchTerm(e.target.value)}
+      placeholder={searchMode === 'books'
+        ? (lang === 'fr' ? 'Rechercher un livre, un auteur...' : 'Search a book, an author...')
+        : (lang === 'fr' ? 'Rechercher un cercle...' : 'Search a circle...')}
+      className="w-full bg-black/50 backdrop-blur-md border border-white/10 rounded-2xl pl-12 pr-12 py-4 text-white text-base outline-none focus:border-emerald-500/40 focus:bg-black/70 transition-all placeholder:text-gray-700"
+    />
+    {searchTerm && (
+      <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white transition-colors">
+        <X size={16} />
+      </button>
+    )}
+  </div>
+
+  {/* Résultats Livres */}
+  {searchMode === 'books' && (
+    <LibrarySearchDropdown
+      searchTerm={searchTerm}
+      lang={lang}
+      lukeniBooks={filtered}
+      onSelectBook={book => setSelectedBook(book)}
+      onSelectOLBook={book => setSelectedOLBook(book)}
+      onClose={() => setSearchTerm('')}
+    />
+  )}
+
+  {/* Résultats Cercles */}
+  {searchMode === 'circles' && searchTerm.length >= 2 && (
+    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+      className="absolute top-full mt-2 left-0 right-0 bg-[#0d0d1a]/95 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden z-50 max-h-80 overflow-y-auto">
+      {circles.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 ? (
+        <div className="p-4 text-center text-gray-500 text-sm">
+          {lang === 'fr' ? 'Aucun cercle trouvé' : 'No circles found'}
+        </div>
+      ) : (
+        circles.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase())).map(circle => (
+          <Link key={circle.id} href={`/bibliotheque/circles/${circle.id}`}
+            className="flex items-center gap-3 px-4 py-3 hover:bg-purple-500/10 transition-colors border-b border-white/[0.03] last:border-b-0 cursor-pointer">
+            <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 font-bold text-sm flex-shrink-0">
+              👥
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white text-sm font-bold truncate">{circle.name}</p>
+              <p className="text-gray-500 text-xs truncate">{circle.max_members} {lang === 'fr' ? 'places' : 'spots'}</p>
+            </div>
+            <ChevronRight size={14} className="text-gray-700" />
+          </Link>
+        ))
+      )}
+    </motion.div>
+  )}
+</motion.div>
 
         {/* Categories */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.2 }}
