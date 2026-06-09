@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Loader2, CheckCircle, AlertCircle, Copy } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
+import CircleLoadingScreen from '@/components/CircleLoadingScreen'; // ✅ AJOUT
 
 const CaurisIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 100 100" className={className} fill="currentColor">
@@ -128,19 +129,9 @@ function JoinCircleContent() {
     }
   };
 
+  // ✅ CHANGEMENT ICI : Utilisation de CircleLoadingScreen
   if (isLoading && code) {
-    return (
-      <div className="min-h-screen bg-[#020111] flex items-center justify-center text-white">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-          className="text-center"
-        >
-          <CaurisIcon className="w-12 h-12 text-emerald-500 mx-auto mb-4" />
-          <p className="text-gray-400">{lang === 'fr' ? 'Chargement...' : 'Loading...'}</p>
-        </motion.div>
-      </div>
-    );
+    return <CircleLoadingScreen lang={lang} />;
   }
 
   return (
@@ -350,22 +341,10 @@ function JoinCircleContent() {
 // ✅ Page wrapper avec Suspense
 export default function JoinCirclePage() {
   return (
-    <Suspense fallback={<LoadingFallback />}>
+    <Suspense fallback={<CircleLoadingScreen />}> {/* ✅ CHANGEMENT ICI */}
       <JoinCircleContent />
     </Suspense>
   );
 }
 
-// ✅ Fallback pendant le loading
-function LoadingFallback() {
-  return (
-    <div className="min-h-screen bg-[#020111] flex items-center justify-center">
-      <motion.div
-        animate={{ rotate: 360 }}
-        transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-      >
-        <CaurisIcon className="w-12 h-12 text-emerald-500" />
-      </motion.div>
-    </div>
-  );
-}
+// ✅ SUPPRIMÉ : function LoadingFallback (plus nécessaire)
