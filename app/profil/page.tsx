@@ -432,8 +432,7 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
   }, [lang]);
 
 
-   // ── Supprimer un cercle ──
-  const handleDeleteCircle = useCallback(async () => {
+     const handleDeleteCircle = useCallback(async () => {
     if (!circleToDelete) return;
 
     setIsDeletingCircle(true);
@@ -444,7 +443,10 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
         .delete()
         .eq('circle_id', circleToDelete.id);
 
-      if (membersError) throw membersError;
+      if (membersError) {
+        console.error('Members delete error:', membersError);
+        throw membersError;
+      }
 
       // 2. Supprimer toutes les demandes d'adhésion
       const { error: requestsError } = await supabase
@@ -452,7 +454,10 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
         .delete()
         .eq('circle_id', circleToDelete.id);
 
-      if (requestsError) throw requestsError;
+      if (requestsError) {
+        console.error('Requests delete error:', requestsError);
+        throw requestsError;
+      }
 
       // 3. Supprimer le cercle lui-même
       const { error: circleError } = await supabase
@@ -460,15 +465,23 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
         .delete()
         .eq('id', circleToDelete.id);
 
-      if (circleError) throw circleError;
+      if (circleError) {
+        console.error('Circle delete error:', circleError);
+        throw circleError;
+      }
 
       // Retirer de la liste locale
       setMyCircles(prev => prev.filter(c => c.id !== circleToDelete.id));
       setShowDeleteModal(false);
       setCircleToDelete(null);
-    } catch (err) {
+      
+      alert(lang === 'fr' ? '✅ Cercle supprimé avec succès' : '✅ Circle deleted successfully');
+    } catch (err: any) {
       console.error('Delete circle error:', err);
-      alert(lang === 'fr' ? "Erreur lors de la suppression du cercle" : 'Circle deletion error');
+      alert(
+        err.message || 
+        (lang === 'fr' ? "Erreur lors de la suppression du cercle" : 'Circle deletion error')
+      );
     } finally {
       setIsDeletingCircle(false);
     }
