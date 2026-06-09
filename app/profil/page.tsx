@@ -219,68 +219,149 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
   useEffect(() => {
     if (!userId) { setIsLoading(false); return; }
 
-       const fetchCirclesData = async () => {
+          const fetchCirclesData = async () => {
       try {
-        // 1. Cercles créés par moi
+        // 1. Cercles créés par moi (SANS nested select)
         const { data: created, error: createdError } = await supabase
           .from('reading_circles')
-          .select('id, name, description, book_id, creator_id, max_members, is_public, access_code, library_books(title_fr, title_en, cover_url)')
+          .select('*')
           .eq('creator_id', userId)
           .order('created_at', { ascending: false });
 
-        if (createdError) {
-          console.error('Created circles error:', createdError);
+        if (createdError) console.error('Created circles error:', createdError);
+
+        // Enrichir avec les livres
+        let enrichedCreated = [];
+        if (created && created.length > 0) {
+          const bookIds = created.map(c => c.book_id);
+          const { data: books } = await supabase
+            .from('library_books')
+            .select('id, title_fr, title_en, cover_url')
+            .in('id', bookIds);
+          
+          const booksMap = new Map(books?.map(b => [b.id, b]) || []);
+          enrichedCreated = created.map(c => ({
+            ...c,
+            library_books: booksMap.get(c.book_id),
+          }));
         }
 
         // 2. Cercles rejoints (où je suis membre mais PAS créateur)
         const { data: memberData, error: memberError } = await supabase
           .from('circle_members')
-          .select('circle_id, joined_at')
+          .select('circle_id')
           .eq('user_id', userId)
-          .neq('role', 'creator')
-          .order('joined_at', { ascending: false });
+          .neq('role', 'creator');
 
-        if (memberError) {
-          console.error('Circle members error:', memberError);
-        }
+        if (memberError) console.error('Circle members error:', memberError);
 
         let joinedCircles = [];
         if (memberData && memberData.length > 0) {
           const circleIds = memberData.map(m => m.circle_id);
           const { data: circles } = await supabase
             .from('reading_circles')
-            .select('id, name, book_id, library_books(title_fr, title_en, cover_url)')
-            .in('id', circleIds);
-          joinedCircles = circles || [];
+            .select('*')
+            .in('id', circleIds)
+            .order('created_at', { ascending: false });
+
+          // Enrichir avec les livres
+          if (circles && circles.length > 0) {
+            const bookIds = circles.map(c => c.book_id);
+            const { data: books } = await supabase
+              .from('library_books')
+              .select('id, title_fr, title_en, cover_url')
+              .in('id', bookIds);
+            
+            const booksMap = new Map(books?.map(b => [b.id, b]) || []);
+            joinedCircles = circles.map(c => ({
+              ...c,
+              library_books: booksMap.get(c.book_id),
+            }));
+          }
         }
 
         // 3. Mes demandes en attente
         const { data: pending, error: pendingError } = await supabase
           .from('circle_join_requests')
-          .select('id, circle_id, message, status, reading_circles(id, name, book_id, library_books(title_fr, title_en))')
+          .select('*')
           .eq('user_id', userId)
           .eq('status', 'pending')
           .order('created_at', { ascending: false });
 
-        if (pendingError) {
-          console.error('Pending requests error:', pendingError);
+        if (pendingError) console.error('Pending requests error:', pendingError);
+
+        // Enrichir avec les infos des cercles
+        let enrichedPending = [];
+        if (pending && pending.length > 0) {
+          const circleIds = pending.map(p => p.circle_id);
+          const { data: circles } = await supabase
+            .from('reading_circles')
+            .select('*')
+            .in('id', circleIds);
+
+          const circlesMap = new Map(circles?.map(c => [c.id, c]) || []);
+          
+          // Enrichir avec les livres
+          const bookIds = (circles || []).map(c => c.book_id);
+          const { data: books } = await supabase
+            .from('library_books')
+            .select('id, title_fr, title_en')
+            .in('id', bookIds);
+          
+          const booksMap = new Map(books?.map(b => [b.id, b]) || []);
+
+          enrichedPending = pending.map(p => ({
+            ...p,
+            reading_circles: {
+              ...circlesMap.get(p.circle_id),
+              library_books: booksMap.get(circlesMap.get(p.circle_id)?.book_id),
+            },
+          }));
         }
 
         // 4. Demandes entrantes (pour mes cercles)
         const { data: incoming, error: incomingError } = await supabase
           .from('circle_join_requests')
-          .select('id, circle_id, user_id, message, status, reading_circles(id, name, creator_id), profiles(full_name, username, avatar_url)')
+          .select('*')
           .eq('status', 'pending')
           .order('created_at', { ascending: false });
 
-        // Filtrer pour ne garder que les demandes pour MES cercles
-        const myCircleIds = (created || []).map(c => c.id);
-        const filteredIncoming = (incoming || []).filter(req => myCircleIds.includes(req.circle_id));
+        if (incomingError) console.error('Incoming requests error:', incomingError);
 
-        setMyCircles(created || []);
+        // Enrichir avec les infos des cercles
+        let enrichedIncoming = [];
+        if (incoming && incoming.length > 0) {
+          const circleIds = incoming.map(r => r.circle_id);
+          const { data: circles } = await supabase
+            .from('reading_circles')
+            .select('*')
+            .in('id', circleIds);
+
+          const circlesMap = new Map(circles?.map(c => [c.id, c]) || []);
+          const myCircleIds = (created || []).map(c => c.id);
+
+          // Enrichir avec les profils
+          const userIds = incoming.map(r => r.user_id);
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('*')
+            .in('id', userIds);
+
+          const profilesMap = new Map(profiles?.map(p => [p.id, p]) || []);
+
+          enrichedIncoming = incoming
+            .filter(req => myCircleIds.includes(req.circle_id))
+            .map(r => ({
+              ...r,
+              reading_circles: circlesMap.get(r.circle_id),
+              profiles: profilesMap.get(r.user_id),
+            }));
+        }
+
+        setMyCircles(enrichedCreated);
         setJoinedCircles(joinedCircles);
-        setPendingRequests(pending || []);
-        setIncomingRequests(filteredIncoming);
+        setPendingRequests(enrichedPending);
+        setIncomingRequests(enrichedIncoming);
       } catch (err) {
         console.error('Fetch circles error:', err);
       } finally {
