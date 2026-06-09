@@ -7,12 +7,22 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Loader2, Send, Users, MessageCircle, FileText,
   ChevronLeft, ChevronRight, Copy, CheckCircle, Clock,
-  Settings, LogOut, AlertCircle, Eye, AlertCircleIcon, Pin, Heart
+  Settings, LogOut, AlertCircle, Eye, AlertCircleIcon, Pin,
+  BookOpen, TrendingUp, BarChart3, Heart
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { useReadingCircle, type ReadingCircle, type CircleMember } from '@/lib/hooks/useReadingCircle';
 import { useCircleChat, type ChatMessage } from '@/lib/hooks/useCircleChat';
 import { useCirclePresence } from '@/lib/hooks/useCirclePresence';
+import {
+  useCircleBookmarks,
+  useCircleHighlights,
+  useCircleReadingStats,
+  useCircleEvents,
+  useCirclePolls,
+  useCircleSummaries,
+  useCircleQuizzes,
+} from '@/lib/hooks/useCircleReadingFeatures';
 import CloudinaryPDFReader from '@/components/CloudinaryPDFReaderWrapper';
 import { NotesplitContainer } from '@/components/NotesplitContainer';
 import CircleLoadingScreen from '@/components/CircleLoadingScreen';
@@ -24,6 +34,14 @@ import {
   ChatSearch,
   PinnedMessagesPanel,
 } from '@/components/CircleChatFeatures';
+import {
+  BookmarksPanel,
+  ReadingStatsPanel,
+  EventsTimeline,
+  PollsPanel,
+  SummariesPanel,
+  QuizzesPanel,
+} from '@/components/CircleReadingFeatures';
 
 const CaurisIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 100 100" className={className} fill="currentColor">
@@ -57,20 +75,29 @@ export default function CirclePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [book, setBook] = useState<Book | null>(null);
 
-  // Hooks Realtime
+  // ✅ Hooks Realtime
   const { circle, members, changePage, updateMyProgress } = useReadingCircle(circleId, user?.id);
   const { messages, sendMessage, addReaction, removeReaction, pinMessage, unpinMessage } = useCircleChat(circleId, user?.id);
   const { presentUsers } = useCirclePresence(circleId, user?.id);
 
-  // UI State
-  const [sidebarMode, setSidebarMode] = useState<'chat' | 'notes' | 'members'>('chat');
+  // ✅ NOUVELLE : Hooks Lecture commune
+  const { bookmarks, addBookmark, removeBookmark } = useCircleBookmarks(circleId, user?.id);
+  const { highlights, addHighlight, removeHighlight } = useCircleHighlights(circleId, user?.id);
+  const { stats } = useCircleReadingStats(circleId, members);
+  const { events, logEvent } = useCircleEvents(circleId);
+  const { polls, createPoll, votePoll } = useCirclePolls(circleId, user?.id);
+  const { summaries, createSummary, voteSummary } = useCircleSummaries(circleId, user?.id);
+  const { quizzes, createQuiz, answerQuiz } = useCircleQuizzes(circleId, user?.id);
+
+  // UI State - Chat
+  const [sidebarMode, setSidebarMode] = useState<'chat' | 'notes' | 'members' | 'reading'>('chat');
   const [chatInput, setChatInput] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // ✅ NOUVELLE STATE : Chat Features
+  // UI State - Chat Features
   const [showMentions, setShowMentions] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [repliedToMessage, setRepliedToMessage] = useState<ChatMessage | null>(null);
@@ -121,10 +148,9 @@ export default function CirclePage() {
   }, [messages]);
 
   // ============================================================================
-  // ✅ NOUVELLES FONCTIONS : Chat Features
+  // FONCTIONS : Chat Features
   // ============================================================================
 
-  // Gérer les mentions (@membre)
   const handleMentionInput = useCallback((input: string) => {
     const atIndex = input.lastIndexOf('@');
     if (atIndex !== -1) {
@@ -152,7 +178,6 @@ export default function CirclePage() {
     setMentions([...mentions, userId]);
   }, [chatInput, members, mentions]);
 
-  // Envoyer message avec features
   const handleSendMessage = useCallback(async () => {
     if (!chatInput.trim() || isSendingMessage) return;
 
@@ -169,14 +194,12 @@ export default function CirclePage() {
     }
   }, [chatInput, sendMessage, circle, isSendingMessage, mentions, repliedToMessage]);
 
-  // Copier code
   const handleCopyCode = useCallback(async (code: string) => {
     await navigator.clipboard.writeText(code);
     setCopiedCode(code);
     setTimeout(() => setCopiedCode(null), 2000);
   }, []);
 
-  // Quitter le cercle
   const handleLeaveCircle = useCallback(async () => {
     if (!user || !circle) return;
 
@@ -198,7 +221,7 @@ export default function CirclePage() {
     }
   }, [user, circle, lang, router]);
 
-  // ✅ Filtrer les messages selon la recherche
+  // ✅ Filtrer les messages
   const filteredMessages = useMemo(() => {
     if (!searchQuery.trim()) return messages;
     
@@ -213,6 +236,15 @@ export default function CirclePage() {
   const pinnedMessages = useMemo(() => {
     return messages.filter(msg => msg.isPinned);
   }, [messages]);
+
+  // ✅ Préparer les stats enrichies
+  const enrichedStats = useMemo(() => {
+    if (!stats || !currentMember) return null;
+    return {
+      ...stats,
+      your_page: currentMember.current_page,
+    };
+  }, [stats, members, user]);
 
   if (isLoading || !circle || !book) {
     return <CircleLoadingScreen lang={lang} />;
@@ -341,16 +373,17 @@ export default function CirclePage() {
       ═══════════════════════════════════════════════════════════ */}
       <div className="w-full md:w-96 bg-[#0a0a14] border-l border-white/10 flex flex-col max-h-screen md:max-h-none overflow-hidden">
         {/* Tabs */}
-        <div className="flex border-b border-white/10 flex-shrink-0">
+        <div className="flex border-b border-white/10 flex-shrink-0 overflow-x-auto">
           {[
             { key: 'chat' as const, icon: MessageCircle, label: lang === 'fr' ? 'Chat' : 'Chat' },
+            { key: 'reading' as const, icon: BookOpen, label: lang === 'fr' ? 'Lecture' : 'Reading' },
             { key: 'notes' as const, icon: FileText, label: lang === 'fr' ? 'Notes' : 'Notes' },
             { key: 'members' as const, icon: Users, label: lang === 'fr' ? 'Membres' : 'Members' },
           ].map(({ key, icon: Icon, label }) => (
             <button
               key={key}
               onClick={() => setSidebarMode(key)}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-bold transition-all ${
+              className={`flex items-center justify-center gap-2 py-3 px-3 text-sm font-bold transition-all flex-shrink-0 whitespace-nowrap ${
                 sidebarMode === key
                   ? 'text-emerald-400 border-b-2 border-emerald-400'
                   : 'text-gray-500 hover:text-gray-300'
@@ -366,7 +399,7 @@ export default function CirclePage() {
         <div className="flex-1 overflow-hidden flex flex-col">
           {sidebarMode === 'chat' && (
             <>
-              {/* ✅ INDICATEUR DE PRÉSENCE */}
+              {/* INDICATEUR DE PRÉSENCE */}
               <div className="p-3 border-b border-white/10 flex-shrink-0">
                 <PresenceIndicator
                   presentUsers={presentUsers}
@@ -375,7 +408,7 @@ export default function CirclePage() {
                 />
               </div>
 
-              {/* ✅ MESSAGES ÉPINGLÉS */}
+              {/* MESSAGES ÉPINGLÉS */}
               {pinnedMessages.length > 0 && (
                 <div className="p-3 border-b border-white/10 flex-shrink-0">
                   <PinnedMessagesPanel
@@ -386,7 +419,7 @@ export default function CirclePage() {
                 </div>
               )}
 
-              {/* ✅ BARRE DE RECHERCHE */}
+              {/* BARRE DE RECHERCHE */}
               <div className="p-3 border-b border-white/10 flex-shrink-0">
                 <ChatSearch
                   onSearch={setSearchQuery}
@@ -424,12 +457,10 @@ export default function CirclePage() {
                           </div>
 
                           <div className="flex-1 min-w-0">
-                            {/* Citation si réponse */}
                             {msg.repliedToMessage && (
                               <MessageQuotePreview message={msg.repliedToMessage} />
                             )}
 
-                            {/* Contenu du message */}
                             <div className="flex items-center gap-2 mb-0.5">
                               <span className="text-white text-xs font-bold">
                                 {displayName}
@@ -445,7 +476,6 @@ export default function CirclePage() {
                             </div>
                             <p className="text-gray-300 text-sm break-words">{msg.content}</p>
 
-                            {/* ✅ RÉACTIONS */}
                             {msg.reactions && msg.reactions.length > 0 && (
                               <MessageReactions
                                 reactions={msg.reactions}
@@ -454,9 +484,7 @@ export default function CirclePage() {
                               />
                             )}
 
-                            {/* Boutons d'action (au hover) */}
                             <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              {/* Répondre */}
                               <button
                                 onClick={() => setRepliedToMessage(msg)}
                                 className="p-1 text-gray-600 hover:text-blue-400 transition-colors rounded"
@@ -465,7 +493,6 @@ export default function CirclePage() {
                                 <MessageCircle size={12} />
                               </button>
 
-                              {/* Ajouter réaction */}
                               <button
                                 onClick={() => addReaction(msg.id, '👍')}
                                 className="p-1 text-gray-600 hover:text-yellow-400 transition-colors rounded"
@@ -474,7 +501,6 @@ export default function CirclePage() {
                                 <Heart size={12} />
                               </button>
 
-                              {/* Épingler (créateur) */}
                               {isCreator && (
                                 <button
                                   onClick={() => msg.isPinned ? unpinMessage(msg.id) : pinMessage(circleId, msg.id)}
@@ -498,7 +524,6 @@ export default function CirclePage() {
                 )}
               </div>
 
-              {/* Citation en cours */}
               {repliedToMessage && (
                 <div className="px-4 pt-2 flex items-start gap-2 pb-2 border-t border-white/10">
                   <MessageQuotePreview message={repliedToMessage} />
@@ -513,7 +538,6 @@ export default function CirclePage() {
 
               {/* Input */}
               <div className="p-4 border-t border-white/10 flex-shrink-0 space-y-2">
-                {/* ✅ MENTIONS DROPDOWN */}
                 {showMentions && (
                   <MentionsList
                     members={members}
@@ -549,6 +573,43 @@ export default function CirclePage() {
             </>
           )}
 
+          {sidebarMode === 'reading' && (
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {/* Statistiques */}
+              {enrichedStats && (
+                <ReadingStatsPanel stats={enrichedStats} lang={lang} />
+              )}
+
+              {/* Repères */}
+              <BookmarksPanel
+                bookmarks={bookmarks}
+                onAddBookmark={addBookmark}
+                currentPage={currentMember?.current_page || 1}
+                lang={lang}
+              />
+
+              {/* Timeline */}
+              {events.length > 0 && (
+                <EventsTimeline events={events} lang={lang} />
+              )}
+
+              {/* Sondages */}
+              {polls.length > 0 && (
+                <PollsPanel polls={polls} onVote={votePoll} lang={lang} />
+              )}
+
+              {/* Résumés */}
+              {summaries.length > 0 && (
+                <SummariesPanel summaries={summaries} onVote={voteSummary} lang={lang} />
+              )}
+
+              {/* Questions */}
+              {quizzes.length > 0 && (
+                <QuizzesPanel quizzes={quizzes} onAnswer={answerQuiz} lang={lang} />
+              )}
+            </div>
+          )}
+
           {sidebarMode === 'notes' && (
             <NotesplitContainer
               itemId={book.id}
@@ -579,7 +640,6 @@ export default function CirclePage() {
                           <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex-shrink-0 flex items-center justify-center text-emerald-400 text-xs font-bold">
                             {member.profiles?.full_name?.[0] || '?'}
                           </div>
-                          {/* ✅ Indicateur en ligne */}
                           {isOnline && (
                             <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-[#0a0a14]" />
                           )}
@@ -626,7 +686,7 @@ export default function CirclePage() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════
-          SETTINGS MODAL (créateur seulement)
+          SETTINGS MODAL
       ═══════════════════════════════════════════════════════════ */}
       <AnimatePresence>
         {showSettings && isCreator && (
