@@ -219,15 +219,14 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
   useEffect(() => {
     if (!userId) { setIsLoading(false); return; }
 
-          const fetchCirclesData = async () => {
-
-
+         const fetchCirclesData = async () => {
       try {
-
+        // ✅ Déclarer les variables au début
         let enrichedCreated: any[] = [];
         let joinedCircles: any[] = [];
         let enrichedPending: any[] = [];
         let enrichedIncoming: any[] = [];
+
         // 1. Cercles créés par moi (SANS nested select)
         const { data: created, error: createdError } = await supabase
           .from('reading_circles')
@@ -238,7 +237,6 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
         if (createdError) console.error('Created circles error:', createdError);
 
         // Enrichir avec les livres
-         enrichedCreated = [...]  
         if (created && created.length > 0) {
           const bookIds = created.map(c => c.book_id);
           const { data: books } = await supabase
@@ -262,7 +260,6 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
 
         if (memberError) console.error('Circle members error:', memberError);
 
-        let joinedCircles = [];
         if (memberData && memberData.length > 0) {
           const circleIds = memberData.map(m => m.circle_id);
           const { data: circles } = await supabase
@@ -298,7 +295,6 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
         if (pendingError) console.error('Pending requests error:', pendingError);
 
         // Enrichir avec les infos des cercles
-         enrichedPending = [...]
         if (pending && pending.length > 0) {
           const circleIds = pending.map(p => p.circle_id);
           const { data: circles } = await supabase
@@ -317,17 +313,16 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
           
           const booksMap = new Map(books?.map(b => [b.id, b]) || []);
 
-                  enrichedIncoming = incoming
-            .filter(req => myCircleIds.includes(req.circle_id))
-            .map(r => {
-              const circle = circlesMap.get(r.circle_id) as any;
-              const profile = profilesMap.get(r.user_id) as any;
-              return {
-                ...r,
-                reading_circles: circle || null,
-                profiles: profile || null,
-              };
-            });
+          enrichedPending = pending.map(p => {
+            const circle = circlesMap.get(p.circle_id) as any;
+            return {
+              ...p,
+              reading_circles: circle ? {
+                ...circle,
+                library_books: booksMap.get(circle?.book_id),
+              } : null,
+            };
+          });
         }
 
         // 4. Demandes entrantes (pour mes cercles)
@@ -340,7 +335,6 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
         if (incomingError) console.error('Incoming requests error:', incomingError);
 
         // Enrichir avec les infos des cercles
-        enrichedIncoming = [...]
         if (incoming && incoming.length > 0) {
           const circleIds = incoming.map(r => r.circle_id);
           const { data: circles } = await supabase
@@ -360,13 +354,17 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
 
           const profilesMap = new Map(profiles?.map(p => [p.id, p]) || []);
 
-                    enrichedIncoming = incoming
+          enrichedIncoming = incoming
             .filter(req => myCircleIds.includes(req.circle_id))
-            .map(r => ({
-              ...r,
-              reading_circles: circlesMap.get(r.circle_id) || null,
-              profiles: profilesMap.get(r.user_id) || null,
-            }));
+            .map(r => {
+              const circle = circlesMap.get(r.circle_id) as any;
+              const profile = profilesMap.get(r.user_id) as any;
+              return {
+                ...r,
+                reading_circles: circle || null,
+                profiles: profile || null,
+              };
+            });
         }
 
         setMyCircles(enrichedCreated);
