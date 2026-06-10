@@ -4,8 +4,8 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
-import { ArrowLeft, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, Loader2, CheckCircle, AlertCircle, XCircle, X } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import CircleLoadingScreen from '@/components/CircleLoadingScreen';
 
@@ -18,6 +18,155 @@ const CaurisIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+// ============================================================================
+// 🎨 COMPOSANT MODALE RÉUTILISABLE
+// ============================================================================
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  type: 'success' | 'error' | 'info' | 'warning';
+  title: string;
+  message: string;
+  children?: React.ReactNode;
+}
+
+function Modal({ isOpen, onClose, type, title, message, children }: ModalProps) {
+  const icons = {
+    success: <CheckCircle size={48} className="text-emerald-400" />,
+    error: <XCircle size={48} className="text-red-400" />,
+    warning: <AlertCircle size={48} className="text-amber-400" />,
+    info: <AlertCircle size={48} className="text-blue-400" />,
+  };
+
+  const colors = {
+    success: 'from-emerald-500/20 to-emerald-500/5 border-emerald-500/30',
+    error: 'from-red-500/20 to-red-500/5 border-red-500/30',
+    warning: 'from-amber-500/20 to-amber-500/5 border-amber-500/30',
+    info: 'from-blue-500/20 to-blue-500/5 border-blue-500/30',
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ scale: 0.9, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0.9, y: 20 }}
+            onClick={(e) => e.stopPropagation()}
+            className={`relative bg-gradient-to-br ${colors[type]} border rounded-3xl w-full max-w-md overflow-hidden`}
+          >
+            {/* Header */}
+            <div className="p-6 text-center space-y-4">
+              <button
+                onClick={onClose}
+                className="absolute top-4 right-4 p-2 text-gray-500 hover:text-white transition-colors rounded-lg hover:bg-white/5"
+              >
+                <X size={20} />
+              </button>
+
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', bounce: 0.5, delay: 0.1 }}
+                className="flex justify-center"
+              >
+                {icons[type]}
+              </motion.div>
+
+              <div>
+                <h2 className="text-2xl font-serif font-bold text-white mb-2">
+                  {title}
+                </h2>
+                <p className="text-gray-300 text-sm leading-relaxed">
+                  {message}
+                </p>
+              </div>
+            </div>
+
+            {/* Content */}
+            {children && (
+              <div className="px-6 pb-6">
+                {children}
+              </div>
+            )}
+
+            {/* Close button */}
+            <div className="p-6 pt-0">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={onClose}
+                className="w-full py-3 bg-white/10 border border-white/20 text-white rounded-xl font-bold hover:bg-white/20 transition-colors"
+              >
+                OK
+              </motion.button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ============================================================================
+// 📊 COMPOSANT COMPTEUR DE TENTATIVES
+// ============================================================================
+interface AttemptsCounterProps {
+  remaining: number;
+  total: number;
+  lang: 'fr' | 'en';
+}
+
+function AttemptsCounter({ remaining, total, lang }: AttemptsCounterProps) {
+  const used = total - remaining;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between items-center">
+        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+          {lang === 'fr' ? 'Tentatives restantes' : 'Attempts remaining'}
+        </span>
+        <span className={`text-sm font-bold ${
+          remaining === 0 ? 'text-red-400' : 
+          remaining === 1 ? 'text-amber-400' : 
+          'text-emerald-400'
+        }`}>
+          {remaining}/{total}
+        </span>
+      </div>
+
+      <div className="flex gap-1">
+        {Array.from({ length: total }).map((_, i) => (
+          <div
+            key={i}
+            className={`h-2 flex-1 rounded-full transition-all ${
+              i < used ? 'bg-red-500' : 'bg-emerald-500/30'
+            }`}
+          />
+        ))}
+      </div>
+
+      {remaining === 0 && (
+        <p className="text-xs text-red-400">
+          {lang === 'fr' 
+            ? '❌ Vous ne pouvez plus envoyer de demande pour ce cercle'
+            : '❌ You cannot send more requests for this circle'}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// 🎯 COMPOSANT PRINCIPAL
+// ============================================================================
 function JoinCircleContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -32,10 +181,57 @@ function JoinCircleContent() {
   const [error, setError] = useState<string | null>(null);
   const [manualCode, setManualCode] = useState('');
 
-  // ✅ État pour l'écran de succès
+  // ✅ États pour les modales
+  const [modalState, setModalState] = useState<{
+    isOpen: boolean;
+    type: 'success' | 'error' | 'info' | 'warning';
+    title: string;
+    message: string;
+  }>({
+    isOpen: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
+
+  // ✅ État pour le compteur de tentatives
+  const [attemptsInfo, setAttemptsInfo] = useState<{
+    total: number;
+    remaining: number;
+  }>({
+    total: 3,
+    remaining: 3,
+  });
+
   const [showSuccessScreen, setShowSuccessScreen] = useState(false);
 
-  // ✅ Initialiser manualCode avec le code URL au montage
+  // ✅ Charger les tentatives restantes
+  useEffect(() => {
+    if (!user || !circle) return;
+
+    const loadAttempts = async () => {
+      try {
+        const { data: requests } = await supabase
+          .from('circle_join_requests')
+          .select('status')
+          .eq('circle_id', circle.id)
+          .eq('user_id', user.id);
+
+        const rejectedCount = (requests || []).filter(r => r.status === 'rejected').length;
+        const remaining = Math.max(0, 3 - rejectedCount);
+
+        setAttemptsInfo({
+          total: 3,
+          remaining,
+        });
+      } catch (err) {
+        console.error('Load attempts error:', err);
+      }
+    };
+
+    loadAttempts();
+  }, [user, circle]);
+
   useEffect(() => {
     if (urlCode) {
       setManualCode(urlCode.toUpperCase());
@@ -53,7 +249,6 @@ function JoinCircleContent() {
     getSession();
   }, []);
 
-  // ✅ Charger le cercle dès qu'on a un code (URL ou manuel)
   useEffect(() => {
     const effectiveCode = urlCode || manualCode;
     
@@ -101,14 +296,14 @@ function JoinCircleContent() {
   }, [urlCode, manualCode, lang]);
 
   // ============================================================================
-  // ✅ NOUVELLE FONCTION : Envoyer une demande d'adhésion
+  // ✅ FONCTION D'ENVOI DE DEMANDE (avec modales)
   // ============================================================================
   const handleSubmitJoinRequest = async () => {
     if (!user || !circle) return;
 
     setIsSubmitting(true);
     try {
-      // Vérifier si l'utilisateur est déjà membre
+      // 1. Vérifier si déjà membre
       const { data: existingMember } = await supabase
         .from('circle_members')
         .select('id')
@@ -121,26 +316,45 @@ function JoinCircleContent() {
         return;
       }
 
-      // Compter les demandes existantes (acceptées + refusées)
+      // 2. Charger l'historique des demandes
       const { data: existingRequests } = await supabase
         .from('circle_join_requests')
         .select('id, status')
         .eq('circle_id', circle.id)
         .eq('user_id', user.id);
 
-      // Vérifier si max 2 demandes atteint
       const rejectedCount = (existingRequests || []).filter(r => r.status === 'rejected').length;
-      if (rejectedCount >= 2) {
-        setError(
-          lang === 'fr'
-            ? 'Vous avez atteint le nombre maximum de demandes pour ce cercle'
-            : 'You have reached the maximum number of requests for this circle'
-        );
+      const pendingRequest = (existingRequests || []).find(r => r.status === 'pending');
+
+      // 3. Vérifier le nombre de tentatives
+      if (rejectedCount >= 3) {
+        setModalState({
+          isOpen: true,
+          type: 'error',
+          title: lang === 'fr' ? '❌ Accès refusé' : '❌ Access denied',
+          message: lang === 'fr'
+            ? 'Vous avez atteint le nombre maximum de demandes pour ce cercle.'
+            : 'You have reached the maximum number of requests for this circle.',
+        });
         setIsSubmitting(false);
         return;
       }
 
-      // Insérer une nouvelle demande d'adhésion
+      // 4. Vérifier s'il y a déjà une demande en attente
+      if (pendingRequest) {
+        setModalState({
+          isOpen: true,
+          type: 'warning',
+          title: lang === 'fr' ? '⏳ Demande en cours' : '⏳ Pending request',
+          message: lang === 'fr'
+            ? 'Vous avez déjà une demande en attente pour ce cercle. Patientez la réponse du créateur.'
+            : 'You already have a pending request for this circle. Wait for the creator\'s response.',
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      // 5. Envoyer la demande
       const { error } = await supabase
         .from('circle_join_requests')
         .insert({
@@ -149,37 +363,33 @@ function JoinCircleContent() {
           status: 'pending',
         });
 
-      if (error) {
-        if (error.code === '23505') {
-          // Demande en attente déjà existante
-          setError(
-            lang === 'fr'
-              ? 'Vous avez déjà une demande en attente pour ce cercle'
-              : 'You already have a pending request for this circle'
-          );
-        } else {
-          throw error;
-        }
-        setIsSubmitting(false);
-        return;
-      }
+      if (error) throw error;
 
-      // Afficher l'écran de succès
+      // 6. Afficher le succès
       setShowSuccessScreen(true);
+
     } catch (err: any) {
-      setError(err.message);
       console.error('Submit join request error:', err);
+      
+      setModalState({
+        isOpen: true,
+        type: 'error',
+        title: lang === 'fr' ? '❌ Erreur' : '❌ Error',
+        message: err.message || (lang === 'fr' 
+          ? 'Une erreur est survenue lors de l\'envoi de votre demande.'
+          : 'An error occurred while sending your request.'),
+      });
+    } finally {
       setIsSubmitting(false);
     }
   };
 
-  // ✅ Meilleure condition de loading
   if (isLoading && (urlCode || manualCode)) {
     return <CircleLoadingScreen lang={lang} />;
   }
 
   // ============================================================================
-  // ✅ ÉCRAN DE SUCCÈS : Demande envoyée
+  // ✅ ÉCRAN DE SUCCÈS
   // ============================================================================
   if (showSuccessScreen) {
     return (
@@ -206,21 +416,6 @@ function JoinCircleContent() {
             className="space-y-6"
           >
             <div className="text-center space-y-3 mb-8">
-              <h1 className="text-3xl font-serif font-bold">
-                {lang === 'fr' ? '✅ Demande envoyée !' : '✅ Request sent!'}
-              </h1>
-              <p className="text-gray-400">
-                {lang === 'fr'
-                  ? 'Le créateur du cercle examinera votre demande'
-                  : 'The circle creator will review your request'}
-              </p>
-            </div>
-
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="text-center space-y-6 py-8"
-            >
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
@@ -232,90 +427,68 @@ function JoinCircleContent() {
                 </div>
               </motion.div>
 
-              {/* Circle info */}
-              {circle && (
-                <div className="bg-gradient-to-br from-[#0d0d1a] to-[#080810] border border-white/[0.07] rounded-3xl overflow-hidden p-6">
-                  <div className="h-1 w-full bg-gradient-to-r from-emerald-500 to-emerald-400 mb-4" />
-                  
-                  {book && (
-                    <div className="flex gap-4 mb-4 pb-4 border-b border-white/[0.06]">
-                      <div className="w-16 h-24 rounded-lg overflow-hidden flex-shrink-0 bg-white/5">
-                        <img src={book.cover_url} alt="" className="w-full h-full object-cover" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-emerald-400 text-[10px] font-bold tracking-widest uppercase mb-1">
-                          {lang === 'fr' ? 'Livre à lire' : 'Book to read'}
-                        </p>
-                        <h3 className="text-white font-serif text-lg font-bold">{book.title_fr}</h3>
-                        <p className="text-gray-400 text-sm">{book.author_fr}</p>
-                      </div>
-                    </div>
-                  )}
+              <h1 className="text-3xl font-serif font-bold">
+                {lang === 'fr' ? '✅ Demande envoyée !' : '✅ Request sent!'}
+              </h1>
+              <p className="text-gray-400">
+                {lang === 'fr'
+                  ? 'Le créateur du cercle examinera votre demande'
+                  : 'The circle creator will review your request'}
+              </p>
+            </div>
 
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-[10px] font-bold text-gray-600 tracking-widest uppercase mb-1">
-                        {lang === 'fr' ? 'Nom du cercle' : 'Circle name'}
+            {circle && (
+              <div className="bg-gradient-to-br from-[#0d0d1a] to-[#080810] border border-white/[0.07] rounded-3xl overflow-hidden p-6">
+                <div className="h-1 w-full bg-gradient-to-r from-emerald-500 to-emerald-400 mb-4" />
+                
+                {book && (
+                  <div className="flex gap-4 mb-4 pb-4 border-b border-white/[0.06]">
+                    <div className="w-16 h-24 rounded-lg overflow-hidden flex-shrink-0 bg-white/5">
+                      <img src={book.cover_url} alt="" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-emerald-400 text-[10px] font-bold tracking-widest uppercase mb-1">
+                        {lang === 'fr' ? 'Livre à lire' : 'Book to read'}
                       </p>
-                      <h2 className="text-white text-xl font-bold">{circle.name}</h2>
-                    </div>
-
-                    {circle.description && (
-                      <div>
-                        <p className="text-[10px] font-bold text-gray-600 tracking-widest uppercase mb-1">
-                          Description
-                        </p>
-                        <p className="text-gray-300 text-sm">{circle.description}</p>
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-2 gap-3 pt-2">
-                      <div className="p-3 bg-white/[0.02] rounded-lg">
-                        <p className="text-[10px] font-bold text-gray-600 uppercase mb-1">
-                          {lang === 'fr' ? 'Places disponibles' : 'Available spots'}
-                        </p>
-                        <p className="text-emerald-400 text-sm font-bold">{circle.max_members} max</p>
-                      </div>
-                      <div className="p-3 bg-white/[0.02] rounded-lg">
-                        <p className="text-[10px] font-bold text-gray-600 uppercase mb-1">
-                          {lang === 'fr' ? 'Statut' : 'Status'}
-                        </p>
-                        <p className="text-amber-400 text-sm font-bold">⏳ {lang === 'fr' ? 'En attente' : 'Pending'}</p>
-                      </div>
+                      <h3 className="text-white font-serif text-lg font-bold">{book.title_fr}</h3>
+                      <p className="text-gray-400 text-sm">{book.author_fr}</p>
                     </div>
                   </div>
+                )}
+
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-600 tracking-widest uppercase mb-1">
+                      {lang === 'fr' ? 'Nom du cercle' : 'Circle name'}
+                    </p>
+                    <h2 className="text-white text-xl font-bold">{circle.name}</h2>
+                  </div>
+
+                  {/* ✅ Compteur de tentatives */}
+                  <AttemptsCounter
+                    remaining={attemptsInfo.remaining - 1}
+                    total={attemptsInfo.total}
+                    lang={lang}
+                  />
                 </div>
-              )}
-
-              <div className="flex items-start gap-2 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
-                <AlertCircle size={16} className="text-blue-400 flex-shrink-0 mt-0.5" />
-                <p className="text-blue-300 text-sm leading-relaxed">
-                  {lang === 'fr'
-                    ? "Vous recevrez une notification dès que le créateur répondra à votre demande."
-                    : 'You will receive a notification as soon as the creator responds to your request.'}
-                </p>
               </div>
+            )}
 
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="pt-4 space-y-3"
-              >
-                <Link
-                  href="/bibliotheque"
-                  className="inline-flex items-center gap-2 bg-emerald-500 text-black px-6 py-3 rounded-xl font-bold text-sm hover:bg-white transition-colors"
-                >
-                  {lang === 'fr' ? 'Retour à la bibliothèque' : 'Back to library'}
-                </Link>
+            <div className="flex items-start gap-2 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+              <AlertCircle size={16} className="text-blue-400 flex-shrink-0 mt-0.5" />
+              <p className="text-blue-300 text-sm leading-relaxed">
+                {lang === 'fr'
+                  ? "Vous recevrez une notification dès que le créateur répondra à votre demande."
+                  : 'You will receive a notification as soon as the creator responds to your request.'}
+              </p>
+            </div>
 
-                <p className="text-gray-600 text-xs">
-                  {lang === 'fr'
-                    ? 'Vous pouvez explorer d\'autres cercles en attendant'
-                    : 'You can explore other circles while waiting'}
-                </p>
-              </motion.div>
-            </motion.div>
+            <Link
+              href="/bibliotheque"
+              className="block text-center bg-emerald-500 text-black px-6 py-3 rounded-xl font-bold text-sm hover:bg-white transition-colors"
+            >
+              {lang === 'fr' ? 'Retour à la bibliothèque' : 'Back to library'}
+            </Link>
           </motion.div>
         </main>
       </div>
@@ -386,12 +559,6 @@ function JoinCircleContent() {
                   <p className="text-sm">{error}</p>
                 </motion.div>
               )}
-
-              <p className="text-gray-600 text-xs text-center">
-                {lang === 'fr'
-                  ? 'Demandez le code au créateur du cercle'
-                  : 'Ask the creator for the code'}
-              </p>
             </motion.div>
           )}
 
@@ -428,29 +595,14 @@ function JoinCircleContent() {
                       <h2 className="text-white text-xl font-bold">{circle.name}</h2>
                     </div>
 
-                    {circle.description && (
-                      <div>
-                        <p className="text-[10px] font-bold text-gray-600 tracking-widest uppercase mb-1">
-                          Description
-                        </p>
-                        <p className="text-gray-300 text-sm">{circle.description}</p>
-                      </div>
+                    {/* ✅ Afficher le compteur de tentatives */}
+                    {user && (
+                      <AttemptsCounter
+                        remaining={attemptsInfo.remaining}
+                        total={attemptsInfo.total}
+                        lang={lang}
+                      />
                     )}
-
-                    <div className="grid grid-cols-2 gap-3 pt-2">
-                      <div className="p-3 bg-white/[0.02] rounded-lg">
-                        <p className="text-[10px] font-bold text-gray-600 uppercase mb-1">
-                          {lang === 'fr' ? 'Créateur' : 'Creator'}
-                        </p>
-                        <p className="text-white text-sm font-mono">{circle.creator_id.slice(0, 8)}...</p>
-                      </div>
-                      <div className="p-3 bg-white/[0.02] rounded-lg">
-                        <p className="text-[10px] font-bold text-gray-600 uppercase mb-1">
-                          {lang === 'fr' ? 'Places' : 'Spots'}
-                        </p>
-                        <p className="text-emerald-400 text-sm font-bold">{circle.max_members} {lang === 'fr' ? 'max' : 'max'}</p>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -475,13 +627,18 @@ function JoinCircleContent() {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={handleSubmitJoinRequest}
-                  disabled={isSubmitting}
-                  className="w-full py-3.5 bg-emerald-500 text-black rounded-xl font-bold hover:bg-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  disabled={isSubmitting || attemptsInfo.remaining === 0}
+                  className="w-full py-3.5 bg-emerald-500 text-black rounded-xl font-bold hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {isSubmitting ? (
                     <>
                       <Loader2 size={16} className="animate-spin" />
                       {lang === 'fr' ? 'Envoi...' : 'Sending...'}
+                    </>
+                  ) : attemptsInfo.remaining === 0 ? (
+                    <>
+                      <XCircle size={16} />
+                      {lang === 'fr' ? 'Aucune tentative restante' : 'No attempts left'}
                     </>
                   ) : (
                     <>
@@ -495,6 +652,15 @@ function JoinCircleContent() {
           )}
         </motion.div>
       </main>
+
+      {/* ✅ MODALE */}
+      <Modal
+        isOpen={modalState.isOpen}
+        onClose={() => setModalState({ ...modalState, isOpen: false })}
+        type={modalState.type}
+        title={modalState.title}
+        message={modalState.message}
+      />
     </div>
   );
 }
