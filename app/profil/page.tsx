@@ -491,53 +491,31 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
     fetchCirclesData();
   }, [userId]);
 
-
 const handleApprove = useCallback(async (requestId: string, circleId: string, requestUserId: string) => {
   try {
-    console.log('🔄 Approving request:', { requestId, circleId, requestUserId });
+    console.log('🔄 [APPROVE] Début', { requestId, circleId, requestUserId });
 
-    // 1. Vérifier si l'utilisateur est déjà membre
-    const { data: existingMember, error: checkError } = await supabase
-      .from('circle_members')
-      .select('id')
-      .eq('circle_id', circleId)
-      .eq('user_id', requestUserId)
-      .maybeSingle();
-
-    if (checkError && checkError.code !== 'PGRST116') {
-      throw checkError;
+    // ✅ ÉTAPE 1 : Vérifier la session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) {
+      throw new Error('Session expirée');
     }
 
-    if (existingMember) {
-      console.log('⚠️ User already a member');
-      setNotification({
-        type: 'error',
-        message: lang === 'fr'
-          ? 'Cet utilisateur est déjà membre du cercle'
-          : 'This user is already a member of the circle',
-      });
-      setIncomingRequests(prev => prev.filter(r => r.id !== requestId));
-      return;
+    // ✅ ÉTAPE 2 : Vérifier que c'est le créateur
+    const { data: circleData, error: circleError } = await supabase
+      .from('reading_circles')
+      .select('creator_id, name')
+      .eq('id', circleId)
+      .single();
+
+    if (circleError) throw circleError;
+    if (circleData.creator_id !== session.user.id) {
+      throw new Error('Pas autorisé');
     }
 
-    // 2. Ajouter le membre
-    const { error: memberError } = await supabase
-      .from('circle_members')
-      .insert({
-        circle_id: circleId,
-        user_id: requestUserId,
-        role: 'member',
-        current_page: 1,
-      });
+    // ✅ ÉTAPE 3 : Approuver d'abord la demande
+    console.log('📝 [UPDATE_REQUEST] Mise à jour du statut...');
 
-    if (memberError) {
-      console.error('❌ Member insert error:', memberError);
-      throw memberError;
-    }
-
-    console.log('✅ Member added successfully');
-
-    // 3. Marquer la demande comme approuvée
     const { error: updateError } = await supabase
       .from('circle_join_requests')
       .update({
@@ -547,35 +525,97 @@ const handleApprove = useCallback(async (requestId: string, circleId: string, re
       .eq('id', requestId);
 
     if (updateError) {
-      console.error('❌ Request update error:', updateError);
+      console.error('❌ [UPDATE_ERROR]', updateError);
       throw updateError;
     }
 
-    console.log('✅ Request approved');
+    console.log('✅ [REQUEST_APPROVED]');
 
-    // 4. Retirer de la liste
+    // ✅ ÉTAPE 4 : Attendre un peu avant de vérifier/insérer le membre
+    // (pour éviter les race conditions)
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // ✅ ÉTAPE 5 : Vérifier si le membre existe (et le supprimer si c'est le cas)
+    const { data: existingMembers, error: checkError } = await supabase
+      .from('circle_members')
+      .select('id')
+      .eq('circle_id', circleId)
+      .eq('user_id', requestUserId);
+
+    if (checkError) {
+      console.error('❌ [CHECK_ERROR]', checkError);
+      throw checkError;
+    }
+
+    console.log('🔍 [CHECK_MEMBER]', { count: existingMembers?.length || 0 });
+
+    // Si l'utilisateur existe déjà, le supprimer d'abord
+    if (existingMembers && existingMembers.length > 0) {
+      console.log('🗑️ [CLEANUP] Suppression des anciennes entrées...');
+      
+      const { error: deleteError } = await supabase
+        .from('circle_members')
+        .delete()
+        .eq('circle_id', circleId)
+        .eq('user_id', requestUserId);
+
+      if (deleteError) {
+        console.error('❌ [DELETE_ERROR]', deleteError);
+        throw deleteError;
+      }
+
+      // Attendre un peu après la suppression
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+
+    // ✅ ÉTAPE 6 : Insérer le membre
+    console.log('➕ [INSERT_MEMBER] Ajout du nouveau membre...');
+
+    const { data: memberData, error: memberError } = await supabase
+      .from('circle_members')
+      .insert({
+        circle_id: circleId,
+        user_id: requestUserId,
+        role: 'member',
+        current_page: 1,
+      })
+      .select();
+
+    if (memberError) {
+      console.error('❌ [INSERT_ERROR]', memberError);
+      throw memberError;
+    }
+
+    console.log('✅ [MEMBER_ADDED]', memberData);
+
+    // ✅ ÉTAPE 7 : Retirer de la liste UI
     setIncomingRequests(prev => prev.filter(r => r.id !== requestId));
 
-    // 5. Afficher la notification de succès
+    // ✅ ÉTAPE 8 : Notification de succès
     setNotification({
       type: 'success',
       message: lang === 'fr'
-        ? '✅ Demande approuvée ! Le membre a accès au cercle.'
-        : '✅ Request approved! Member has access to the circle.',
+        ? '✅ Demande approuvée ! Le membre a maintenant accès au cercle.'
+        : '✅ Request approved! Member now has access to the circle.',
     });
 
+    console.log('✅ [APPROVE_SUCCESS]');
+
   } catch (err: any) {
-    console.error('❌ Approve error:', err);
+    console.error('❌ [APPROVE_FAILED]', err);
 
     let errorMessage = lang === 'fr'
       ? "Erreur lors de l'approbation de la demande"
       : 'Error approving request';
 
-    // Gérer les erreurs spécifiques
     if (err.code === '23505') {
       errorMessage = lang === 'fr'
         ? 'Cet utilisateur est déjà membre du cercle'
         : 'This user is already a member of the circle';
+    } else if (err.code === '42501') {
+      errorMessage = lang === 'fr'
+        ? 'Permission refusée'
+        : 'Permission denied';
     } else if (err.message) {
       errorMessage = err.message;
     }
