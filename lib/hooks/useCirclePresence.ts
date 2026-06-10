@@ -1,5 +1,6 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export interface PresenceUser {
   user_id: string;
@@ -11,82 +12,108 @@ export interface PresenceUser {
 
 export function useCirclePresence(circleId: string, userId?: string) {
   const [presentUsers, setPresentUsers] = useState<PresenceUser[]>([]);
-  const didTrackRef = useRef(false);
-  const channelRef = useRef<any>(null);
 
   useEffect(() => {
     if (!circleId || !userId) return;
 
-    // Nettoyer l'ancien channel
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
-    }
+    let presenceChannel: RealtimeChannel | null = null;
+    let isCleanup = false;
 
-    didTrackRef.current = false;
+    const setupPresence = async () => {
+      presenceChannel = supabase.channel(`presence:${circleId}`, {
+        config: {
+          presence: {
+            key: userId,
+          },
+        },
+      });
 
-    const channel = supabase.channel(`presence:${circleId}`, {
-      config: { presence: { key: userId } }
-    });
+      // ── Sync : Récupérer tous les utilisateurs en ligne
+      presenceChannel.on('presence', { event: 'sync' }, () => {
+        if (isCleanup || !presenceChannel) return;
 
-    channelRef.current = channel;
+        const state = presenceChannel.presenceState();
+        const users: PresenceUser[] = [];
 
-    // ── Sync = source de vérité unique
-    channel.on('presence', { event: 'sync' }, () => {
-      const state = channel.presenceState();
-      const users: PresenceUser[] = [];
+        for (const key in state) {
+          const presences = state[key] as any[];
+          if (presences && Array.isArray(presences)) {
+            const latest = presences.reduce((latest: any, current: any) => {
+              return new Date(current.online_at) > new Date(latest.online_at) ? current : latest;
+            });
+            users.push({
+              user_id: latest.user_id,
+              online_at: latest.online_at,
+              full_name: latest.full_name,
+              avatar_url: latest.avatar_url,
+              username: latest.username,
+            });
+          }
+        }
 
-      for (const key in state) {
-        const presences = state[key] as any[];
-        if (presences?.length > 0) {
-          const p = presences[presences.length - 1];
-          users.push({
-            user_id: p.user_id,
-            online_at: p.online_at,
-            full_name: p.full_name,
-            avatar_url: p.avatar_url,
-            username: p.username,
+        setPresentUsers(users);
+      });
+
+      // ── Join : Un nouvel utilisateur arrive
+      presenceChannel.on('presence', { event: 'join' }, ({ newPresences }) => {
+        if (isCleanup) return;
+        const joined = (newPresences as any[]) || [];
+        console.log('✅ Presence join:', joined.map((p: any) => p.user_id));
+      });
+
+      // ── Leave : Un utilisateur quitte
+      presenceChannel.on('presence', { event: 'leave' }, ({ leftPresences }) => {
+        if (isCleanup) return;
+        const left = (leftPresences as any[]) || [];
+        console.log('❌ Presence leave:', left.map((p: any) => p.user_id));
+
+        const leftIds = new Set(left.map((p: any) => p.user_id));
+        setPresentUsers(prev => prev.filter(p => !leftIds.has(p.user_id)));
+      });
+
+      // ── S'abonner
+      presenceChannel.subscribe(async (status) => {
+        if (status === 'SUBSCRIBED' && !isCleanup) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name, avatar_url, username')
+            .eq('id', userId)
+            .maybeSingle();
+
+          await presenceChannel?.track({
+            user_id: userId,
+            online_at: new Date().toISOString(),
+            full_name: profile?.full_name || null,
+            avatar_url: profile?.avatar_url || null,
+            username: profile?.username || null,
           });
         }
-      }
+      });
+    };
 
-      console.log('👥 Online:', users.map(u => u.full_name || u.user_id));
-      setPresentUsers(users);
-    });
+    setupPresence();
 
-    // ── Subscribe + Track
-    channel.subscribe(async (status, err) => {
-      if (err) console.error('❌ Presence error:', err);
-
-      if (status === 'SUBSCRIBED' && !didTrackRef.current) {
-        didTrackRef.current = true;
-
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name, avatar_url, username')
-          .eq('id', userId)
-          .maybeSingle();
-
-        await channel.track({
+    // ── Heartbeat : Mettre à jour la présence toutes les 15 secondes
+    const heartbeatInterval = setInterval(async () => {
+      if (presenceChannel && !isCleanup) {
+        await presenceChannel.track({
           user_id: userId,
           online_at: new Date().toISOString(),
-          full_name: profile?.full_name || null,
-          avatar_url: profile?.avatar_url || null,
-          username: profile?.username || null,
         });
-
-        console.log('✅ Tracked:', profile?.full_name || userId);
       }
-    });
+    }, 15000);
 
-    // ── Cleanup
+    // ── Nettoyage
     return () => {
-      console.log('🧹 Cleanup presence:', userId);
-      didTrackRef.current = false;
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
+      isCleanup = true;
+
+      if (presenceChannel) {
+        presenceChannel.untrack().then(() => {
+          presenceChannel?.unsubscribe();
+        });
       }
+
+      clearInterval(heartbeatInterval);
       setPresentUsers([]);
     };
   }, [circleId, userId]);
