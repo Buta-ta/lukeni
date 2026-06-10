@@ -302,22 +302,44 @@ export default function CirclePage() {
     }
   }, [user, circle, lang, router]);
 
-
-    const handleJoinRequest = useCallback(async () => {
+  const handleJoinRequest = useCallback(async () => {
     if (!user || !circle || isSendingJoin) return;
 
     setIsSendingJoin(true);
     try {
-      const { error } = await supabase
+      // Vérifier s'il existe déjà une ligne pour ce couple circle/user
+      const { data: existingRequest } = await supabase
         .from('circle_join_requests')
-        .insert({
-          circle_id: circle.id,
-          user_id: user.id,
-          message: joinMessage.trim() || null,
-          status: 'pending',
-        });
+        .select('id, status')
+        .eq('circle_id', circle.id)
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (existingRequest) {
+        // Mettre à jour la ligne existante → remettre en "pending"
+        const { error } = await supabase
+          .from('circle_join_requests')
+          .update({
+            status: 'pending',
+            message: joinMessage.trim() || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingRequest.id);
+
+        if (error) throw error;
+      } else {
+        // Insérer une nouvelle ligne
+        const { error } = await supabase
+          .from('circle_join_requests')
+          .insert({
+            circle_id: circle.id,
+            user_id: user.id,
+            message: joinMessage.trim() || null,
+            status: 'pending',
+          });
+
+        if (error) throw error;
+      }
 
       setHasPendingRequest(true);
       setJoinMessage('');
@@ -1166,13 +1188,20 @@ export default function CirclePage() {
         )}
       </AnimatePresence>
 
-      {/* Non-creator leave button */}
+           {/* Non-creator leave button - DÉPLAÇABLE */}
       {!isCreator && (
         <motion.button
+          drag
+          dragMomentum={false}
+          dragElastic={0.2}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={handleLeaveCircle}
-          className="fixed bottom-20 right-6 md:bottom-6 z-40 p-3 rounded-full bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors border border-red-500/30"
+          className="fixed z-40 p-3 rounded-full bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors border border-red-500/30 cursor-grab active:cursor-grabbing"
+          style={{
+            bottom: 50,
+            right: 24,
+          }}
           title={lang === 'fr' ? 'Quitter le cercle' : 'Leave circle'}
         >
           <LogOut size={18} />
