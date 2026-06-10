@@ -54,7 +54,7 @@ export function useReadingCircle(circleId: string, userId?: string) {
             .single(),
           supabase
             .from('circle_members')
-            .select('*') // ✅ Sans join aux profiles
+            .select('*')
             .eq('circle_id', circleId)
             .order('last_active_at', { ascending: false })
         ]);
@@ -145,7 +145,7 @@ export function useReadingCircle(circleId: string, userId?: string) {
       );
     });
 
-    // 🗃️ POSTGRES CHANGES : Mises à jour de la DB
+    // 🗃️ POSTGRES CHANGES : Mises à jour du cercle
     realtimeChannel.on(
       'postgres_changes',
       {
@@ -159,7 +159,7 @@ export function useReadingCircle(circleId: string, userId?: string) {
       }
     );
 
-    // 🗃️ POSTGRES CHANGES : Nouveaux membres
+    // 🗃️ POSTGRES CHANGES : Nouveaux membres (INSERT)
     realtimeChannel.on(
       'postgres_changes',
       {
@@ -169,7 +169,6 @@ export function useReadingCircle(circleId: string, userId?: string) {
         filter: `circle_id=eq.${circleId}`
       },
       async (payload) => {
-        // Charger le profil du nouveau membre
         try {
           const { data: profile } = await supabase
             .from('profiles')
@@ -185,9 +184,54 @@ export function useReadingCircle(circleId: string, userId?: string) {
           setMembers(prev => [...prev, newMember]);
         } catch (err) {
           console.warn('Profile fetch error:', err);
-          // Ajouter quand même le membre sans profil
           setMembers(prev => [...prev, payload.new]);
         }
+      }
+    );
+
+    // 🗃️ POSTGRES CHANGES : Membres qui partent (DELETE) ✅ NOUVEAU
+    realtimeChannel.on(
+      'postgres_changes',
+      {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'circle_members',
+        filter: `circle_id=eq.${circleId}`
+      },
+      (payload) => {
+        console.log('🚪 [REALTIME DELETE] Membre parti:', payload.old);
+        
+        setMembers(prev => {
+          const filtered = prev.filter(m => m.user_id !== payload.old.user_id);
+          console.log('📋 [MEMBERS_UPDATED]', { 
+            before: prev.length, 
+            after: filtered.length,
+            leftUserId: payload.old.user_id 
+          });
+          return filtered;
+        });
+      }
+    );
+
+    // 🗃️ POSTGRES CHANGES : Membres mis à jour (UPDATE) ✅ NOUVEAU
+    realtimeChannel.on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'circle_members',
+        filter: `circle_id=eq.${circleId}`
+      },
+      (payload) => {
+        console.log('📝 [REALTIME UPDATE] Membre mis à jour:', payload.new);
+        
+        setMembers(prev =>
+          prev.map(m => 
+            m.user_id === payload.new.user_id 
+              ? { ...m, ...payload.new }
+              : m
+          )
+        );
       }
     );
 
