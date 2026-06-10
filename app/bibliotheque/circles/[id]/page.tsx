@@ -43,6 +43,7 @@ import {
   QuizzesPanel,
 } from '@/components/CircleReadingFeatures';
 
+
 const CaurisIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 100 100" className={className} fill="currentColor">
     <path d="M50 5C30 5 15 25 15 50C15 75 30 95 50 95C70 95 85 75 85 50C85 25 70 5 50 5ZM50 85C35 85 25 70 25 50C25 30 35 15 50 15C65 15 75 30 75 50C75 70 65 85 50 85Z" />
@@ -62,6 +63,59 @@ interface Book {
   file_url: string;
 }
 
+
+// ============================================================================
+// NOTIFICATION MODAL
+// ============================================================================
+
+function NotificationModal({
+  isOpen,
+  type,
+  message,
+  onClose,
+  lang
+}: {
+  isOpen: boolean;
+  type: 'success' | 'error';
+  message: string;
+  onClose: () => void;
+  lang: 'fr' | 'en';
+}) {
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(onClose, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, onClose]);
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          className="fixed top-6 right-6 z-[9999]"
+        >
+          <motion.div
+            className={`flex items-center gap-3 px-6 py-4 rounded-2xl border backdrop-blur-md ${type === 'success'
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                : 'bg-red-500/10 border-red-500/30 text-red-300'
+              }`}
+            layout
+          >
+            {type === 'success' ? (
+              <CheckCircle size={20} className="flex-shrink-0" />
+            ) : (
+              <AlertCircle size={20} className="flex-shrink-0" />
+            )}
+            <p className="text-sm font-medium">{message}</p>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
 // ============================================================================
 // COMPOSANT PRINCIPAL
 // ============================================================================
@@ -114,6 +168,8 @@ export default function CirclePage() {
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
   const [joinMessage, setJoinMessage] = useState('');
   const [isSendingJoin, setIsSendingJoin] = useState(false);
+  // ✅ État pour les notifications
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // ── Auth ──
   useEffect(() => {
@@ -162,62 +218,62 @@ export default function CirclePage() {
 
   // ✅ Vérifier que l'utilisateur est toujours membre
 
-    // ✅ Vérifier l'appartenance ET les demandes en cours
-useEffect(() => {
-  if (!user || !circle) return;
+  // ✅ Vérifier l'appartenance ET les demandes en cours
+  useEffect(() => {
+    if (!user || !circle) return;
 
-  const checkMembershipAndRequests = async () => {
-    try {
-      // 1. Vérifier si membre actif
-      const { data: memberData } = await supabase
-        .from('circle_members')
-        .select('id')
-        .eq('circle_id', circle.id)
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      const isCurrentMember = !!memberData || circle.creator_id === user.id;
-      setIsMember(isCurrentMember);
-
-      // 2. Si pas membre, vérifier les demandes
-      if (!isCurrentMember) {
-        const { data: requests } = await supabase
-          .from('circle_join_requests')
-          .select('id, status')
+    const checkMembershipAndRequests = async () => {
+      try {
+        // 1. Vérifier si membre actif
+        const { data: memberData } = await supabase
+          .from('circle_members')
+          .select('id')
           .eq('circle_id', circle.id)
           .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
+          .maybeSingle();
 
-        if (requests && requests.length > 0) {
-          // Compter les rejets
-          const rejectedCount = requests.filter(r => r.status === 'rejected').length;
-          setRejectedRequestsCount(rejectedCount);
+        const isCurrentMember = !!memberData || circle.creator_id === user.id;
+        setIsMember(isCurrentMember);
 
-          // Vérifier si demande en attente
-          const hasPending = requests.some(r => r.status === 'pending');
-          setHasPendingRequest(hasPending);
+        // 2. Si pas membre, vérifier les demandes
+        if (!isCurrentMember) {
+          const { data: requests } = await supabase
+            .from('circle_join_requests')
+            .select('id, status')
+            .eq('circle_id', circle.id)
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
 
-          // 🔴 Si 3 rejets ou plus → rediriger
-          if (rejectedCount >= 3) {
-            router.push('/bibliotheque');
-            return;
+          if (requests && requests.length > 0) {
+            // Compter les rejets
+            const rejectedCount = requests.filter(r => r.status === 'rejected').length;
+            setRejectedRequestsCount(rejectedCount);
+
+            // Vérifier si demande en attente
+            const hasPending = requests.some(r => r.status === 'pending');
+            setHasPendingRequest(hasPending);
+
+            // 🔴 Si 3 rejets ou plus → rediriger
+            if (rejectedCount >= 3) {
+              router.push('/bibliotheque');
+              return;
+            }
+          } else {
+            setRejectedRequestsCount(0);
+            setHasPendingRequest(false);
           }
-        } else {
-          setRejectedRequestsCount(0);
-          setHasPendingRequest(false);
         }
+      } catch (err) {
+        console.error('Membership check error:', err);
       }
-    } catch (err) {
-      console.error('Membership check error:', err);
-    }
-  };
+    };
 
-  checkMembershipAndRequests();
+    checkMembershipAndRequests();
 
-  // ✅ Vérifier toutes les 10 secondes (au lieu de 5)
-  const interval = setInterval(checkMembershipAndRequests, 10000);
-  return () => clearInterval(interval);
-}, [user, circle?.id, circle?.creator_id, router]);
+    // ✅ Vérifier toutes les 10 secondes (au lieu de 5)
+    const interval = setInterval(checkMembershipAndRequests, 10000);
+    return () => clearInterval(interval);
+  }, [user, circle?.id, circle?.creator_id, router]);
 
 
   // ✅ Charger le compte des demandes rejetées
@@ -240,33 +296,33 @@ useEffect(() => {
 
 
   // ✅ Écouter les changements de statut des demandes
-useEffect(() => {
-  if (!user || !circle || isMember) return;
+  useEffect(() => {
+    if (!user || !circle || isMember) return;
 
-  const channel = supabase
-    .channel(`join_requests:${circle.id}:${user.id}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'circle_join_requests',
-        filter: `circle_id=eq.${circle.id}`,
-      },
-      (payload) => {
-        // Si la demande de cet utilisateur est acceptée
-        if (payload.new.user_id === user.id && payload.new.status === 'approved') {
-          // Recharger la page pour afficher le cercle
-          window.location.reload();
+    const channel = supabase
+      .channel(`join_requests:${circle.id}:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'circle_join_requests',
+          filter: `circle_id=eq.${circle.id}`,
+        },
+        (payload) => {
+          // Si la demande de cet utilisateur est acceptée
+          if (payload.new.user_id === user.id && payload.new.status === 'approved') {
+            // Recharger la page pour afficher le cercle
+            window.location.reload();
+          }
         }
-      }
-    )
-    .subscribe();
+      )
+      .subscribe();
 
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, [user, circle, isMember]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, circle, isMember]);
   // ============================================================================
   // FONCTIONS : Chat Features
   // ============================================================================
@@ -324,96 +380,147 @@ useEffect(() => {
     if (!user || !circle) return;
 
     if (circle.creator_id === user.id) {
-      alert(lang === 'fr'
-        ? 'Les créateurs ne peuvent pas quitter. Supprimez le cercle à la place.'
-        : 'Creators cannot leave. Delete the circle instead.');
+      setNotification({
+        type: 'error',
+        message: lang === 'fr'
+          ? 'Les créateurs ne peuvent pas quitter. Supprimez le cercle à la place.'
+          : 'Creators cannot leave. Delete the circle instead.'
+      });
       return;
     }
 
-    const { error } = await supabase
-      .from('circle_members')
-      .delete()
-      .eq('circle_id', circle.id)
-      .eq('user_id', user.id);
+    try {
+      console.log('🚪 [LEAVE] Tentative de départ du cercle', {
+        circleId: circle.id,
+        userId: user.id
+      });
 
-    if (!error) {
-      router.push('/bibliotheque');
+      // 1. Supprimer de circle_members
+      const { error: deleteError, count } = await supabase
+        .from('circle_members')
+        .delete()
+        .eq('circle_id', circle.id)
+        .eq('user_id', user.id)
+        .select('*', { count: 'exact', head: true });
+
+      console.log('🗑️ [DELETE_RESULT]', { deleteError, count });
+
+      if (deleteError) {
+        console.error('❌ [DELETE_ERROR]', deleteError);
+        throw deleteError;
+      }
+
+      if (count === 0) {
+        console.warn('⚠️ [WARNING] Aucune ligne supprimée - utilisateur n\'était pas membre');
+        setNotification({
+          type: 'error',
+          message: lang === 'fr'
+            ? 'Vous n\'êtes pas membre de ce cercle'
+            : 'You are not a member of this circle'
+        });
+        return;
+      }
+
+      console.log('✅ [LEFT] Vous avez quitté le cercle');
+
+      // 2. Afficher notification
+      setNotification({
+        type: 'success',
+        message: lang === 'fr'
+          ? '✅ Vous avez quitté le cercle'
+          : '✅ You left the circle'
+      });
+
+      // 3. Rediriger après un court délai
+      setTimeout(() => {
+        router.push('/bibliotheque');
+      }, 1500);
+
+    } catch (err: any) {
+      console.error('❌ [LEAVE_ERROR]', err);
+
+      setNotification({
+        type: 'error',
+        message: err.message || (lang === 'fr'
+          ? 'Erreur lors de la quitte du cercle'
+          : 'Error leaving circle')
+      });
     }
   }, [user, circle, lang, router]);
 
   const handleJoinRequest = useCallback(async () => {
-  if (!user || !circle || isSendingJoin) return;
+    if (!user || !circle || isSendingJoin) return;
 
-  setIsSendingJoin(true);
-  try {
-    // 1. Vérifier les rejets existants
-    const { data: existingRequests } = await supabase
-      .from('circle_join_requests')
-      .select('id, status')
-      .eq('circle_id', circle.id)
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+    setIsSendingJoin(true);
+    try {
+      // 1. Vérifier les rejets existants
+      const { data: existingRequests } = await supabase
+        .from('circle_join_requests')
+        .select('id, status')
+        .eq('circle_id', circle.id)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
-    const rejectedCount = existingRequests?.filter(r => r.status === 'rejected').length || 0;
+      const rejectedCount = existingRequests?.filter(r => r.status === 'rejected').length || 0;
 
-    // 🔴 Bloquer si 3 rejets
-    if (rejectedCount >= 3) {
-      alert(lang === 'fr' 
-        ? 'Vous ne pouvez plus envoyer de demande pour ce cercle.'
-        : 'You cannot send more requests for this circle.');
+      // 🔴 Bloquer si 3 rejets
+      if (rejectedCount >= 3) {
+        alert(lang === 'fr'
+          ? 'Vous ne pouvez plus envoyer de demande pour ce cercle.'
+          : 'You cannot send more requests for this circle.');
+        setIsSendingJoin(false);
+        return;
+      }
+
+      // 2. Chercher une demande existante EN ATTENTE ou REJETÉE
+      const existingRequest = existingRequests?.find(
+        r => r.status === 'pending' || r.status === 'rejected'
+      );
+
+      if (existingRequest) {
+        // ✅ Mettre à jour la demande existante
+        const { error } = await supabase
+          .from('circle_join_requests')
+          .update({
+            status: 'pending',
+            message: joinMessage.trim() || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingRequest.id);
+
+        if (error) throw error;
+      } else {
+        // ✅ Créer une nouvelle demande
+        const { error } = await supabase
+          .from('circle_join_requests')
+          .insert({
+            circle_id: circle.id,
+            user_id: user.id,
+            message: joinMessage.trim() || null,
+            status: 'pending',
+          });
+
+        if (error) throw error;
+      }
+
+      // 3. Mettre à jour l'UI
+      setHasPendingRequest(true);
+      setJoinMessage('');
+
+      // ✅ Afficher un message de confirmation
+      alert(lang === 'fr'
+        ? '✅ Votre demande a été envoyée !'
+        : '✅ Your request has been sent!');
+
+    } catch (err: any) {
+      console.error('Join request error:', err);
+      alert(lang === 'fr'
+        ? `❌ Erreur : ${err.message}`
+        : `❌ Error: ${err.message}`);
+    } finally {
       setIsSendingJoin(false);
-      return;
     }
-
-    // 2. Chercher une demande existante EN ATTENTE ou REJETÉE
-    const existingRequest = existingRequests?.find(
-      r => r.status === 'pending' || r.status === 'rejected'
-    );
-
-    if (existingRequest) {
-      // ✅ Mettre à jour la demande existante
-      const { error } = await supabase
-        .from('circle_join_requests')
-        .update({
-          status: 'pending',
-          message: joinMessage.trim() || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existingRequest.id);
-
-      if (error) throw error;
-    } else {
-      // ✅ Créer une nouvelle demande
-      const { error } = await supabase
-        .from('circle_join_requests')
-        .insert({
-          circle_id: circle.id,
-          user_id: user.id,
-          message: joinMessage.trim() || null,
-          status: 'pending',
-        });
-
-      if (error) throw error;
-    }
-
-    // 3. Mettre à jour l'UI
-    setHasPendingRequest(true);
-    setJoinMessage('');
-    
-    // ✅ Afficher un message de confirmation
-    alert(lang === 'fr' 
-      ? '✅ Votre demande a été envoyée !'
-      : '✅ Your request has been sent!');
-
-  } catch (err: any) {
-    console.error('Join request error:', err);
-    alert(lang === 'fr' 
-      ? `❌ Erreur : ${err.message}`
-      : `❌ Error: ${err.message}`);
-  } finally {
-    setIsSendingJoin(false);
-  }
-}, [user, circle, joinMessage, isSendingJoin, lang]);
+  }, [user, circle, joinMessage, isSendingJoin, lang]);
 
   // ✅ Filtrer les messages
   const filteredMessages = useMemo(() => {
@@ -453,7 +560,7 @@ useEffect(() => {
   const avgProgress = members.length > 0
     ? Math.round(members.reduce((acc, m) => acc + m.current_page, 0) / members.length)
     : 0;
-  
+
 
 
   // ✅ Si l'utilisateur n'est pas membre, afficher l'interface appropriée
@@ -548,9 +655,8 @@ useEffect(() => {
               </div>
               <div className="flex gap-1 mt-4">
                 {[1, 2, 3].map(i => (
-                  <div key={i} className={`h-1.5 flex-1 rounded-full ${
-                    i <= rejectedRequestsCount ? 'bg-red-500' : 'bg-white/10'
-                  }`} />
+                  <div key={i} className={`h-1.5 flex-1 rounded-full ${i <= rejectedRequestsCount ? 'bg-red-500' : 'bg-white/10'
+                    }`} />
                 ))}
               </div>
               <p className="text-gray-500 text-xs mt-2">
@@ -611,14 +717,12 @@ useEffect(() => {
             <div className="space-y-1">
               <div className="flex gap-1">
                 {[1, 2, 3].map(i => (
-                  <div key={i} className={`h-1.5 flex-1 rounded-full ${
-                    i <= rejectedRequestsCount ? 'bg-red-500' : 'bg-white/10'
-                  }`} />
+                  <div key={i} className={`h-1.5 flex-1 rounded-full ${i <= rejectedRequestsCount ? 'bg-red-500' : 'bg-white/10'
+                    }`} />
                 ))}
               </div>
-              <p className={`text-xs font-bold ${
-                3 - rejectedRequestsCount > 1 ? 'text-gray-400' : 'text-amber-400'
-              }`}>
+              <p className={`text-xs font-bold ${3 - rejectedRequestsCount > 1 ? 'text-gray-400' : 'text-amber-400'
+                }`}>
                 {lang === 'fr'
                   ? `${3 - rejectedRequestsCount}/3 tentatives restantes`
                   : `${3 - rejectedRequestsCount}/3 attempts left`}
@@ -671,7 +775,7 @@ useEffect(() => {
       </div>
     );
   }
-  
+
   return (
     <div className="fixed inset-0 bg-[#020111] flex flex-col md:flex-row text-white overflow-hidden">
       {/* ═══════════════════════════════════════════════════════════
@@ -1118,7 +1222,7 @@ useEffect(() => {
         )}
       </motion.div>
 
-            {/* ✅ BOUTON TOGGLE SIDEBAR - DÉPLAÇABLE */}
+      {/* ✅ BOUTON TOGGLE SIDEBAR - DÉPLAÇABLE */}
       <motion.button
         drag
         dragMomentum={false}
@@ -1134,7 +1238,7 @@ useEffect(() => {
         title={lang === 'fr' ? (isSidebarExpanded ? 'Réduire' : 'Agrandir') : (isSidebarExpanded ? 'Collapse' : 'Expand')}
       >
         {isSidebarExpanded ? '◄' : '►'}
-        
+
         {/* 🔴 NOTIFICATION ROUGE - Nouveau message (seulement si sidebar fermée) */}
         {!isSidebarExpanded && messages.length > 0 && (
           <motion.div
@@ -1143,7 +1247,7 @@ useEffect(() => {
             className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 border-2 border-[#020111] animate-pulse"
           />
         )}
-        
+
         {/* 🔵 NOTIFICATION BLEU - Nouveau repère (seulement si sidebar fermée) */}
         {!isSidebarExpanded && bookmarks.length > 0 && (
           <motion.div
@@ -1253,7 +1357,7 @@ useEffect(() => {
         )}
       </AnimatePresence>
 
-           {/* Non-creator leave button - DÉPLAÇABLE */}
+      {/* Non-creator leave button - DÉPLAÇABLE */}
       {!isCreator && (
         <motion.button
           drag
@@ -1272,6 +1376,15 @@ useEffect(() => {
           <LogOut size={18} />
         </motion.button>
       )}
+
+      {/* ✅ NOTIFICATION MODAL */}
+<NotificationModal
+  isOpen={!!notification}
+  type={notification?.type || 'success'}
+  message={notification?.message || ''}
+  onClose={() => setNotification(null)}
+  lang={lang}
+/>
     </div>
   );
 }
