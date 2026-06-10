@@ -10,7 +10,7 @@ import {
   Library, Loader2, Search, X, Headphones, Download, BookOpen,
   Star, Heart, MessageCircle, Send, Play, Pause, Plus,
   Sparkles, Lightbulb, User as UserIcon, Globe, Upload,
-  FileText, Music, ChevronRight, Check, ExternalLink, AlertCircle,Users
+  FileText, Music, ChevronRight, Check, ExternalLink, AlertCircle, Users
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import SpaceHeader from '@/components/SpaceHeader';
@@ -1547,7 +1547,7 @@ export default function BibliothequePage() {
   }, []);
 
 
-   useEffect(() => {
+  useEffect(() => {
     const loadCircles = async () => {
       const { data } = await supabase
         .from('reading_circles')
@@ -1635,7 +1635,7 @@ export default function BibliothequePage() {
       </motion.button>
 
 
-       {/* 🆕 FAB Créer cercle - NOUVEAU */}
+      {/* 🆕 FAB Créer cercle - NOUVEAU */}
       <motion.button onClick={() => router.push('/bibliotheque/circles/create')}
         className="fixed bottom-24 right-6 z-30 flex items-center gap-2 bg-purple-500 text-white px-5 py-3.5 rounded-full font-bold text-sm shadow-[0_0_30px_rgba(168,85,247,0.5)] hover:bg-purple-600 transition-colors"
         whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.95 }}
@@ -1647,150 +1647,146 @@ export default function BibliothequePage() {
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6">
         <HeroSection lang={lang} bookCount={books.length} />
 
-      {/* Search avec tab pour cercles */}
-<motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 2 }}
-  className="relative max-w-2xl mx-auto mb-8">
-  {/* Tabs : Livres / Cercles */}
-  <div className="flex gap-2 mb-3">
-    <button
-      onClick={() => { setSearchMode('books'); setSearchTerm(''); }}
-      className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-        searchMode === 'books'
-          ? 'bg-emerald-500 text-black'
-          : 'bg-white/5 text-gray-400 hover:text-white'
-      }`}
-    >
-      📚 {lang === 'fr' ? 'Livres' : 'Books'}
-    </button>
-    <button
-      onClick={() => { setSearchMode('circles'); setSearchTerm(''); }}
-      className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-        searchMode === 'circles'
-          ? 'bg-purple-500 text-black'
-          : 'bg-white/5 text-gray-400 hover:text-white'
-      }`}
-    >
-      👥 {lang === 'fr' ? 'Cercles' : 'Circles'}
-    </button>
-  </div>
+        {/* Search avec tab pour cercles */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 2 }}
+          className="relative max-w-2xl mx-auto mb-8">
+          {/* Tabs : Livres / Cercles */}
+          <div className="flex gap-2 mb-3">
+            <button
+              onClick={() => { setSearchMode('books'); setSearchTerm(''); }}
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${searchMode === 'books'
+                ? 'bg-emerald-500 text-black'
+                : 'bg-white/5 text-gray-400 hover:text-white'
+                }`}
+            >
+              📚 {lang === 'fr' ? 'Livres' : 'Books'}
+            </button>
+            <button
+              onClick={() => { setSearchMode('circles'); setSearchTerm(''); }}
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${searchMode === 'circles'
+                ? 'bg-purple-500 text-black'
+                : 'bg-white/5 text-gray-400 hover:text-white'
+                }`}
+            >
+              👥 {lang === 'fr' ? 'Cercles' : 'Circles'}
+            </button>
+          </div>
 
-  <div className="relative group">
-    <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-emerald-500 transition-colors pointer-events-none" />
-    <input
-      type="text"
-      value={searchTerm}
-      onChange={e => setSearchTerm(e.target.value)}
-      placeholder={searchMode === 'books'
-        ? (lang === 'fr' ? 'Rechercher un livre, un auteur...' : 'Search a book, an author...')
-        : (lang === 'fr' ? 'Rechercher un cercle...' : 'Search a circle...')}
-      className="w-full bg-black/50 backdrop-blur-md border border-white/10 rounded-2xl pl-12 pr-12 py-4 text-white text-base outline-none focus:border-emerald-500/40 focus:bg-black/70 transition-all placeholder:text-gray-700"
-    />
-    {searchTerm && (
-      <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white transition-colors">
-        <X size={16} />
-      </button>
-    )}
-  </div>
+          <div className="relative group">
+            <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-emerald-500 transition-colors pointer-events-none" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder={searchMode === 'books'
+                ? (lang === 'fr' ? 'Rechercher un livre, un auteur...' : 'Search a book, an author...')
+                : (lang === 'fr' ? 'Rechercher un cercle...' : 'Search a circle...')}
+              className="w-full bg-black/50 backdrop-blur-md border border-white/10 rounded-2xl pl-12 pr-12 py-4 text-white text-base outline-none focus:border-emerald-500/40 focus:bg-black/70 transition-all placeholder:text-gray-700"
+            />
+            {searchTerm && (
+              <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white transition-colors">
+                <X size={16} />
+              </button>
+            )}
+          </div>
 
-  {/* Résultats Livres */}
-  {searchMode === 'books' && (
-    <LibrarySearchDropdown
-      searchTerm={searchTerm}
-      lang={lang}
-      lukeniBooks={filtered}
-      onSelectBook={book => setSelectedBook(book)}
-      onSelectOLBook={book => setSelectedOLBook(book)}
-      onClose={() => setSearchTerm('')}
-    />
-  )}
+          {/* Résultats Livres */}
+          {searchMode === 'books' && (
+            <LibrarySearchDropdown
+              searchTerm={searchTerm}
+              lang={lang}
+              lukeniBooks={filtered}
+              onSelectBook={book => setSelectedBook(book)}
+              onSelectOLBook={book => setSelectedOLBook(book)}
+              onClose={() => setSearchTerm('')}
+            />
+          )}
 
-  {/* Résultats Cercles */}
-  {searchMode === 'circles' && searchTerm.length >= 2 && (
-    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-      className="absolute top-full mt-2 left-0 right-0 bg-[#0d0d1a]/95 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden z-50 max-h-80 overflow-y-auto">
-      {circles.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 ? (
-        <div className="p-4 text-center text-gray-500 text-sm">
-          {lang === 'fr' ? 'Aucun cercle trouvé' : 'No circles found'}
-        </div>
-      ) : (
-        circles
-          .filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()))
-          .map(circle => {
-            // ✅ Récupérer le livre associé
-            const circleBook = books.find(b => b.id === circle.book_id);
-            
-            return (
-              <Link key={circle.id} href={`/bibliotheque/circles/${circle.id}`}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-purple-500/10 transition-colors border-b border-white/[0.03] last:border-b-0 cursor-pointer">
-                
-                {/* ✅ Afficher la couverture du livre */}
-                {circleBook?.cover_url ? (
-                  <div className="w-10 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-purple-500/10">
-                    <img src={circleBook.cover_url} alt="" className="w-full h-full object-cover" />
+                  {/* Résultats Cercles */}
+            {searchMode === 'circles' && searchTerm.length >= 2 && (
+              <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+                className="absolute top-full mt-2 left-0 right-0 bg-[#0d0d1a]/95 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden z-50 max-h-80 overflow-y-auto">
+                {circles.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 ? (
+                  <div className="p-4 text-center text-gray-500 text-sm">
+                    {lang === 'fr' ? 'Aucun cercle trouvé' : 'No circles found'}
                   </div>
                 ) : (
-                  <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 font-bold text-sm flex-shrink-0">
-                    👥
-                  </div>
+                  circles
+                    .filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                    .map(circle => {
+                      const circleBook = books.find(b => b.id === circle.book_id);
+
+                      return (
+                        <Link key={circle.id} href={`/bibliotheque/circles/${circle.id}`}
+                          className="flex items-center gap-3 px-4 py-3 hover:bg-purple-500/10 transition-colors border-b border-white/[0.03] last:border-b-0 cursor-pointer">
+
+                          {circleBook?.cover_url ? (
+                            <div className="w-10 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-purple-500/10">
+                              <img src={circleBook.cover_url} alt="" className="w-full h-full object-cover" />
+                            </div>
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 font-bold text-sm flex-shrink-0">
+                              👥
+                            </div>
+                          )}
+
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm font-bold truncate">{circle.name}</p>
+
+                            {circleBook && (
+                              <p className="text-gray-500 text-xs truncate">
+                                📖 {lang === 'fr' ? circleBook.title_fr : circleBook.title_en}
+                              </p>
+                            )}
+
+                            <p className="text-gray-600 text-xs truncate mt-0.5">
+                              {circle.max_members} {lang === 'fr' ? 'places' : 'spots'}
+                            </p>
+                          </div>
+
+                          <ChevronRight size={14} className="text-gray-700" />
+                        </Link>
+                      );
+                    })
                 )}
+              </motion.div>
+            )}
 
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm font-bold truncate">{circle.name}</p>
-                  
-                  {/* ✅ Afficher le titre du livre */}
-                  {circleBook && (
-                    <p className="text-gray-500 text-xs truncate">
-                      📖 {lang === 'fr' ? circleBook.title_fr : circleBook.title_en}
-                    </p>
-                  )}
-                  
-                  <p className="text-gray-600 text-xs truncate mt-0.5">
-                    {circle.max_members} {lang === 'fr' ? 'places' : 'spots'}
-                  </p>
-                </div>
-                
-                <ChevronRight size={14} className="text-gray-700" />
-              </Link>
-            );
-          })
-      )}
-    </motion.div>
-  )}
-</motion.div>
+          </motion.div>
 
-        {/* Categories */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.2 }}
-          className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2 mb-8">
-          <button onClick={() => setActiveCategory('all')}
-            className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 border ${activeCategory === 'all' ? 'bg-emerald-500 text-black border-emerald-500' : 'bg-black/40 backdrop-blur-sm text-gray-500 border-white/[0.08] hover:border-white/20 hover:text-gray-300'}`}>
-            <Globe size={12} />{lang === 'fr' ? 'Tout' : 'All'}
-          </button>
-          {categories.map(cat => (
-            <motion.button key={cat.id} onClick={() => setActiveCategory(cat.id)}
-              whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-              className={`flex-shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 border whitespace-nowrap ${activeCategory === cat.id ? 'text-black border-transparent' : 'bg-black/40 backdrop-blur-sm text-gray-500 border-white/[0.08] hover:border-white/20 hover:text-gray-300'}`}
-              style={activeCategory === cat.id ? { backgroundColor: cat.color, boxShadow: `0 0 15px ${cat.color}50` } : {}}>
-              {lang === 'fr' ? cat.name_fr : cat.name_en}
-            </motion.button>
-          ))}
-        </motion.div>
-
-        {/* Grid livres */}
-        {filtered.length === 0 && !isLoading ? (
-          <div className="text-center py-24">
-            <motion.div animate={{ opacity: [0.4, 0.8, 0.4] }} transition={{ duration: 3, repeat: Infinity }}>
-              <Library size={56} className="mx-auto text-gray-800 mb-4" />
-            </motion.div>
-            <p className="text-gray-600 text-sm tracking-wider">{lang === 'fr' ? 'La bibliothèque se remplit...' : 'The library is filling up...'}</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-            {filtered.map((book, i) => (
-              <BookCard key={book.id} book={book} index={i} lang={lang} onClick={() => setSelectedBook(book)} />
+          {/* Categories */}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.2 }}
+            className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2 mb-8">
+            <button onClick={() => setActiveCategory('all')}
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 border ${activeCategory === 'all' ? 'bg-emerald-500 text-black border-emerald-500' : 'bg-black/40 backdrop-blur-sm text-gray-500 border-white/[0.08] hover:border-white/20 hover:text-gray-300'}`}>
+              <Globe size={12} />{lang === 'fr' ? 'Tout' : 'All'}
+            </button>
+            {categories.map(cat => (
+              <motion.button key={cat.id} onClick={() => setActiveCategory(cat.id)}
+                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                className={`flex-shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 border whitespace-nowrap ${activeCategory === cat.id ? 'text-black border-transparent' : 'bg-black/40 backdrop-blur-sm text-gray-500 border-white/[0.08] hover:border-white/20 hover:text-gray-300'}`}
+                style={activeCategory === cat.id ? { backgroundColor: cat.color, boxShadow: `0 0 15px ${cat.color}50` } : {}}>
+                {lang === 'fr' ? cat.name_fr : cat.name_en}
+              </motion.button>
             ))}
-          </div>
-        )}
-        <div className="h-24" />
+          </motion.div>
+
+          {/* Grid livres */}
+          {filtered.length === 0 && !isLoading ? (
+            <div className="text-center py-24">
+              <motion.div animate={{ opacity: [0.4, 0.8, 0.4] }} transition={{ duration: 3, repeat: Infinity }}>
+                <Library size={56} className="mx-auto text-gray-800 mb-4" />
+              </motion.div>
+              <p className="text-gray-600 text-sm tracking-wider">{lang === 'fr' ? 'La bibliothèque se remplit...' : 'The library is filling up...'}</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+              {filtered.map((book, i) => (
+                <BookCard key={book.id} book={book} index={i} lang={lang} onClick={() => setSelectedBook(book)} />
+              ))}
+            </div>
+          )}
+          <div className="h-24" />
       </div>
 
       {/* ── Modals ── */}

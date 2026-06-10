@@ -376,77 +376,80 @@ export default function CirclePage() {
     setTimeout(() => setCopiedCode(null), 2000);
   }, []);
 
-  const handleLeaveCircle = useCallback(async () => {
-    if (!user || !circle) return;
+const handleLeaveCircle = useCallback(async () => {
+  if (!user || !circle) return;
 
-    if (circle.creator_id === user.id) {
+  if (circle.creator_id === user.id) {
+    setNotification({
+      type: 'error',
+      message: lang === 'fr'
+        ? 'Les créateurs ne peuvent pas quitter. Supprimez le cercle à la place.'
+        : 'Creators cannot leave. Delete the circle instead.'
+    });
+    return;
+  }
+
+  try {
+    console.log('🚪 [LEAVE] Tentative de départ du cercle', {
+      circleId: circle.id,
+      userId: user.id
+    });
+
+    // 1. Supprimer de circle_members
+    const { error: deleteError, count } = await supabase
+      .from('circle_members')
+      .delete()
+      .eq('circle_id', circle.id)
+      .eq('user_id', user.id)
+      .select('*', { count: 'exact', head: true });
+
+    console.log('🗑️ [DELETE_RESULT]', { deleteError, count });
+
+    if (deleteError) {
+      console.error('❌ [DELETE_ERROR]', deleteError);
+      throw deleteError;
+    }
+
+    if (count === 0) {
+      console.warn('⚠️ [WARNING] Aucune ligne supprimée - utilisateur n\'était pas membre');
       setNotification({
         type: 'error',
         message: lang === 'fr'
-          ? 'Les créateurs ne peuvent pas quitter. Supprimez le cercle à la place.'
-          : 'Creators cannot leave. Delete the circle instead.'
+          ? 'Vous n\'êtes pas membre de ce cercle'
+          : 'You are not a member of this circle'
       });
       return;
     }
 
-    try {
-      console.log('🚪 [LEAVE] Tentative de départ du cercle', {
-        circleId: circle.id,
-        userId: user.id
-      });
+    console.log('✅ [LEFT] Vous avez quitté le cercle');
 
-      // 1. Supprimer de circle_members
-      const { error: deleteError, count } = await supabase
-        .from('circle_members')
-        .delete()
-        .eq('circle_id', circle.id)
-        .eq('user_id', user.id)
-        .select('*', { count: 'exact', head: true });
+    // 2. Afficher notification
+    setNotification({
+      type: 'success',
+      message: lang === 'fr'
+        ? '✅ Vous avez quitté le cercle'
+        : '✅ You left the circle'
+    });
 
-      console.log('🗑️ [DELETE_RESULT]', { deleteError, count });
+    // ✅ NOUVEAU : Nettoyer le state local
+    setIsMember(false);
+    
+    // 3. Rediriger après un court délai
+    setTimeout(() => {
+      router.push('/bibliotheque');
+    }, 1500);
 
-      if (deleteError) {
-        console.error('❌ [DELETE_ERROR]', deleteError);
-        throw deleteError;
-      }
+  } catch (err: any) {
+    console.error('❌ [LEAVE_ERROR]', err);
 
-      if (count === 0) {
-        console.warn('⚠️ [WARNING] Aucune ligne supprimée - utilisateur n\'était pas membre');
-        setNotification({
-          type: 'error',
-          message: lang === 'fr'
-            ? 'Vous n\'êtes pas membre de ce cercle'
-            : 'You are not a member of this circle'
-        });
-        return;
-      }
-
-      console.log('✅ [LEFT] Vous avez quitté le cercle');
-
-      // 2. Afficher notification
-      setNotification({
-        type: 'success',
-        message: lang === 'fr'
-          ? '✅ Vous avez quitté le cercle'
-          : '✅ You left the circle'
-      });
-
-      // 3. Rediriger après un court délai
-      setTimeout(() => {
-        router.push('/bibliotheque');
-      }, 1500);
-
-    } catch (err: any) {
-      console.error('❌ [LEAVE_ERROR]', err);
-
-      setNotification({
-        type: 'error',
-        message: err.message || (lang === 'fr'
-          ? 'Erreur lors de la quitte du cercle'
-          : 'Error leaving circle')
-      });
-    }
-  }, [user, circle, lang, router]);
+    setNotification({
+      type: 'error',
+      message: err.message || (lang === 'fr'
+        ? 'Erreur lors de la quitte du cercle'
+        : 'Error leaving circle')
+    });
+  }
+}, [user, circle, lang, router]);
 
   const handleJoinRequest = useCallback(async () => {
     if (!user || !circle || isSendingJoin) return;

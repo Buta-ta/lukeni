@@ -39,41 +39,48 @@ export function useReadingCircle(circleId: string, userId?: string) {
   const [error, setError] = useState<string | null>(null);
 
   // ── Charger les données initiales ──
-  useEffect(() => {
-    if (!circleId) return;
+useEffect(() => {
+  if (!circleId) return;
 
-    const loadCircle = async () => {
-      try {
-        setIsLoading(true);
+  const loadCircle = async () => {
+    try {
+      setIsLoading(true);
 
-        const [circleRes, membersRes] = await Promise.all([
-          supabase
-            .from('reading_circles')
-            .select('*')
-            .eq('id', circleId)
-            .single(),
-          supabase
-            .from('circle_members')
-            .select('*')
-            .eq('circle_id', circleId)
-            .order('last_active_at', { ascending: false })
-        ]);
+      const [circleRes, membersRes] = await Promise.all([
+        supabase
+          .from('reading_circles')
+          .select('*')
+          .eq('id', circleId)
+          .single(),
+        supabase
+          .from('circle_members')
+          .select('*')
+          .eq('circle_id', circleId)
+          .order('last_active_at', { ascending: false })
+      ]);
 
-        if (circleRes.error) throw circleRes.error;
+      if (circleRes.error) throw circleRes.error;
 
-        setCircle(circleRes.data);
-        setMembers(membersRes.data || []);
-        setError(null);
-      } catch (err: any) {
-        setError(err.message);
-        console.error('Load circle error:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+      setCircle(circleRes.data);
+      setMembers(membersRes.data || []);
+      setError(null);
+    } catch (err: any) {
+      setError(err.message);
+      console.error('Load circle error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  loadCircle();
+
+  // ✅ NOUVEAU : Recharger les membres toutes les 5 secondes
+  const interval = setInterval(() => {
     loadCircle();
-  }, [circleId]);
+  }, 5000);
+
+  return () => clearInterval(interval);
+}, [circleId]);
 
   // ── Charger les profiles SÉPARÉMENT ──
   useEffect(() => {
