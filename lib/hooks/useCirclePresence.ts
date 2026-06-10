@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export interface PresenceUser {
   user_id: string;
@@ -12,87 +11,82 @@ export interface PresenceUser {
 
 export function useCirclePresence(circleId: string, userId?: string) {
   const [presentUsers, setPresentUsers] = useState<PresenceUser[]>([]);
-  const channelRef = useRef<RealtimeChannel | null>(null);
-  const isCleanupRef = useRef(false);
+  const didTrackRef = useRef(false);
+  const channelRef = useRef<any>(null);
 
   useEffect(() => {
     if (!circleId || !userId) return;
 
-    isCleanupRef.current = false;
-
-    // Nettoyer l'ancien channel s'il existe
+    // Nettoyer l'ancien channel
     if (channelRef.current) {
-      channelRef.current.untrack();
-      channelRef.current.unsubscribe();
+      supabase.removeChannel(channelRef.current);
       channelRef.current = null;
     }
 
-    const presenceChannel = supabase.channel(`presence:${circleId}`, {
-      config: {
-        presence: {
-          key: userId,
-        },
-      },
+    didTrackRef.current = false;
+
+    const channel = supabase.channel(`presence:${circleId}`, {
+      config: { presence: { key: userId } }
     });
 
-    channelRef.current = presenceChannel;
+    channelRef.current = channel;
 
-    // ── Sync : source de vérité pour les utilisateurs en ligne
-    presenceChannel.on('presence', { event: 'sync' }, () => {
-      if (isCleanupRef.current) return;
-
-      const state = presenceChannel.presenceState();
+    // ── Sync = source de vérité unique
+    channel.on('presence', { event: 'sync' }, () => {
+      const state = channel.presenceState();
       const users: PresenceUser[] = [];
 
       for (const key in state) {
         const presences = state[key] as any[];
-        if (presences && Array.isArray(presences)) {
-          // Prendre la présence la plus récente
-          const latest = presences.reduce((best: any, cur: any) => {
-            return new Date(cur.online_at) > new Date(best.online_at) ? cur : best;
-          });
+        if (presences?.length > 0) {
+          const p = presences[presences.length - 1];
           users.push({
-            user_id: latest.user_id,
-            online_at: latest.online_at,
-            full_name: latest.full_name,
-            avatar_url: latest.avatar_url,
-            username: latest.username,
+            user_id: p.user_id,
+            online_at: p.online_at,
+            full_name: p.full_name,
+            avatar_url: p.avatar_url,
+            username: p.username,
           });
         }
       }
 
+      console.log('👥 Online:', users.map(u => u.full_name || u.user_id));
       setPresentUsers(users);
     });
 
-    // ── S'abonner et tracker
-    presenceChannel.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED' && !isCleanupRef.current) {
+    // ── Subscribe + Track
+    channel.subscribe(async (status, err) => {
+      if (err) console.error('❌ Presence error:', err);
+
+      if (status === 'SUBSCRIBED' && !didTrackRef.current) {
+        didTrackRef.current = true;
+
         const { data: profile } = await supabase
           .from('profiles')
           .select('full_name, avatar_url, username')
           .eq('id', userId)
           .maybeSingle();
 
-        await presenceChannel.track({
+        await channel.track({
           user_id: userId,
           online_at: new Date().toISOString(),
           full_name: profile?.full_name || null,
           avatar_url: profile?.avatar_url || null,
           username: profile?.username || null,
         });
+
+        console.log('✅ Tracked:', profile?.full_name || userId);
       }
     });
 
-    // ── Nettoyage
+    // ── Cleanup
     return () => {
-      isCleanupRef.current = true;
-
+      console.log('🧹 Cleanup presence:', userId);
+      didTrackRef.current = false;
       if (channelRef.current) {
-        channelRef.current.untrack();
-        channelRef.current.unsubscribe();
+        supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
-
       setPresentUsers([]);
     };
   }, [circleId, userId]);
