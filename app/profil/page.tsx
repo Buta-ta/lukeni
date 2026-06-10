@@ -12,7 +12,7 @@ import {
   Bell, BellOff, Star, Calendar, FileText,
   Edit3, ChevronRight, TrendingUp, Clock,
   CheckCircle, Search,
-  Trash2, ShieldAlert, TriangleAlert,Users,AlertCircle
+  Trash2, ShieldAlert, TriangleAlert, Users, AlertCircle, XCircle
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 
@@ -203,16 +203,16 @@ FavoriteCard.displayName = 'FavoriteCard';
 // TOAST/NOTIFICATION MODAL
 // ============================================================================
 
-const NotificationModal = memo(({ 
-  isOpen, 
-  type, 
-  message, 
+const NotificationModal = memo(({
+  isOpen,
+  type,
+  message,
   onClose,
-  lang 
-}: { 
-  isOpen: boolean; 
-  type: 'success' | 'error'; 
-  message: string; 
+  lang
+}: {
+  isOpen: boolean;
+  type: 'success' | 'error';
+  message: string;
   onClose: () => void;
   lang: 'fr' | 'en';
 }) => {
@@ -233,11 +233,10 @@ const NotificationModal = memo(({
           className="fixed top-6 right-6 z-[9999]"
         >
           <motion.div
-            className={`flex items-center gap-3 px-6 py-4 rounded-2xl border backdrop-blur-md ${
-              type === 'success'
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                : 'bg-red-500/10 border-red-500/30 text-red-300'
-            }`}
+            className={`flex items-center gap-3 px-6 py-4 rounded-2xl border backdrop-blur-md ${type === 'success'
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+              : 'bg-red-500/10 border-red-500/30 text-red-300'
+              }`}
             layout
           >
             {type === 'success' ? (
@@ -263,18 +262,19 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
   const [circleToDelete, setCircleToDelete] = useState<any>(null);
   const [isDeletingCircle, setIsDeletingCircle] = useState(false);
 
-    const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const [myCircles, setMyCircles] = useState<any[]>([]);
   const [joinedCircles, setJoinedCircles] = useState<any[]>([]);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [incomingRequests, setIncomingRequests] = useState<any[]>([]);
+  const [rejectedRequests, setRejectedRequests] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!userId) { setIsLoading(false); return; }
 
-         const fetchCirclesData = async () => {
+    const fetchCirclesData = async () => {
       try {
         // ✅ Déclarer les variables au début
         let enrichedCreated: any[] = [];
@@ -298,7 +298,7 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
             .from('library_books')
             .select('id, title_fr, title_en, cover_url')
             .in('id', bookIds);
-          
+
           const booksMap = new Map(books?.map(b => [b.id, b]) || []);
           enrichedCreated = created.map(c => ({
             ...c,
@@ -330,7 +330,7 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
               .from('library_books')
               .select('id, title_fr, title_en, cover_url')
               .in('id', bookIds);
-            
+
             const booksMap = new Map(books?.map(b => [b.id, b]) || []);
             joinedCircles = circles.map(c => ({
               ...c,
@@ -358,14 +358,14 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
             .in('id', circleIds);
 
           const circlesMap = new Map(circles?.map(c => [c.id, c]) || []);
-          
+
           // Enrichir avec les livres
           const bookIds = (circles || []).map(c => c.book_id);
           const { data: books } = await supabase
             .from('library_books')
             .select('id, title_fr, title_en')
             .in('id', bookIds);
-          
+
           const booksMap = new Map(books?.map(b => [b.id, b]) || []);
 
           enrichedPending = pending.map(p => {
@@ -421,6 +421,61 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
               };
             });
         }
+
+        // 5. Mes demandes rejetées (avec compteur de tentatives)
+        const { data: rejected, error: rejectedError } = await supabase
+          .from('circle_join_requests')
+          .select('circle_id, status, created_at')
+          .eq('user_id', userId)
+          .eq('status', 'rejected')
+          .order('created_at', { ascending: false });
+
+        if (rejectedError) console.error('Rejected requests error:', rejectedError);
+
+        let enrichedRejected: any[] = [];
+
+        if (rejected && rejected.length > 0) {
+          const circleIds = [...new Set(rejected.map(r => r.circle_id))];
+          const { data: circles } = await supabase
+            .from('reading_circles')
+            .select('id, name, book_id')
+            .in('id', circleIds);
+
+          const circlesMap = new Map(circles?.map(c => [c.id, c]) || []);
+
+          const bookIds = (circles || []).map(c => c.book_id);
+          const { data: books } = await supabase
+            .from('library_books')
+            .select('id, title_fr, title_en, cover_url')
+            .in('id', bookIds);
+
+          const booksMap = new Map(books?.map(b => [b.id, b]) || []);
+
+          // Grouper par cercle et compter les rejets
+          const rejectMap = new Map<string, { count: number; latestDate: string }>();
+          rejected.forEach(r => {
+            const entry = rejectMap.get(r.circle_id) || { count: 0, latestDate: r.created_at };
+            entry.count += 1;
+            entry.latestDate = r.created_at;
+            rejectMap.set(r.circle_id, entry);
+          });
+
+          enrichedRejected = Array.from(rejectMap.entries()).map(([circleId, data]) => {
+            const circle = circlesMap.get(circleId) as any;
+            const book = circle ? booksMap.get(circle.book_id) : null;
+            return {
+              circle_id: circleId,
+              circle_name: circle?.name || 'Cercle inconnu',
+              book_title: book ? (lang === 'fr' ? (book as any).title_fr : (book as any).title_en) : null,
+              book_cover: (book as any)?.cover_url || null,
+              rejected_count: data.count,
+              remaining_attempts: 3 - data.count,
+              latest_date: data.latestDate,
+            };
+          });
+        }
+
+        setRejectedRequests(enrichedRejected);
 
         setMyCircles(enrichedCreated);
         setJoinedCircles(joinedCircles);
@@ -529,7 +584,7 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
       setMyCircles(prev => prev.filter(c => c.id !== circleToDelete.id));
       setShowDeleteModal(false);
       setCircleToDelete(null);
-      
+
       // ✅ MODAL de succès au lieu d'alert
       setNotification({
         type: 'success',
@@ -537,11 +592,11 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
       });
     } catch (err: any) {
       console.error('Delete circle error:', err);
-      
+
       // ✅ MODAL d'erreur au lieu d'alert
       setNotification({
         type: 'error',
-        message: err.message || 
+        message: err.message ||
           (lang === 'fr' ? "Erreur lors de la suppression du cercle" : 'Circle deletion error')
       });
     } finally {
@@ -559,7 +614,7 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
 
   const totalCircles = myCircles.length + joinedCircles.length;
 
-  if (totalCircles === 0 && pendingRequests.length === 0 && incomingRequests.length === 0) {
+  if (totalCircles === 0 && pendingRequests.length === 0 && incomingRequests.length === 0 && rejectedRequests.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-14 gap-4 text-center">
         <div className="w-16 h-16 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
@@ -580,11 +635,11 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
     );
   }
 
-   return (
+  return (
     <>
 
 
-     {/* ✅ NOTIFICATION MODAL */}
+      {/* ✅ NOTIFICATION MODAL */}
       <NotificationModal
         isOpen={!!notification}
         type={notification?.type || 'success'}
@@ -790,7 +845,7 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
                   </div>
                   <ChevronRight size={14} className="text-gray-700 group-hover:text-emerald-400" />
                 </Link>
-                
+
                 {/* ✅ Bouton supprimer */}
                 <button
                   onClick={() => {
@@ -807,6 +862,65 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
           </div>
         )}
 
+
+        {/* Demandes rejetées avec tentatives restantes */}
+        {rejectedRequests.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold text-red-400 uppercase tracking-wider flex items-center gap-2">
+              <XCircle size={12} />
+              {lang === 'fr' ? 'Demandes refusées' : 'Rejected requests'} ({rejectedRequests.length})
+            </h3>
+            {rejectedRequests.map(req => (
+              <div key={req.circle_id}
+                className="p-3 bg-red-500/5 border border-red-500/20 rounded-xl">
+                <div className="flex items-start gap-3">
+                  {req.book_cover && (
+                    <div className="w-10 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-white/5">
+                      <img src={req.book_cover} alt="" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-medium truncate">{req.circle_name}</p>
+                    {req.book_title && (
+                      <p className="text-gray-500 text-xs truncate mt-0.5">📖 {req.book_title}</p>
+                    )}
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-red-400 text-xs font-bold flex items-center gap-1">
+                        <XCircle size={10} />
+                        {lang === 'fr' ? 'Refusée' : 'Rejected'}
+                      </span>
+                      <span className={`text-xs font-bold ${req.remaining_attempts > 1
+                          ? 'text-gray-400'
+                          : req.remaining_attempts === 1
+                            ? 'text-amber-400'
+                            : 'text-red-400'
+                        }`}>
+                        {lang === 'fr'
+                          ? `${req.remaining_attempts}/3 tentatives restantes`
+                          : `${req.remaining_attempts}/3 attempts left`}
+                      </span>
+                    </div>
+                    {/* Barre de tentatives */}
+                    <div className="flex gap-1 mt-2">
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className={`h-1.5 flex-1 rounded-full ${i <= req.rejected_count ? 'bg-red-500' : 'bg-white/10'
+                          }`} />
+                      ))}
+                    </div>
+                    {req.remaining_attempts > 0 && (
+                      <Link
+                        href={`/bibliotheque/circles/${req.circle_id}`}
+                        className="inline-flex items-center gap-1 mt-2 text-xs text-amber-400 font-bold hover:underline"
+                      >
+                        {lang === 'fr' ? 'Réessayer →' : 'Retry →'}
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         {/* Cercles rejoints */}
         {joinedCircles.length > 0 && (
           <div className="space-y-3">
@@ -1698,7 +1812,7 @@ function DeleteAccountModal({ isOpen, onClose, onConfirm, lang, isDeleting }: {
                   className={`w-full px-4 py-3 rounded-xl text-sm font-mono outline-none transition-all border ${isValid
                     ? 'bg-red-500/10 border-red-500/50 text-red-300'
                     : 'bg-white/[0.03] border-white/10 text-white placeholder:text-gray-700'
-                  }`}
+                    }`}
                 />
               </div>
               <div className="flex gap-3">
@@ -1714,7 +1828,7 @@ function DeleteAccountModal({ isOpen, onClose, onConfirm, lang, isDeleting }: {
                   className={`flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all ${isValid && !isDeleting
                     ? 'bg-red-600 hover:bg-red-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.3)]'
                     : 'bg-red-900/30 text-red-900 cursor-not-allowed opacity-50'
-                  }`}>
+                    }`}>
                   {isDeleting
                     ? <><Loader2 size={14} className="animate-spin" /> {lang === 'fr' ? 'Suppression…' : 'Deleting…'}</>
                     : <><Trash2 size={14} /> {lang === 'fr' ? 'Supprimer' : 'Delete'}</>}
@@ -1965,76 +2079,76 @@ export default function ProfilePage() {
     router.push('/');
   }, [router]);
 
-   const handleDeleteAccount = useCallback(async () => {
-  if (!user) return;
-  setIsDeleting(true);
+  const handleDeleteAccount = useCallback(async () => {
+    if (!user) return;
+    setIsDeleting(true);
 
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session?.access_token) {
-      throw new Error(
-        lang === 'fr'
-          ? 'Session expirée. Reconnectez-vous.'
-          : 'Session expired. Please sign in again.'
-      );
-    }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
 
-    const res = await fetch('/api/auth/delete-account', {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ userId: user.id }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(
-        data.error || (
+      if (!session?.access_token) {
+        throw new Error(
           lang === 'fr'
-            ? 'Échec de la suppression du compte'
-            : 'Account deletion failed'
+            ? 'Session expirée. Reconnectez-vous.'
+            : 'Session expired. Please sign in again.'
+        );
+      }
+
+      const res = await fetch('/api/auth/delete-account', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ userId: user.id }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          data.error || (
+            lang === 'fr'
+              ? 'Échec de la suppression du compte'
+              : 'Account deletion failed'
+          )
+        );
+      }
+
+      // Nettoyage
+      await supabase.auth.signOut({ scope: 'global' });
+
+      const keysToRemove = [
+        'lukeni_lang',
+        'lukeni_pwa_dismissed',
+        'lukeni_pwa_installed',
+        'sb-access-token',
+        'sb-refresh-token',
+        'last_activity', // ✅ Ajouter pour nettoyer le middleware
+      ];
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+
+      // ✅ REDIRECTION VERS /auth AU LIEU DE /
+      router.push('/auth?deleted=true');
+
+      setTimeout(() => {
+        window.location.href = '/auth';
+      }, 200);
+
+    } catch (err: any) {
+      console.error('Delete account error:', err);
+      alert(
+        err.message || (
+          lang === 'fr'
+            ? 'Erreur lors de la suppression. Veuillez contacter le support.'
+            : 'Error during deletion. Please contact support.'
         )
       );
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteModal(false);
     }
-
-    // Nettoyage
-    await supabase.auth.signOut({ scope: 'global' });
-
-    const keysToRemove = [
-      'lukeni_lang',
-      'lukeni_pwa_dismissed',
-      'lukeni_pwa_installed',
-      'sb-access-token',
-      'sb-refresh-token',
-      'last_activity', // ✅ Ajouter pour nettoyer le middleware
-    ];
-    keysToRemove.forEach(key => localStorage.removeItem(key));
-
-    // ✅ REDIRECTION VERS /auth AU LIEU DE /
-    router.push('/auth?deleted=true');
-    
-    setTimeout(() => {
-      window.location.href = '/auth';
-    }, 200);
-
-  } catch (err: any) {
-    console.error('Delete account error:', err);
-    alert(
-      err.message || (
-        lang === 'fr'
-          ? 'Erreur lors de la suppression. Veuillez contacter le support.'
-          : 'Error during deletion. Please contact support.'
-      )
-    );
-  } finally {
-    setIsDeleting(false);
-    setShowDeleteModal(false);
-  }
-}, [user, lang, router]);
+  }, [user, lang, router]);
 
   if (isLoading) return (
     <div className="min-h-screen bg-[#020111] flex items-center justify-center">

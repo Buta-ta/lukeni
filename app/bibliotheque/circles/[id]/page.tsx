@@ -828,7 +828,7 @@ export default function CirclePage() {
         )}
       </motion.div>
 
-      {/* ✅ BOUTON TOGGLE SIDEBAR - DÉPLAÇABLE */}
+            {/* ✅ BOUTON TOGGLE SIDEBAR - DÉPLAÇABLE */}
       <motion.button
         drag
         dragMomentum={false}
@@ -836,10 +836,7 @@ export default function CirclePage() {
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsSidebarExpanded(!isSidebarExpanded)}
-        className={`fixed z-50 w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg transition-all cursor-grab active:cursor-grabbing ${isSidebarExpanded
-          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
-          : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
-          }`}
+        className="fixed z-50 w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg transition-all cursor-grab active:cursor-grabbing bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30"
         style={{
           bottom: 100,
           right: 24,
@@ -847,18 +844,18 @@ export default function CirclePage() {
         title={lang === 'fr' ? (isSidebarExpanded ? 'Réduire' : 'Agrandir') : (isSidebarExpanded ? 'Collapse' : 'Expand')}
       >
         {isSidebarExpanded ? '◄' : '►'}
-
-        {/* 🔴 NOTIFICATION ROUGE - Nouveau message */}
-        {messages.length > 0 && (
+        
+        {/* 🔴 NOTIFICATION ROUGE - Nouveau message (seulement si sidebar fermée) */}
+        {!isSidebarExpanded && messages.length > 0 && (
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 border-2 border-[#020111] animate-pulse"
           />
         )}
-
-        {/* 🔵 NOTIFICATION BLEU - Nouveau repère */}
-        {bookmarks.length > 0 && (
+        
+        {/* 🔵 NOTIFICATION BLEU - Nouveau repère (seulement si sidebar fermée) */}
+        {!isSidebarExpanded && bookmarks.length > 0 && (
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
