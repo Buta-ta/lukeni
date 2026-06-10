@@ -162,12 +162,13 @@ export default function CirclePage() {
 
   // ✅ Vérifier que l'utilisateur est toujours membre
 
-    // ✅ Vérifier l'appartenance et les rejets
-  useEffect(() => {
-    if (!user || !circle) return;
+    // ✅ Vérifier l'appartenance ET les demandes en cours
+useEffect(() => {
+  if (!user || !circle) return;
 
-    const checkMembership = async () => {
-      // Vérifier si membre
+  const checkMembershipAndRequests = async () => {
+    try {
+      // 1. Vérifier si membre actif
       const { data: memberData } = await supabase
         .from('circle_members')
         .select('id')
@@ -175,40 +176,48 @@ export default function CirclePage() {
         .eq('user_id', user.id)
         .maybeSingle();
 
-      setIsMember(!!memberData || circle.creator_id === user.id);
+      const isCurrentMember = !!memberData || circle.creator_id === user.id;
+      setIsMember(isCurrentMember);
 
-      // Vérifier les rejets
-      const { data: rejectedRequests } = await supabase
-        .from('circle_join_requests')
-        .select('id')
-        .eq('circle_id', circle.id)
-        .eq('user_id', user.id)
-        .eq('status', 'rejected');
+      // 2. Si pas membre, vérifier les demandes
+      if (!isCurrentMember) {
+        const { data: requests } = await supabase
+          .from('circle_join_requests')
+          .select('id, status')
+          .eq('circle_id', circle.id)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
 
-      const rejectedCount = rejectedRequests?.length || 0;
-      setRejectedRequestsCount(rejectedCount);
+        if (requests && requests.length > 0) {
+          // Compter les rejets
+          const rejectedCount = requests.filter(r => r.status === 'rejected').length;
+          setRejectedRequestsCount(rejectedCount);
 
-      // Vérifier si demande en attente
-      const { data: pendingRequests } = await supabase
-        .from('circle_join_requests')
-        .select('id')
-        .eq('circle_id', circle.id)
-        .eq('user_id', user.id)
-        .eq('status', 'pending')
-        .maybeSingle();
+          // Vérifier si demande en attente
+          const hasPending = requests.some(r => r.status === 'pending');
+          setHasPendingRequest(hasPending);
 
-      setHasPendingRequest(!!pendingRequests);
-
-      // Si pas membre et pas créateur et 3 rejets → bloquer
-      if (!memberData && circle.creator_id !== user.id && rejectedCount >= 3) {
-        router.push('/bibliotheque');
+          // 🔴 Si 3 rejets ou plus → rediriger
+          if (rejectedCount >= 3) {
+            router.push('/bibliotheque');
+            return;
+          }
+        } else {
+          setRejectedRequestsCount(0);
+          setHasPendingRequest(false);
+        }
       }
-    };
+    } catch (err) {
+      console.error('Membership check error:', err);
+    }
+  };
 
-    checkMembership();
-    const interval = setInterval(checkMembership, 5000);
-    return () => clearInterval(interval);
-  }, [user, circle, router]);
+  checkMembershipAndRequests();
+
+  // ✅ Vérifier toutes les 10 secondes (au lieu de 5)
+  const interval = setInterval(checkMembershipAndRequests, 10000);
+  return () => clearInterval(interval);
+}, [user, circle?.id, circle?.creator_id, router]);
 
 
   // ✅ Charger le compte des demandes rejetées
@@ -228,6 +237,36 @@ export default function CirclePage() {
 
     loadRejectedCount();
   }, [user, circle]);
+
+
+  // ✅ Écouter les changements de statut des demandes
+useEffect(() => {
+  if (!user || !circle || isMember) return;
+
+  const channel = supabase
+    .channel(`join_requests:${circle.id}:${user.id}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'circle_join_requests',
+        filter: `circle_id=eq.${circle.id}`,
+      },
+      (payload) => {
+        // Si la demande de cet utilisateur est acceptée
+        if (payload.new.user_id === user.id && payload.new.status === 'approved') {
+          // Recharger la page pour afficher le cercle
+          window.location.reload();
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [user, circle, isMember]);
   // ============================================================================
   // FONCTIONS : Chat Features
   // ============================================================================
@@ -303,52 +342,78 @@ export default function CirclePage() {
   }, [user, circle, lang, router]);
 
   const handleJoinRequest = useCallback(async () => {
-    if (!user || !circle || isSendingJoin) return;
+  if (!user || !circle || isSendingJoin) return;
 
-    setIsSendingJoin(true);
-    try {
-      // Vérifier s'il existe déjà une ligne pour ce couple circle/user
-      const { data: existingRequest } = await supabase
-        .from('circle_join_requests')
-        .select('id, status')
-        .eq('circle_id', circle.id)
-        .eq('user_id', user.id)
-        .maybeSingle();
+  setIsSendingJoin(true);
+  try {
+    // 1. Vérifier les rejets existants
+    const { data: existingRequests } = await supabase
+      .from('circle_join_requests')
+      .select('id, status')
+      .eq('circle_id', circle.id)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
 
-      if (existingRequest) {
-        // Mettre à jour la ligne existante → remettre en "pending"
-        const { error } = await supabase
-          .from('circle_join_requests')
-          .update({
-            status: 'pending',
-            message: joinMessage.trim() || null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', existingRequest.id);
+    const rejectedCount = existingRequests?.filter(r => r.status === 'rejected').length || 0;
 
-        if (error) throw error;
-      } else {
-        // Insérer une nouvelle ligne
-        const { error } = await supabase
-          .from('circle_join_requests')
-          .insert({
-            circle_id: circle.id,
-            user_id: user.id,
-            message: joinMessage.trim() || null,
-            status: 'pending',
-          });
-
-        if (error) throw error;
-      }
-
-      setHasPendingRequest(true);
-      setJoinMessage('');
-    } catch (err) {
-      console.error('Join request error:', err);
-    } finally {
+    // 🔴 Bloquer si 3 rejets
+    if (rejectedCount >= 3) {
+      alert(lang === 'fr' 
+        ? 'Vous ne pouvez plus envoyer de demande pour ce cercle.'
+        : 'You cannot send more requests for this circle.');
       setIsSendingJoin(false);
+      return;
     }
-  }, [user, circle, joinMessage, isSendingJoin]);
+
+    // 2. Chercher une demande existante EN ATTENTE ou REJETÉE
+    const existingRequest = existingRequests?.find(
+      r => r.status === 'pending' || r.status === 'rejected'
+    );
+
+    if (existingRequest) {
+      // ✅ Mettre à jour la demande existante
+      const { error } = await supabase
+        .from('circle_join_requests')
+        .update({
+          status: 'pending',
+          message: joinMessage.trim() || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingRequest.id);
+
+      if (error) throw error;
+    } else {
+      // ✅ Créer une nouvelle demande
+      const { error } = await supabase
+        .from('circle_join_requests')
+        .insert({
+          circle_id: circle.id,
+          user_id: user.id,
+          message: joinMessage.trim() || null,
+          status: 'pending',
+        });
+
+      if (error) throw error;
+    }
+
+    // 3. Mettre à jour l'UI
+    setHasPendingRequest(true);
+    setJoinMessage('');
+    
+    // ✅ Afficher un message de confirmation
+    alert(lang === 'fr' 
+      ? '✅ Votre demande a été envoyée !'
+      : '✅ Your request has been sent!');
+
+  } catch (err: any) {
+    console.error('Join request error:', err);
+    alert(lang === 'fr' 
+      ? `❌ Erreur : ${err.message}`
+      : `❌ Error: ${err.message}`);
+  } finally {
+    setIsSendingJoin(false);
+  }
+}, [user, circle, joinMessage, isSendingJoin, lang]);
 
   // ✅ Filtrer les messages
   const filteredMessages = useMemo(() => {
