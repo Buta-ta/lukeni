@@ -156,7 +156,7 @@ export default function CirclePage() {
 
 
   // ✅ Vérifier que l'utilisateur est toujours membre
-  // ✅ Vérifier que l'utilisateur est toujours membre + compter les demandes rejetées
+  // ✅ Vérifier que l'utilisateur est toujours membre
   useEffect(() => {
     if (!user || !circle) return;
 
@@ -168,22 +168,9 @@ export default function CirclePage() {
         .eq('user_id', user.id)
         .maybeSingle();
 
-      // Si pas membre et pas créateur
+      // Si pas membre et pas créateur → rediriger vers bibliothèque
       if (!memberData && circle.creator_id !== user.id) {
-        // Vérifier les demandes rejetées
-        const { data: rejectedRequests } = await supabase
-          .from('circle_join_requests')
-          .select('id, status')
-          .eq('circle_id', circle.id)
-          .eq('user_id', user.id)
-          .eq('status', 'rejected');
-
-        const rejectedCount = rejectedRequests?.length || 0;
-
-        // Si 3 rejets → bloquer l'accès
-        if (rejectedCount >= 3) {
-          router.push('/bibliotheque');
-        }
+        router.push('/bibliotheque');
       }
     };
 
