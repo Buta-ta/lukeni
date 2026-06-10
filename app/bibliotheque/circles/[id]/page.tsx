@@ -110,6 +110,11 @@ export default function CirclePage() {
 
   const [rejectedRequestsCount, setRejectedRequestsCount] = useState(0);
 
+  const [isMember, setIsMember] = useState(false);
+  const [hasPendingRequest, setHasPendingRequest] = useState(false);
+  const [joinMessage, setJoinMessage] = useState('');
+  const [isSendingJoin, setIsSendingJoin] = useState(false);
+
   // ── Auth ──
   useEffect(() => {
     const getSession = async () => {
@@ -156,11 +161,13 @@ export default function CirclePage() {
 
 
   // ✅ Vérifier que l'utilisateur est toujours membre
-  // ✅ Vérifier que l'utilisateur est toujours membre
+
+    // ✅ Vérifier l'appartenance et les rejets
   useEffect(() => {
     if (!user || !circle) return;
 
     const checkMembership = async () => {
+      // Vérifier si membre
       const { data: memberData } = await supabase
         .from('circle_members')
         .select('id')
@@ -168,15 +175,37 @@ export default function CirclePage() {
         .eq('user_id', user.id)
         .maybeSingle();
 
-      // Si pas membre et pas créateur → rediriger vers bibliothèque
-      if (!memberData && circle.creator_id !== user.id) {
+      setIsMember(!!memberData || circle.creator_id === user.id);
+
+      // Vérifier les rejets
+      const { data: rejectedRequests } = await supabase
+        .from('circle_join_requests')
+        .select('id')
+        .eq('circle_id', circle.id)
+        .eq('user_id', user.id)
+        .eq('status', 'rejected');
+
+      const rejectedCount = rejectedRequests?.length || 0;
+      setRejectedRequestsCount(rejectedCount);
+
+      // Vérifier si demande en attente
+      const { data: pendingRequests } = await supabase
+        .from('circle_join_requests')
+        .select('id')
+        .eq('circle_id', circle.id)
+        .eq('user_id', user.id)
+        .eq('status', 'pending')
+        .maybeSingle();
+
+      setHasPendingRequest(!!pendingRequests);
+
+      // Si pas membre et pas créateur et 3 rejets → bloquer
+      if (!memberData && circle.creator_id !== user.id && rejectedCount >= 3) {
         router.push('/bibliotheque');
       }
     };
 
     checkMembership();
-
-    // Vérifier chaque 5 secondes
     const interval = setInterval(checkMembership, 5000);
     return () => clearInterval(interval);
   }, [user, circle, router]);
@@ -273,6 +302,32 @@ export default function CirclePage() {
     }
   }, [user, circle, lang, router]);
 
+
+    const handleJoinRequest = useCallback(async () => {
+    if (!user || !circle || isSendingJoin) return;
+
+    setIsSendingJoin(true);
+    try {
+      const { error } = await supabase
+        .from('circle_join_requests')
+        .insert({
+          circle_id: circle.id,
+          user_id: user.id,
+          message: joinMessage.trim() || null,
+          status: 'pending',
+        });
+
+      if (error) throw error;
+
+      setHasPendingRequest(true);
+      setJoinMessage('');
+    } catch (err) {
+      console.error('Join request error:', err);
+    } finally {
+      setIsSendingJoin(false);
+    }
+  }, [user, circle, joinMessage, isSendingJoin]);
+
   // ✅ Filtrer les messages
   const filteredMessages = useMemo(() => {
     if (!searchQuery.trim()) return messages;
@@ -314,13 +369,122 @@ export default function CirclePage() {
   
 
 
+  // ✅ Si l'utilisateur n'est pas membre, afficher l'interface appropriée
+  if (!isCreator && !isMember) {
+    // ── 3 rejets → Accès refusé
+    if (rejectedRequestsCount >= 3) {
+      return (
+        <div className="fixed inset-0 bg-[#020111] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-md w-full space-y-6"
+          >
+            <div className="text-center space-y-3">
+              <div className="w-16 h-16 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center mx-auto mb-4">
+                <AlertCircleIcon size={32} className="text-red-400" />
+              </div>
+              <h1 className="text-3xl font-serif font-bold text-white">
+                {lang === 'fr' ? '❌ Accès refusé' : '❌ Access denied'}
+              </h1>
+              <p className="text-gray-400">
+                {lang === 'fr'
+                  ? "Vous avez dépassé le nombre de demandes d'adhésion pour ce cercle."
+                  : 'You have exceeded the number of membership requests for this circle.'}
+              </p>
+            </div>
 
-  // ✅ AJOUTE CECI ICI
-  if (
-    !isCreator &&
-    !members.some(m => m.user_id === user?.id) &&
-    rejectedRequestsCount >= 3
-  ) {
+            <div className="bg-gradient-to-br from-[#0d0d1a] to-[#080810] border border-red-500/20 rounded-3xl p-6">
+              <p className="text-red-300 text-sm mb-2">
+                {lang === 'fr' ? '📋 Votre historique' : '📋 Your history'}
+              </p>
+              <div className="space-y-1">
+                <p className="text-white text-xs">
+                  <span className="text-red-400 font-bold">3/3</span> {lang === 'fr' ? 'demandes rejetées' : 'requests rejected'}
+                </p>
+                <p className="text-gray-500 text-xs">
+                  {lang === 'fr'
+                    ? 'Le créateur a refusé vos demandes.'
+                    : 'The creator rejected your requests.'}
+                </p>
+              </div>
+              <div className="flex gap-1 mt-3">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="h-1.5 flex-1 rounded-full bg-red-500" />
+                ))}
+              </div>
+            </div>
+
+            <a
+              href="/bibliotheque"
+              className="w-full py-3 bg-white/5 border border-white/10 text-white rounded-xl font-bold text-sm hover:bg-white/10 transition-colors flex items-center justify-center"
+            >
+              {lang === 'fr' ? 'Retour à la bibliothèque' : 'Back to library'}
+            </a>
+          </motion.div>
+        </div>
+      );
+    }
+
+    // ── Demande en attente → Écran d'attente
+    if (hasPendingRequest) {
+      return (
+        <div className="fixed inset-0 bg-[#020111] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-md w-full space-y-6"
+          >
+            <div className="text-center space-y-3">
+              <div className="w-16 h-16 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mx-auto mb-4">
+                <Clock size={32} className="text-amber-400" />
+              </div>
+              <h1 className="text-2xl font-serif font-bold text-white">
+                {lang === 'fr' ? '⏳ Demande envoyée' : '⏳ Request sent'}
+              </h1>
+              <p className="text-gray-400">
+                {lang === 'fr'
+                  ? 'Votre demande d\'adhésion est en attente de validation par le créateur.'
+                  : 'Your join request is waiting for the creator\'s approval.'}
+              </p>
+            </div>
+
+            <div className="bg-gradient-to-br from-[#0d0d1a] to-[#080810] border border-amber-500/20 rounded-3xl p-6">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-white/5">
+                  {book?.cover_url && <img src={book.cover_url} alt="" className="w-full h-full object-cover" />}
+                </div>
+                <div>
+                  <p className="text-white font-bold text-sm">{circle.name}</p>
+                  <p className="text-gray-500 text-xs">{book?.title_fr}</p>
+                </div>
+              </div>
+              <div className="flex gap-1 mt-4">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className={`h-1.5 flex-1 rounded-full ${
+                    i <= rejectedRequestsCount ? 'bg-red-500' : 'bg-white/10'
+                  }`} />
+                ))}
+              </div>
+              <p className="text-gray-500 text-xs mt-2">
+                {lang === 'fr'
+                  ? `${3 - rejectedRequestsCount}/3 tentatives restantes`
+                  : `${3 - rejectedRequestsCount}/3 attempts left`}
+              </p>
+            </div>
+
+            <a
+              href="/bibliotheque"
+              className="w-full py-3 bg-white/5 border border-white/10 text-white rounded-xl font-bold text-sm hover:bg-white/10 transition-colors flex items-center justify-center"
+            >
+              {lang === 'fr' ? 'Retour à la bibliothèque' : 'Back to library'}
+            </a>
+          </motion.div>
+        </div>
+      );
+    }
+
+    // ── Pas membre → Interface "Demander à rejoindre"
     return (
       <div className="fixed inset-0 bg-[#020111] flex items-center justify-center p-4">
         <motion.div
@@ -329,33 +493,85 @@ export default function CirclePage() {
           className="max-w-md w-full space-y-6"
         >
           <div className="text-center space-y-3">
-            <div className="w-16 h-16 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center mx-auto mb-4">
-              <AlertCircleIcon size={32} className="text-red-400" />
+            <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mx-auto mb-4">
+              <Users size={32} className="text-emerald-400" />
             </div>
-            <h1 className="text-3xl font-serif font-bold text-white">
-              {lang === 'fr' ? '❌ Accès refusé' : '❌ Access denied'}
+            <h1 className="text-2xl font-serif font-bold text-white">
+              {lang === 'fr' ? 'Rejoindre ce cercle' : 'Join this circle'}
             </h1>
             <p className="text-gray-400">
               {lang === 'fr'
-                ? "Vous avez dépassé le nombre de demandes d'adhésion pour ce cercle."
-                : 'You have exceeded the number of membership requests for this circle.'}
+                ? 'Envoyez une demande au créateur pour participer à la lecture commune.'
+                : 'Send a request to the creator to join the shared reading.'}
             </p>
           </div>
 
-          <div className="bg-gradient-to-br from-[#0d0d1a] to-[#080810] border border-red-500/20 rounded-3xl p-6">
-            <p className="text-red-300 text-sm mb-2">
-              {lang === 'fr' ? '📋 Votre historique' : '📋 Your history'}
-            </p>
+          <div className="bg-gradient-to-br from-[#0d0d1a] to-[#080810] border border-white/[0.07] rounded-3xl p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-white/5">
+                {book?.cover_url && <img src={book.cover_url} alt="" className="w-full h-full object-cover" />}
+              </div>
+              <div>
+                <p className="text-white font-bold text-sm">{circle.name}</p>
+                <p className="text-gray-500 text-xs">{book?.title_fr}</p>
+                <p className="text-gray-600 text-xs mt-1">
+                  {members.length}/{circle.max_members} {lang === 'fr' ? 'membres' : 'members'}
+                </p>
+              </div>
+            </div>
+
+            {/* Tentatives restantes */}
             <div className="space-y-1">
-              <p className="text-white text-xs">
-                <span className="text-red-400 font-bold">3/3</span> {lang === 'fr' ? 'demandes rejetées' : 'requests rejected'}
-              </p>
-              <p className="text-gray-500 text-xs">
+              <div className="flex gap-1">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className={`h-1.5 flex-1 rounded-full ${
+                    i <= rejectedRequestsCount ? 'bg-red-500' : 'bg-white/10'
+                  }`} />
+                ))}
+              </div>
+              <p className={`text-xs font-bold ${
+                3 - rejectedRequestsCount > 1 ? 'text-gray-400' : 'text-amber-400'
+              }`}>
                 {lang === 'fr'
-                  ? 'Le créateur a refusé vos demandes.'
-                  : 'The creator rejected your requests.'}
+                  ? `${3 - rejectedRequestsCount}/3 tentatives restantes`
+                  : `${3 - rejectedRequestsCount}/3 attempts left`}
               </p>
             </div>
+
+            {/* Message */}
+            <div>
+              <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">
+                {lang === 'fr' ? 'Message (optionnel)' : 'Message (optional)'}
+              </label>
+              <textarea
+                value={joinMessage}
+                onChange={(e) => setJoinMessage(e.target.value)}
+                placeholder={lang === 'fr' ? 'Pourquoi voulez-vous rejoindre ?' : 'Why do you want to join?'}
+                rows={3}
+                maxLength={200}
+                className="w-full px-3 py-2 bg-white/[0.04] border border-white/10 rounded-xl text-white text-sm outline-none focus:border-emerald-500/50 transition-colors placeholder:text-gray-600 resize-none"
+              />
+            </div>
+
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleJoinRequest}
+              disabled={isSendingJoin}
+              className="w-full py-3 bg-emerald-500 text-black rounded-xl font-bold text-sm hover:bg-white transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {isSendingJoin ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  {lang === 'fr' ? 'Envoi...' : 'Sending...'}
+                </>
+              ) : (
+                <>
+                  <Send size={14} />
+                  {lang === 'fr' ? 'Envoyer la demande' : 'Send request'}
+                </>
+              )}
+            </motion.button>
           </div>
 
           <a
