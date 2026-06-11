@@ -90,28 +90,41 @@ export default function ReadingCirclesAdminTab({ showMsg }: { showMsg: (type: 's
     setCircles(formattedCircles);
     setIsLoading(false);
   }
-
   // 📂 Voir les membres d'un cercle
   async function openMembersModal(circle: Circle) {
     setSelectedCircle(circle);
     setIsLoadingMembers(true);
 
-    const { data, error } = await supabase
+    // 1. Récupérer les membres
+    const { data: membersData, error } = await supabase
       .from('circle_members')
-      .select(`
-        id, user_id, role,
-        profiles ( full_name, email )
-      `)
+      .select('id, user_id, role')
       .eq('circle_id', circle.id);
 
     if (error) {
       showMsg('error', "Impossible de charger les membres");
-    } else {
-      setMembers(data as any);
+      setIsLoadingMembers(false);
+      return;
     }
+
+    // 2. Récupérer les profils correspondants
+    const userIds = membersData.map(m => m.user_id);
+    const { data: profilesData } = await supabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .in('id', userIds);
+
+    const profilesMap = Object.fromEntries((profilesData || []).map(p => [p.id, p]));
+
+    // 3. Assembler les données
+    const enrichedMembers = membersData.map((m: any) => ({
+      ...m,
+      profiles: profilesMap[m.user_id] || { full_name: 'Utilisateur inconnu', email: 'Sans email' }
+    }));
+
+    setMembers(enrichedMembers as any);
     setIsLoadingMembers(false);
   }
-
   // 🗑️ Supprimer un cercle
   async function handleDeleteCircle() {
     if (!deleteCircleId) return;

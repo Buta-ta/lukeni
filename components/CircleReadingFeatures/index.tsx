@@ -94,13 +94,12 @@ export function BookmarksPanel({
               </button>
             ) : (
               <div className="space-y-2">
-                <input
-                  type="text"
+                 <textarea
                   value={newLabel}
                   onChange={e => setNewLabel(e.target.value)}
-                  placeholder={lang === 'fr' ? 'Label du repère' : 'Bookmark label'}
-                  maxLength={50}
-                  className="w-full px-2 py-1 bg-white/5 border border-white/10 rounded text-xs text-white outline-none focus:border-blue-500/40 placeholder:text-gray-400"
+                  placeholder={lang === 'fr' ? 'Écrivez votre repère ou note ici...' : 'Write your bookmark or note here...'}
+                  rows={3}
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded text-xs text-white outline-none focus:border-blue-500/40 placeholder:text-gray-400 resize-none"
                 />
 
                 <div className="space-y-1">
