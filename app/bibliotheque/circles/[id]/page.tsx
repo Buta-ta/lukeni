@@ -43,7 +43,6 @@ import {
   QuizzesPanel,
 } from '@/components/CircleReadingFeatures';
 
-
 const CaurisIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 100 100" className={className} fill="currentColor">
     <path d="M50 5C30 5 15 25 15 50C15 75 30 95 50 95C70 95 85 75 85 50C85 25 70 5 50 5ZM50 85C35 85 25 70 25 50C25 30 35 15 50 15C65 15 75 30 75 50C75 70 65 85 50 85Z" />
@@ -62,7 +61,6 @@ interface Book {
   cover_url: string;
   file_url: string;
 }
-
 
 // ============================================================================
 // NOTIFICATION MODAL
@@ -99,8 +97,8 @@ function NotificationModal({
         >
           <motion.div
             className={`flex items-center gap-3 px-6 py-4 rounded-2xl border backdrop-blur-md ${type === 'success'
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                : 'bg-red-500/10 border-red-500/30 text-red-300'
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+              : 'bg-red-500/10 border-red-500/30 text-red-300'
               }`}
             layout
           >
@@ -116,14 +114,11 @@ function NotificationModal({
     </AnimatePresence>
   );
 }
+
 // ============================================================================
 // COMPOSANT PRINCIPAL
 // ============================================================================
 export default function CirclePage() {
-
-
-
-
   const params = useParams();
   const router = useRouter();
   const circleId = params.id as string;
@@ -138,7 +133,7 @@ export default function CirclePage() {
   const { messages, sendMessage, addReaction, removeReaction, pinMessage, unpinMessage } = useCircleChat(circleId, user?.id);
   const { presentUsers } = useCirclePresence(circleId, user?.id);
 
-  // ✅ NOUVELLE : Hooks Lecture commune
+  // ✅ Hooks Lecture commune
   const { bookmarks, addBookmark, removeBookmark } = useCircleBookmarks(circleId, user?.id);
   const { highlights, addHighlight, removeHighlight } = useCircleHighlights(circleId, user?.id);
   const { stats } = useCircleReadingStats(circleId, members);
@@ -168,7 +163,6 @@ export default function CirclePage() {
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
   const [joinMessage, setJoinMessage] = useState('');
   const [isSendingJoin, setIsSendingJoin] = useState(false);
-  // ✅ État pour les notifications
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // ── Auth ──
@@ -215,8 +209,6 @@ export default function CirclePage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-
-  // ✅ Vérifier que l'utilisateur est toujours membre
 
   // ✅ Vérifier l'appartenance ET les demandes en cours
   useEffect(() => {
@@ -270,7 +262,7 @@ export default function CirclePage() {
 
     checkMembershipAndRequests();
 
-    // ✅ Vérifier toutes les 10 secondes (au lieu de 5)
+    // ✅ Vérifier toutes les 10 secondes
     const interval = setInterval(checkMembershipAndRequests, 10000);
     return () => clearInterval(interval);
   }, [user, circle?.id, circle?.creator_id, router]);
@@ -312,7 +304,6 @@ export default function CirclePage() {
         (payload) => {
           // Si la demande de cet utilisateur est acceptée
           if (payload.new.user_id === user.id && payload.new.status === 'approved') {
-            // Recharger la page pour afficher le cercle
             window.location.reload();
           }
         }
@@ -323,6 +314,7 @@ export default function CirclePage() {
       supabase.removeChannel(channel);
     };
   }, [user, circle, isMember]);
+
   // ============================================================================
   // FONCTIONS : Chat Features
   // ============================================================================
@@ -376,80 +368,66 @@ export default function CirclePage() {
     setTimeout(() => setCopiedCode(null), 2000);
   }, []);
 
-const handleLeaveCircle = useCallback(async () => {
-  if (!user || !circle) return;
+  const handleLeaveCircle = useCallback(async () => {
+    if (!user || !circle) return;
 
-  if (circle.creator_id === user.id) {
-    setNotification({
-      type: 'error',
-      message: lang === 'fr'
-        ? 'Les créateurs ne peuvent pas quitter. Supprimez le cercle à la place.'
-        : 'Creators cannot leave. Delete the circle instead.'
-    });
-    return;
-  }
-
-  try {
-    console.log('🚪 [LEAVE] Tentative de départ du cercle', {
-      circleId: circle.id,
-      userId: user.id
-    });
-
-    // 1. Supprimer de circle_members
-    const { error: deleteError, count } = await supabase
-      .from('circle_members')
-      .delete()
-      .eq('circle_id', circle.id)
-      .eq('user_id', user.id)
-      .select('*', { count: 'exact', head: true });
-
-    console.log('🗑️ [DELETE_RESULT]', { deleteError, count });
-
-    if (deleteError) {
-      console.error('❌ [DELETE_ERROR]', deleteError);
-      throw deleteError;
-    }
-
-    if (count === 0) {
-      console.warn('⚠️ [WARNING] Aucune ligne supprimée - utilisateur n\'était pas membre');
+    if (circle.creator_id === user.id) {
       setNotification({
         type: 'error',
         message: lang === 'fr'
-          ? 'Vous n\'êtes pas membre de ce cercle'
-          : 'You are not a member of this circle'
+          ? 'Les créateurs ne peuvent pas quitter. Supprimez le cercle à la place.'
+          : 'Creators cannot leave. Delete the circle instead.'
       });
       return;
     }
 
-    console.log('✅ [LEFT] Vous avez quitté le cercle');
+    try {
+      console.log('🚪 [LEAVE] Tentative de départ du cercle', {
+        circleId: circle.id,
+        userId: user.id
+      });
 
-    // 2. Afficher notification
-    setNotification({
-      type: 'success',
-      message: lang === 'fr'
-        ? '✅ Vous avez quitté le cercle'
-        : '✅ You left the circle'
-    });
+      // ✅ CORRECTION ICI : Retrait du .select('*', { count: 'exact', head: true }) qui causait des erreurs
+      const { error: deleteError } = await supabase
+        .from('circle_members')
+        .delete()
+        .eq('circle_id', circle.id)
+        .eq('user_id', user.id);
 
-    // ✅ NOUVEAU : Nettoyer le state local
-    setIsMember(false);
-    
-    // 3. Rediriger après un court délai
-    setTimeout(() => {
-      router.push('/bibliotheque');
-    }, 1500);
+      if (deleteError) {
+        console.error('❌ [DELETE_ERROR]', deleteError);
+        throw deleteError;
+      }
 
-  } catch (err: any) {
-    console.error('❌ [LEAVE_ERROR]', err);
+      console.log('✅ [LEFT] Vous avez quitté le cercle');
 
-    setNotification({
-      type: 'error',
-      message: err.message || (lang === 'fr'
-        ? 'Erreur lors de la quitte du cercle'
-        : 'Error leaving circle')
-    });
-  }
-}, [user, circle, lang, router]);
+      // 2. Afficher notification
+      setNotification({
+        type: 'success',
+        message: lang === 'fr'
+          ? '✅ Vous avez quitté le cercle'
+          : '✅ You left the circle'
+      });
+
+      // 3. Nettoyer le state local
+      setIsMember(false);
+
+      // 4. Rediriger après un court délai
+      setTimeout(() => {
+        router.push('/bibliotheque');
+      }, 1500);
+
+    } catch (err: any) {
+      console.error('❌ [LEAVE_ERROR]', err);
+
+      setNotification({
+        type: 'error',
+        message: err.message || (lang === 'fr'
+          ? 'Erreur lors de la quitte du cercle'
+          : 'Error leaving circle')
+      });
+    }
+  }, [user, circle, lang, router]);
 
   const handleJoinRequest = useCallback(async () => {
     if (!user || !circle || isSendingJoin) return;
@@ -542,7 +520,6 @@ const handleLeaveCircle = useCallback(async () => {
   }, [messages]);
 
   // ✅ Préparer les stats enrichies
-  // ✅ Préparer les stats enrichies
   const enrichedStats = useMemo(() => {
     if (!stats) return null;
     const member = members.find(m => m.user_id === user?.id);
@@ -563,8 +540,6 @@ const handleLeaveCircle = useCallback(async () => {
   const avgProgress = members.length > 0
     ? Math.round(members.reduce((acc, m) => acc + m.current_page, 0) / members.length)
     : 0;
-
-
 
   // ✅ Si l'utilisateur n'est pas membre, afficher l'interface appropriée
   if (!isCreator && !isMember) {
@@ -1161,6 +1136,10 @@ const handleLeaveCircle = useCallback(async () => {
                   {members.map((member) => {
                     const isOnline = presentUsers.some(u => u.user_id === member.user_id);
 
+                    // ✅ Vérifier que le profil existe
+                    const displayName = member.profiles?.full_name || member.profiles?.username || 'Utilisateur';
+                    const avatarInitial = member.profiles?.full_name?.[0] || member.profiles?.username?.[0] || '?';
+
                     return (
                       <motion.div
                         key={member.id}
@@ -1173,9 +1152,9 @@ const handleLeaveCircle = useCallback(async () => {
                             <div className="relative w-8 h-8 flex-shrink-0">
                               <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex-shrink-0 flex items-center justify-center text-emerald-400 text-xs font-bold overflow-hidden">
                                 {member.profiles?.avatar_url ? (
-                                  <img src={member.profiles.avatar_url} alt={member.profiles?.full_name} className="w-full h-full object-cover" />
+                                  <img src={member.profiles.avatar_url} alt={displayName} className="w-full h-full object-cover" />
                                 ) : (
-                                  member.profiles?.full_name?.[0] || '?'
+                                  avatarInitial
                                 )}
                               </div>
                               {isOnline && (
@@ -1184,7 +1163,7 @@ const handleLeaveCircle = useCallback(async () => {
                             </div>
                             <div className="min-w-0">
                               <p className="text-white text-sm font-medium truncate">
-                                {member.profiles?.full_name || 'Utilisateur'}
+                                {displayName}
                               </p>
                               {member.role === 'creator' && (
                                 <span className="text-[10px] text-emerald-400 font-bold">👑 Créateur</span>
@@ -1381,13 +1360,13 @@ const handleLeaveCircle = useCallback(async () => {
       )}
 
       {/* ✅ NOTIFICATION MODAL */}
-<NotificationModal
-  isOpen={!!notification}
-  type={notification?.type || 'success'}
-  message={notification?.message || ''}
-  onClose={() => setNotification(null)}
-  lang={lang}
-/>
+      <NotificationModal
+        isOpen={!!notification}
+        type={notification?.type || 'success'}
+        message={notification?.message || ''}
+        onClose={() => setNotification(null)}
+        lang={lang}
+      />
     </div>
   );
 }

@@ -39,48 +39,48 @@ export function useReadingCircle(circleId: string, userId?: string) {
   const [error, setError] = useState<string | null>(null);
 
   // ── Charger les données initiales ──
-useEffect(() => {
-  if (!circleId) return;
+  useEffect(() => {
+    if (!circleId) return;
 
-  const loadCircle = async () => {
-    try {
-      setIsLoading(true);
+    const loadCircle = async () => {
+      try {
+        setIsLoading(true);
 
-      const [circleRes, membersRes] = await Promise.all([
-        supabase
-          .from('reading_circles')
-          .select('*')
-          .eq('id', circleId)
-          .single(),
-        supabase
-          .from('circle_members')
-          .select('*')
-          .eq('circle_id', circleId)
-          .order('last_active_at', { ascending: false })
-      ]);
+        const [circleRes, membersRes] = await Promise.all([
+          supabase
+            .from('reading_circles')
+            .select('*')
+            .eq('id', circleId)
+            .single(),
+          supabase
+            .from('circle_members')
+            .select('*')
+            .eq('circle_id', circleId)
+            .order('last_active_at', { ascending: false })
+        ]);
 
-      if (circleRes.error) throw circleRes.error;
+        if (circleRes.error) throw circleRes.error;
 
-      setCircle(circleRes.data);
-      setMembers(membersRes.data || []);
-      setError(null);
-    } catch (err: any) {
-      setError(err.message);
-      console.error('Load circle error:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+        setCircle(circleRes.data);
+        setMembers(membersRes.data || []);
+        setError(null);
+      } catch (err: any) {
+        setError(err.message);
+        console.error('Load circle error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  loadCircle();
-
-  // ✅ NOUVEAU : Recharger les membres toutes les 5 secondes
-  const interval = setInterval(() => {
     loadCircle();
-  }, 5000);
 
-  return () => clearInterval(interval);
-}, [circleId]);
+    // ✅ Recharger les membres toutes les 5 secondes
+    const interval = setInterval(() => {
+      loadCircle();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [circleId]);
 
   // ── Charger les profiles SÉPARÉMENT ──
   useEffect(() => {
@@ -196,7 +196,7 @@ useEffect(() => {
       }
     );
 
-    // 🗃️ POSTGRES CHANGES : Membres qui partent (DELETE) ✅ NOUVEAU
+    // 🗃️ POSTGRES CHANGES : Membres qui partent (DELETE) ✅ CORRIGÉ
     realtimeChannel.on(
       'postgres_changes',
       {
@@ -209,18 +209,19 @@ useEffect(() => {
         console.log('🚪 [REALTIME DELETE] Membre parti:', payload.old);
         
         setMembers(prev => {
-          const filtered = prev.filter(m => m.user_id !== payload.old.user_id);
+          // ✅ CORRECTION ICI : On utilise payload.old.id au lieu de payload.old.user_id
+          const filtered = prev.filter(m => m.id !== payload.old.id);
           console.log('📋 [MEMBERS_UPDATED]', { 
             before: prev.length, 
             after: filtered.length,
-            leftUserId: payload.old.user_id 
+            leftRowId: payload.old.id 
           });
           return filtered;
         });
       }
     );
 
-    // 🗃️ POSTGRES CHANGES : Membres mis à jour (UPDATE) ✅ NOUVEAU
+    // 🗃️ POSTGRES CHANGES : Membres mis à jour (UPDATE)
     realtimeChannel.on(
       'postgres_changes',
       {
