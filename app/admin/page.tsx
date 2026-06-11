@@ -9,11 +9,10 @@ import {
   ArrowLeft, ImagePlus, MessageSquareText, Star, CheckCircle,
   Tag, Lightbulb, FileText, CalendarDays, Music, FileAudio,
   Newspaper, Library, ShieldCheck, X, Loader2, AlertTriangle,
-  Crown, LayoutDashboard, Inbox, Clock, Globe,Link2,Eye,Bell, BookOpen
+  Crown, LayoutDashboard, Inbox, Clock, Globe,Link2,Eye,Bell, BookOpen, Users
 } from "lucide-react";
 import { autoTranslate } from "@/lib/lingua";
 import type { User } from "@supabase/supabase-js";
-
 
 // Tabs locales
 import HeroTab         from "./tabs/HeroTab";
@@ -34,17 +33,17 @@ import SocialMediaTab     from "@/components/SocialMediaTab";
 import PressTab           from "@/components/PressTab";
 import LibraryTab         from "@/components/LibraryTab";
 import AdminsTab          from "@/components/AdminsTab";
-import ArticleEventsLinkTab from "@/components/ArticleEventsLinkTab"; // ← AJOUTER
+import ArticleEventsLinkTab from "@/components/ArticleEventsLinkTab"; 
 import AdsTab from '@/components/AdsTab';
 import VisitorsTab from '@/components/VisitorsTab';
 import NotificationsTab    from "@/components/NotificationsTab";  
 import AboutTab from '@/components/AboutTab';
+import ReadingCirclesAdminTab from "@/components/ReadingCirclesAdminTab"; // ← AJOUTER ICI
 
 import { useActivityTimeout } from '@/lib/hooks/useActivityTimeout';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-// ✅ CORRECT (à remplacer)
 type TabType =
   | "dashboard"
   | "contributions"
@@ -64,8 +63,9 @@ type TabType =
   | "press"
   | "notifications"  
   | "library"
+  | "reading_circles" // ← AJOUTER ICI
   | "admins"
-  | "ads"  // ← Pas de point-virgule avant cette ligne
+  | "ads"  
   | "visitors";
 
 const ALL_TABS: { id: TabType; label: string; icon: React.ElementType }[] = [
@@ -78,34 +78,30 @@ const ALL_TABS: { id: TabType; label: string; icon: React.ElementType }[] = [
   { id: "topic_suggestions", label: "Sujets 💡",       icon: Lightbulb        },
   { id: "articles",          label: "Articles",        icon: FileText         },
   { id: "events",            label: "Événements",      icon: CalendarDays     },
-  { id: "article_events",    label: "Art↔Evt 🔗",      icon: Link2            }, // ← AJOUTER (tu dois importer Link2 aussi)
+  { id: "article_events",    label: "Art↔Evt 🔗",      icon: Link2            }, 
   { id: "music_eras",        label: "Époques 🕐",      icon: Clock            },
   { id: "music_genres",      label: "Genres 🎵",       icon: Music            },
   { id: "music_tracks",      label: "Tracks 🧨",       icon: FileAudio        },
   { id: "social_media",      label: "Réseaux 🌐",      icon: Globe            },
   { id: "press",             label: "Presse 📰",        icon: Newspaper        },
-   { id: "notifications",     label: "Notifications 🔔", icon: Bell            }, 
-  { id: "ads", label: "Publicités 📣", icon: Star },
+  { id: "notifications",     label: "Notifications 🔔", icon: Bell            }, 
+  { id: "ads",               label: "Publicités 📣",    icon: Star },
   { id: "library",           label: "Bibliothèque 📚", icon: Library          },
-  { id: "visitors", label: "Visiteurs 👁️", icon: Eye },
+  { id: "reading_circles",   label: "Clubs Lecture 👥",icon: Users            }, // ← AJOUTER ICI
+  { id: "visitors",          label: "Visiteurs 👁️",    icon: Eye },
   { id: "admins",            label: "Admins 👑",        icon: ShieldCheck      },
-  { id: "about", label: "À Propos 📖", icon: BookOpen },
-
+  { id: "about",             label: "À Propos 📖",      icon: BookOpen },
 ];
 
 // ─── Composant ────────────────────────────────────────────────────────────────
 
 export default function AdminDashboard() {
 
-
-   // ✅ Ajouter juste après les useState
   useActivityTimeout(() => {
     router.push('/admin/auth?reason=timeout');
   });
 
-  
   const router = useRouter();
-
 
   const [activeTab, setActiveTab]         = useState<TabType>("dashboard");
   const [msg, setMsg]                     = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -214,9 +210,7 @@ export default function AdminDashboard() {
     );
   }
 
-  // ── Helper badge ──────────────────────────────────────────────────────────
-  const getBadge = (tabId: TabType) =>
-    tabId === "contributions" ? contributionsCount : 0;
+  const getBadge = (tabId: TabType) => tabId === "contributions" ? contributionsCount : 0;
 
   // ── Render tab content ────────────────────────────────────────────────────
   function renderTab() {
@@ -228,34 +222,31 @@ export default function AdminDashboard() {
       case "hero":              return <HeroTab showMsg={showMsg} />;
       case "suggestions":       return <SuggestionsTab showMsg={showMsg} translateText={translateText} />;
       case "constellation":     return <ConstellationTab showMsg={showMsg} translateText={translateText} />;
-      case "about": return <AboutTab showMsg={showMsg} />;
+      case "about":             return <AboutTab showMsg={showMsg} />;
       case "categories":        return <CategoriesTab showMsg={showMsg} translateText={translateText} />;
       case "topic_suggestions": return <TopicSuggestionsTab showMsg={showMsg} />;
       case "articles":          return <ArticlesTab showMsg={showMsg} />;
       case "events":            return <EventsTab showMsg={showMsg} />;
-      case "article_events":    return <ArticleEventsLinkTab showMsg={showMsg} />; // ← AJOUTER
+      case "article_events":    return <ArticleEventsLinkTab showMsg={showMsg} />; 
       case "music_eras":        return <MusicErasTab showMsg={showMsg} />;
       case "music_genres":      return <MusicGenresTab showMsg={showMsg} />;
       case "music_tracks":      return <MusicTracksTab showMsg={showMsg} />;
       case "social_media":      return <SocialMediaTab showMsg={showMsg} />;
       case "press":             return <PressTab showMsg={showMsg} />;
       case "notifications":     return <NotificationsTab showMsg={showMsg} />;
-      case "ads": return <AdsTab showMsg={showMsg} />;  
+      case "ads":               return <AdsTab showMsg={showMsg} />;  
       case "library":           return <LibraryTab showMsg={showMsg} />;
-      case "visitors": return <VisitorsTab showMsg={showMsg} />;
-
+      case "reading_circles":   return <ReadingCirclesAdminTab showMsg={showMsg} />; // ← AJOUTER ICI
+      case "visitors":          return <VisitorsTab showMsg={showMsg} />;
       case "admins":            return <AdminsTab showMsg={showMsg} />;
-
       default:                  return null;
     }
   }
 
   return (
     <div className="min-h-screen bg-[#050505] text-white flex">
-
       {/* ── Sidebar desktop ───────────────────────────────────────────────── */}
       <aside className="hidden md:flex w-64 flex-col border-r border-white/5 bg-[#0a0a0a]">
-        {/* Logo */}
         <div className="p-4 border-b border-white/5">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-red-600/20 flex items-center justify-center">
@@ -272,7 +263,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
           {availableTabs.map((tab) => {
             const badge = getBadge(tab.id);
@@ -298,7 +288,6 @@ export default function AdminDashboard() {
           })}
         </nav>
 
-        {/* Footer sidebar */}
         <div className="p-4 border-t border-white/5 space-y-2">
           <button
             onClick={() => router.push("/explore")}
@@ -317,8 +306,6 @@ export default function AdminDashboard() {
 
       {/* ── Main content ──────────────────────────────────────────────────── */}
       <main className="flex-1 flex flex-col min-h-screen">
-
-        {/* Top bar mobile */}
         <div className="md:hidden flex items-center justify-between p-3 border-b border-white/5 bg-[#0a0a0a]">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-full bg-red-600/20 flex items-center justify-center">
@@ -340,7 +327,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Tabs mobile */}
         <div className="md:hidden flex overflow-x-auto gap-1 p-2 border-b border-white/5 bg-[#0a0a0a] scrollbar-hide">
           {availableTabs.map((tab) => {
             const badge = getBadge(tab.id);
@@ -365,7 +351,6 @@ export default function AdminDashboard() {
           })}
         </div>
 
-        {/* Toast */}
         <AnimatePresence>
           {msg && (
             <motion.div
@@ -386,11 +371,9 @@ export default function AdminDashboard() {
           )}
         </AnimatePresence>
 
-        {/* Contenu */}
         <div className="flex-1 p-4 md:p-8 overflow-y-auto">
           {renderTab()}
 
-          {/* Onglet non autorisé */}
           {!availableTabs.some((t) => t.id === activeTab) && (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <AlertTriangle size={64} className="text-yellow-500 mb-4" />
@@ -407,7 +390,6 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* Aucun onglet */}
           {availableTabs.length === 0 && (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <AlertTriangle size={64} className="text-red-500 mb-4" />
