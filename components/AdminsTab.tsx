@@ -17,17 +17,17 @@ const ALL_TABS = [
   { id: 'topic_suggestions', label: 'Sujets', icon: '💡' },
   { id: 'articles', label: 'Articles', icon: '📄' },
   { id: 'events', label: 'Événements', icon: '📅' },
-  { id: 'article_events', label: 'Art↔Evt', icon: '🔗' }, // ← AJOUTER
-  { id: 'music_eras', label: 'Époques', icon: '🕐' }, // ← AJOUTER (il manquait)
+  { id: 'article_events', label: 'Art↔Evt', icon: '🔗' },
+  { id: 'music_eras', label: 'Époques', icon: '🕐' },
   { id: 'music_genres', label: 'Genres', icon: '🎵' },
   { id: 'music_tracks', label: 'Tracks', icon: '🎧' },
   { id: 'press', label: 'Presse', icon: '📰' },
   { id: 'library', label: 'Bibliothèque', icon: '📚' },
-  { id: 'ads', label: 'Publicités', icon: '📣' },  // ← AJOUTER
+  { id: 'reading_circles', label: 'Clubs Lecture', icon: '👥' }, // ← AJOUTÉ ICI
+  { id: 'ads', label: 'Publicités', icon: '📣' },
   { id: 'visitors', label: 'Visiteurs', icon: '👁️' },
   { id: 'notifications', label: 'Notifications', icon: '🔔' },
   { id: 'about', label: 'À Propos', icon: '📖' },
-
   { id: 'admins', label: 'Admins', icon: '👑' },
 ];
 
@@ -88,50 +88,47 @@ export default function AdminsTab({ showMsg }: { showMsg: (type: 'success' | 'er
     setIsLoading(false);
   }
 
-  // ✅ CRÉER UN NOUVEL ADMIN (compte + profil)
-// ✅ CRÉER UN NOUVEL ADMIN (compte + profil)
-const createNewAdmin = async () => {
-  if (!newEmail || !newPassword) {
-    showMsg('error', 'Email et mot de passe requis.');
-    return;
-  }
-
-  setIsCreating(true);
-
-  try {
-    const response = await fetch('/api/admin/create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: newEmail,
-        password: newPassword,
-        fullName: newFullName,
-        allowedTabs: newAdminTabs
-      })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Erreur lors de la création');
+  const createNewAdmin = async () => {
+    if (!newEmail || !newPassword) {
+      showMsg('error', 'Email et mot de passe requis.');
+      return;
     }
 
-    showMsg('success', `Admin "${newEmail}" créé !`);
-    setShowCreateModal(false);
-    setNewEmail('');
-    setNewPassword('');
-    setNewFullName('');
-    setNewAdminTabs(['articles', 'events', 'press']);
-    fetchAdmins();
+    setIsCreating(true);
 
-  } catch (err: any) {
-    showMsg('error', err.message || 'Erreur lors de la création');
-  } finally {
-    setIsCreating(false);
-  }
-};
+    try {
+      const response = await fetch('/api/admin/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: newEmail,
+          password: newPassword,
+          fullName: newFullName,
+          allowedTabs: newAdminTabs
+        })
+      });
 
-  // ✏️ OUVRIR MODAL ÉDITION INFO
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erreur lors de la création');
+      }
+
+      showMsg('success', `Admin "${newEmail}" créé !`);
+      setShowCreateModal(false);
+      setNewEmail('');
+      setNewPassword('');
+      setNewFullName('');
+      setNewAdminTabs(['articles', 'events', 'press']);
+      fetchAdmins();
+
+    } catch (err: any) {
+      showMsg('error', err.message || 'Erreur lors de la création');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   const openEditInfo = (admin: Profile) => {
     setEditingAdmin(admin);
     setEditEmail(admin.email);
@@ -140,45 +137,43 @@ const createNewAdmin = async () => {
     setShowEditModal(true);
   };
 
-  // ✏️ SAUVEGARDER MODIFICATION INFO (Email/Password)
-  // ✏️ SAUVEGARDER MODIFICATION INFO (Email/Password)
-const saveEditInfo = async () => {
-  if (!editingAdmin) {
-    showMsg('error', 'Configuration manquante.');
-    return;
-  }
-
-  setIsUpdating(true);
-
-  try {
-    const response = await fetch('/api/admin/update', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: editingAdmin.id,
-        email: editEmail !== editingAdmin.email ? editEmail : undefined,
-        password: editPassword.trim() || undefined,
-        fullName: editFullName !== editingAdmin.full_name ? editFullName : undefined
-      })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Erreur lors de la mise à jour');
+  const saveEditInfo = async () => {
+    if (!editingAdmin) {
+      showMsg('error', 'Configuration manquante.');
+      return;
     }
 
-    showMsg('success', 'Informations mises à jour !');
-    setShowEditModal(false);
-    fetchAdmins();
+    setIsUpdating(true);
 
-  } catch (err: any) {
-    showMsg('error', err.message || 'Erreur lors de la mise à jour');
-  } finally {
-    setIsUpdating(false);
-  }
-};
-  // 🔍 RECHERCHER UN UTILISATEUR EXISTANT
+    try {
+      const response = await fetch('/api/admin/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: editingAdmin.id,
+          email: editEmail !== editingAdmin.email ? editEmail : undefined,
+          password: editPassword.trim() || undefined,
+          fullName: editFullName !== editingAdmin.full_name ? editFullName : undefined
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erreur lors de la mise à jour');
+      }
+
+      showMsg('success', 'Informations mises à jour !');
+      setShowEditModal(false);
+      fetchAdmins();
+
+    } catch (err: any) {
+      showMsg('error', err.message || 'Erreur lors de la mise à jour');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const searchUser = async () => {
     if (!searchEmail.trim()) return;
     setIsSearching(true);
@@ -196,7 +191,6 @@ const saveEditInfo = async () => {
     setIsSearching(false);
   };
 
-  // ⬆️ PROMOUVOIR EN ADMIN
   const promoteToAdmin = async (userId: string) => {
     const { error } = await supabase
       .from('profiles')
@@ -213,7 +207,6 @@ const saveEditInfo = async () => {
     }
   };
 
-  // ⬇️ RETIRER LES DROITS ADMIN
   const removeAdmin = async (userId: string) => {
     const { error } = await supabase
       .from('profiles')
@@ -229,36 +222,33 @@ const saveEditInfo = async () => {
     }
   };
 
-  // 🗑️ SUPPRIMER DÉFINITIVEMENT
-// 🗑️ SUPPRIMER DÉFINITIVEMENT
-const deleteAdmin = async () => {
-  if (!deleteConfirm) return;
+  const deleteAdmin = async () => {
+    if (!deleteConfirm) return;
 
-  try {
-    const response = await fetch('/api/admin/delete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: deleteConfirm.id
-      })
-    });
+    try {
+      const response = await fetch('/api/admin/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: deleteConfirm.id
+        })
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (!response.ok) {
-      throw new Error(data.error || 'Erreur lors de la suppression');
+      if (!response.ok) {
+        throw new Error(data.error || 'Erreur lors de la suppression');
+      }
+
+      showMsg('success', `Admin "${deleteConfirm.email}" supprimé.`);
+      setDeleteConfirm(null);
+      fetchAdmins();
+
+    } catch (err: any) {
+      showMsg('error', err.message || 'Erreur lors de la suppression');
     }
+  };
 
-    showMsg('success', `Admin "${deleteConfirm.email}" supprimé.`);
-    setDeleteConfirm(null);
-    fetchAdmins();
-
-  } catch (err: any) {
-    showMsg('error', err.message || 'Erreur lors de la suppression');
-  }
-};
-
-  // ✏️ SAUVEGARDER LES PERMISSIONS
   const saveTabs = async (userId: string) => {
     const { error } = await supabase
       .from('profiles')
@@ -399,14 +389,14 @@ const deleteAdmin = async () => {
                     <label className="block text-xs text-gray-400 font-mono">📋 Permissions (onglets)</label>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => setNewAdminTabs(ALL_TABS.map(t => t.id))} // ✅
+                        onClick={() => setNewAdminTabs(ALL_TABS.map(t => t.id))}
                         className="text-[10px] text-red-400 hover:text-red-300"
                       >
                         Tout
                       </button>
                       <span className="text-gray-600">|</span>
                       <button
-                        onClick={() => setNewAdminTabs([])} // ✅
+                        onClick={() => setNewAdminTabs([])}
                         className="text-[10px] text-gray-400 hover:text-white"
                       >
                         Aucun
@@ -418,7 +408,6 @@ const deleteAdmin = async () => {
                       <button
                         key={tab.id}
                         onClick={() => {
-                          // ✅ Modifie newAdminTabs au lieu de editTabs
                           setNewAdminTabs(prev =>
                             prev.includes(tab.id)
                               ? prev.filter(t => t !== tab.id)

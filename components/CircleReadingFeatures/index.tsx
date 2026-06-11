@@ -16,32 +16,32 @@ import type {
 } from '@/lib/hooks/useCircleReadingFeatures';
 
 // ============================================================================
-// 1. COMPOSANT : Repères collectifs (Bookmarks) - MODIFIÉ
+// 1. COMPOSANT : Repères collectifs (Bookmarks)
 // ============================================================================
 export function BookmarksPanel({
   bookmarks,
   onAddBookmark,
-  onRemoveBookmark,  // ✅ AJOUTER
+  onRemoveBookmark, 
   currentPage,
   lang = 'fr',
 }: {
   bookmarks: CircleBookmark[];
   onAddBookmark: (page: number, label: string, category: string) => void;
-  onRemoveBookmark: (bookmarkId: string) => void;  // ✅ AJOUTER
+  onRemoveBookmark: (bookmarkId: string) => void;
   currentPage: number;
   lang?: 'fr' | 'en';
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [newLabel, setNewLabel] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('note');
+  const [selectedCategory, setSelectedCategory] = useState('citation'); // ← MODIFIÉ ICI
 
+  // ← "note" A ÉTÉ RETIRÉ DE CETTE LISTE
   const CATEGORIES = [
     { key: 'spoiler', label_fr: '⚠️ Spoiler', label_en: '⚠️ Spoiler', emoji: '⚠️', color: 'red' },
     { key: 'concept', label_fr: '💡 Concept', label_en: '💡 Concept', emoji: '💡', color: 'blue' },
     { key: 'citation', label_fr: '✨ Citation', label_en: '✨ Citation', emoji: '✨', color: 'yellow' },
     { key: 'important', label_fr: '🔴 Important', label_en: '🔴 Important', emoji: '🔴', color: 'orange' },
-    { key: 'note', label_fr: '📝 Note', label_en: '📝 Note', emoji: '📝', color: 'gray' },
   ];
 
   const pageBookmarks = bookmarks.filter(b => b.page_number === currentPage);
@@ -53,7 +53,7 @@ export function BookmarksPanel({
     if (newLabel.trim()) {
       onAddBookmark(currentPage, newLabel, selectedCategory);
       setNewLabel('');
-      setSelectedCategory('note');
+      setSelectedCategory('citation'); // ← MODIFIÉ ICI
       setShowForm(false);
     }
   };
@@ -103,12 +103,11 @@ export function BookmarksPanel({
                   className="w-full px-2 py-1 bg-white/5 border border-white/10 rounded text-xs text-white outline-none focus:border-blue-500/40 placeholder:text-gray-400"
                 />
 
-                {/* ✅ Catégories avec emojis visibles */}
                 <div className="space-y-1">
                   <label className="text-[10px] text-gray-400 font-bold">
                     {lang === 'fr' ? 'Catégorie' : 'Category'}
                   </label>
-                  <div className="grid grid-cols-5 gap-1">
+                  <div className="grid grid-cols-4 gap-1">
                     {CATEGORIES.map(cat => (
                       <button
                         key={cat.key}
@@ -144,7 +143,7 @@ export function BookmarksPanel({
             )}
           </div>
 
-                    {/* Repères actuels */}
+          {/* Repères actuels */}
           {pageBookmarks.length > 0 && (
             <div className="p-3 space-y-2">
               <p className="text-blue-300 text-xs font-bold mb-2">
@@ -229,7 +228,6 @@ export function ReadingStatsPanel({
       </div>
 
       <div className="space-y-3">
-        {/* Progression moyenne */}
         <div>
           <div className="flex justify-between items-center mb-1">
             <span className="text-gray-400 text-xs">
@@ -247,7 +245,6 @@ export function ReadingStatsPanel({
           </div>
         </div>
 
-        {/* Vous */}
         <div className="flex items-center justify-between">
           <span className="text-gray-400 text-xs">
             {lang === 'fr' ? 'Votre position' : 'Your position'}
@@ -264,7 +261,6 @@ export function ReadingStatsPanel({
           </div>
         </div>
 
-        {/* Plus loin atteint */}
         <div className="flex items-center justify-between">
           <span className="text-gray-400 text-xs">
             {lang === 'fr' ? 'Plus loin' : 'Furthest'}
@@ -272,7 +268,6 @@ export function ReadingStatsPanel({
           <span className="text-white text-xs font-bold">p.{stats.furthest_page}</span>
         </div>
 
-        {/* Membres */}
         <div className="flex items-center justify-between">
           <span className="text-gray-400 text-xs">
             {lang === 'fr' ? 'Membres actifs' : 'Active members'}
