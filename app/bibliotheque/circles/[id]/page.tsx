@@ -368,7 +368,7 @@ export default function CirclePage() {
     setTimeout(() => setCopiedCode(null), 2000);
   }, []);
 
-  const handleLeaveCircle = useCallback(async () => {
+    const handleLeaveCircle = useCallback(async () => {
     if (!user || !circle) return;
 
     if (circle.creator_id === user.id) {
@@ -387,7 +387,7 @@ export default function CirclePage() {
         userId: user.id
       });
 
-      // ✅ CORRECTION ICI : Retrait du .select('*', { count: 'exact', head: true }) qui causait des erreurs
+      // 1. Supprimer l'utilisateur de la table des membres
       const { error: deleteError } = await supabase
         .from('circle_members')
         .delete()
@@ -399,9 +399,22 @@ export default function CirclePage() {
         throw deleteError;
       }
 
-      console.log('✅ [LEFT] Vous avez quitté le cercle');
+      // 🔥 LA LIGNE MAGIQUE MANQUANTE EST ICI 🔥
+      // 2. Nettoyer l'historique des requêtes de cet utilisateur pour ce cercle
+      // Ça empêchera l'erreur 409 "duplicate key" s'il veut revenir un jour !
+      const { error: requestError } = await supabase
+        .from('circle_join_requests')
+        .delete()
+        .eq('circle_id', circle.id)
+        .eq('user_id', user.id);
 
-      // 2. Afficher notification
+      if (requestError) {
+        console.warn('⚠️ [WARNING] Erreur lors du nettoyage de la requête:', requestError);
+      }
+
+      console.log('✅ [LEFT] Vous avez quitté le cercle proprement');
+
+      // 3. Afficher notification
       setNotification({
         type: 'success',
         message: lang === 'fr'
@@ -409,10 +422,10 @@ export default function CirclePage() {
           : '✅ You left the circle'
       });
 
-      // 3. Nettoyer le state local
+      // 4. Nettoyer le state local
       setIsMember(false);
 
-      // 4. Rediriger après un court délai
+      // 5. Rediriger après un court délai
       setTimeout(() => {
         router.push('/bibliotheque');
       }, 1500);
