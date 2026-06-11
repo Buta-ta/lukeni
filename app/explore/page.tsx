@@ -741,6 +741,8 @@ SearchBar.displayName = 'SearchBar';
 
 // ─── Hero Carousel ────────────────────────────────────────────────────────────
 
+// ─── Hero Carousel ────────────────────────────────────────────────────────────
+
 const HeroCarousel = memo(({ events, lang, isLoading }: {
   events: HeroEvent[]; lang: 'fr' | 'en'; isLoading: boolean;
 }) => {
@@ -844,15 +846,19 @@ const HeroCarousel = memo(({ events, lang, isLoading }: {
 
     return (
       <div className="relative h-[60vh] min-h-[440px] rounded-3xl overflow-hidden group">
-               {ad.image_url && (
+        {ad.image_url && (
           <>
-            {/* 1. Fond flouté pour remplir l'écran */}
+            {/* 1. Fond flouté qui remplit tout (Mobile + Desktop) */}
             <img
               src={ad.image_url}
               alt=""
-              className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-30 scale-110"
+              className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-30 scale-110 z-0"
             />
-            {/* 2. Image ENTIÈRE (non coupée) */}
+            {/* 2. Gradients d'assombrissement (Sous l'image sur Desktop, sur l'image sur Mobile) */}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#020111] via-[#020111]/60 to-transparent pointer-events-none z-10" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#020111]/80 via-transparent to-transparent pointer-events-none z-10" />
+
+            {/* 3. Image Nette : Centrée sur mobile, Cadre à droite sur Desktop */}
             <img
               key={`ad-${idx}`}
               src={ad.image_url}
@@ -860,21 +866,22 @@ const HeroCarousel = memo(({ events, lang, isLoading }: {
               loading="lazy"
               decoding="async"
               onLoad={() => setImgLoaded(true)}
-              className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-700 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+              className={`absolute inset-0 w-full h-full object-contain 
+                lg:top-8 lg:bottom-8 lg:right-8 lg:left-auto lg:w-[42%] lg:h-auto lg:object-cover 
+                lg:rounded-2xl lg:border lg:border-white/10 lg:shadow-[0_0_40px_rgba(0,0,0,0.6)] lg:z-20
+                transition-opacity duration-700 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#020111] via-[#020111]/60 to-transparent pointer-events-none" />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#020111]/80 via-transparent to-transparent pointer-events-none" />
           </>
         )}
         {!ad.image_url && (
-          <div className="absolute inset-0 bg-gradient-to-br from-[#D4AF37]/10 via-[#020111] to-[#020111]" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#D4AF37]/10 via-[#020111] to-[#020111] z-0" />
         )}
 
         {slides.length > 1 && (
           <>
             <button
               onClick={() => { prev(); clearInterval(timerRef.current!); }}
-              className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full
+              className="absolute left-4 top-1/2 -translate-y-1/2 z-30 w-9 h-9 rounded-full
                 bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center
                 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
             >
@@ -882,7 +889,7 @@ const HeroCarousel = memo(({ events, lang, isLoading }: {
             </button>
             <button
               onClick={() => { next(); clearInterval(timerRef.current!); }}
-              className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full
+              className="absolute right-4 top-1/2 -translate-y-1/2 z-30 w-9 h-9 rounded-full
                 bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center
                 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
             >
@@ -891,7 +898,7 @@ const HeroCarousel = memo(({ events, lang, isLoading }: {
           </>
         )}
 
-        <div className="absolute top-6 left-6 z-10 flex items-center gap-3">
+        <div className="absolute top-6 left-6 z-30 flex items-center gap-3">
           <div className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-[0.25em]
             border border-[#D4AF37]/40 px-3 py-1.5 rounded-full bg-[#D4AF37]/10 text-[#D4AF37]">
             <Star size={8} />
@@ -899,7 +906,8 @@ const HeroCarousel = memo(({ events, lang, isLoading }: {
           </div>
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 p-8 md:p-10 z-10">
+        {/* Conteneur de Texte : En bas sur mobile, Centré verticalement à gauche sur Desktop */}
+        <div className="absolute bottom-0 left-0 right-0 lg:top-0 lg:bottom-0 lg:right-auto lg:w-[58%] lg:flex lg:flex-col lg:justify-center p-8 md:p-10 z-20">
           <AnimatePresence mode="wait">
             <motion.div
               key={`ad-content-${idx}`}
@@ -916,7 +924,7 @@ const HeroCarousel = memo(({ events, lang, isLoading }: {
               </div>
 
               {displayTitle && (
-                <h2 className="text-3xl md:text-5xl font-serif italic text-white leading-tight mb-4 max-w-2xl">
+                <h2 className="text-3xl md:text-5xl font-serif italic text-white leading-tight mb-4 max-w-2xl lg:max-w-xl">
                   {displayTitle}
                 </h2>
               )}
@@ -940,7 +948,7 @@ const HeroCarousel = memo(({ events, lang, isLoading }: {
         </div>
 
         {slides.length > 1 && (
-          <div className="absolute bottom-8 right-8 flex gap-1.5 z-20">
+          <div className="absolute bottom-8 right-8 lg:left-1/2 lg:-translate-x-1/2 lg:right-auto flex gap-1.5 z-30">
             {slides.map((slide, i) => (
               <button
                 key={i}
@@ -963,32 +971,35 @@ const HeroCarousel = memo(({ events, lang, isLoading }: {
 
   return (
     <div className="relative h-[60vh] min-h-[440px] rounded-3xl overflow-hidden group">
-       {/* Image principale mieux cadrée */}
-            {/* 1. Fond flouté pour combler les espaces vides si l'image n'est pas au format de l'écran */}
+      
+      {/* 1. Fond flouté */}
       <img 
         src={ev.image} 
         alt="" 
-        className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-30 scale-110 pointer-events-none" 
+        className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-30 scale-110 pointer-events-none z-0" 
       />
       
-      {/* 2. Image ENTIÈRE (non coupée) */}
+      {/* 2. Gradients */}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#020111] via-[#020111]/60 to-transparent pointer-events-none z-10" />
+      <div className="absolute inset-0 bg-gradient-to-r from-[#020111]/80 via-transparent to-transparent pointer-events-none z-10" />
+
+      {/* 3. Image Nette : Mobile = Centré classique, Desktop = Cadre Premium sur la droite */}
       <img
         key={`ev-${idx}`}
         src={ev.image} alt=""
         loading="lazy" decoding="async"
         onLoad={() => setImgLoaded(true)}
-        className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-700 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute inset-0 w-full h-full object-contain 
+          lg:top-8 lg:bottom-8 lg:right-8 lg:left-auto lg:w-[42%] lg:h-auto lg:object-cover 
+          lg:rounded-2xl lg:border lg:border-white/10 lg:shadow-[0_0_40px_rgba(0,0,0,0.6)] lg:z-20
+          transition-opacity duration-700 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
       />
-      
-      {/* 3. Gradients assombris pour bien lire le texte */}
-      <div className="absolute inset-0 bg-gradient-to-t from-[#020111] via-[#020111]/60 to-transparent pointer-events-none" />
-      <div className="absolute inset-0 bg-gradient-to-r from-[#020111]/80 via-transparent to-transparent pointer-events-none" />
 
       {slides.length > 1 && (
         <>
           <button
             onClick={() => { prev(); clearInterval(timerRef.current!); }}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-30 w-9 h-9 rounded-full
               bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center
               text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
           >
@@ -996,7 +1007,7 @@ const HeroCarousel = memo(({ events, lang, isLoading }: {
           </button>
           <button
             onClick={() => { next(); clearInterval(timerRef.current!); }}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-30 w-9 h-9 rounded-full
               bg-black/50 backdrop-blur-md border border-white/15 flex items-center justify-center
               text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/70"
           >
@@ -1005,7 +1016,7 @@ const HeroCarousel = memo(({ events, lang, isLoading }: {
         </>
       )}
 
-      <div className="absolute top-6 left-6 z-10">
+      <div className="absolute top-6 left-6 z-30">
         <div className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-[0.25em]
           border border-[#D4AF37]/40 px-3 py-1.5 rounded-full bg-[#D4AF37]/10 text-[#D4AF37]">
           <Sparkles size={8} />
@@ -1013,7 +1024,8 @@ const HeroCarousel = memo(({ events, lang, isLoading }: {
         </div>
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 p-8 md:p-10 z-10">
+      {/* Conteneur de Texte : Desktop = Poussé à gauche (58% de l'écran) */}
+      <div className="absolute bottom-0 left-0 right-0 lg:top-0 lg:bottom-0 lg:right-auto lg:w-[58%] lg:flex lg:flex-col lg:justify-center p-8 md:p-10 z-20">
         <AnimatePresence mode="wait">
           <motion.div
             key={`ev-content-${idx}`}
@@ -1027,7 +1039,7 @@ const HeroCarousel = memo(({ events, lang, isLoading }: {
                 <Calendar size={9} /> {ev.year}
               </p>
             )}
-            <h2 className="text-3xl md:text-5xl font-serif italic text-white leading-tight mb-4 max-w-2xl">
+            <h2 className="text-3xl md:text-5xl font-serif italic text-white leading-tight mb-4 max-w-2xl lg:max-w-xl">
               {lang === 'fr' ? ev.title_fr : ev.title_en}
             </h2>
             <p className="text-white/55 text-sm max-w-lg mb-6 leading-relaxed line-clamp-2">
@@ -1044,7 +1056,7 @@ const HeroCarousel = memo(({ events, lang, isLoading }: {
       </div>
 
       {slides.length > 1 && (
-        <div className="absolute bottom-8 right-8 flex gap-1.5 z-20">
+        <div className="absolute bottom-8 right-8 lg:left-1/2 lg:-translate-x-1/2 lg:right-auto flex gap-1.5 z-30">
           {slides.map((slide, i) => (
             <button
               key={i}
