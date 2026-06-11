@@ -1,19 +1,47 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
+import { useParams, useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  X, Loader2, Send, Users, MessageCircle, FileText,
-  ChevronLeft, ChevronRight, Copy, CheckCircle, Clock,
-  Settings, LogOut, AlertCircle, Eye, AlertCircleIcon, Pin,
-  BookOpen, TrendingUp, BarChart3, Heart
-} from 'lucide-react';
-import type { User } from '@supabase/supabase-js';
-import { useReadingCircle, type ReadingCircle, type CircleMember } from '@/lib/hooks/useReadingCircle';
-import { useCircleChat, type ChatMessage } from '@/lib/hooks/useCircleChat';
-import { useCirclePresence } from '@/lib/hooks/useCirclePresence';
+  X,
+  Loader2,
+  Send,
+  Users,
+  MessageCircle,
+  FileText,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  CheckCircle,
+  Clock,
+  Settings,
+  LogOut,
+  AlertCircle,
+  Eye,
+  AlertCircleIcon,
+  Pin,
+  BookOpen,
+  TrendingUp,
+  BarChart3,
+  Heart,
+  Plus,
+} from "lucide-react";
+import type { User } from "@supabase/supabase-js";
+import {
+  useReadingCircle,
+  type ReadingCircle,
+  type CircleMember,
+} from "@/lib/hooks/useReadingCircle";
+import { useCircleChat, type ChatMessage } from "@/lib/hooks/useCircleChat";
+import { useCirclePresence } from "@/lib/hooks/useCirclePresence";
 import {
   useCircleBookmarks,
   useCircleHighlights,
@@ -22,10 +50,10 @@ import {
   useCirclePolls,
   useCircleSummaries,
   useCircleQuizzes,
-} from '@/lib/hooks/useCircleReadingFeatures';
-import CloudinaryPDFReader from '@/components/CloudinaryPDFReaderWrapper';
-import { NotesplitContainer } from '@/components/NotesplitContainer';
-import CircleLoadingScreen from '@/components/CircleLoadingScreen';
+} from "@/lib/hooks/useCircleReadingFeatures";
+import CloudinaryPDFReader from "@/components/CloudinaryPDFReaderWrapper";
+import { NotesplitContainer } from "@/components/NotesplitContainer";
+import CircleLoadingScreen from "@/components/CircleLoadingScreen";
 import {
   MessageReactions,
   MessageQuotePreview,
@@ -33,7 +61,9 @@ import {
   MentionsList,
   ChatSearch,
   PinnedMessagesPanel,
-} from '@/components/CircleChatFeatures';
+  MessagePoll,
+  MessageQuiz,
+} from "@/components/CircleChatFeatures";
 import {
   BookmarksPanel,
   ReadingStatsPanel,
@@ -41,14 +71,18 @@ import {
   PollsPanel,
   SummariesPanel,
   QuizzesPanel,
-} from '@/components/CircleReadingFeatures';
+} from "@/components/CircleReadingFeatures";
 
 const CaurisIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 100 100" className={className} fill="currentColor">
     <path d="M50 5C30 5 15 25 15 50C15 75 30 95 50 95C70 95 85 75 85 50C85 25 70 5 50 5ZM50 85C35 85 25 70 25 50C25 30 35 15 50 15C65 15 75 30 75 50C75 70 65 85 50 85Z" />
     <path d="M50 25C48 25 46 40 46 50C46 60 48 75 50 75C52 75 54 60 54 50C54 40 52 25 50 25Z" />
-    <path d="M35 40L42 42M35 50L42 50M35 60L42 58M65 40L58 42M65 50L58 50M65 60L58 58"
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <path
+      d="M35 40L42 42M35 50L42 50M35 60L42 58M65 40L58 42M65 50L58 50M65 60L58 58"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
   </svg>
 );
 
@@ -71,13 +105,13 @@ function NotificationModal({
   type,
   message,
   onClose,
-  lang
+  lang,
 }: {
   isOpen: boolean;
-  type: 'success' | 'error';
+  type: "success" | "error";
   message: string;
   onClose: () => void;
-  lang: 'fr' | 'en';
+  lang: "fr" | "en";
 }) {
   useEffect(() => {
     if (isOpen) {
@@ -96,13 +130,14 @@ function NotificationModal({
           className="fixed top-6 right-6 z-[9999]"
         >
           <motion.div
-            className={`flex items-center gap-3 px-6 py-4 rounded-2xl border backdrop-blur-md ${type === 'success'
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-              : 'bg-red-500/10 border-red-500/30 text-red-300'
-              }`}
+            className={`flex items-center gap-3 px-6 py-4 rounded-2xl border backdrop-blur-md ${
+              type === "success"
+                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                : "bg-red-500/10 border-red-500/30 text-red-300"
+            }`}
             layout
           >
-            {type === 'success' ? (
+            {type === "success" ? (
               <CheckCircle size={20} className="flex-shrink-0" />
             ) : (
               <AlertCircle size={20} className="flex-shrink-0" />
@@ -124,28 +159,55 @@ export default function CirclePage() {
   const circleId = params.id as string;
 
   const [user, setUser] = useState<User | null>(null);
-  const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const [lang, setLang] = useState<"fr" | "en">("fr");
   const [isLoading, setIsLoading] = useState(true);
   const [book, setBook] = useState<Book | null>(null);
 
   // ✅ Hooks Realtime
-  const { circle, members, changePage, updateMyProgress } = useReadingCircle(circleId, user?.id);
-  const { messages, sendMessage, addReaction, removeReaction, pinMessage, unpinMessage } = useCircleChat(circleId, user?.id);
+  const { circle, members, changePage, updateMyProgress } = useReadingCircle(
+    circleId,
+    user?.id,
+  );
+  const {
+    messages,
+    sendMessage,
+    addReaction,
+    removeReaction,
+    pinMessage,
+    unpinMessage,
+    sendPoll,
+    sendQuiz,
+    voteMessage,
+  } = useCircleChat(circleId, user?.id);
   const { presentUsers } = useCirclePresence(circleId, user?.id);
 
   // ✅ Hooks Lecture commune
-  const { bookmarks, addBookmark, removeBookmark } = useCircleBookmarks(circleId, user?.id);
-  const { highlights, addHighlight, removeHighlight } = useCircleHighlights(circleId, user?.id);
+  const { bookmarks, addBookmark, removeBookmark } = useCircleBookmarks(
+    circleId,
+    user?.id,
+  );
+  const { highlights, addHighlight, removeHighlight } = useCircleHighlights(
+    circleId,
+    user?.id,
+  );
   const { stats } = useCircleReadingStats(circleId, members);
   const { events, logEvent } = useCircleEvents(circleId);
   const { polls, createPoll, votePoll } = useCirclePolls(circleId, user?.id);
-  const { summaries, createSummary, voteSummary } = useCircleSummaries(circleId, user?.id);
-  const { quizzes, createQuiz, answerQuiz } = useCircleQuizzes(circleId, user?.id);
+  const { summaries, createSummary, voteSummary } = useCircleSummaries(
+    circleId,
+    user?.id,
+  );
+  const { quizzes, createQuiz, answerQuiz } = useCircleQuizzes(
+    circleId,
+    user?.id,
+  );
 
   // UI State - Chat
-  const [sidebarMode, setSidebarMode] = useState<'chat' | 'notes' | 'members' | 'reading'>('chat');
+  const [sidebarMode, setSidebarMode] = useState<
+    "chat" | "notes" | "members" | "reading"
+  >("chat");
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true);
-  const [chatInput, setChatInput] = useState('');
+  const [chatInput, setChatInput] = useState("");
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -153,31 +215,49 @@ export default function CirclePage() {
 
   // UI State - Chat Features
   const [showMentions, setShowMentions] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [repliedToMessage, setRepliedToMessage] = useState<ChatMessage | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [repliedToMessage, setRepliedToMessage] = useState<ChatMessage | null>(
+    null,
+  );
   const [mentions, setMentions] = useState<string[]>([]);
+
+  // UI State - Sondages & Quizz
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [showPollModal, setShowPollModal] = useState(false);
+  const [showQuizModal, setShowQuizModal] = useState(false);
+  const [pollData, setPollData] = useState({ question: "", options: ["", ""] });
+  const [quizData, setQuizData] = useState({
+    question: "",
+    options: ["", ""],
+    correctIndex: 0,
+  });
 
   const [rejectedRequestsCount, setRejectedRequestsCount] = useState(0);
 
   const [isMember, setIsMember] = useState(false);
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
-  const [joinMessage, setJoinMessage] = useState('');
+  const [joinMessage, setJoinMessage] = useState("");
   const [isSendingJoin, setIsSendingJoin] = useState(false);
-  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [notification, setNotification] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
   // ── Auth ──
   useEffect(() => {
     const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session?.user) {
-        router.push('/auth');
+        router.push("/auth");
         return;
       }
       setUser(session.user);
     };
     getSession();
 
-    const savedLang = localStorage.getItem('lukeni_lang') as 'fr' | 'en' | null;
+    const savedLang = localStorage.getItem("lukeni_lang") as "fr" | "en" | null;
     if (savedLang) setLang(savedLang);
   }, [router]);
 
@@ -188,14 +268,14 @@ export default function CirclePage() {
     const loadBook = async () => {
       try {
         const { data } = await supabase
-          .from('library_books')
-          .select('*')
-          .eq('id', circle.book_id)
+          .from("library_books")
+          .select("*")
+          .eq("id", circle.book_id)
           .single();
 
         setBook(data);
       } catch (err) {
-        console.error('Load book error:', err);
+        console.error("Load book error:", err);
       } finally {
         setIsLoading(false);
       }
@@ -206,9 +286,8 @@ export default function CirclePage() {
 
   // ── Auto-scroll chat ──
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
 
   // ✅ Vérifier l'appartenance ET les demandes en cours
   useEffect(() => {
@@ -218,10 +297,10 @@ export default function CirclePage() {
       try {
         // 1. Vérifier si membre actif
         const { data: memberData } = await supabase
-          .from('circle_members')
-          .select('id')
-          .eq('circle_id', circle.id)
-          .eq('user_id', user.id)
+          .from("circle_members")
+          .select("id")
+          .eq("circle_id", circle.id)
+          .eq("user_id", user.id)
           .maybeSingle();
 
         const isCurrentMember = !!memberData || circle.creator_id === user.id;
@@ -230,24 +309,26 @@ export default function CirclePage() {
         // 2. Si pas membre, vérifier les demandes
         if (!isCurrentMember) {
           const { data: requests } = await supabase
-            .from('circle_join_requests')
-            .select('id, status')
-            .eq('circle_id', circle.id)
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false });
+            .from("circle_join_requests")
+            .select("id, status")
+            .eq("circle_id", circle.id)
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false });
 
           if (requests && requests.length > 0) {
             // Compter les rejets
-            const rejectedCount = requests.filter(r => r.status === 'rejected').length;
+            const rejectedCount = requests.filter(
+              (r) => r.status === "rejected",
+            ).length;
             setRejectedRequestsCount(rejectedCount);
 
             // Vérifier si demande en attente
-            const hasPending = requests.some(r => r.status === 'pending');
+            const hasPending = requests.some((r) => r.status === "pending");
             setHasPendingRequest(hasPending);
 
             // 🔴 Si 3 rejets ou plus → rediriger
             if (rejectedCount >= 3) {
-              router.push('/bibliotheque');
+              router.push("/bibliotheque");
               return;
             }
           } else {
@@ -256,7 +337,7 @@ export default function CirclePage() {
           }
         }
       } catch (err) {
-        console.error('Membership check error:', err);
+        console.error("Membership check error:", err);
       }
     };
 
@@ -267,25 +348,23 @@ export default function CirclePage() {
     return () => clearInterval(interval);
   }, [user, circle?.id, circle?.creator_id, router]);
 
-
   // ✅ Charger le compte des demandes rejetées
   useEffect(() => {
     if (!user || !circle) return;
 
     const loadRejectedCount = async () => {
       const { data: rejectedRequests } = await supabase
-        .from('circle_join_requests')
-        .select('id')
-        .eq('circle_id', circle.id)
-        .eq('user_id', user.id)
-        .eq('status', 'rejected');
+        .from("circle_join_requests")
+        .select("id")
+        .eq("circle_id", circle.id)
+        .eq("user_id", user.id)
+        .eq("status", "rejected");
 
       setRejectedRequestsCount(rejectedRequests?.length || 0);
     };
 
     loadRejectedCount();
   }, [user, circle]);
-
 
   // ✅ Écouter les changements de statut des demandes
   useEffect(() => {
@@ -294,19 +373,22 @@ export default function CirclePage() {
     const channel = supabase
       .channel(`join_requests:${circle.id}:${user.id}`)
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'circle_join_requests',
+          event: "UPDATE",
+          schema: "public",
+          table: "circle_join_requests",
           filter: `circle_id=eq.${circle.id}`,
         },
         (payload) => {
           // Si la demande de cet utilisateur est acceptée
-          if (payload.new.user_id === user.id && payload.new.status === 'approved') {
+          if (
+            payload.new.user_id === user.id &&
+            payload.new.status === "approved"
+          ) {
             window.location.reload();
           }
-        }
+        },
       )
       .subscribe();
 
@@ -320,10 +402,10 @@ export default function CirclePage() {
   // ============================================================================
 
   const handleMentionInput = useCallback((input: string) => {
-    const atIndex = input.lastIndexOf('@');
+    const atIndex = input.lastIndexOf("@");
     if (atIndex !== -1) {
       const after = input.substring(atIndex + 1);
-      if (after.length > 0 && !after.includes(' ')) {
+      if (after.length > 0 && !after.includes(" ")) {
         setShowMentions(true);
       } else {
         setShowMentions(false);
@@ -333,34 +415,49 @@ export default function CirclePage() {
     }
   }, []);
 
-  const handleSelectMention = useCallback((userId: string) => {
-    const member = members.find(m => m.user_id === userId);
-    if (!member) return;
+  const handleSelectMention = useCallback(
+    (userId: string) => {
+      const member = members.find((m) => m.user_id === userId);
+      if (!member) return;
 
-    const atIndex = chatInput.lastIndexOf('@');
-    const beforeAt = chatInput.substring(0, atIndex);
-    const newInput = `${beforeAt}@${member.profiles?.username || member.profiles?.full_name || userId} `;
+      const atIndex = chatInput.lastIndexOf("@");
+      const beforeAt = chatInput.substring(0, atIndex);
+      const newInput = `${beforeAt}@${member.profiles?.username || member.profiles?.full_name || userId} `;
 
-    setChatInput(newInput);
-    setShowMentions(false);
-    setMentions([...mentions, userId]);
-  }, [chatInput, members, mentions]);
+      setChatInput(newInput);
+      setShowMentions(false);
+      setMentions([...mentions, userId]);
+    },
+    [chatInput, members, mentions],
+  );
 
   const handleSendMessage = useCallback(async () => {
     if (!chatInput.trim() || isSendingMessage) return;
 
     setIsSendingMessage(true);
     try {
-      await sendMessage(chatInput, circle?.current_page, mentions, repliedToMessage?.id);
-      setChatInput('');
+      await sendMessage(
+        chatInput,
+        circle?.current_page,
+        mentions,
+        repliedToMessage?.id,
+      );
+      setChatInput("");
       setMentions([]);
       setRepliedToMessage(null);
     } catch (err) {
-      console.error('Send message error:', err);
+      console.error("Send message error:", err);
     } finally {
       setIsSendingMessage(false);
     }
-  }, [chatInput, sendMessage, circle, isSendingMessage, mentions, repliedToMessage]);
+  }, [
+    chatInput,
+    sendMessage,
+    circle,
+    isSendingMessage,
+    mentions,
+    repliedToMessage,
+  ]);
 
   const handleCopyCode = useCallback(async (code: string) => {
     await navigator.clipboard.writeText(code);
@@ -368,34 +465,35 @@ export default function CirclePage() {
     setTimeout(() => setCopiedCode(null), 2000);
   }, []);
 
-    const handleLeaveCircle = useCallback(async () => {
+  const handleLeaveCircle = useCallback(async () => {
     if (!user || !circle) return;
 
     if (circle.creator_id === user.id) {
       setNotification({
-        type: 'error',
-        message: lang === 'fr'
-          ? 'Les créateurs ne peuvent pas quitter. Supprimez le cercle à la place.'
-          : 'Creators cannot leave. Delete the circle instead.'
+        type: "error",
+        message:
+          lang === "fr"
+            ? "Les créateurs ne peuvent pas quitter. Supprimez le cercle à la place."
+            : "Creators cannot leave. Delete the circle instead.",
       });
       return;
     }
 
     try {
-      console.log('🚪 [LEAVE] Tentative de départ du cercle', {
+      console.log("🚪 [LEAVE] Tentative de départ du cercle", {
         circleId: circle.id,
-        userId: user.id
+        userId: user.id,
       });
 
       // 1. Supprimer l'utilisateur de la table des membres
       const { error: deleteError } = await supabase
-        .from('circle_members')
+        .from("circle_members")
         .delete()
-        .eq('circle_id', circle.id)
-        .eq('user_id', user.id);
+        .eq("circle_id", circle.id)
+        .eq("user_id", user.id);
 
       if (deleteError) {
-        console.error('❌ [DELETE_ERROR]', deleteError);
+        console.error("❌ [DELETE_ERROR]", deleteError);
         throw deleteError;
       }
 
@@ -403,23 +501,27 @@ export default function CirclePage() {
       // 2. Nettoyer l'historique des requêtes de cet utilisateur pour ce cercle
       // Ça empêchera l'erreur 409 "duplicate key" s'il veut revenir un jour !
       const { error: requestError } = await supabase
-        .from('circle_join_requests')
+        .from("circle_join_requests")
         .delete()
-        .eq('circle_id', circle.id)
-        .eq('user_id', user.id);
+        .eq("circle_id", circle.id)
+        .eq("user_id", user.id);
 
       if (requestError) {
-        console.warn('⚠️ [WARNING] Erreur lors du nettoyage de la requête:', requestError);
+        console.warn(
+          "⚠️ [WARNING] Erreur lors du nettoyage de la requête:",
+          requestError,
+        );
       }
 
-      console.log('✅ [LEFT] Vous avez quitté le cercle proprement');
+      console.log("✅ [LEFT] Vous avez quitté le cercle proprement");
 
       // 3. Afficher notification
       setNotification({
-        type: 'success',
-        message: lang === 'fr'
-          ? '✅ Vous avez quitté le cercle'
-          : '✅ You left the circle'
+        type: "success",
+        message:
+          lang === "fr"
+            ? "✅ Vous avez quitté le cercle"
+            : "✅ You left the circle",
       });
 
       // 4. Nettoyer le state local
@@ -427,17 +529,18 @@ export default function CirclePage() {
 
       // 5. Rediriger après un court délai
       setTimeout(() => {
-        router.push('/bibliotheque');
+        router.push("/bibliotheque");
       }, 1500);
-
     } catch (err: any) {
-      console.error('❌ [LEAVE_ERROR]', err);
+      console.error("❌ [LEAVE_ERROR]", err);
 
       setNotification({
-        type: 'error',
-        message: err.message || (lang === 'fr'
-          ? 'Erreur lors de la quitte du cercle'
-          : 'Error leaving circle')
+        type: "error",
+        message:
+          err.message ||
+          (lang === "fr"
+            ? "Erreur lors de la quitte du cercle"
+            : "Error leaving circle"),
       });
     }
   }, [user, circle, lang, router]);
@@ -449,68 +552,72 @@ export default function CirclePage() {
     try {
       // 1. Vérifier les rejets existants
       const { data: existingRequests } = await supabase
-        .from('circle_join_requests')
-        .select('id, status')
-        .eq('circle_id', circle.id)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .from("circle_join_requests")
+        .select("id, status")
+        .eq("circle_id", circle.id)
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
 
-      const rejectedCount = existingRequests?.filter(r => r.status === 'rejected').length || 0;
+      const rejectedCount =
+        existingRequests?.filter((r) => r.status === "rejected").length || 0;
 
       // 🔴 Bloquer si 3 rejets
       if (rejectedCount >= 3) {
-        alert(lang === 'fr'
-          ? 'Vous ne pouvez plus envoyer de demande pour ce cercle.'
-          : 'You cannot send more requests for this circle.');
+        alert(
+          lang === "fr"
+            ? "Vous ne pouvez plus envoyer de demande pour ce cercle."
+            : "You cannot send more requests for this circle.",
+        );
         setIsSendingJoin(false);
         return;
       }
 
       // 2. Chercher une demande existante EN ATTENTE ou REJETÉE
       const existingRequest = existingRequests?.find(
-        r => r.status === 'pending' || r.status === 'rejected'
+        (r) => r.status === "pending" || r.status === "rejected",
       );
 
       if (existingRequest) {
         // ✅ Mettre à jour la demande existante
         const { error } = await supabase
-          .from('circle_join_requests')
+          .from("circle_join_requests")
           .update({
-            status: 'pending',
+            status: "pending",
             message: joinMessage.trim() || null,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', existingRequest.id);
+          .eq("id", existingRequest.id);
 
         if (error) throw error;
       } else {
         // ✅ Créer une nouvelle demande
-        const { error } = await supabase
-          .from('circle_join_requests')
-          .insert({
-            circle_id: circle.id,
-            user_id: user.id,
-            message: joinMessage.trim() || null,
-            status: 'pending',
-          });
+        const { error } = await supabase.from("circle_join_requests").insert({
+          circle_id: circle.id,
+          user_id: user.id,
+          message: joinMessage.trim() || null,
+          status: "pending",
+        });
 
         if (error) throw error;
       }
 
       // 3. Mettre à jour l'UI
       setHasPendingRequest(true);
-      setJoinMessage('');
+      setJoinMessage("");
 
       // ✅ Afficher un message de confirmation
-      alert(lang === 'fr'
-        ? '✅ Votre demande a été envoyée !'
-        : '✅ Your request has been sent!');
-
+      alert(
+        lang === "fr"
+          ? "✅ Votre demande a été envoyée !"
+          : "✅ Your request has been sent!",
+      );
     } catch (err: any) {
-      console.error('Join request error:', err);
-      alert(lang === 'fr'
-        ? `❌ Erreur : ${err.message}`
-        : `❌ Error: ${err.message}`);
+      console.error("Join request error:", err);
+      alert(
+        lang === "fr"
+          ? `❌ Erreur : ${err.message}`
+          : `❌ Error: ${err.message}`,
+      );
     } finally {
       setIsSendingJoin(false);
     }
@@ -521,21 +628,22 @@ export default function CirclePage() {
     if (!searchQuery.trim()) return messages;
 
     const query = searchQuery.toLowerCase();
-    return messages.filter(msg =>
-      msg.content.toLowerCase().includes(query) ||
-      (msg.profiles?.full_name || '').toLowerCase().includes(query)
+    return messages.filter(
+      (msg) =>
+        msg.content.toLowerCase().includes(query) ||
+        (msg.profiles?.full_name || "").toLowerCase().includes(query),
     );
   }, [messages, searchQuery]);
 
   // ✅ Obtenir les messages épinglés
   const pinnedMessages = useMemo(() => {
-    return messages.filter(msg => msg.isPinned);
+    return messages.filter((msg) => msg.isPinned);
   }, [messages]);
 
   // ✅ Préparer les stats enrichies
   const enrichedStats = useMemo(() => {
     if (!stats) return null;
-    const member = members.find(m => m.user_id === user?.id);
+    const member = members.find((m) => m.user_id === user?.id);
     if (!member) return stats;
 
     return {
@@ -549,10 +657,13 @@ export default function CirclePage() {
   }
 
   const isCreator = user && circle.creator_id === user.id;
-  const currentMember = members.find(m => m.user_id === user?.id);
-  const avgProgress = members.length > 0
-    ? Math.round(members.reduce((acc, m) => acc + m.current_page, 0) / members.length)
-    : 0;
+  const currentMember = members.find((m) => m.user_id === user?.id);
+  const avgProgress =
+    members.length > 0
+      ? Math.round(
+          members.reduce((acc, m) => acc + m.current_page, 0) / members.length,
+        )
+      : 0;
 
   // ✅ Si l'utilisateur n'est pas membre, afficher l'interface appropriée
   if (!isCreator && !isMember) {
@@ -570,32 +681,36 @@ export default function CirclePage() {
                 <AlertCircleIcon size={32} className="text-red-400" />
               </div>
               <h1 className="text-3xl font-serif font-bold text-white">
-                {lang === 'fr' ? '❌ Accès refusé' : '❌ Access denied'}
+                {lang === "fr" ? "❌ Accès refusé" : "❌ Access denied"}
               </h1>
               <p className="text-gray-400">
-                {lang === 'fr'
+                {lang === "fr"
                   ? "Vous avez dépassé le nombre de demandes d'adhésion pour ce cercle."
-                  : 'You have exceeded the number of membership requests for this circle.'}
+                  : "You have exceeded the number of membership requests for this circle."}
               </p>
             </div>
 
             <div className="bg-gradient-to-br from-[#0d0d1a] to-[#080810] border border-red-500/20 rounded-3xl p-6">
               <p className="text-red-300 text-sm mb-2">
-                {lang === 'fr' ? '📋 Votre historique' : '📋 Your history'}
+                {lang === "fr" ? "📋 Votre historique" : "📋 Your history"}
               </p>
               <div className="space-y-1">
                 <p className="text-white text-xs">
-                  <span className="text-red-400 font-bold">3/3</span> {lang === 'fr' ? 'demandes rejetées' : 'requests rejected'}
+                  <span className="text-red-400 font-bold">3/3</span>{" "}
+                  {lang === "fr" ? "demandes rejetées" : "requests rejected"}
                 </p>
                 <p className="text-gray-500 text-xs">
-                  {lang === 'fr'
-                    ? 'Le créateur a refusé vos demandes.'
-                    : 'The creator rejected your requests.'}
+                  {lang === "fr"
+                    ? "Le créateur a refusé vos demandes."
+                    : "The creator rejected your requests."}
                 </p>
               </div>
               <div className="flex gap-1 mt-3">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="h-1.5 flex-1 rounded-full bg-red-500" />
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="h-1.5 flex-1 rounded-full bg-red-500"
+                  />
                 ))}
               </div>
             </div>
@@ -604,7 +719,7 @@ export default function CirclePage() {
               href="/bibliotheque"
               className="w-full py-3 bg-white/5 border border-white/10 text-white rounded-xl font-bold text-sm hover:bg-white/10 transition-colors flex items-center justify-center"
             >
-              {lang === 'fr' ? 'Retour à la bibliothèque' : 'Back to library'}
+              {lang === "fr" ? "Retour à la bibliothèque" : "Back to library"}
             </a>
           </motion.div>
         </div>
@@ -625,19 +740,25 @@ export default function CirclePage() {
                 <Clock size={32} className="text-amber-400" />
               </div>
               <h1 className="text-2xl font-serif font-bold text-white">
-                {lang === 'fr' ? '⏳ Demande envoyée' : '⏳ Request sent'}
+                {lang === "fr" ? "⏳ Demande envoyée" : "⏳ Request sent"}
               </h1>
               <p className="text-gray-400">
-                {lang === 'fr'
-                  ? 'Votre demande d\'adhésion est en attente de validation par le créateur.'
-                  : 'Your join request is waiting for the creator\'s approval.'}
+                {lang === "fr"
+                  ? "Votre demande d'adhésion est en attente de validation par le créateur."
+                  : "Your join request is waiting for the creator's approval."}
               </p>
             </div>
 
             <div className="bg-gradient-to-br from-[#0d0d1a] to-[#080810] border border-amber-500/20 rounded-3xl p-6">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-white/5">
-                  {book?.cover_url && <img src={book.cover_url} alt="" className="w-full h-full object-cover" />}
+                  {book?.cover_url && (
+                    <img
+                      src={book.cover_url}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  )}
                 </div>
                 <div>
                   <p className="text-white font-bold text-sm">{circle.name}</p>
@@ -645,13 +766,17 @@ export default function CirclePage() {
                 </div>
               </div>
               <div className="flex gap-1 mt-4">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className={`h-1.5 flex-1 rounded-full ${i <= rejectedRequestsCount ? 'bg-red-500' : 'bg-white/10'
-                    }`} />
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className={`h-1.5 flex-1 rounded-full ${
+                      i <= rejectedRequestsCount ? "bg-red-500" : "bg-white/10"
+                    }`}
+                  />
                 ))}
               </div>
               <p className="text-gray-500 text-xs mt-2">
-                {lang === 'fr'
+                {lang === "fr"
                   ? `${3 - rejectedRequestsCount}/3 tentatives restantes`
                   : `${3 - rejectedRequestsCount}/3 attempts left`}
               </p>
@@ -661,7 +786,7 @@ export default function CirclePage() {
               href="/bibliotheque"
               className="w-full py-3 bg-white/5 border border-white/10 text-white rounded-xl font-bold text-sm hover:bg-white/10 transition-colors flex items-center justify-center"
             >
-              {lang === 'fr' ? 'Retour à la bibliothèque' : 'Back to library'}
+              {lang === "fr" ? "Retour à la bibliothèque" : "Back to library"}
             </a>
           </motion.div>
         </div>
@@ -681,25 +806,32 @@ export default function CirclePage() {
               <Users size={32} className="text-emerald-400" />
             </div>
             <h1 className="text-2xl font-serif font-bold text-white">
-              {lang === 'fr' ? 'Rejoindre ce cercle' : 'Join this circle'}
+              {lang === "fr" ? "Rejoindre ce cercle" : "Join this circle"}
             </h1>
             <p className="text-gray-400">
-              {lang === 'fr'
-                ? 'Envoyez une demande au créateur pour participer à la lecture commune.'
-                : 'Send a request to the creator to join the shared reading.'}
+              {lang === "fr"
+                ? "Envoyez une demande au créateur pour participer à la lecture commune."
+                : "Send a request to the creator to join the shared reading."}
             </p>
           </div>
 
           <div className="bg-gradient-to-br from-[#0d0d1a] to-[#080810] border border-white/[0.07] rounded-3xl p-6 space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-white/5">
-                {book?.cover_url && <img src={book.cover_url} alt="" className="w-full h-full object-cover" />}
+                {book?.cover_url && (
+                  <img
+                    src={book.cover_url}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                )}
               </div>
               <div>
                 <p className="text-white font-bold text-sm">{circle.name}</p>
                 <p className="text-gray-500 text-xs">{book?.title_fr}</p>
                 <p className="text-gray-600 text-xs mt-1">
-                  {members.length}/{circle.max_members} {lang === 'fr' ? 'membres' : 'members'}
+                  {members.length}/{circle.max_members}{" "}
+                  {lang === "fr" ? "membres" : "members"}
                 </p>
               </div>
             </div>
@@ -707,14 +839,23 @@ export default function CirclePage() {
             {/* Tentatives restantes */}
             <div className="space-y-1">
               <div className="flex gap-1">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className={`h-1.5 flex-1 rounded-full ${i <= rejectedRequestsCount ? 'bg-red-500' : 'bg-white/10'
-                    }`} />
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className={`h-1.5 flex-1 rounded-full ${
+                      i <= rejectedRequestsCount ? "bg-red-500" : "bg-white/10"
+                    }`}
+                  />
                 ))}
               </div>
-              <p className={`text-xs font-bold ${3 - rejectedRequestsCount > 1 ? 'text-gray-400' : 'text-amber-400'
-                }`}>
-                {lang === 'fr'
+              <p
+                className={`text-xs font-bold ${
+                  3 - rejectedRequestsCount > 1
+                    ? "text-gray-400"
+                    : "text-amber-400"
+                }`}
+              >
+                {lang === "fr"
                   ? `${3 - rejectedRequestsCount}/3 tentatives restantes`
                   : `${3 - rejectedRequestsCount}/3 attempts left`}
               </p>
@@ -723,12 +864,16 @@ export default function CirclePage() {
             {/* Message */}
             <div>
               <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">
-                {lang === 'fr' ? 'Message (optionnel)' : 'Message (optional)'}
+                {lang === "fr" ? "Message (optionnel)" : "Message (optional)"}
               </label>
               <textarea
                 value={joinMessage}
                 onChange={(e) => setJoinMessage(e.target.value)}
-                placeholder={lang === 'fr' ? 'Pourquoi voulez-vous rejoindre ?' : 'Why do you want to join?'}
+                placeholder={
+                  lang === "fr"
+                    ? "Pourquoi voulez-vous rejoindre ?"
+                    : "Why do you want to join?"
+                }
                 rows={3}
                 maxLength={200}
                 className="w-full px-3 py-2 bg-white/[0.04] border border-white/10 rounded-xl text-white text-sm outline-none focus:border-emerald-500/50 transition-colors placeholder:text-gray-600 resize-none"
@@ -745,12 +890,12 @@ export default function CirclePage() {
               {isSendingJoin ? (
                 <>
                   <Loader2 size={14} className="animate-spin" />
-                  {lang === 'fr' ? 'Envoi...' : 'Sending...'}
+                  {lang === "fr" ? "Envoi..." : "Sending..."}
                 </>
               ) : (
                 <>
                   <Send size={14} />
-                  {lang === 'fr' ? 'Envoyer la demande' : 'Send request'}
+                  {lang === "fr" ? "Envoyer la demande" : "Send request"}
                 </>
               )}
             </motion.button>
@@ -760,7 +905,7 @@ export default function CirclePage() {
             href="/bibliotheque"
             className="w-full py-3 bg-white/5 border border-white/10 text-white rounded-xl font-bold text-sm hover:bg-white/10 transition-colors flex items-center justify-center"
           >
-            {lang === 'fr' ? 'Retour à la bibliothèque' : 'Back to library'}
+            {lang === "fr" ? "Retour à la bibliothèque" : "Back to library"}
           </a>
         </motion.div>
       </div>
@@ -777,21 +922,27 @@ export default function CirclePage() {
         <div className="h-14 flex items-center justify-between px-4 border-b border-white/10 bg-[#0a0a14] flex-shrink-0 z-10">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <button
-              onClick={() => router.push('/bibliotheque')}
+              onClick={() => router.push("/bibliotheque")}
               className="p-2 text-gray-500 hover:text-white transition-colors"
             >
               <X size={20} />
             </button>
             <div className="min-w-0">
-              <h1 className="text-white text-sm font-bold truncate">{book.title_fr}</h1>
-              <p className="text-gray-500 text-[10px] truncate">{circle.name}</p>
+              <h1 className="text-white text-sm font-bold truncate">
+                {book.title_fr}
+              </h1>
+              <p className="text-gray-500 text-[10px] truncate">
+                {circle.name}
+              </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
               <Eye size={12} className="text-emerald-400" />
-              <span className="text-emerald-400 text-xs font-bold">{members.length}</span>
+              <span className="text-emerald-400 text-xs font-bold">
+                {members.length}
+              </span>
             </div>
 
             {isCreator && (
@@ -814,13 +965,17 @@ export default function CirclePage() {
               lang={lang}
               bookId={book.id}
               userId={user?.id}
-              onClose={() => router.push('/bibliotheque')}
+              onClose={() => router.push("/bibliotheque")}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-center px-4">
               <div>
                 <AlertCircle size={40} className="text-gray-600 mx-auto mb-4" />
-                <p className="text-gray-500">{lang === 'fr' ? 'Livre non disponible' : 'Book not available'}</p>
+                <p className="text-gray-500">
+                  {lang === "fr"
+                    ? "Livre non disponible"
+                    : "Book not available"}
+                </p>
               </div>
             </div>
           )}
@@ -839,7 +994,9 @@ export default function CirclePage() {
             </motion.button>
 
             <div className="text-center px-4">
-              <p className="text-white font-bold text-sm">{lang === 'fr' ? 'Page' : 'Page'} {circle.current_page}</p>
+              <p className="text-white font-bold text-sm">
+                {lang === "fr" ? "Page" : "Page"} {circle.current_page}
+              </p>
               <p className="text-gray-600 text-[10px] flex items-center justify-center gap-1">
                 <span>📊 Moyenne : {avgProgress}</span>
               </p>
@@ -860,7 +1017,7 @@ export default function CirclePage() {
         {!isCreator && currentMember && (
           <div className="h-12 flex items-center justify-between px-4 border-t border-white/10 bg-[#0a0a14] flex-shrink-0 text-sm">
             <span className="text-gray-500">
-              {lang === 'fr' ? 'Votre position' : 'Your position'}
+              {lang === "fr" ? "Votre position" : "Your position"}
             </span>
             <div className="flex items-center gap-2">
               <input
@@ -883,7 +1040,10 @@ export default function CirclePage() {
           PANNEAU LATÉRAL (droite / bas) - RÉDUCTIBLE
       ═══════════════════════════════════════════════════════════ */}
       <motion.div
-        animate={{ width: isSidebarExpanded ? 'auto' : '0px', opacity: isSidebarExpanded ? 1 : 0 }}
+        animate={{
+          width: isSidebarExpanded ? "auto" : "0px",
+          opacity: isSidebarExpanded ? 1 : 0,
+        }}
         transition={{ duration: 0.3 }}
         className="bg-[#0a0a14] border-l border-white/10 flex flex-col max-h-screen md:max-h-none overflow-hidden"
       >
@@ -892,18 +1052,35 @@ export default function CirclePage() {
             {/* Tabs */}
             <div className="flex border-b border-white/10 flex-shrink-0 overflow-x-auto">
               {[
-                { key: 'chat' as const, icon: MessageCircle, label: lang === 'fr' ? 'Chat' : 'Chat' },
-                { key: 'reading' as const, icon: BookOpen, label: lang === 'fr' ? 'Lecture' : 'Reading' },
-                { key: 'notes' as const, icon: FileText, label: lang === 'fr' ? 'Notes' : 'Notes' },
-                { key: 'members' as const, icon: Users, label: lang === 'fr' ? 'Membres' : 'Members' },
+                {
+                  key: "chat" as const,
+                  icon: MessageCircle,
+                  label: lang === "fr" ? "Chat" : "Chat",
+                },
+                {
+                  key: "reading" as const,
+                  icon: BookOpen,
+                  label: lang === "fr" ? "Lecture" : "Reading",
+                },
+                {
+                  key: "notes" as const,
+                  icon: FileText,
+                  label: lang === "fr" ? "Notes" : "Notes",
+                },
+                {
+                  key: "members" as const,
+                  icon: Users,
+                  label: lang === "fr" ? "Membres" : "Members",
+                },
               ].map(({ key, icon: Icon, label }) => (
                 <button
                   key={key}
                   onClick={() => setSidebarMode(key)}
-                  className={`flex items-center justify-center gap-2 py-3 px-3 text-sm font-bold transition-all flex-shrink-0 whitespace-nowrap ${sidebarMode === key
-                    ? 'text-emerald-400 border-b-2 border-emerald-400'
-                    : 'text-gray-500 hover:text-gray-300'
-                    }`}
+                  className={`flex items-center justify-center gap-2 py-3 px-3 text-sm font-bold transition-all flex-shrink-0 whitespace-nowrap ${
+                    sidebarMode === key
+                      ? "text-emerald-400 border-b-2 border-emerald-400"
+                      : "text-gray-500 hover:text-gray-300"
+                  }`}
                 >
                   <Icon size={16} />
                   <span className="hidden sm:inline">{label}</span>
@@ -913,7 +1090,7 @@ export default function CirclePage() {
 
             {/* Content */}
             <div className="flex-1 overflow-hidden flex flex-col">
-              {sidebarMode === 'chat' && (
+              {sidebarMode === "chat" && (
                 <>
                   {/* INDICATEUR DE PRÉSENCE */}
                   <div className="p-3 border-b border-white/10 flex-shrink-0">
@@ -939,24 +1116,28 @@ export default function CirclePage() {
 
                   {/* BARRE DE RECHERCHE */}
                   <div className="p-3 border-b border-white/10 flex-shrink-0">
-                    <ChatSearch
-                      onSearch={setSearchQuery}
-                      lang={lang}
-                    />
+                    <ChatSearch onSearch={setSearchQuery} lang={lang} />
                   </div>
 
                   {/* Messages */}
                   <div className="flex-1 overflow-y-auto p-4 space-y-3">
                     {filteredMessages.length === 0 ? (
                       <div className="flex items-center justify-center h-full text-center text-gray-500">
-                        <p>{lang === 'fr' ? 'Aucun message' : 'No messages'}</p>
+                        <p>{lang === "fr" ? "Aucun message" : "No messages"}</p>
                       </div>
                     ) : (
                       <>
                         {filteredMessages.map((msg) => {
-                          const memberProfile = members.find(m => m.user_id === msg.user_id)?.profiles;
-                          const displayName = memberProfile?.full_name || msg.profiles?.full_name || 'Anonyme';
-                          const isOnline = presentUsers.some(u => u.user_id === msg.user_id);
+                          const memberProfile = members.find(
+                            (m) => m.user_id === msg.user_id,
+                          )?.profiles;
+                          const displayName =
+                            memberProfile?.full_name ||
+                            msg.profiles?.full_name ||
+                            "Anonyme";
+                          const isOnline = presentUsers.some(
+                            (u) => u.user_id === msg.user_id,
+                          );
 
                           return (
                             <motion.div
@@ -968,9 +1149,13 @@ export default function CirclePage() {
                               <div className="relative w-8 h-8 flex-shrink-0">
                                 <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-xs font-bold overflow-hidden">
                                   {memberProfile?.avatar_url ? (
-                                    <img src={memberProfile.avatar_url} alt={displayName} className="w-full h-full object-cover" />
+                                    <img
+                                      src={memberProfile.avatar_url}
+                                      alt={displayName}
+                                      className="w-full h-full object-cover"
+                                    />
                                   ) : (
-                                    displayName?.[0]?.toUpperCase() || '?'
+                                    displayName?.[0]?.toUpperCase() || "?"
                                   )}
                                 </div>
                                 {isOnline && (
@@ -980,14 +1165,18 @@ export default function CirclePage() {
 
                               <div className="flex-1 min-w-0">
                                 {msg.repliedToMessage && (
-                                  <MessageQuotePreview message={msg.repliedToMessage} />
+                                  <MessageQuotePreview
+                                    message={msg.repliedToMessage}
+                                  />
                                 )}
 
                                 <div className="flex items-center gap-2 mb-0.5">
                                   <span className="text-white text-xs font-bold">
                                     {displayName}
                                     {user?.id === msg.user_id && (
-                                      <span className="text-gray-500 text-[10px] ml-1">(vous)</span>
+                                      <span className="text-gray-500 text-[10px] ml-1">
+                                        (vous)
+                                      </span>
                                     )}
                                   </span>
                                   {msg.page_number && (
@@ -996,13 +1185,35 @@ export default function CirclePage() {
                                     </span>
                                   )}
                                 </div>
-                                <p className="text-gray-300 text-sm break-words">{msg.content}</p>
+                                {msg.type === "poll" ? (
+                                  <MessagePoll
+                                    message={msg}
+                                    currentUserId={user?.id}
+                                    onVote={(idx) => voteMessage(msg.id, idx)}
+                                    lang={lang}
+                                  />
+                                ) : msg.type === "quiz" ? (
+                                  <MessageQuiz
+                                    message={msg}
+                                    currentUserId={user?.id}
+                                    onVote={(idx) => voteMessage(msg.id, idx)}
+                                    lang={lang}
+                                  />
+                                ) : (
+                                  <p className="text-gray-300 text-sm break-words">
+                                    {msg.content}
+                                  </p>
+                                )}
 
                                 {msg.reactions && msg.reactions.length > 0 && (
                                   <MessageReactions
                                     reactions={msg.reactions}
-                                    onAddReaction={(emoji) => addReaction(msg.id, emoji)}
-                                    onRemoveReaction={(emoji) => removeReaction(msg.id, emoji)}
+                                    onAddReaction={(emoji) =>
+                                      addReaction(msg.id, emoji)
+                                    }
+                                    onRemoveReaction={(emoji) =>
+                                      removeReaction(msg.id, emoji)
+                                    }
                                   />
                                 )}
 
@@ -1010,27 +1221,32 @@ export default function CirclePage() {
                                   <button
                                     onClick={() => setRepliedToMessage(msg)}
                                     className="p-1 text-gray-600 hover:text-blue-400 transition-colors rounded"
-                                    title={lang === 'fr' ? 'Répondre' : 'Reply'}
+                                    title={lang === "fr" ? "Répondre" : "Reply"}
                                   >
                                     <MessageCircle size={12} />
                                   </button>
 
                                   <button
-                                    onClick={() => addReaction(msg.id, '👍')}
+                                    onClick={() => addReaction(msg.id, "👍")}
                                     className="p-1 text-gray-600 hover:text-yellow-400 transition-colors rounded"
-                                    title={lang === 'fr' ? 'Aimer' : 'React'}
+                                    title={lang === "fr" ? "Aimer" : "React"}
                                   >
                                     <Heart size={12} />
                                   </button>
 
                                   {isCreator && (
                                     <button
-                                      onClick={() => msg.isPinned ? unpinMessage(msg.id) : pinMessage(circleId, msg.id)}
-                                      className={`p-1 transition-colors rounded ${msg.isPinned
-                                        ? 'text-amber-400'
-                                        : 'text-gray-600 hover:text-amber-400'
-                                        }`}
-                                      title={lang === 'fr' ? 'Épingler' : 'Pin'}
+                                      onClick={() =>
+                                        msg.isPinned
+                                          ? unpinMessage(msg.id)
+                                          : pinMessage(circleId, msg.id)
+                                      }
+                                      className={`p-1 transition-colors rounded ${
+                                        msg.isPinned
+                                          ? "text-amber-400"
+                                          : "text-gray-600 hover:text-amber-400"
+                                      }`}
+                                      title={lang === "fr" ? "Épingler" : "Pin"}
                                     >
                                       <Pin size={12} />
                                     </button>
@@ -1068,6 +1284,48 @@ export default function CirclePage() {
                     )}
 
                     <div className="flex gap-2 relative">
+                      {/* Bouton Menu Attachement (+) */}
+                      <button
+                        onClick={() => setShowAttachMenu(!showAttachMenu)}
+                        className="p-2 rounded-lg bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
+                      >
+                        <Plus size={18} />
+                      </button>
+
+                      {/* Menu Attachement Flottant */}
+                      <AnimatePresence>
+                        {showAttachMenu && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 10 }}
+                            className="absolute bottom-full left-0 mb-2 w-48 bg-[#0d0d1a] border border-white/10 rounded-xl overflow-hidden z-30 shadow-xl"
+                          >
+                            <button
+                              onClick={() => {
+                                setShowPollModal(true);
+                                setShowAttachMenu(false);
+                              }}
+                              className="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/5 flex items-center gap-2"
+                            >
+                              <span>📊</span>{" "}
+                              {lang === "fr"
+                                ? "Créer un Sondage"
+                                : "Create Poll"}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setShowQuizModal(true);
+                                setShowAttachMenu(false);
+                              }}
+                              className="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/5 border-t border-white/5 flex items-center gap-2"
+                            >
+                              <span>🧠</span>{" "}
+                              {lang === "fr" ? "Créer un Quizz" : "Create Quiz"}
+                            </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                       <input
                         type="text"
                         value={chatInput}
@@ -1075,8 +1333,14 @@ export default function CirclePage() {
                           setChatInput(e.target.value);
                           handleMentionInput(e.target.value);
                         }}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                        placeholder={lang === 'fr' ? 'Message... (@ pour mentionner)' : 'Message... (@ to mention)'}
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && handleSendMessage()
+                        }
+                        placeholder={
+                          lang === "fr"
+                            ? "Message... (@ pour mentionner)"
+                            : "Message... (@ to mention)"
+                        }
                         disabled={isSendingMessage}
                         className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50 placeholder:text-gray-600"
                       />
@@ -1087,14 +1351,18 @@ export default function CirclePage() {
                         disabled={!chatInput.trim() || isSendingMessage}
                         className="px-3 py-2 bg-emerald-500 text-black rounded-lg font-bold text-sm hover:bg-white transition-colors disabled:opacity-50"
                       >
-                        {isSendingMessage ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                        {isSendingMessage ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Send size={14} />
+                        )}
                       </motion.button>
                     </div>
                   </div>
                 </>
               )}
 
-              {sidebarMode === 'reading' && (
+              {sidebarMode === "reading" && (
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
                   {/* Statistiques */}
                   {enrichedStats && (
@@ -1122,17 +1390,25 @@ export default function CirclePage() {
 
                   {/* Résumés */}
                   {summaries.length > 0 && (
-                    <SummariesPanel summaries={summaries} onVote={voteSummary} lang={lang} />
+                    <SummariesPanel
+                      summaries={summaries}
+                      onVote={voteSummary}
+                      lang={lang}
+                    />
                   )}
 
                   {/* Questions */}
                   {quizzes.length > 0 && (
-                    <QuizzesPanel quizzes={quizzes} onAnswer={answerQuiz} lang={lang} />
+                    <QuizzesPanel
+                      quizzes={quizzes}
+                      onAnswer={answerQuiz}
+                      lang={lang}
+                    />
                   )}
                 </div>
               )}
 
-              {sidebarMode === 'notes' && (
+              {sidebarMode === "notes" && (
                 <NotesplitContainer
                   itemId={book.id}
                   itemType="book"
@@ -1144,14 +1420,22 @@ export default function CirclePage() {
                 </NotesplitContainer>
               )}
 
-              {sidebarMode === 'members' && (
+              {sidebarMode === "members" && (
                 <div className="flex-1 overflow-y-auto p-4 space-y-2">
                   {members.map((member) => {
-                    const isOnline = presentUsers.some(u => u.user_id === member.user_id);
+                    const isOnline = presentUsers.some(
+                      (u) => u.user_id === member.user_id,
+                    );
 
                     // ✅ Vérifier que le profil existe
-                    const displayName = member.profiles?.full_name || member.profiles?.username || 'Utilisateur';
-                    const avatarInitial = member.profiles?.full_name?.[0] || member.profiles?.username?.[0] || '?';
+                    const displayName =
+                      member.profiles?.full_name ||
+                      member.profiles?.username ||
+                      "Utilisateur";
+                    const avatarInitial =
+                      member.profiles?.full_name?.[0] ||
+                      member.profiles?.username?.[0] ||
+                      "?";
 
                     return (
                       <motion.div
@@ -1165,7 +1449,11 @@ export default function CirclePage() {
                             <div className="relative w-8 h-8 flex-shrink-0">
                               <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex-shrink-0 flex items-center justify-center text-emerald-400 text-xs font-bold overflow-hidden">
                                 {member.profiles?.avatar_url ? (
-                                  <img src={member.profiles.avatar_url} alt={displayName} className="w-full h-full object-cover" />
+                                  <img
+                                    src={member.profiles.avatar_url}
+                                    alt={displayName}
+                                    className="w-full h-full object-cover"
+                                  />
                                 ) : (
                                   avatarInitial
                                 )}
@@ -1178,13 +1466,17 @@ export default function CirclePage() {
                               <p className="text-white text-sm font-medium truncate">
                                 {displayName}
                               </p>
-                              {member.role === 'creator' && (
-                                <span className="text-[10px] text-emerald-400 font-bold">👑 Créateur</span>
+                              {member.role === "creator" && (
+                                <span className="text-[10px] text-emerald-400 font-bold">
+                                  👑 Créateur
+                                </span>
                               )}
                             </div>
                           </div>
                           {user?.id === member.user_id && (
-                            <span className="text-[10px] text-gray-500">Vous</span>
+                            <span className="text-[10px] text-gray-500">
+                              Vous
+                            </span>
                           )}
                         </div>
 
@@ -1194,15 +1486,23 @@ export default function CirclePage() {
                             <span>p. {member.current_page}</span>
                             {member.last_active_at && (
                               <span className="text-gray-700">
-                                {Math.round((Date.now() - new Date(member.last_active_at).getTime()) / 1000 / 60)} min
+                                {Math.round(
+                                  (Date.now() -
+                                    new Date(member.last_active_at).getTime()) /
+                                    1000 /
+                                    60,
+                                )}{" "}
+                                min
                               </span>
                             )}
                           </div>
                           <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
                             <motion.div
                               initial={{ width: 0 }}
-                              animate={{ width: `${(member.current_page / 200) * 100}%` }}
-                              transition={{ type: 'spring', stiffness: 100 }}
+                              animate={{
+                                width: `${(member.current_page / 200) * 100}%`,
+                              }}
+                              transition={{ type: "spring", stiffness: 100 }}
                               className="h-full bg-emerald-500"
                             />
                           </div>
@@ -1230,9 +1530,17 @@ export default function CirclePage() {
           bottom: 100,
           right: 24,
         }}
-        title={lang === 'fr' ? (isSidebarExpanded ? 'Réduire' : 'Agrandir') : (isSidebarExpanded ? 'Collapse' : 'Expand')}
+        title={
+          lang === "fr"
+            ? isSidebarExpanded
+              ? "Réduire"
+              : "Agrandir"
+            : isSidebarExpanded
+              ? "Collapse"
+              : "Expand"
+        }
       >
-        {isSidebarExpanded ? '◄' : '►'}
+        {isSidebarExpanded ? "◄" : "►"}
 
         {/* 🔴 NOTIFICATION ROUGE - Nouveau message (seulement si sidebar fermée) */}
         {!isSidebarExpanded && messages.length > 0 && (
@@ -1277,7 +1585,7 @@ export default function CirclePage() {
               <div className="p-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-white font-serif text-xl font-bold">
-                    {lang === 'fr' ? 'Paramètres' : 'Settings'}
+                    {lang === "fr" ? "Paramètres" : "Settings"}
                   </h2>
                   <button
                     onClick={() => setShowSettings(false)}
@@ -1291,7 +1599,7 @@ export default function CirclePage() {
                 <div className="space-y-3 pt-2 border-t border-white/10">
                   <div>
                     <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-2">
-                      {lang === 'fr' ? 'Code d\'accès' : 'Access code'}
+                      {lang === "fr" ? "Code d'accès" : "Access code"}
                     </p>
                     <div className="flex gap-2">
                       <input
@@ -1318,15 +1626,19 @@ export default function CirclePage() {
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1">
-                        {lang === 'fr' ? 'Membres' : 'Members'}
+                        {lang === "fr" ? "Membres" : "Members"}
                       </p>
-                      <p className="text-white text-lg font-bold">{members.length}/{circle.max_members}</p>
+                      <p className="text-white text-lg font-bold">
+                        {members.length}/{circle.max_members}
+                      </p>
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1">
-                        {lang === 'fr' ? 'Page actuelle' : 'Current page'}
+                        {lang === "fr" ? "Page actuelle" : "Current page"}
                       </p>
-                      <p className="text-white text-lg font-bold">{circle.current_page}</p>
+                      <p className="text-white text-lg font-bold">
+                        {circle.current_page}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -1343,7 +1655,7 @@ export default function CirclePage() {
                     className="w-full py-2.5 bg-red-500/20 text-red-400 rounded-lg font-bold text-sm border border-red-500/30 hover:bg-red-500/30 transition-colors flex items-center justify-center gap-2"
                   >
                     <LogOut size={14} />
-                    {lang === 'fr' ? 'Quitter' : 'Leave'}
+                    {lang === "fr" ? "Quitter" : "Leave"}
                   </motion.button>
                 </div>
               </div>
@@ -1366,17 +1678,166 @@ export default function CirclePage() {
             bottom: 50,
             right: 24,
           }}
-          title={lang === 'fr' ? 'Quitter le cercle' : 'Leave circle'}
+          title={lang === "fr" ? "Quitter le cercle" : "Leave circle"}
         >
           <LogOut size={18} />
         </motion.button>
       )}
 
+      {/* ═══════════════════════════════════════════════════════════
+          MODAL CRÉER SONDAGE / QUIZZ
+      ═══════════════════════════════════════════════════════════ */}
+      <AnimatePresence>
+        {(showPollModal || showQuizModal) && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              className="bg-[#0d0d1a] border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden"
+            >
+              <div className="p-4 border-b border-white/10 flex justify-between items-center bg-white/5">
+                <h3 className="font-bold text-white flex items-center gap-2">
+                  {showPollModal ? "📊 Nouveau Sondage" : "🧠 Nouveau Quizz"}
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowPollModal(false);
+                    setShowQuizModal(false);
+                  }}
+                  className="text-gray-500 hover:text-white"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="p-4 space-y-4">
+                <div>
+                  <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
+                    Question
+                  </label>
+                  <input
+                    type="text"
+                    value={
+                      showPollModal ? pollData.question : quizData.question
+                    }
+                    onChange={(e) =>
+                      showPollModal
+                        ? setPollData({ ...pollData, question: e.target.value })
+                        : setQuizData({ ...quizData, question: e.target.value })
+                    }
+                    className="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-emerald-500/50"
+                    placeholder="Posez votre question..."
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1 block">
+                    Options
+                  </label>
+                  <div className="space-y-2">
+                    {(showPollModal ? pollData.options : quizData.options).map(
+                      (opt, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          {showQuizModal && (
+                            <input
+                              type="radio"
+                              name="correctIndex"
+                              checked={quizData.correctIndex === idx}
+                              onChange={() =>
+                                setQuizData({ ...quizData, correctIndex: idx })
+                              }
+                              className="accent-emerald-500"
+                              title="Bonne réponse"
+                            />
+                          )}
+                          <input
+                            type="text"
+                            value={opt}
+                            onChange={(e) => {
+                              const newOpts = [
+                                ...(showPollModal
+                                  ? pollData.options
+                                  : quizData.options),
+                              ];
+                              newOpts[idx] = e.target.value;
+                              showPollModal
+                                ? setPollData({ ...pollData, options: newOpts })
+                                : setQuizData({
+                                    ...quizData,
+                                    options: newOpts,
+                                  });
+                            }}
+                            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-emerald-500/50"
+                            placeholder={`Option ${idx + 1}`}
+                          />
+                        </div>
+                      ),
+                    )}
+                    {(showPollModal
+                      ? pollData.options.length
+                      : quizData.options.length) < 4 && (
+                      <button
+                        onClick={() =>
+                          showPollModal
+                            ? setPollData({
+                                ...pollData,
+                                options: [...pollData.options, ""],
+                              })
+                            : setQuizData({
+                                ...quizData,
+                                options: [...quizData.options, ""],
+                              })
+                        }
+                        className="text-xs text-emerald-400 hover:text-emerald-300 font-bold"
+                      >
+                        + Ajouter une option
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    if (showPollModal) {
+                      sendPoll(
+                        pollData.question,
+                        pollData.options.filter((o) => o.trim()),
+                        circle.current_page,
+                      );
+                      setShowPollModal(false);
+                      setPollData({ question: "", options: ["", ""] });
+                    } else {
+                      sendQuiz(
+                        quizData.question,
+                        quizData.options.filter((o) => o.trim()),
+                        quizData.correctIndex,
+                        circle.current_page,
+                      );
+                      setShowQuizModal(false);
+                      setQuizData({
+                        question: "",
+                        options: ["", ""],
+                        correctIndex: 0,
+                      });
+                    }
+                  }}
+                  className="w-full py-2 bg-emerald-500 text-black rounded-lg font-bold text-sm hover:bg-white transition-colors"
+                >
+                  Envoyer dans le chat
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ✅ NOTIFICATION MODAL */}
       <NotificationModal
         isOpen={!!notification}
-        type={notification?.type || 'success'}
-        message={notification?.message || ''}
+        type={notification?.type || "success"}
+        message={notification?.message || ""}
         onClose={() => setNotification(null)}
         lang={lang}
       />

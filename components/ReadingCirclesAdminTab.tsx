@@ -51,29 +51,40 @@ export default function ReadingCirclesAdminTab({ showMsg }: { showMsg: (type: 's
   async function fetchCircles() {
     setIsLoading(true);
     
-    // 1. Récupérer les cercles et le titre du livre
+    // 1. Récupérer d'abord les cercles (sans la jointure qui cause l'erreur 400)
     const { data: circlesData, error } = await supabase
       .from('reading_circles')
-      .select(`
-        *,
-        library_books ( title_fr )
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
 
-    if (error) {
+    if (error || !circlesData) {
       showMsg('error', "Erreur lors du chargement des cercles");
       setIsLoading(false);
       return;
     }
 
-    // 2. Compter le nombre de membres pour chaque cercle
+    // 2. Récupérer manuellement les titres des livres
+    const bookIds = [...new Set(circlesData.map(c => c.book_id))];
+    const { data: booksData } = await supabase
+      .from('library_books')
+      .select('id, title_fr')
+      .in('id', bookIds);
+
+    const booksMap = Object.fromEntries((booksData || []).map(b => [b.id, b.title_fr]));
+
+    // 3. Compter le nombre de membres pour chaque cercle
     const { data: membersData } = await supabase
       .from('circle_members')
       .select('circle_id');
 
+    // 4. Assembler le tout
     const formattedCircles = circlesData.map((c: any) => {
       const count = membersData?.filter(m => m.circle_id === c.id).length || 0;
-      return { ...c, member_count: count };
+      return { 
+        ...c, 
+        member_count: count,
+        library_books: { title_fr: booksMap[c.book_id] || "Livre inconnu" }
+      };
     });
 
     setCircles(formattedCircles);

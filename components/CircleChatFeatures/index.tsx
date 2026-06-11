@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   MessageCircle, Heart, Reply, Pin, PinOff, Search,
-  X, Loader2, SmilePlus, AtSign
+  X, Loader2, SmilePlus, AtSign, CheckCircle
 } from 'lucide-react';
 import type { ChatMessage, MessageReaction } from '@/lib/hooks/useCircleChat';
 
@@ -319,5 +319,91 @@ export function PinnedMessagesPanel({
         </motion.div>
       )}
     </motion.div>
+  );
+}
+
+
+// ============================================================================
+// 7. COMPOSANT : Bulle de Sondage (Chat)
+// ============================================================================
+export function MessagePoll({ message, currentUserId, onVote, lang = 'fr' }: { message: ChatMessage, currentUserId?: string, onVote: (index: number) => void, lang?: 'fr'|'en' }) {
+  const metadata = message.metadata || {};
+  const options: string[] = metadata.options || [];
+  const votes: Record<string, number> = metadata.votes || {};
+  
+  const totalVotes = Object.keys(votes).length;
+  const userVote = currentUserId ? votes[currentUserId] : undefined;
+
+  return (
+    <div className="mt-1 bg-white/5 border border-white/10 rounded-xl p-3 w-full max-w-sm">
+      <div className="flex items-start gap-2 mb-2">
+        <span className="text-lg">📊</span>
+        <p className="text-white text-sm font-bold leading-snug">{metadata.question}</p>
+      </div>
+      <div className="space-y-1.5 mt-3">
+        {options.map((option, idx) => {
+          const optionVotes = Object.values(votes).filter(v => v === idx).length;
+          const percent = totalVotes > 0 ? Math.round((optionVotes / totalVotes) * 100) : 0;
+          const isSelected = userVote === idx;
+
+          return (
+            <button key={idx} onClick={() => onVote(idx)} className="w-full relative flex items-center justify-between p-2 rounded-lg border transition-all text-left overflow-hidden group hover:border-emerald-500/50" style={{ borderColor: isSelected ? '#10B981' : 'rgba(255,255,255,0.1)' }}>
+              <div className="absolute inset-0 bg-emerald-500/20" style={{ width: `${percent}%`, transition: 'width 0.5s ease' }} />
+              <span className="relative z-10 text-xs text-white flex items-center gap-2">
+                {isSelected && <CheckCircle size={12} className="text-emerald-400" />} {option}
+              </span>
+              <span className="relative z-10 text-[10px] text-gray-400">{percent}% ({optionVotes})</span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-[10px] text-gray-500 mt-2 text-right">{totalVotes} {lang === 'fr' ? 'votes' : 'votes'}</p>
+    </div>
+  );
+}
+
+// ============================================================================
+// 8. COMPOSANT : Bulle de Quizz (Chat)
+// ============================================================================
+export function MessageQuiz({ message, currentUserId, onVote, lang = 'fr' }: { message: ChatMessage, currentUserId?: string, onVote: (index: number) => void, lang?: 'fr'|'en' }) {
+  const metadata = message.metadata || {};
+  const options: string[] = metadata.options || [];
+  const votes: Record<string, number> = metadata.votes || {};
+  const correctIndex = metadata.correct_index;
+  
+  const userVote = currentUserId ? votes[currentUserId] : undefined;
+  const hasVoted = userVote !== undefined;
+
+  return (
+    <div className="mt-1 bg-white/5 border border-white/10 rounded-xl p-3 w-full max-w-sm">
+      <div className="flex items-start gap-2 mb-2">
+        <span className="text-lg">🧠</span>
+        <p className="text-white text-sm font-bold leading-snug">{metadata.question}</p>
+      </div>
+      <div className="space-y-1.5 mt-3">
+        {options.map((option, idx) => {
+          let bgColor = 'bg-transparent border-white/10';
+          let icon = null;
+
+          if (hasVoted) {
+            if (idx === correctIndex) { bgColor = 'bg-green-500/20 border-green-500/50 text-green-400'; icon = '✅'; }
+            else if (idx === userVote) { bgColor = 'bg-red-500/20 border-red-500/50 text-red-400'; icon = '❌'; }
+            else { bgColor = 'bg-white/5 border-transparent opacity-50'; }
+          }
+
+          return (
+            <button key={idx} onClick={() => !hasVoted && onVote(idx)} disabled={hasVoted} className={`w-full flex items-center justify-between p-2 rounded-lg border text-xs transition-all text-left ${bgColor} ${!hasVoted ? 'hover:bg-white/10 hover:border-white/30' : ''}`}>
+              <span className="text-white">{option}</span>
+              {icon && <span className="text-xs">{icon}</span>}
+            </button>
+          );
+        })}
+      </div>
+      {hasVoted && (
+        <p className={`text-[10px] mt-2 text-center font-bold ${userVote === correctIndex ? 'text-green-400' : 'text-red-400'}`}>
+          {userVote === correctIndex ? (lang === 'fr' ? 'Bonne réponse ! 🎉' : 'Correct answer! 🎉') : (lang === 'fr' ? 'Mauvaise réponse 😕' : 'Wrong answer 😕')}
+        </p>
+      )}
+    </div>
   );
 }

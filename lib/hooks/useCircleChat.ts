@@ -9,14 +9,15 @@ export interface ChatMessage {
   content: string;
   page_number?: number;
   created_at: string;
-  mentions?: string[]; // ✅ NOUVEAU : mentions des users
-  replied_to_message_id?: string; // ✅ NOUVEAU : message parent
+  mentions?: string[]; 
+  replied_to_message_id?: string; 
+  type?: 'text' | 'poll' | 'quiz'; // ✅ Type de message (Sondage, Quizz, etc.)
+  metadata?: any;                  // ✅ Données du sondage/quizz (options, votes)
   profiles?: {
     full_name?: string;
     avatar_url?: string;
     username?: string;
   };
-  // ✅ CHAMPS CALCULÉS (non stockés)
   reactions?: MessageReaction[];
   replies?: ChatMessage[];
   repliedToMessage?: ChatMessage | null;
@@ -36,13 +37,10 @@ export function useCircleChat(circleId: string, userId?: string) {
   const [error, setError] = useState<string | null>(null);
   const [channel, setChannel] = useState<RealtimeChannel | null>(null);
 
-  // ✅ NOUVEAU : Réactions
   const [reactions, setReactions] = useState<Record<string, any[]>>({});
-  
-  // ✅ NOUVEAU : Messages épinglés
   const [pinnedMessageIds, setPinnedMessageIds] = useState<string[]>([]);
 
-  // ✅ Charger l'historique SANS JOIN
+  // ✅ Charger l'historique
   useEffect(() => {
     if (!circleId) return;
 
@@ -69,7 +67,7 @@ export function useCircleChat(circleId: string, userId?: string) {
     loadMessages();
   }, [circleId]);
 
-  // ✅ NOUVEAU : Charger les réactions
+  // ✅ Charger les réactions
   useEffect(() => {
     if (!circleId || messages.length === 0) return;
 
@@ -97,7 +95,7 @@ export function useCircleChat(circleId: string, userId?: string) {
     loadReactions();
   }, [circleId, messages.length]);
 
-  // ✅ NOUVEAU : Charger les messages épinglés
+  // ✅ Charger les messages épinglés
   useEffect(() => {
     if (!circleId) return;
 
@@ -119,7 +117,7 @@ export function useCircleChat(circleId: string, userId?: string) {
     loadPinnedMessages();
   }, [circleId]);
 
-  // ✅ Charger les profils SÉPARÉMENT
+  // ✅ Charger les profils
   useEffect(() => {
     if (!messages || messages.length === 0) return;
 
@@ -136,7 +134,7 @@ export function useCircleChat(circleId: string, userId?: string) {
           setMessages(prev =>
             prev.map(m => ({
               ...m,
-              profiles: profileMap[m.user_id] || undefined
+              profiles: profileMap[m.user_id] || m.profiles
             }))
           );
         }
@@ -148,7 +146,7 @@ export function useCircleChat(circleId: string, userId?: string) {
     loadProfiles();
   }, [messages.length]);
 
-  // ✅ REALTIME : Écouter les nouveaux messages
+  // ✅ REALTIME : Écouter le Chat
   useEffect(() => {
     if (!circleId) return;
 
@@ -157,240 +155,128 @@ export function useCircleChat(circleId: string, userId?: string) {
     // 📡 Nouveaux messages
     chatChannel.on(
       'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'circle_messages',
-        filter: `circle_id=eq.${circleId}`
-      },
+      { event: 'INSERT', schema: 'public', table: 'circle_messages', filter: `circle_id=eq.${circleId}` },
       async (payload) => {
         let profile = null;
         try {
-          const { data } = await supabase
-            .from('profiles')
-            .select('full_name, avatar_url, username')
-            .eq('id', payload.new.user_id)
-            .single();
+          const { data } = await supabase.from('profiles').select('full_name, avatar_url, username').eq('id', payload.new.user_id).single();
           profile = data;
-        } catch (err) {
-          console.warn('Profile fetch error:', err);
-        }
+        } catch (err) {}
 
-        const newMessage: ChatMessage = {
-          ...payload.new,
-          profiles: profile || undefined
-        };
-
+        const newMessage: ChatMessage = { ...payload.new, profiles: profile || undefined };
         setMessages(prev => [...prev, newMessage]);
       }
     );
 
-    // ✅ NOUVEAU : Réactions en temps réel
+    // 📡 Messages modifiés (Votes des sondages en temps réel)
     chatChannel.on(
       'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'circle_message_reactions',
-      },
+      { event: 'UPDATE', schema: 'public', table: 'circle_messages', filter: `circle_id=eq.${circleId}` },
       (payload) => {
-        setReactions(prev => ({
-          ...prev,
-          [payload.new.message_id]: [
-            ...(prev[payload.new.message_id] || []),
-            payload.new
-          ]
-        }));
+        setMessages(prev => prev.map(msg => msg.id === payload.new.id ? { ...msg, ...payload.new } : msg));
       }
     );
 
-    // ✅ NOUVEAU : Supprimer réaction
-    chatChannel.on(
-      'postgres_changes',
-      {
-        event: 'DELETE',
-        schema: 'public',
-        table: 'circle_message_reactions',
-      },
-      (payload) => {
-        setReactions(prev => ({
-          ...prev,
-          [payload.old.message_id]: (prev[payload.old.message_id] || []).filter(
-            r => !(r.user_id === payload.old.user_id && r.emoji === payload.old.emoji)
-          )
-        }));
-      }
-    );
+    // 📡 Réactions et Épinglages
+    chatChannel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'circle_message_reactions' }, (payload) => {
+      setReactions(prev => ({ ...prev, [payload.new.message_id]: [...(prev[payload.new.message_id] || []), payload.new] }));
+    });
 
-    // ✅ NOUVEAU : Messages épinglés
-    chatChannel.on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'circle_pinned_messages',
-        filter: `circle_id=eq.${circleId}`
-      },
-      (payload) => {
-        setPinnedMessageIds(prev => [...prev, payload.new.message_id]);
-      }
-    );
+    chatChannel.on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'circle_message_reactions' }, (payload) => {
+      setReactions(prev => ({ ...prev, [payload.old.message_id]: (prev[payload.old.message_id] || []).filter(r => !(r.user_id === payload.old.user_id && r.emoji === payload.old.emoji)) }));
+    });
 
-    // ✅ NOUVEAU : Dépingler
-    chatChannel.on(
-      'postgres_changes',
-      {
-        event: 'DELETE',
-        schema: 'public',
-        table: 'circle_pinned_messages',
-        filter: `circle_id=eq.${circleId}`
-      },
-      (payload) => {
-        setPinnedMessageIds(prev => prev.filter(id => id !== payload.old.message_id));
-      }
-    );
+    chatChannel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'circle_pinned_messages', filter: `circle_id=eq.${circleId}` }, (payload) => {
+      setPinnedMessageIds(prev => [...prev, payload.new.message_id]);
+    });
+
+    chatChannel.on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'circle_pinned_messages', filter: `circle_id=eq.${circleId}` }, (payload) => {
+      setPinnedMessageIds(prev => prev.filter(id => id !== payload.old.message_id));
+    });
 
     chatChannel.subscribe();
     setChannel(chatChannel);
 
-    return () => {
-      chatChannel.unsubscribe();
-    };
+    return () => { chatChannel.unsubscribe(); };
   }, [circleId]);
 
-  // ✅ Envoyer un message
+  // ✅ Envoyer un Message Classique
   const sendMessage = useCallback(async (content: string, pageNumber?: number, mentions?: string[], repliedToMessageId?: string) => {
     if (!userId || !content.trim() || !circleId) return;
-
     try {
-      const { error: err } = await supabase
-        .from('circle_messages')
-        .insert({
-          circle_id: circleId,
-          user_id: userId,
-          content: content.trim(),
-          page_number: pageNumber,
-          mentions: mentions || [],
-          replied_to_message_id: repliedToMessageId || null,
-        });
-
+      const { error: err } = await supabase.from('circle_messages').insert({
+        circle_id: circleId, user_id: userId, content: content.trim(), page_number: pageNumber, mentions: mentions || [], replied_to_message_id: repliedToMessageId || null, type: 'text'
+      });
       if (err) throw err;
-    } catch (err: any) {
-      setError(err.message);
-      console.error('Send message error:', err);
-    }
+    } catch (err: any) { console.error('Send message error:', err); }
   }, [circleId, userId]);
 
-  // ✅ NOUVEAU : Ajouter une réaction
+  // ✅ Envoyer Sondage
+  const sendPoll = useCallback(async (question: string, options: string[], pageNumber?: number) => {
+    if (!userId || !question.trim() || options.length < 2) return;
+    const metadata = { question, options, votes: {} };
+    await supabase.from('circle_messages').insert({
+      circle_id: circleId, user_id: userId, content: '📊 Sondage : ' + question, page_number: pageNumber, type: 'poll', metadata
+    });
+  }, [circleId, userId]);
+
+  // ✅ Envoyer Quizz
+  const sendQuiz = useCallback(async (question: string, options: string[], correctIndex: number, pageNumber?: number) => {
+    if (!userId || !question.trim() || options.length < 2) return;
+    const metadata = { question, options, correct_index: correctIndex, votes: {} };
+    await supabase.from('circle_messages').insert({
+      circle_id: circleId, user_id: userId, content: '🧠 Quizz : ' + question, page_number: pageNumber, type: 'quiz', metadata
+    });
+  }, [circleId, userId]);
+
+  // ✅ Voter à un Sondage/Quizz
+  const voteMessage = useCallback(async (messageId: string, optionIndex: number) => {
+    if (!userId) return;
+    const { data: msg } = await supabase.from('circle_messages').select('metadata').eq('id', messageId).single();
+    if (!msg) return;
+
+    const metadata = msg.metadata || {};
+    const votes = metadata.votes || {};
+    votes[userId] = optionIndex; 
+
+    await supabase.from('circle_messages').update({ metadata: { ...metadata, votes } }).eq('id', messageId);
+  }, [userId]);
+
   const addReaction = useCallback(async (messageId: string, emoji: string) => {
     if (!userId) return;
-
     try {
-      const { error: err } = await supabase
-        .from('circle_message_reactions')
-        .insert({
-          message_id: messageId,
-          user_id: userId,
-          emoji,
-        });
-
-      if (err) {
-        if (err.code === '23505') {
-          // Déjà une réaction identique → la supprimer
-          await removeReaction(messageId, emoji);
-        } else {
-          throw err;
-        }
-      }
-    } catch (err: any) {
-      console.error('Add reaction error:', err);
-    }
+      const { error: err } = await supabase.from('circle_message_reactions').insert({ message_id: messageId, user_id: userId, emoji });
+      if (err && err.code === '23505') await removeReaction(messageId, emoji);
+    } catch (err: any) { console.error(err); }
   }, [userId]);
 
-  // ✅ NOUVEAU : Supprimer une réaction
   const removeReaction = useCallback(async (messageId: string, emoji: string) => {
     if (!userId) return;
-
-    try {
-      const { error: err } = await supabase
-        .from('circle_message_reactions')
-        .delete()
-        .eq('message_id', messageId)
-        .eq('user_id', userId)
-        .eq('emoji', emoji);
-
-      if (err) throw err;
-    } catch (err: any) {
-      console.error('Remove reaction error:', err);
-    }
+    await supabase.from('circle_message_reactions').delete().eq('message_id', messageId).eq('user_id', userId).eq('emoji', emoji);
   }, [userId]);
 
-  // ✅ NOUVEAU : Épingler un message
   const pinMessage = useCallback(async (circleId: string, messageId: string) => {
     if (!userId) return;
-
-    try {
-      const { error: err } = await supabase
-        .from('circle_pinned_messages')
-        .insert({
-          circle_id: circleId,
-          message_id: messageId,
-          pinned_by: userId,
-        });
-
-      if (err) throw err;
-    } catch (err: any) {
-      console.error('Pin message error:', err);
-    }
+    await supabase.from('circle_pinned_messages').insert({ circle_id: circleId, message_id: messageId, pinned_by: userId });
   }, [userId]);
 
-  // ✅ NOUVEAU : Dépingler un message
   const unpinMessage = useCallback(async (messageId: string) => {
-    try {
-      const { error: err } = await supabase
-        .from('circle_pinned_messages')
-        .delete()
-        .eq('message_id', messageId);
-
-      if (err) throw err;
-    } catch (err: any) {
-      console.error('Unpin message error:', err);
-    }
+    await supabase.from('circle_pinned_messages').delete().eq('message_id', messageId);
   }, []);
 
-  // ✅ Enrichir les messages avec réactions & épinglage
   const enrichedMessages = messages.map(msg => {
     const msgReactions = reactions[msg.id] || [];
-    
     const reactionMap = new Map<string, { count: number; userIds: string[]; hasUserReacted: boolean }>();
     msgReactions.forEach(r => {
-      if (!reactionMap.has(r.emoji)) {
-        reactionMap.set(r.emoji, { count: 0, userIds: [], hasUserReacted: false });
-      }
+      if (!reactionMap.has(r.emoji)) reactionMap.set(r.emoji, { count: 0, userIds: [], hasUserReacted: false });
       const data = reactionMap.get(r.emoji)!;
       data.count++;
       data.userIds.push(r.user_id);
       if (r.user_id === userId) data.hasUserReacted = true;
     });
 
-    return {
-      ...msg,
-      reactions: Array.from(reactionMap.entries()).map(([emoji, data]) => ({
-        emoji,
-        ...data
-      })),
-      isPinned: pinnedMessageIds.includes(msg.id)
-    };
+    return { ...msg, reactions: Array.from(reactionMap.entries()).map(([emoji, data]) => ({ emoji, ...data })), isPinned: pinnedMessageIds.includes(msg.id) };
   });
 
-  return {
-    messages: enrichedMessages,
-    isLoading,
-    error,
-    sendMessage,
-    addReaction,
-    removeReaction,
-    pinMessage,
-    unpinMessage,
-  };
+  return { messages: enrichedMessages, isLoading, error, sendMessage, addReaction, removeReaction, pinMessage, unpinMessage, sendPoll, sendQuiz, voteMessage };
 }
