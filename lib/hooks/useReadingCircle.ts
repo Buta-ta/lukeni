@@ -73,13 +73,8 @@ export function useReadingCircle(circleId: string, userId?: string) {
     };
 
     loadCircle();
-
-    // ✅ Recharger les membres toutes les 5 secondes
-    const interval = setInterval(() => {
-      loadCircle();
-    }, 5000);
-
-    return () => clearInterval(interval);
+    
+    // 🗑️ (Le setInterval problématique des 5 secondes a été supprimé ici)
   }, [circleId]);
 
   // ── Charger les profiles SÉPARÉMENT ──
@@ -99,7 +94,7 @@ export function useReadingCircle(circleId: string, userId?: string) {
           setMembers(prev =>
             prev.map(m => ({
               ...m,
-              profiles: profileMap[m.user_id] || undefined
+              profiles: profileMap[m.user_id] || m.profiles // Conserve le profil s'il existe déjà
             }))
           );
         }
@@ -109,7 +104,7 @@ export function useReadingCircle(circleId: string, userId?: string) {
     };
 
     loadProfiles();
-  }, [members.length]);
+  }, [members.length]); // Ne se déclenche que quand le nombre de membres change
 
   // ── Supabase Realtime ──
   useEffect(() => {
@@ -209,13 +204,8 @@ export function useReadingCircle(circleId: string, userId?: string) {
         console.log('🚪 [REALTIME DELETE] Membre parti:', payload.old);
         
         setMembers(prev => {
-          // ✅ CORRECTION ICI : On utilise payload.old.id au lieu de payload.old.user_id
+          // ✅ Utilise l'ID de la ligne supprimée
           const filtered = prev.filter(m => m.id !== payload.old.id);
-          console.log('📋 [MEMBERS_UPDATED]', { 
-            before: prev.length, 
-            after: filtered.length,
-            leftRowId: payload.old.id 
-          });
           return filtered;
         });
       }
