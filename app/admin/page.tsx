@@ -9,7 +9,7 @@ import {
   ArrowLeft, ImagePlus, MessageSquareText, Star, CheckCircle,
   Tag, Lightbulb, FileText, CalendarDays, Music, FileAudio,
   Newspaper, Library, ShieldCheck, X, Loader2, AlertTriangle,
-  Crown, LayoutDashboard, Inbox, Clock, Globe,Link2,Eye,Bell, BookOpen, Users
+  Crown, LayoutDashboard, Inbox, Clock, Globe,Link2,Eye,Bell, BookOpen, Users,Search
 } from "lucide-react";
 import { autoTranslate } from "@/lib/lingua";
 import type { User } from "@supabase/supabase-js";
@@ -41,6 +41,8 @@ import AboutTab from '@/components/AboutTab';
 import ReadingCirclesAdminTab from "@/components/ReadingCirclesAdminTab"; // ← AJOUTER ICI
 
 import { useActivityTimeout } from '@/lib/hooks/useActivityTimeout';
+import InvestigationsTab from "@/components/InvestigationsTab";
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -64,6 +66,7 @@ type TabType =
   | "notifications"  
   | "library"
   | "reading_circles" // ← AJOUTER ICI
+  | "investigations"
   | "admins"
   | "ads"  
   | "visitors";
@@ -88,6 +91,7 @@ const ALL_TABS: { id: TabType; label: string; icon: React.ElementType }[] = [
   { id: "ads",               label: "Publicités 📣",    icon: Star },
   { id: "library",           label: "Bibliothèque 📚", icon: Library          },
   { id: "reading_circles",   label: "Clubs Lecture 👥",icon: Users            }, // ← AJOUTER ICI
+  { id: "investigations",    label: "Enquêtes 🕵️",      icon: Search           },
   { id: "visitors",          label: "Visiteurs 👁️",    icon: Eye },
   { id: "admins",            label: "Admins 👑",        icon: ShieldCheck      },
   { id: "about",             label: "À Propos 📖",      icon: BookOpen },
@@ -237,6 +241,7 @@ export default function AdminDashboard() {
       case "ads":               return <AdsTab showMsg={showMsg} />;  
       case "library":           return <LibraryTab showMsg={showMsg} />;
       case "reading_circles":   return <ReadingCirclesAdminTab showMsg={showMsg} />; // ← AJOUTER ICI
+      case "investigations":    return <InvestigationsTab showMsg={showMsg} />; 
       case "visitors":          return <VisitorsTab showMsg={showMsg} />;
       case "admins":            return <AdminsTab showMsg={showMsg} />;
       default:                  return null;

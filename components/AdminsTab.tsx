@@ -23,7 +23,8 @@ const ALL_TABS = [
   { id: 'music_tracks', label: 'Tracks', icon: '🎧' },
   { id: 'press', label: 'Presse', icon: '📰' },
   { id: 'library', label: 'Bibliothèque', icon: '📚' },
-  { id: 'reading_circles', label: 'Clubs Lecture', icon: '👥' }, // ← AJOUTÉ ICI
+  { id: 'reading_circles', label: 'Clubs Lecture', icon: '👥' },
+  { id: 'investigations', label: 'Enquêtes', icon: '🕵️' }, // ← AJOUTÉ ICI
   { id: 'ads', label: 'Publicités', icon: '📣' },
   { id: 'visitors', label: 'Visiteurs', icon: '👁️' },
   { id: 'notifications', label: 'Notifications', icon: '🔔' },
