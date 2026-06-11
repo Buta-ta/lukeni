@@ -654,13 +654,23 @@ function JoinCircleContent() {
       </main>
 
       {/* ✅ MODALE */}
-      <Modal
+       <Modal
         isOpen={modalState.isOpen}
         onClose={() => setModalState({ ...modalState, isOpen: false })}
         type={modalState.type}
         title={modalState.title}
         message={modalState.message}
-      />
+      >
+        {user && circle && (
+          <div className="mt-2 pt-4 border-t border-white/10">
+            <AttemptsCounter
+              remaining={attemptsInfo.remaining}
+              total={attemptsInfo.total}
+              lang={lang}
+            />
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
