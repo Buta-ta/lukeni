@@ -10,6 +10,7 @@ import {
   BarChart3, ArrowUpRight, Activity, Mail, X,
   Trash2, AlertTriangle, CheckCircle,
 } from 'lucide-react';
+import { type LucideIcon } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -111,7 +112,7 @@ function safeHostname(url: string): string {
 function StatCard({
   icon: Icon, label, value, color = 'blue',
 }: {
-  icon: React.ElementType;
+  icon: LucideIcon;   
   label: string;
   value: number | string;
   color?: 'red' | 'blue' | 'green' | 'purple' | 'orange';
