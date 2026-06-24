@@ -15,16 +15,26 @@ export function LayoutClient({
 }: Readonly<{ children: React.ReactNode }>) {
   const supabase = createClient();
   const pathname = usePathname();
+
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [lang, setLang] = useState<'fr' | 'en'>('fr');
+
+  const isGamePage =
+    pathname?.startsWith('/investigations/') && pathname !== '/investigations';
 
   useEffect(() => {
+    // Lecture de la langue dans localStorage
+    const stored = localStorage.getItem('lukeni_lang') as 'fr' | 'en' | null;
+    if (stored === 'fr' || stored === 'en') setLang(stored);
+
+    // Auth
     supabase.auth.getSession().then(({ data: { session } }) => {
       setIsAuthenticated(!!session);
-      setIsLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_, session) => {
       setIsAuthenticated(!!session);
     });
 
@@ -32,26 +42,26 @@ export function LayoutClient({
   }, []);
 
   useActivityTimeout(
-    isAuthenticated ? () => {
-      console.log('⏱️ Session expirée');
-    } : undefined
+    isAuthenticated
+      ? () => {
+          console.log('⏱️ Session expirée');
+        }
+      : undefined
   );
 
-  // ✅ Ne pas bloquer le rendu
   return (
     <>
-      {/* ✅ PWA Components (UNE SEULE FOIS) */}
-      <PWARegister />   
-      <PWAInstallButton />
-      
-      {/* ✅ Tracking Provider (UNE SEULE FOIS) */}
+      <PWARegister />
+
       <TrackingProvider>
-        {/* ✅ UN SEUL {children} */}
-        {children}
+        <div className="flex-1 flex flex-col">
+          {children}
+        </div>
       </TrackingProvider>
-      
-      {/* ✅ Footer (UNE SEULE FOIS) */}
-      <Footer />
+
+      {!isGamePage && <Footer />}
+
+      <PWAInstallButton lang={lang} />
     </>
   );
 }

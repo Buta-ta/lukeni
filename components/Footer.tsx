@@ -42,7 +42,7 @@ const translations = {
     credits: 'Crédits',
     close: 'Fermer',
     copyright: '© 2026 LUKENI by Buta • Vercel',
-    
+
     // Modals
     legalTitle: 'Mentions Légales',
     legalResponsible: 'Responsable du Projet',
@@ -53,7 +53,7 @@ const translations = {
     legalHostingContent: 'Site hébergé par Vercel',
     legalLocation: 'Localisation',
     legalLocationContent: 'Développé au Bénin, Afrique de l\'Ouest',
-    
+
     ethicsTitle: 'Suivi Éthique',
     ethicsTracking: 'Tracking Éthique',
     ethicsTrackingContent: 'Lukeni utilise un suivi éthique des pages visitées pour améliorer votre expérience. Données anonymes uniquement.',
@@ -61,7 +61,7 @@ const translations = {
     ethicsDataContent: 'Nous collectons : pages visitées, temps passé, interactions. Aucune donnée personnelle sans consentement.',
     ethicsTransparency: 'Transparence',
     ethicsTransparencyContent: 'Les données ne sont jamais vendues à des tiers ni utilisées pour la publicité.',
-    
+
     creditsTitle: 'Crédits',
     creditsDev: 'Développement',
     creditsDevContent: 'Buta | Technos : Next.js, React, Tailwind, Framer Motion',
@@ -71,13 +71,13 @@ const translations = {
     creditsContentContent: 'Sources publiques vérifiées : Internet Archive, Semantic Scholar, arXiv',
   },
   en: {
-    about: 'A propos',
+    about: 'About',
     legal: 'Legal',
     ethics: 'Ethics',
     credits: 'Credits',
     close: 'Close',
     copyright: '© 2026 LUKENI by Buta • Vercel',
-    
+
     // Modals
     legalTitle: 'Legal Notice',
     legalResponsible: 'Project Manager',
@@ -88,7 +88,7 @@ const translations = {
     legalHostingContent: 'Site hosted by Vercel',
     legalLocation: 'Location',
     legalLocationContent: 'Developed in Benin, West Africa',
-    
+
     ethicsTitle: 'Ethical Tracking',
     ethicsTracking: 'Ethical Tracking',
     ethicsTrackingContent: 'Lukeni uses ethical tracking of visited pages to improve your experience. Anonymous data only.',
@@ -96,7 +96,7 @@ const translations = {
     ethicsDataContent: 'We collect: visited pages, time spent, interactions. No personal data without consent.',
     ethicsTransparency: 'Transparency',
     ethicsTransparencyContent: 'Data is never sold to third parties or used for advertising.',
-    
+
     creditsTitle: 'Credits',
     creditsDev: 'Development',
     creditsDevContent: 'Buta | Tech: Next.js, React, Tailwind, Framer Motion',
@@ -117,7 +117,8 @@ interface LegalModalProps {
 }
 
 function LegalModal({ isOpen, onClose, type, lang }: LegalModalProps) {
-  const t = translations[lang];
+  // SÉCURITÉ ABSOLUE : Utilisation d'une condition ternaire stricte
+  const t = lang === 'en' ? translations.en : translations.fr;
 
   const getContent = () => {
     switch (type) {
@@ -125,58 +126,28 @@ function LegalModal({ isOpen, onClose, type, lang }: LegalModalProps) {
         return {
           title: t.legalTitle,
           sections: [
-            {
-              heading: t.legalResponsible,
-              content: t.legalResponsibleContent
-            },
-            {
-              heading: t.legalContact,
-              content: t.legalContactContent
-            },
-            {
-              heading: t.legalHosting,
-              content: t.legalHostingContent
-            },
-            {
-              heading: t.legalLocation,
-              content: t.legalLocationContent
-            }
+            { heading: t.legalResponsible, content: t.legalResponsibleContent },
+            { heading: t.legalContact, content: t.legalContactContent },
+            { heading: t.legalHosting, content: t.legalHostingContent },
+            { heading: t.legalLocation, content: t.legalLocationContent }
           ]
         };
       case 'ethics':
         return {
           title: t.ethicsTitle,
           sections: [
-            {
-              heading: t.ethicsTracking,
-              content: t.ethicsTrackingContent
-            },
-            {
-              heading: t.ethicsData,
-              content: t.ethicsDataContent
-            },
-            {
-              heading: t.ethicsTransparency,
-              content: t.ethicsTransparencyContent
-            }
+            { heading: t.ethicsTracking, content: t.ethicsTrackingContent },
+            { heading: t.ethicsData, content: t.ethicsDataContent },
+            { heading: t.ethicsTransparency, content: t.ethicsTransparencyContent }
           ]
         };
       case 'credits':
         return {
           title: t.creditsTitle,
           sections: [
-            {
-              heading: t.creditsDev,
-              content: t.creditsDevContent
-            },
-            {
-              heading: t.creditsInfra,
-              content: t.creditsInfraContent
-            },
-            {
-              heading: t.creditsContent,
-              content: t.creditsContentContent
-            }
+            { heading: t.creditsDev, content: t.creditsDevContent },
+            { heading: t.creditsInfra, content: t.creditsInfraContent },
+            { heading: t.creditsContent, content: t.creditsContentContent }
           ]
         };
     }
@@ -260,28 +231,30 @@ export default function Footer() {
   const [legalModal, setLegalModal] = useState<LegalModalProps['type'] | null>(null);
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
 
-  // ✅ Détecte la langue depuis localStorage ou HTML
   useEffect(() => {
-    const savedLang = localStorage.getItem('lukeni_lang') as 'fr' | 'en' | null;
-    if (savedLang) {
-      setLang(savedLang);
-    } else {
-      // Fallback : détecte la langue du navigateur
-      const browserLang = navigator.language.startsWith('fr') ? 'fr' : 'en';
-      setLang(browserLang);
-    }
+    // Fonction robuste pour nettoyer et deviner la langue
+    const getCleanLang = (): 'fr' | 'en' => {
+      try {
+        const saved = localStorage.getItem('lukeni_lang');
+        if (!saved) return navigator.language.startsWith('fr') ? 'fr' : 'en';
 
-    // ✅ Écoute les changements de langue
-    const handleStorageChange = () => {
-      const newLang = localStorage.getItem('lukeni_lang') as 'fr' | 'en' | null;
-      if (newLang) setLang(newLang);
+        // Si la chaîne sauvegardée contient "en" (ex: '"en"', 'en', 'EN'), c'est l'anglais
+        if (saved.toLowerCase().includes('en')) return 'en';
+        return 'fr';
+      } catch (error) {
+        return 'fr'; // Fallback total
+      }
     };
 
+    setLang(getCleanLang());
+
+    const handleStorageChange = () => setLang(getCleanLang());
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  const t = translations[lang];
+  // SÉCURITÉ ABSOLUE : Utilisation d'une condition ternaire
+  const t = lang === 'en' ? translations.en : translations.fr;
 
   return (
     <>
@@ -303,8 +276,8 @@ export default function Footer() {
                 <p className="text-[#D4AF37] font-serif font-bold tracking-[0.2em] whitespace-nowrap">
                   LUKENI
                 </p>
-                <p className="text-gray-600 text-[9px] whitespace-nowrap">
-                  Bénin 🇧🇯
+                <p className="text-gray-600 text-[9px] whitespace-nowrap italic tracking-widest">
+                  Africa Must Unite
                 </p>
               </div>
             </div>
@@ -414,24 +387,9 @@ export default function Footer() {
       </footer>
 
       {/* LEGAL MODALS */}
-      <LegalModal
-        isOpen={legalModal === 'legal'}
-        onClose={() => setLegalModal(null)}
-        type="legal"
-        lang={lang}
-      />
-      <LegalModal
-        isOpen={legalModal === 'ethics'}
-        onClose={() => setLegalModal(null)}
-        type="ethics"
-        lang={lang}
-      />
-      <LegalModal
-        isOpen={legalModal === 'credits'}
-        onClose={() => setLegalModal(null)}
-        type="credits"
-        lang={lang}
-      />
+      <LegalModal isOpen={legalModal === 'legal'} onClose={() => setLegalModal(null)} type="legal" lang={lang} />
+      <LegalModal isOpen={legalModal === 'ethics'} onClose={() => setLegalModal(null)} type="ethics" lang={lang} />
+      <LegalModal isOpen={legalModal === 'credits'} onClose={() => setLegalModal(null)} type="credits" lang={lang} />
     </>
   );
 }

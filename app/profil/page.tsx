@@ -12,7 +12,7 @@ import {
   Bell, BellOff, Star, Calendar, FileText,
   Edit3, ChevronRight, TrendingUp, Clock,
   CheckCircle, Search,
-  Trash2, ShieldAlert, TriangleAlert, Users, AlertCircle, XCircle
+  Trash2, ShieldAlert, TriangleAlert, Users, AlertCircle, XCircle, Fingerprint,AlertTriangle
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 
@@ -252,6 +252,287 @@ const NotificationModal = memo(({
   );
 });
 NotificationModal.displayName = 'NotificationModal';
+
+
+// ============================================================================
+// 🆕 USER INVESTIGATIONS - Progression des enquêtes
+// ============================================================================
+
+function UserInvestigations({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Modal de suppression
+  const [deleteModal, setDeleteModal] = useState<{
+    sessionId: string;
+    invTitle: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteSuccess, setDeleteSuccess] = useState(false);
+
+  const fetchSessions = async () => {
+    if (!userId) { setIsLoading(false); return; }
+    const { data, error } = await supabase
+      .from('investigation_sessions')
+      .select(`*, investigations(id, title_fr, title_en, cover_url, difficulty)`)
+      .eq('user_id', userId)
+      .order('last_played_at', { ascending: false });
+
+    if (error) console.error('Fetch sessions error:', error);
+    if (data) setSessions(data);
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    fetchSessions();
+  }, [userId]);
+
+  const handleDeleteSession = async () => {
+    if (!deleteModal || !userId) return;
+    setIsDeleting(true);
+
+    try {
+      const { error } = await supabase
+        .from('investigation_sessions')
+        .delete()
+        .eq('id', deleteModal.sessionId)
+        .eq('user_id', userId); // Sécurité : ne supprimer que sa propre session
+
+      if (error) throw error;
+
+      // Retirer de la liste locale
+      setSessions(prev => prev.filter(s => s.id !== deleteModal.sessionId));
+      setDeleteModal(null);
+      setDeleteSuccess(true);
+      setTimeout(() => setDeleteSuccess(false), 3000);
+    } catch (err) {
+      console.error('Delete session error:', err);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  if (isLoading) return (
+    <div className="flex justify-center py-12">
+      <Loader2 size={20} className="animate-spin text-cyan-400" />
+    </div>
+  );
+
+  if (sessions.length === 0) return (
+    <div className="flex flex-col items-center justify-center py-14 gap-4 text-center">
+      <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
+        <Fingerprint size={24} className="text-cyan-400/60" />
+      </div>
+      <div>
+        <p className="text-white font-medium mb-1">
+          {lang === 'fr' ? 'Aucune enquête' : 'No investigations'}
+        </p>
+        <p className="text-gray-500 text-sm">
+          {lang === 'fr' ? 'Lancez-vous dans une enquête historique' : 'Start a historical investigation'}
+        </p>
+      </div>
+      <Link href="/investigations" className="flex items-center gap-2 text-xs text-cyan-400 font-bold hover:underline">
+        <Fingerprint size={11} />
+        {lang === 'fr' ? 'Explorer' : 'Explore'}
+        <ChevronRight size={11} />
+      </Link>
+    </div>
+  );
+
+  return (
+    <>
+      {/* ── Toast succès suppression ── */}
+      <AnimatePresence>
+        {deleteSuccess && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mb-4 flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/20 rounded-xl text-green-400 text-xs font-bold"
+          >
+            <CheckCircle size={14} />
+            {lang === 'fr' ? 'Partie supprimée avec succès.' : 'Game deleted successfully.'}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Liste des sessions ── */}
+      <div className="space-y-3">
+        {sessions.map(s => {
+          const inv = s.investigations;
+          if (!inv) return null;
+
+          const hasGroup = !!s.group_id;
+          const isCreator = !!s.is_group_creator;
+
+          return (
+            <div key={s.id} className="group flex items-center gap-3 p-3 bg-white/[0.02] border border-white/[0.06] rounded-xl hover:border-cyan-500/30 transition-all">
+
+              {/* Cover */}
+              <Link href={`/investigations/${inv.id}`} className="flex-shrink-0">
+                <div className="w-14 h-14 rounded-lg overflow-hidden bg-gray-800">
+                  {inv.cover_url
+                    ? <img src={inv.cover_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                    : <Fingerprint size={20} className="m-auto mt-5 text-gray-600" />}
+                </div>
+              </Link>
+
+              {/* Infos */}
+              <div className="flex-1 min-w-0">
+                <Link href={`/investigations/${inv.id}`}>
+                  <p className="text-white text-sm font-bold group-hover:text-cyan-400 transition-colors truncate">
+                    {lang === 'fr' ? inv.title_fr : inv.title_en}
+                  </p>
+                </Link>
+
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <span className="px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 text-[10px] font-bold">
+                    {inv.difficulty}
+                  </span>
+
+                  {/* Badge statut */}
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                    s.status === 'completed'
+                      ? 'bg-green-500/10 text-green-400'
+                      : s.status === 'abandoned'
+                      ? 'bg-red-500/10 text-red-400'
+                      : 'bg-amber-500/10 text-amber-400'
+                  }`}>
+                    {s.status === 'completed'
+                      ? (lang === 'fr' ? '✓ Terminée' : '✓ Completed')
+                      : s.status === 'abandoned'
+                      ? (lang === 'fr' ? '✗ Abandonnée' : '✗ Abandoned')
+                      : (lang === 'fr' ? '▶ En cours' : '▶ In progress')}
+                  </span>
+
+                  {/* Badge groupe */}
+                  {hasGroup && (
+                    <span className="px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 text-[10px] font-bold flex items-center gap-1">
+                      <Users size={8} />
+                      {isCreator
+                        ? (lang === 'fr' ? 'Créateur' : 'Creator')
+                        : (lang === 'fr' ? 'Groupe' : 'Group')}
+                    </span>
+                  )}
+
+                  {/* Date */}
+                  <span className="text-gray-600 text-[10px] flex items-center gap-1">
+                    <Clock size={9} />
+                    {new Date(s.last_played_at || s.created_at).toLocaleDateString(
+                      lang === 'fr' ? 'fr-FR' : 'en-US',
+                      { day: 'numeric', month: 'short' }
+                    )}
+                  </span>
+                </div>
+
+                {/* Code de groupe si créateur */}
+                {isCreator && s.group_code && (
+                  <p className="text-[10px] text-purple-400 font-mono mt-1">
+                    {lang === 'fr' ? 'Code :' : 'Code:'} <strong>{s.group_code}</strong>
+                  </p>
+                )}
+              </div>
+
+              {/* Bouton supprimer */}
+              <button
+                onClick={() => setDeleteModal({
+                  sessionId: s.id,
+                  invTitle: lang === 'fr' ? inv.title_fr : inv.title_en,
+                })}
+                className="flex-shrink-0 p-2 rounded-lg text-gray-700 hover:text-red-400 hover:bg-red-400/10 transition-all opacity-0 group-hover:opacity-100"
+                title={lang === 'fr' ? 'Supprimer cette partie' : 'Delete this game'}
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ════════════════════════════════════════
+          MODAL SUPPRESSION (dans le profil)
+      ════════════════════════════════════════ */}
+      <AnimatePresence>
+        {deleteModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[500] flex items-end md:items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+            onClick={() => !isDeleting && setDeleteModal(null)}
+          >
+            <motion.div
+              initial={{ y: 50, scale: 0.95 }}
+              animate={{ y: 0, scale: 1 }}
+              exit={{ y: 50, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm bg-[#111] border border-red-500/30 rounded-2xl overflow-hidden shadow-2xl"
+            >
+              {/* Header */}
+              <div className="bg-red-500/10 px-5 py-4 flex items-center justify-between border-b border-red-500/20">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle size={16} className="text-red-400" />
+                  <span className="font-bold text-white text-sm">
+                    {lang === 'fr' ? 'Supprimer cette partie' : 'Delete this game'}
+                  </span>
+                </div>
+                <button
+                  onClick={() => !isDeleting && setDeleteModal(null)}
+                  className="text-gray-500 hover:text-white"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                <p className="text-gray-400 text-sm">
+                  {lang === 'fr'
+                    ? 'Supprimer votre progression pour :'
+                    : 'Delete your progress for:'}
+                </p>
+                <p className="text-white font-bold font-serif">
+                  {deleteModal.invTitle}
+                </p>
+
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                  <p className="text-amber-300 text-xs leading-relaxed">
+                    {lang === 'fr'
+                      ? '⚠️ Toute votre progression (énigmes résolues, preuves collectées) sera effacée. Cette action est irréversible.'
+                      : '⚠️ All your progress (solved enigmas, collected evidence) will be erased. This action is irreversible.'}
+                  </p>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setDeleteModal(null)}
+                    disabled={isDeleting}
+                    className="flex-1 py-3 bg-white/5 border border-white/10 text-white rounded-xl text-sm font-bold hover:bg-white/10 transition-colors disabled:opacity-50"
+                  >
+                    {lang === 'fr' ? 'Annuler' : 'Cancel'}
+                  </button>
+                  <button
+                    onClick={handleDeleteSession}
+                    disabled={isDeleting}
+                    className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isDeleting ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Trash2 size={14} />
+                    )}
+                    {lang === 'fr' ? 'Supprimer' : 'Delete'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+
+
 // ============================================================================
 // USER CIRCLES — Gestion des cercles de lecture
 // ============================================================================
@@ -2076,7 +2357,7 @@ export default function ProfilePage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
-  const [activeTab, setActiveTab] = useState<'favorites' | 'notes' | 'subscriptions' | 'circles' | 'settings'>('favorites');
+    const [activeTab, setActiveTab] = useState<'favorites' | 'notes' | 'investigations' | 'subscriptions' | 'circles' | 'settings'>('favorites');
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
@@ -2267,6 +2548,7 @@ export default function ProfilePage() {
   const TABS = [
     { key: 'favorites' as const, icon: Heart, label_fr: 'Favoris', label_en: 'Favorites', color: '#EF4444' },
     { key: 'notes' as const, icon: FileText, label_fr: 'Notes', label_en: 'Notes', color: '#A78BFA' },
+    { key: 'investigations' as const, icon: Fingerprint, label_fr: 'Enquêtes', label_en: 'Investigations', color: '#06b6d4' },
     { key: 'subscriptions' as const, icon: Bell, label_fr: 'Abonnements', label_en: 'Subs', color: '#D4AF37' },
     { key: 'circles' as const, icon: Users, label_fr: 'Cercles', label_en: 'Circles', color: '#A855F7' },
     { key: 'settings' as const, icon: Edit3, label_fr: 'Profil', label_en: 'Profile', color: '#60A5FA' },
@@ -2422,6 +2704,7 @@ export default function ProfilePage() {
                 )}
 
                 {activeTab === 'circles' && <UserCircles lang={lang} userId={user?.id} />}
+                 {activeTab === 'investigations' && <UserInvestigations lang={lang} userId={user?.id} />}
                 {activeTab === 'settings' && user && (
                   <SettingsForm
                     user={user} lang={lang}

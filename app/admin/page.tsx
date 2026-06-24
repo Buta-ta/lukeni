@@ -9,10 +9,11 @@ import {
   ArrowLeft, ImagePlus, MessageSquareText, Star, CheckCircle,
   Tag, Lightbulb, FileText, CalendarDays, Music, FileAudio,
   Newspaper, Library, ShieldCheck, X, Loader2, AlertTriangle,
-  Crown, LayoutDashboard, Inbox, Clock, Globe,Link2,Eye,Bell, BookOpen, Users,Search
+  Crown, LayoutDashboard, Inbox, Clock, Globe,Link2,Eye,Bell, BookOpen, Users,Search, Map, LucideIcon,BarChart3
 } from "lucide-react";
 import { autoTranslate } from "@/lib/lingua";
 import type { User } from "@supabase/supabase-js";
+
 
 // Tabs locales
 import HeroTab         from "./tabs/HeroTab";
@@ -42,7 +43,8 @@ import ReadingCirclesAdminTab from "@/components/ReadingCirclesAdminTab"; // ←
 
 import { useActivityTimeout } from '@/lib/hooks/useActivityTimeout';
 import InvestigationsTab from "@/components/InvestigationsTab";
-
+import InvestigationBoardAdminTab from "@/components/InvestigationBoardAdminTab";
+import InvestigationAnalyticsTab from "@/components/admin/InvestigationAnalyticsTab";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -67,11 +69,13 @@ type TabType =
   | "library"
   | "reading_circles" // ← AJOUTER ICI
   | "investigations"
+  | "investigation_board"
   | "admins"
   | "ads"  
-  | "visitors";
+  | "visitors"
+  | "investigation_analytics";
 
-const ALL_TABS: { id: TabType; label: string; icon: React.ElementType }[] = [
+const ALL_TABS: { id: TabType; label: string; icon: LucideIcon }[] =  [
   { id: "dashboard",         label: "Dashboard",       icon: LayoutDashboard  },
   { id: "contributions",     label: "Contributions",   icon: Inbox            },
   { id: "hero",              label: "Background",      icon: ImagePlus        },
@@ -92,6 +96,8 @@ const ALL_TABS: { id: TabType; label: string; icon: React.ElementType }[] = [
   { id: "library",           label: "Bibliothèque 📚", icon: Library          },
   { id: "reading_circles",   label: "Clubs Lecture 👥",icon: Users            }, // ← AJOUTER ICI
   { id: "investigations",    label: "Enquêtes 🕵️",      icon: Search           },
+  { id: "investigation_board", label: "Mur Enquêtes 🗺️",icon: Map              },
+  { id: "investigation_analytics", label: "Stats Enquêtes 📊", icon: BarChart3 },
   { id: "visitors",          label: "Visiteurs 👁️",    icon: Eye },
   { id: "admins",            label: "Admins 👑",        icon: ShieldCheck      },
   { id: "about",             label: "À Propos 📖",      icon: BookOpen },
@@ -241,8 +247,10 @@ export default function AdminDashboard() {
       case "ads":               return <AdsTab showMsg={showMsg} />;  
       case "library":           return <LibraryTab showMsg={showMsg} />;
       case "reading_circles":   return <ReadingCirclesAdminTab showMsg={showMsg} />; // ← AJOUTER ICI
-      case "investigations":    return <InvestigationsTab showMsg={showMsg} />; 
+      case "investigations":    return <InvestigationsTab showMsg={showMsg} />;
+      case "investigation_board": return <InvestigationBoardAdminTab showMsg={showMsg} />;  
       case "visitors":          return <VisitorsTab showMsg={showMsg} />;
+      case "investigation_analytics": return <InvestigationAnalyticsTab showMsg={showMsg} />;
       case "admins":            return <AdminsTab showMsg={showMsg} />;
       default:                  return null;
     }

@@ -295,7 +295,7 @@ interface SearchResult {
   id: string;
   title_fr: string;
   title_en: string;
-  type: 'article' | 'press' | 'book' | 'music' | 'event';
+  type: 'article' | 'press' | 'book' | 'music' | 'event' | 'game';
   image?: string;
   href: string;
   subtitle?: string;
@@ -307,6 +307,7 @@ const TYPE_CONFIG = {
   book: { label_fr: 'Bibliothèque', label_en: 'Library', color: '#67E8F9', href: '/bibliotheque', emoji: '📚' },
   music: { label_fr: 'Musique', label_en: 'Music', color: '#C084FC', href: '/voyage-musical', emoji: '🎵' },
   event: { label_fr: 'Événement', label_en: 'Event', color: '#F472B6', href: '/encyclopedie', emoji: '✨' },
+  game: { label_fr: 'Enquête', label_en: 'Investigation', color: '#06b6d4', href: '/investigations', emoji: '🎮' },
 };
 
 const SearchBar = memo(({ lang }: { lang: 'fr' | 'en' }) => {
@@ -327,15 +328,16 @@ const SearchBar = memo(({ lang }: { lang: 'fr' | 'en' }) => {
   const debouncedQ = useDebounce(query, 350);
   const ref = useRef<HTMLDivElement>(null);
 
+
   useEffect(() => {
     if (query || isFocused) return;
     const t = setTimeout(() => setPhIdx(p => (p + 1) % placeholders.length), 4000);
     return () => clearTimeout(t);
   }, [query, isFocused, placeholders.length]);
 
-  const [dbSuggestions, setDbSuggestions] = useState<{ 
-    text_fr: string; 
-    text_en: string; 
+  const [dbSuggestions, setDbSuggestions] = useState<{
+    text_fr: string;
+    text_en: string;
     target_space: string;
     space_description_fr?: string;
     space_description_en?: string;
@@ -399,7 +401,13 @@ const SearchBar = memo(({ lang }: { lang: 'fr' | 'en' }) => {
         .eq('status', 'published')
         .or(`title_fr.ilike.${q},title_en.ilike.${q}`)
         .limit(2),
-    ]).then(([arts, press, books, tracks, events]) => {
+
+      supabase
+        .from('investigations')
+        .select('id, title_fr, title_en, cover_url, description_fr, description_en')
+        .or(`title_fr.ilike.${q},title_en.ilike.${q},description_fr.ilike.${q}`)
+        .limit(2),
+    ]).then(([arts, press, books, tracks, events, games]) => {
       const combined: SearchResult[] = [];
 
       arts.data?.forEach(a => combined.push({
@@ -432,6 +440,15 @@ const SearchBar = memo(({ lang }: { lang: 'fr' | 'en' }) => {
         image: t.cover_url || '',
         href: '/voyage-musical',
         subtitle: cleanTitle(lang === 'fr' ? (t.artist_fr || '') : (t.artist_en || '')),
+      }));
+
+
+      games.data?.forEach(g => combined.push({
+        id: g.id, type: 'game',
+        title_fr: g.title_fr, title_en: g.title_en,
+        image: g.cover_url || '',
+        href: `/investigations/${g.id}`,
+        subtitle: cleanTitle(lang === 'fr' ? (g.description_fr || '') : (g.description_en || '')),
       }));
 
       events.data?.forEach(e => combined.push({
@@ -533,7 +550,7 @@ const SearchBar = memo(({ lang }: { lang: 'fr' | 'en' }) => {
               <>
                 {results.length > 0 ? (
                   <div className="p-2 max-h-80 overflow-y-auto">
-                    {(['article', 'press', 'book', 'music', 'event'] as const).map(type => {
+                    {(['game', 'article', 'press', 'book', 'music', 'event'] as const).map(type => {
                       const typeResults = results.filter(r => r.type === type);
                       if (!typeResults.length) return null;
                       const conf = TYPE_CONFIG[type];
@@ -632,14 +649,14 @@ const SearchBar = memo(({ lang }: { lang: 'fr' | 'en' }) => {
                           .map((s, i) => {
                             const text = cleanTitle(lang === 'fr' ? s.text_fr : s.text_en);
                             const desc = cleanTitle(lang === 'fr' ? (s.space_description_fr || '') : (s.space_description_en || ''));
-                            
+
                             const emojiMap: Record<string, string> = {
                               'encyclopedia': '🌍',
                               'press': '📰',
                               'musical': '🎵',
                               'library': '📚',
                             };
-                            
+
                             return (
                               <button
                                 key={`space-${i}`}
@@ -651,7 +668,7 @@ const SearchBar = memo(({ lang }: { lang: 'fr' | 'en' }) => {
                               >
                                 <div className="flex items-start gap-3">
                                   <span className="text-lg shrink-0 mt-0.5">{emojiMap[s.target_space] || '🌟'}</span>
-                                  
+
                                   <div className="flex-1 min-w-0">
                                     <p className="text-white text-sm font-medium mb-0.5 
                                       group-hover:text-[#D4AF37] transition-colors">
@@ -971,14 +988,14 @@ const HeroCarousel = memo(({ events, lang, isLoading }: {
 
   return (
     <div className="relative h-[60vh] min-h-[440px] rounded-3xl overflow-hidden group">
-      
+
       {/* 1. Fond flouté */}
-      <img 
-        src={ev.image} 
-        alt="" 
-        className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-30 scale-110 pointer-events-none z-0" 
+      <img
+        src={ev.image}
+        alt=""
+        className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-30 scale-110 pointer-events-none z-0"
       />
-      
+
       {/* 2. Gradients */}
       <div className="absolute inset-0 bg-gradient-to-t from-[#020111] via-[#020111]/60 to-transparent pointer-events-none z-10" />
       <div className="absolute inset-0 bg-gradient-to-r from-[#020111]/80 via-transparent to-transparent pointer-events-none z-10" />
@@ -1080,7 +1097,7 @@ HeroCarousel.displayName = 'HeroCarousel';
 
 const DiscoverSpacesButton = memo(({ lang }: { lang: 'fr' | 'en' }) => {
   const scrollToPortals = () => {
-    document.getElementById('portals-section')?.scrollIntoView({ 
+    document.getElementById('portals-section')?.scrollIntoView({
       behavior: 'smooth',
       block: 'start'
     });
@@ -1099,7 +1116,7 @@ const DiscoverSpacesButton = memo(({ lang }: { lang: 'fr' | 'en' }) => {
           group-hover:border-[#D4AF37]/50 transition-all">
           <CaurisIcon className="w-8 h-8 text-[#D4AF37]" />
         </div>
-        
+
         <motion.div
           className="absolute inset-0 rounded-full border-2 border-[#D4AF37]/40"
           animate={{ scale: [1, 1.3, 1], opacity: [0.5, 0, 0.5] }}
@@ -1671,6 +1688,169 @@ const SectionHeader = memo(({ icon: Icon, title, href, hrefLabel }: {
 ));
 SectionHeader.displayName = 'SectionHeader';
 
+
+// ─── Composant Jeux Disponibles ───────────────────────────
+
+const AvailableGamesSection = memo(({ games, lang }: {
+  games: any[];
+  lang: 'fr' | 'en';
+}) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canL, setCanL] = useState(false);
+  const [canR, setCanR] = useState(true);
+
+  const check = useCallback(() => {
+    if (!scrollRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+    setCanL(scrollLeft > 0);
+    setCanR(scrollLeft < scrollWidth - clientWidth - 10);
+  }, []);
+
+  useEffect(() => {
+    check();
+    const ro = new ResizeObserver(check);
+    if (scrollRef.current) ro.observe(scrollRef.current);
+    return () => ro.disconnect();
+  }, [check, games]);
+
+  const scroll = (dir: 'left' | 'right') => {
+    scrollRef.current?.scrollBy({ left: dir === 'left' ? -320 : 320, behavior: 'smooth' });
+  };
+
+  if (!games.length) return null;
+
+  return (
+    <section>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="p-1.5 rounded-lg bg-[#06b6d4]/10 border border-[#06b6d4]/15">
+            <Play size={15} className="text-[#06b6d4]" />
+          </div>
+          <h3 className="text-xl font-serif text-white">
+            {lang === 'fr' ? '🎮 Enquêtes Disponibles' : '🎮 Available Investigations'}
+          </h3>
+        </div>
+        <Link href="/investigations"
+          className="flex items-center gap-1 text-[#06b6d4] text-[10px] font-bold
+            hover:opacity-70 transition-opacity uppercase tracking-wider">
+          {lang === 'fr' ? 'Voir toutes' : 'View all'}<ArrowRight size={12} />
+        </Link>
+      </div>
+
+      <div className="relative group/car">
+        <div className="absolute left-0 top-0 bottom-0 w-8 z-10
+          bg-gradient-to-r from-[#020111] to-transparent pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-8 z-10
+          bg-gradient-to-l from-[#020111] to-transparent pointer-events-none" />
+
+        <AnimatePresence>
+          {canL && (
+            <motion.button
+              key="games-nav-left"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => scroll('left')}
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full
+                bg-black/80 backdrop-blur-sm border border-white/15 flex items-center justify-center
+                text-white opacity-0 group-hover/car:opacity-100 transition-opacity
+                hover:border-[#06b6d4]/40"
+            >
+              <ChevronLeft size={15} />
+            </motion.button>
+          )}
+          {canR && (
+            <motion.button
+              key="games-nav-right"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => scroll('right')}
+              className="absolute right-0 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full
+                bg-black/80 backdrop-blur-sm border border-white/15 flex items-center justify-center
+                text-white opacity-0 group-hover/car:opacity-100 transition-opacity
+                hover:border-[#06b6d4]/40"
+            >
+              <ChevronRight size={15} />
+            </motion.button>
+          )}
+        </AnimatePresence>
+
+        <div
+          ref={scrollRef}
+          onScroll={check}
+          className="flex gap-3 overflow-x-auto scrollbar-hide scroll-smooth snap-x pb-2"
+        >
+          {games.map((game, i) => (
+            <motion.div
+              key={`game-${game.id}-${i}`}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-80px' }}
+              transition={{ delay: i * 0.05 }}
+              className="shrink-0 w-64 snap-start group/card"
+            >
+              <Link href="/investigations" className="block">
+                <div className="relative h-72 rounded-2xl overflow-hidden mb-3
+                  border border-white/6 hover:border-[#06b6d4]/30 transition-all
+                  duration-300 hover:-translate-y-1 shadow-lg group/img">
+
+                  <img
+                    src={game.cover}
+                    alt={lang === 'fr' ? game.title_fr : game.title_en}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-cover
+                      group-hover/img:scale-105 transition-transform duration-500"
+                    onError={e => {
+                      (e.target as HTMLImageElement).src =
+                        'https://images.unsplash.com/photo-1511192336575-5a79af67a629?w=600&q=75';
+                    }}
+                  />
+
+                  <div className="absolute inset-0 bg-gradient-to-t
+                    from-[#020111] via-[#020111]/30 to-transparent" />
+
+                  <div className="absolute top-3 left-3 flex items-center gap-1.5
+                    px-2.5 py-1 bg-black/65 backdrop-blur-md border border-white/10 rounded-full">
+                    <span className="text-base">🎮</span>
+                    <span className="text-[8px] font-black uppercase tracking-wider text-[#06b6d4]">
+                      {lang === 'fr' ? 'Enquête' : 'Investigation'}
+                    </span>
+                  </div>
+
+
+
+                  <div className="absolute bottom-0 left-0 right-0 p-4">
+                    <p className="text-white text-sm font-serif font-bold
+                      leading-snug line-clamp-2 drop-shadow-lg
+                      group-hover/card:text-[#06b6d4] transition-colors duration-300 mb-2">
+                      {lang === 'fr' ? game.title_fr : game.title_en}
+                    </p>
+
+                    <div className="flex items-center justify-between text-[10px]">
+                      <div className="flex items-center gap-1 text-[#D4AF37]">
+                        <CaurisIcon className="w-3 h-3" />
+                        <span className="font-bold">+{game.reward}</span>
+                      </div>
+                      <button className="px-2.5 py-1 bg-[#06b6d4]/20 hover:bg-[#06b6d4]/40
+                        border border-[#06b6d4]/30 text-[#06b6d4] rounded-full
+                        font-bold transition-colors">
+                        {lang === 'fr' ? 'Jouer' : 'Play'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+});
+AvailableGamesSection.displayName = 'AvailableGamesSection';
+
 // ─── Divider décoratif ────────────────────────────────────────────────────────
 
 const GoldDivider = () => (
@@ -1695,6 +1875,7 @@ export default function ExplorePage() {
   const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [countriesData, setCountriesData] = useState<any[]>([]);
   const [portalImages, setPortalImages] = useState<Record<string, string>>({});
+  const [availableGames, setAvailableGames] = useState<any[]>([]);
   const [libraryTeaserData, setLibraryTeaserData] = useState({
     image: '',
     titleFr: 'Manuscrits de Tombouctou',
@@ -1796,7 +1977,7 @@ export default function ExplorePage() {
         });
       }
 
-         let { data: featuredEvents } = await supabase
+      let { data: featuredEvents } = await supabase
         .from('events')
         .select('*')
         .eq('status', 'published')
@@ -1813,7 +1994,7 @@ export default function ExplorePage() {
           .limit(3);
         featuredEvents = recentEvents;
       }
-      
+
       setHeroEvents(featuredEvents?.length
         ? featuredEvents.map(e => ({
           title_fr: cleanTitle(e.title_fr),
@@ -2006,6 +2187,25 @@ export default function ExplorePage() {
         });
       }
 
+      // ✅ Charger les jeux disponibles
+      const { data: investigations } = await supabase
+        .from('investigations')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(6);
+
+      if (investigations && investigations.length > 0) {
+        setAvailableGames(investigations.map(inv => ({
+          id: inv.id,
+          title_fr: cleanTitle(inv.title_fr),
+          title_en: cleanTitle(inv.title_en),
+          desc_fr: cleanTitle(inv.description_fr || ''),
+          desc_en: cleanTitle(inv.description_en || ''),
+          cover: inv.cover_url || 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?w=600&q=75',
+          difficulty: inv.difficulty || 'NORMAL',
+          reward: inv.reward_cauris || 0,
+        })));
+      }
       setTimeout(() => setIsLoading(false), 300);
     }
     load();
@@ -2107,6 +2307,10 @@ export default function ExplorePage() {
           />
           <PortalsGrid lang={lang} stats={stats} portalImages={portalImages} />
         </section>
+
+        <GoldDivider />
+
+        <AvailableGamesSection games={availableGames} lang={lang} />
 
         <GoldDivider />
 

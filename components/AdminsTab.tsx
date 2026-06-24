@@ -24,7 +24,9 @@ const ALL_TABS = [
   { id: 'press', label: 'Presse', icon: '📰' },
   { id: 'library', label: 'Bibliothèque', icon: '📚' },
   { id: 'reading_circles', label: 'Clubs Lecture', icon: '👥' },
-  { id: 'investigations', label: 'Enquêtes', icon: '🕵️' }, // ← AJOUTÉ ICI
+  { id: 'investigations', label: 'Enquêtes', icon: '🕵️' }, 
+  { id: 'investigation_board', label: 'Mur Enquêtes', icon: '🗺️' },
+  { id: 'investigation_analytics', label: 'Stats Enquêtes', icon: '📊' },
   { id: 'ads', label: 'Publicités', icon: '📣' },
   { id: 'visitors', label: 'Visiteurs', icon: '👁️' },
   { id: 'notifications', label: 'Notifications', icon: '🔔' },

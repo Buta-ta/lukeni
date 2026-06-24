@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // ── Three.js / React Three Fiber ──
+  transpilePackages: ['three', '@react-three/fiber', '@react-three/drei'],
+
+  // ── Turbopack (Next.js 16+) ──
+  turbopack: {},
+
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com', port: '', pathname: '/**' },
@@ -55,7 +61,6 @@ const nextConfig = {
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
         ],
       },
-
       {
         source: '/bibliotheque/:path*',
         headers: [
@@ -86,7 +91,6 @@ const nextConfig = {
           { key: 'Cache-Control', value: 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400' },
         ],
       },
-
       {
         source: '/sw.js',
         headers: [

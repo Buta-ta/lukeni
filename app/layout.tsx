@@ -25,7 +25,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "Lukeni — Mémoire • Musique • Genèse",
+    default: "Lukeni — Peuple, Mémoire, Mission",
     template: "%s | Lukeni",
   },
   description: "Plateforme de musique africaine et de patrimoine culturel. Explorez l'histoire, la musique et le patrimoine africains.",
@@ -49,7 +49,7 @@ export const metadata: Metadata = {
     locale: "fr_FR",
     url: "https://lukeni.app",
     siteName: "Lukeni",
-    title: "Lukeni — Mémoire • Musique • Genèse",
+     title: "Lukeni — Peuple, Mémoire, Mission",
     description: "Plateforme de musique africaine et de patrimoine culturel",
     images: [
       {
@@ -71,7 +71,7 @@ export const metadata: Metadata = {
   
   twitter: {
     card: "summary_large_image",
-    title: "Lukeni — Mémoire • Musique • Genèse",
+    title: "Lukeni — Peuple, Mémoire, Mission",
     description: "Plateforme de musique africaine et de patrimoine culturel",
     images: ["https://lukeni.app/icon-512x512.png"],
     creator: "@lukeni",

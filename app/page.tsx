@@ -1022,7 +1022,7 @@ export default function LandingPage() {
           LUKENI
         </h1>
         <p className="text-white/40 text-[9px] md:text-[10px] tracking-[0.2em] md:tracking-[0.3em] uppercase">
-          {lang === 'fr' ? 'Mémoire • Musique • Genèse' : 'Memory • Music • Genesis'}
+          {lang === 'fr' ? 'Peuple • Mémoire • Mission' : 'People • Memory • Mission'}
         </p>
       </motion.div>
 

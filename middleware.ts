@@ -87,11 +87,14 @@ export async function middleware(req: NextRequest) {
       '/encyclopedie',
       '/voyage-musical',
     ];
+
     const isProtected = protectedPrefixes.some(prefix => pathname.startsWith(prefix));
 
     if (isProtected && !session) {
       const redirectUrl = new URL('/auth', req.url);
-      redirectUrl.searchParams.set('redirect', pathname);
+      // ✅ FIX : Conserver les query params (ex: ?code=LUKENI-4X7K)
+      const fullPath = pathname + req.nextUrl.search;
+      redirectUrl.searchParams.set('redirect', fullPath);
       return NextResponse.redirect(redirectUrl);
     }
 
