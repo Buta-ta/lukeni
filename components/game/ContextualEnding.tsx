@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { AlertTriangle, RotateCcw, LogOut } from "lucide-react";
+import { AlertTriangle, RotateCcw, LogOut, Puzzle, Search, Briefcase, Coins } from "lucide-react";
 
 interface ContextualEndingProps {
   lang: "fr" | "en";
@@ -16,6 +16,9 @@ interface ContextualEndingProps {
   collectedEvidences: number;
   totalEvidences: number;
   reward: number;
+  budgetCauris?: number; // ✅ NOUVEAU : Cauris actuels du joueur
+  solvedWordSearches?: number; // ✅ NOUVEAU
+  totalWordSearches?: number; // ✅ NOUVEAU
   onReplay: () => void;
   onExit: () => void;
 }
@@ -23,6 +26,7 @@ interface ContextualEndingProps {
 export default function ContextualEnding({
   lang, title, message, endingType, score,
   solvedEnigmas, totalEnigmas, collectedEvidences, totalEvidences, reward,
+  budgetCauris = 0, solvedWordSearches = 0, totalWordSearches = 0,
   onReplay, onExit,
 }: ContextualEndingProps) {
   const [showContent, setShowContent] = useState(false);
@@ -33,7 +37,6 @@ export default function ContextualEnding({
   }, []);
 
   const bgColor = endingType === "victory" ? "bg-green-950" : endingType === "alternate" ? "bg-amber-950" : "bg-red-950";
-  const borderColor = endingType === "victory" ? "border-green-500/30" : endingType === "alternate" ? "border-amber-500/30" : "border-red-500/30";
   const accentColor = endingType === "victory" ? "#10b981" : endingType === "alternate" ? "#f59e0b" : "#ef4444";
   const Icon = endingType === "victory" ? null : AlertTriangle;
 
@@ -48,13 +51,65 @@ export default function ContextualEnding({
           <p className="text-lg font-serif italic text-gray-200 max-w-lg mx-auto leading-relaxed">"{message}"</p>
         </motion.div>
 
+        {/* ✅ NOUVEAU : Grille de stats complète */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: showContent ? 1 : 0, y: showContent ? 0 : 20 }} transition={{ delay: 0.8 }} className="bg-black/40 backdrop-blur-md p-6 rounded-2xl border" style={{ borderColor: accentColor + "44" }}>
-          <div className="grid grid-cols-4 gap-4 text-center">
-            <div><p className="text-2xl font-black" style={{ color: accentColor }}>{score}%</p><p className="text-[10px] text-gray-400 uppercase tracking-widest">Score</p></div>
-            <div><p className="text-2xl font-black text-green-400">{solvedEnigmas}/{totalEnigmas}</p><p className="text-[10px] text-gray-400 uppercase tracking-widest">Énigmes</p></div>
-            <div><p className="text-2xl font-black text-blue-400">{collectedEvidences}/{totalEvidences}</p><p className="text-[10px] text-gray-400 uppercase tracking-widest">Preuves</p></div>
-            <div><p className="text-2xl font-black text-[#D4AF37]">+{reward}</p><p className="text-[10px] text-gray-400 uppercase tracking-widest">Cauris</p></div>
+          
+          {/* Score global */}
+          <div className="mb-6 pb-4 border-b border-white/10">
+            <p className="text-5xl font-black" style={{ color: accentColor }}>{score}%</p>
+            <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-1">
+              {lang === "fr" ? "Score Global" : "Global Score"}
+            </p>
           </div>
+
+          {/* Stats détaillées */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            {/* Énigmes */}
+            <div className="bg-white/5 p-3 rounded-xl">
+              <Search size={16} className="mx-auto mb-1 text-green-400" />
+              <p className="text-xl font-black text-green-400">{solvedEnigmas}/{totalEnigmas}</p>
+              <p className="text-[9px] text-gray-400 uppercase tracking-widest">
+                {lang === "fr" ? "Énigmes" : "Enigmas"}
+              </p>
+            </div>
+
+            {/* Preuves */}
+            <div className="bg-white/5 p-3 rounded-xl">
+              <Briefcase size={16} className="mx-auto mb-1 text-blue-400" />
+              <p className="text-xl font-black text-blue-400">{collectedEvidences}/{totalEvidences}</p>
+              <p className="text-[9px] text-gray-400 uppercase tracking-widest">
+                {lang === "fr" ? "Preuves" : "Evidence"}
+              </p>
+            </div>
+
+            {/* Mots Mêlés */}
+            <div className="bg-white/5 p-3 rounded-xl">
+              <Puzzle size={16} className="mx-auto mb-1 text-pink-400" />
+              <p className="text-xl font-black text-pink-400">{solvedWordSearches}/{totalWordSearches}</p>
+              <p className="text-[9px] text-gray-400 uppercase tracking-widest">
+                {lang === "fr" ? "Mots Mêlés" : "Word Search"}
+              </p>
+            </div>
+
+            {/* Cauris */}
+            <div className="bg-white/5 p-3 rounded-xl">
+              <Coins size={16} className="mx-auto mb-1 text-[#D4AF37]" />
+              <p className="text-xl font-black text-[#D4AF37]">{budgetCauris}</p>
+              <p className="text-[9px] text-gray-400 uppercase tracking-widest">
+                {lang === "fr" ? "Cauris" : "Cauris"}
+              </p>
+            </div>
+          </div>
+
+          {/* Récompense */}
+          {reward > 0 && endingType === "victory" && (
+            <div className="mt-4 pt-4 border-t border-white/10">
+              <p className="text-sm text-gray-400">
+                {lang === "fr" ? "Récompense :" : "Reward:"}{" "}
+                <span className="text-[#D4AF37] font-black text-lg">+{reward} Cauris</span>
+              </p>
+            </div>
+          )}
         </motion.div>
 
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: showContent ? 1 : 0 }} transition={{ delay: 1.2 }} className="flex flex-col sm:flex-row gap-3 justify-center">

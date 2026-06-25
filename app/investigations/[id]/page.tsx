@@ -1907,7 +1907,13 @@ export default function InvestigationGame(props: {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="absolute inset-0 bg-black/60 backdrop-blur-sm z-20 md:hidden"
-            onClick={() => setActiveUI(null)}
+            onClick={() => {
+              // ✅ Mettre en pause le timer d'énigme si on ferme le panel
+              if (activeUI === "enigmas") {
+                setEnigmaTimerActive(false);
+              }
+              setActiveUI(null);
+            }}
           />
         )}
       </AnimatePresence>
@@ -3794,7 +3800,7 @@ export default function InvestigationGame(props: {
       />
 
       {/* ── ÉCRAN DE FIN CONTEXTUALISÉE ── */}
-      {showContextualEnding && (
+            {showContextualEnding && (
         <ContextualEnding
           lang={lang}
           title={showContextualEnding.title}
@@ -3806,6 +3812,9 @@ export default function InvestigationGame(props: {
           collectedEvidences={collectedEvidencesCount}
           totalEvidences={totalEvidencesCount}
           reward={investigation?.reward_cauris || 0}
+          budgetCauris={budgetCauris}
+          solvedWordSearches={(session as any)?.completed_word_searches?.length || 0}
+          totalWordSearches={wordSearches.length}
           onReplay={handleReplay}
           onExit={() => router.push("/investigations")}
         />
