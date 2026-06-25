@@ -404,7 +404,7 @@ function HotspotContentForm({
             Cochez les hotspots qui apparaîtront après l'interaction
           </p>
           <div className="space-y-1 max-h-40 overflow-y-auto bg-black/20 p-2 rounded">
-            {scenes.flatMap((sc: any) => 
+            {scenes.flatMap((sc: any) =>
               (sc.hotspots || [])
                 .filter((h: any) => h.id !== hotspot.id)
                 .map((h: any) => (
@@ -492,14 +492,14 @@ export default function PanoramaHotspotEditor({
 
 
   // ✅ Charger les dialogue speakers
-useEffect(() => {
-  if (!investigationId) return;
-  supabase
-    .from('investigation_dialogue_speakers')
-    .select('*')
-    .eq('investigation_id', investigationId)
-    .then(({ data }) => setDialogueSpeakers(data || []));
-}, [investigationId]);
+  useEffect(() => {
+    if (!investigationId) return;
+    supabase
+      .from('investigation_dialogue_speakers')
+      .select('*')
+      .eq('investigation_id', investigationId)
+      .then(({ data }) => setDialogueSpeakers(data || []));
+  }, [investigationId]);
 
 
 
@@ -707,12 +707,20 @@ useEffect(() => {
     document.addEventListener('mousemove', handleMouseMove); document.addEventListener('mouseup', handleMouseUp);
   }, [activeSceneIndex, updateHotspot]);
 
-  const handleSave = async () => {
+ const handleSave = async () => {
     if (!activeScene) return;
     setIsSaving(true);
-    await supabase.from('investigation_scenes').update({ hotspots: activeScene.hotspots, ambient_audio_url: activeScene.ambient_audio_url, timer_duration: activeScene.timer_duration, visual_filter: activeScene.visual_filter, instruction_id: activeScene.instruction_id || null }).eq('id', activeScene.id);
-    setIsDirty(false); setIsSaving(false);
-  };
+    await supabase.from('investigation_scenes').update({ 
+      hotspots: activeScene.hotspots, 
+      ambient_audio_url: activeScene.ambient_audio_url, 
+      ambient_audio_volume: activeScene.ambient_audio_volume ?? 0.5, // ✅ AJOUT
+      timer_duration: activeScene.timer_duration, 
+      visual_filter: activeScene.visual_filter, 
+      instruction_id: activeScene.instruction_id || null 
+    }).eq('id', activeScene.id);
+    setIsDirty(false); 
+    setIsSaving(false);
+};
 
   const uploadSceneMedia = (field: 'panorama_url' | 'ambient_audio_url', isAudio = false) => {
     setIsUploadingScene(true);
@@ -865,8 +873,60 @@ useEffect(() => {
       {activeScene && (
         <>
           <div className="bg-[#111] p-4 rounded-xl border border-white/5 grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div className="space-y-2"><label className="text-[10px] text-gray-500 font-bold uppercase"><Music size={12} className="inline mr-1" /> Audio d'ambiance</label>
-              {activeScene.ambient_audio_url ? <div className="flex items-center gap-2 bg-white/5 p-2 rounded"><audio src={activeScene.ambient_audio_url} controls className="h-6 flex-1" /><button onClick={() => { setScenes(p => p.map((s, i) => i === activeSceneIndex ? { ...s, ambient_audio_url: null } : s)); setIsDirty(true); }} className="text-red-500"><X size={14} /></button></div> : <button onClick={() => uploadSceneMedia('ambient_audio_url', true)} className="w-full py-2 bg-white/5 hover:bg-white/10 rounded text-xs text-gray-400">Ajouter un son</button>}
+            <div className="space-y-2">
+              <label className="text-[10px] text-gray-500 font-bold uppercase">
+                <Music size={12} className="inline mr-1" /> Audio d'ambiance
+              </label>
+              {activeScene.ambient_audio_url ? (
+                <>
+                  <div className="flex items-center gap-2 bg-white/5 p-2 rounded">
+                    <audio src={activeScene.ambient_audio_url} controls className="h-6 flex-1" />
+                    <button
+                      onClick={() => {
+                        setScenes(p => p.map((s, i) => i === activeSceneIndex ? { ...s, ambient_audio_url: null } : s));
+                        setIsDirty(true);
+                      }}
+                      className="text-red-500"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                  {/* ✅ NOUVEAU SLIDER DE VOLUME */}
+                  <div className="bg-black/30 p-2 rounded space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-gray-500 font-bold uppercase">🔊 Volume par défaut</span>
+                      <span className="text-[10px] text-purple-400 font-mono font-bold">
+                        {Math.round((activeScene.ambient_audio_volume ?? 0.5) * 100)}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={activeScene.ambient_audio_volume ?? 0.5}
+                      onChange={(e) => {
+                        const newVolume = parseFloat(e.target.value);
+                        setScenes(p => p.map((s, i) =>
+                          i === activeSceneIndex ? { ...s, ambient_audio_volume: newVolume } : s
+                        ));
+                        setIsDirty(true);
+                      }}
+                      className="w-full accent-purple-500 h-1 cursor-pointer"
+                    />
+                    <p className="text-[9px] text-gray-600 italic">
+                      Le joueur pourra ajuster ce volume en jeu.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <button
+                  onClick={() => uploadSceneMedia('ambient_audio_url', true)}
+                  className="w-full py-2 bg-white/5 hover:bg-white/10 rounded text-xs text-gray-400"
+                >
+                  Ajouter un son
+                </button>
+              )}
             </div>
             <div className="space-y-2"><label className="text-[10px] text-gray-500 font-bold uppercase"><Camera size={12} className="inline mr-1" /> Filtre Historique</label><select value={activeScene.visual_filter || 'none'} onChange={e => { setScenes(p => p.map((s, i) => i === activeSceneIndex ? { ...s, visual_filter: e.target.value } : s)); setIsDirty(true); }} className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white"><option value="none">Couleurs originales</option><option value="sepia">Sépia (Années 1900)</option><option value="grayscale">Noir & Blanc (Archives)</option><option value="vintage">Vintage (Contraste élevé)</option></select></div>
             <div className="space-y-2"><label className="text-[10px] text-gray-500 font-bold uppercase"><Clock size={12} className="inline mr-1" /> Compte à rebours (sec)</label><input type="number" value={activeScene.timer_duration || 0} onChange={e => { setScenes(p => p.map((s, i) => i === activeSceneIndex ? { ...s, timer_duration: Number(e.target.value) } : s)); setIsDirty(true); }} placeholder="0 = Infini" className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white" /></div>
@@ -1108,7 +1168,7 @@ useEffect(() => {
                     </div>
                   </div>
 
-                  <HotspotContentForm hotspot={selectedHotspot} evidences={evidences} scenes={scenes} chapters={chapters} characters={characters} dialogueSpeakers={dialogueSpeakers}  wordSearches={wordSearchesState} allEnigmas={allEnigmas} updateHotspot={updateHotspot} isTranslating={isTranslating} setIsTranslating={setIsTranslating} lang={lang} />
+                  <HotspotContentForm hotspot={selectedHotspot} evidences={evidences} scenes={scenes} chapters={chapters} characters={characters} dialogueSpeakers={dialogueSpeakers} wordSearches={wordSearchesState} allEnigmas={allEnigmas} updateHotspot={updateHotspot} isTranslating={isTranslating} setIsTranslating={setIsTranslating} lang={lang} />
 
 
                   {/* ✅ INSTRUCTION DU HOTSPOT */}

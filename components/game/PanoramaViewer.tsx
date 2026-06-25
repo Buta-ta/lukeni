@@ -2,6 +2,7 @@
 "use client";
 
 import React, { Suspense, useRef, useState, useEffect } from "react";
+import { Volume2, VolumeX, Volume1 } from "lucide-react";
 import { Canvas, useThree, useFrame } from "@react-three/fiber";
 import { useTexture, Html } from "@react-three/drei";
 import * as THREE from "three";
@@ -25,19 +26,19 @@ function PanoramaSphere({ url }: { url: string }) {
 // Composant qui envoie la rotation de caméra à useFrame
 function CameraRotationTracker({ onRotationChange }: { onRotationChange: (rot: { x: number; y: number }) => void }) {
   const { camera } = useThree();
-  
+
   useFrame(() => {
     const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
     onRotationChange({ x: euler.x, y: euler.y });
   });
-  
+
   return null;
 }
 
 // ── Effet de Zoom dynamique lors d'une transition ──
 function TransitionEffect({ isTransitioning }: { isTransitioning: boolean }) {
   const { camera } = useThree();
-  
+
   useFrame((state, delta) => {
     const perspectiveCamera = camera as THREE.PerspectiveCamera;
     if (isTransitioning) {
@@ -46,7 +47,7 @@ function TransitionEffect({ isTransitioning }: { isTransitioning: boolean }) {
       perspectiveCamera.updateProjectionMatrix();
     }
   });
-  
+
   return null;
 }
 
@@ -82,15 +83,15 @@ function DragAndZoomControls({ isTransitioning }: { isTransitioning: boolean }) 
       if (!isDragging.current || isTransitioning) return;
       const dx = e.clientX - lastPos.current.x;
       const dy = e.clientY - lastPos.current.y;
-      
+
       // ✅ ANTI-TOURNIS : Sensibilité réduite (0.0015 au lieu de 0.003)
       velocityRef.current = { x: dx * 0.0015, y: dy * 0.0015 };
       rotationRef.current.x -= dx * 0.0015;
       rotationRef.current.y -= dy * 0.0015;
-      
+
       // ✅ ANTI-TOURNIS : Angle vertical (pitch) strictement bloqué (évite de faire des loopings)
       rotationRef.current.y = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, rotationRef.current.y));
-      
+
       lastPos.current = { x: e.clientX, y: e.clientY };
     };
 
@@ -106,11 +107,11 @@ function DragAndZoomControls({ isTransitioning }: { isTransitioning: boolean }) 
       if (!isDragging.current || isTransitioning) return;
       const dx = e.touches[0].clientX - lastPos.current.x;
       const dy = e.touches[0].clientY - lastPos.current.y;
-      
+
       rotationRef.current.x -= dx * 0.0015;
       rotationRef.current.y -= dy * 0.0015;
       rotationRef.current.y = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, rotationRef.current.y));
-      
+
       lastPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     };
 
@@ -162,8 +163,8 @@ function calculateHotspotProximity(cameraRotation: { x: number; y: number }, hot
   const dotProduct = normalizedX * cameraX + normalizedY * cameraY + normalizedZ * cameraZ;
   const angle = Math.acos(Math.max(-1, Math.min(1, dotProduct)));
 
-  if (angle < 0.4) return 'VERY_CLOSE'; 
-  if (angle < 0.8) return 'CLOSE';     
+  if (angle < 0.4) return 'VERY_CLOSE';
+  if (angle < 0.8) return 'CLOSE';
   return 'FAR';
 }
 
@@ -180,26 +181,26 @@ function HotspotMarker({
   const state = isTransition ? (proximityState || 'FAR') : null;
 
 
-   let characterAvatar: string | null = null;
+  let characterAvatar: string | null = null;
   if (hotspot.type === 'character' && characters?.length) {
     const character = characters.find((c: any) => c.id === hotspot.character_id);
     if (character?.avatar_url) characterAvatar = character.avatar_url;
   }
 
-    // ✅ LOGIQUE STREET VIEW : Calcul de l'angle pour coucher le chevron sur le sol
+  // ✅ LOGIQUE STREET VIEW : Calcul de l'angle pour coucher le chevron sur le sol
   const isGround = isTransition && hotspot.variant === 'ground';
   // Math.atan2 permet de trouver l'angle de rotation pour que la flèche pointe vers l'extérieur
-  const angleY = Math.atan2(position[0], position[2]); 
+  const angleY = Math.atan2(position[0], position[2]);
 
   // ── RENDU POUR CHEVRON AU SOL (STREET VIEW) ──
-    if (isGround) {
+  if (isGround) {
     return (
-      <Html 
-        position={position} 
-        center 
-        transform 
-        rotation={[-Math.PI / 2, 0, -angleY]} 
-        distanceFactor={6} 
+      <Html
+        position={position}
+        center
+        transform
+        rotation={[-Math.PI / 2, 0, -angleY]}
+        distanceFactor={6}
       >
         {hotspot.invisible ? (
           /* ── INVISIBLE : zone cliquable transparente uniquement ── */
@@ -214,11 +215,11 @@ function HotspotMarker({
             className={`relative w-20 h-20 rounded-full flex items-center justify-center cursor-pointer transition-all duration-300 ${isTransitioning ? 'pointer-events-none opacity-0 scale-50' : 'opacity-70 hover:opacity-100 scale-100 hover:scale-110'}`}
             onClick={() => !isLocked && !isTransitioning && onActivate(hotspot)}
           >
-            <div 
+            <div
               className="w-10 h-10 border-t-8 border-l-8 rotate-45 transform origin-center shadow-2xl -mt-4"
               style={{ borderColor: 'white', filter: `drop-shadow(0px 0px 8px ${activeColor})` }}
             />
-            <div 
+            <div
               className="absolute inset-0 rounded-full border-4 animate-ping opacity-20 pointer-events-none"
               style={{ borderColor: activeColor }}
             />
@@ -261,8 +262,7 @@ function HotspotMarker({
           onClick={() => !isLocked && !isTransitioning && onActivate(hotspot)}
         >
           <div
-            className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-200 overflow-hidden ${
-              state === 'VERY_CLOSE' ? 'scale-150 opacity-100' :
+            className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-200 overflow-hidden ${state === 'VERY_CLOSE' ? 'scale-150 opacity-100' :
                 state === 'CLOSE' ? 'scale-125 opacity-75 animate-pulse' :
                   state === 'FAR' ? 'scale-100 opacity-40' :
                     isLocked ? 'opacity-50 grayscale' : 'hover:scale-125'
@@ -319,6 +319,7 @@ interface PanoramaViewerProps {
   onTransition?: (chapterId: string) => void;
   onSceneChange?: (sceneId: string) => void; // ✅ NOUVEAU
   ambientAudioUrl?: string | null;
+  ambientAudioVolume?: number;
   visualFilter?: string;
   isEditorPreview?: boolean;
   characters?: any[];
@@ -327,16 +328,77 @@ interface PanoramaViewerProps {
 export default function PanoramaViewer({
   panoramaUrl, hotspots, evidences, solvedEnigmas, lang = 'fr',
   onHotspotActivate, onTransition, onSceneChange,
-  ambientAudioUrl, visualFilter = 'none', isEditorPreview = false, characters = [],
+  ambientAudioUrl, ambientAudioVolume = 0.5, visualFilter = 'none', isEditorPreview = false, characters = [],
 }: PanoramaViewerProps) {
-  
+
   const [proximities, setProximities] = useState<Record<string, 'FAR' | 'CLOSE' | 'VERY_CLOSE'>>({});
   const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // Remise à zéro quand l'image change (fin de la transition)
+  // ✅ NOUVEAU : Gestion audio avancée
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [userVolume, setUserVolume] = useState<number>(() => {
+    // Charge le volume préféré du joueur depuis le localStorage
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('lukeni_audio_volume');
+      return saved ? parseFloat(saved) : 1; // 1 = 100% du volume de la scène
+    }
+    return 1;
+  });
+  const [isMuted, setIsMuted] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('lukeni_audio_muted') === 'true';
+    }
+    return false;
+  });
+  const [showVolumePanel, setShowVolumePanel] = useState(false);
+  const [audioBlocked, setAudioBlocked] = useState(false);
+
+  // ✅ Gestion du volume effectif (combinaison admin + user)
+  useEffect(() => {
+    if (audioRef.current) {
+      const finalVolume = isMuted ? 0 : ambientAudioVolume * userVolume;
+      audioRef.current.volume = Math.max(0, Math.min(1, finalVolume));
+    }
+  }, [ambientAudioVolume, userVolume, isMuted, ambientAudioUrl]);
+
+  // ✅ Sauvegarder les préférences du joueur
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('lukeni_audio_volume', userVolume.toString());
+      localStorage.setItem('lukeni_audio_muted', isMuted.toString());
+    }
+  }, [userVolume, isMuted]);
+
+  // ✅ COUPURE PROPRE entre les scènes : Fade out → change → fade in
+  // ✅ COUPURE PROPRE entre les scènes : Fade out → change → fade in
   useEffect(() => {
     setIsTransitioning(false);
-  }, [panoramaUrl]);
+
+    if (audioRef.current && ambientAudioUrl) {
+      // Petit fondu d'entrée
+      audioRef.current.volume = 0;
+
+      // ✅ FORCE LA LECTURE DU SON ET ATTRAPE L'ERREUR DE BLOCAGE DU NAVIGATEUR
+
+      audioRef.current.play().catch((err) => {
+        console.warn("🔇 Autoplay bloqué par le navigateur.");
+        setAudioBlocked(true); // ✅ On signale que c'est bloqué
+      });
+
+      const fadeInInterval = setInterval(() => {
+        if (audioRef.current) {
+          const target = isMuted ? 0 : ambientAudioVolume * userVolume;
+          if (audioRef.current.volume < target - 0.05) {
+            audioRef.current.volume = Math.min(target, audioRef.current.volume + 0.05);
+          } else {
+            audioRef.current.volume = target;
+            clearInterval(fadeInInterval);
+          }
+        }
+      }, 80);
+      return () => clearInterval(fadeInInterval);
+    }
+  }, [panoramaUrl, ambientAudioUrl, ambientAudioVolume, userVolume, isMuted]);
 
   const handleHotspotActivate = (hotspot: Hotspot) => {
     if (hotspot.type === 'transition') {
@@ -369,13 +431,108 @@ export default function PanoramaViewer({
     }
   };
 
-  return (
-    <div className={isEditorPreview ? "relative w-full h-[500px] overflow-hidden rounded-xl bg-black" : "absolute inset-0 w-full h-full overflow-hidden bg-black"}>
+  // ✅ Fonction pour débloquer l'audio au premier clic/drag du joueur
+  const handleUnlockAudio = () => {
+    if (audioBlocked && audioRef.current && !isMuted) {
+      audioRef.current.play().then(() => {
+        setAudioBlocked(false); // Le son est débloqué !
+      }).catch(() => { });
+    }
+  };
 
-      {ambientAudioUrl && <audio src={ambientAudioUrl} autoPlay loop playsInline className="hidden" />}
+  return (
+    <div
+      className={isEditorPreview ? "relative w-full h-[500px] overflow-hidden rounded-xl bg-black" : "absolute inset-0 w-full h-full overflow-hidden bg-black"}
+      onPointerDown={handleUnlockAudio} // ✅ Se déclenche dès que le joueur clique pour bouger la caméra !
+    >
+
+      {/* ✅ Audio avec ref pour contrôler volume/mute */}
+      {ambientAudioUrl && (
+        <audio
+          ref={audioRef}
+          key={ambientAudioUrl}
+          src={ambientAudioUrl}
+          autoPlay
+          loop
+          playsInline
+          className="hidden"
+        />
+      )}
+
+      {/* ✅ NOUVEAU : Contrôle Volume / Mute (Bouton flottant) */}
+      {ambientAudioUrl && !isEditorPreview && (
+        <div className="absolute top-4 right-4 z-50">
+          <div className="relative">
+            <button
+              onClick={() => setShowVolumePanel(!showVolumePanel)}
+              onMouseEnter={() => setShowVolumePanel(true)}
+              className="bg-black/70 backdrop-blur-md hover:bg-black/90 border border-white/20 rounded-full p-2.5 text-white transition-all shadow-xl"
+              title={lang === 'fr' ? 'Contrôle audio' : 'Audio control'}
+            >
+              {isMuted || userVolume === 0 ? (
+                <VolumeX size={16} className="text-red-400" />
+              ) : userVolume < 0.5 ? (
+                <Volume1 size={16} />
+              ) : (
+                <Volume2 size={16} />
+              )}
+            </button>
+
+            <AnimatePresence>
+              {showVolumePanel && (
+                <motion.div
+                  initial={{ opacity: 0, y: -5, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                  onMouseLeave={() => setShowVolumePanel(false)}
+                  className="absolute top-full right-0 mt-2 bg-black/90 backdrop-blur-xl border border-white/20 rounded-xl p-4 shadow-2xl w-56"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-gray-400 font-mono uppercase tracking-wider">
+                        {lang === 'fr' ? 'Ambiance' : 'Ambient'}
+                      </span>
+                      <span className="text-[10px] text-purple-400 font-mono font-bold">
+                        {isMuted ? 'MUTE' : `${Math.round(userVolume * 100)}%`}
+                      </span>
+                    </div>
+
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={userVolume}
+                      onChange={(e) => {
+                        setUserVolume(parseFloat(e.target.value));
+                        if (isMuted && parseFloat(e.target.value) > 0) setIsMuted(false);
+                      }}
+                      className="w-full accent-purple-500 h-1 cursor-pointer"
+                    />
+
+                    <button
+                      onClick={() => setIsMuted(!isMuted)}
+                      className={`w-full py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1.5 ${isMuted
+                          ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                          : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10'
+                        }`}
+                    >
+                      {isMuted ? <VolumeX size={12} /> : <Volume2 size={12} />}
+                      {isMuted
+                        ? (lang === 'fr' ? 'Activer le son' : 'Unmute')
+                        : (lang === 'fr' ? 'Couper le son' : 'Mute')
+                      }
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      )}
 
       {/* ✅ L'écran de fondu au noir pour la transition Street View */}
-      <div 
+      <div
         className={`absolute inset-0 z-40 bg-black transition-opacity duration-500 pointer-events-none ${isTransitioning ? 'opacity-100' : 'opacity-0'}`}
       />
 
@@ -398,7 +555,7 @@ export default function PanoramaViewer({
               });
               setProximities(newProximities);
             }} />
-            
+
             <TransitionEffect isTransitioning={isTransitioning} />
             <DragAndZoomControls isTransitioning={isTransitioning} />
 

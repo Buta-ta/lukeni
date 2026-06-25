@@ -151,6 +151,7 @@ export interface PanoramaScene {
   thumbnail_url?: string;
   hotspots: Hotspot[];
   ambient_audio_url?: string | null;
+  ambient_audio_volume?: number;
   timer_duration?: number;
   visual_filter?: 'none' | 'sepia' | 'grayscale' | 'vintage' | string;
   game_over_msg_fr?: string;
@@ -162,6 +163,7 @@ export interface PanoramaScene {
   mission_objectives_en?: string[];
   mission_hint_fr?: string;
   mission_hint_en?: string;
+
 }
 
 export function flatToSpherical(xPercent: number, yPercent: number) {

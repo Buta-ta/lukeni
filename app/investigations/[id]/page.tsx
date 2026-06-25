@@ -1887,6 +1887,7 @@ export default function InvestigationGame(props: {
             }
           }}
           ambientAudioUrl={currentScene.ambient_audio_url}
+          ambientAudioVolume={(currentScene as any).ambient_audio_volume ?? 0.5}
           visualFilter={currentScene.visual_filter || "none"}
           characters={characters}
         />
