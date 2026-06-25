@@ -489,7 +489,7 @@ export default function InvestigationsHub() {
             </span>
           </div>
           <div className="absolute top-4 right-4 md:right-16 font-mono text-[9px] text-gray-500 tracking-widest z-10">
-            TERMINAL // 04
+            kindoki 2080
           </div>
 
           <div className="relative w-full h-[450px] md:h-[550px] bg-[#0A0D0F] rounded-lg overflow-hidden border-4 border-[#111] shadow-[inset_0_0_40px_rgba(0,0,0,0.9)] mt-6">
