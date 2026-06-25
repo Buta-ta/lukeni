@@ -225,6 +225,7 @@ export default function InvestigationsHub() {
   }, []);
 
   // ── Créer un groupe ──
+   // ── Créer un groupe ──
   const handleCreateGroup = async (inv: any) => {
     if (!userId) return;
     setIsCreatingGroup(inv.id);
@@ -247,7 +248,23 @@ export default function InvestigationsHub() {
       const newGroupCode = generateGroupCode();
       const newGroupId = crypto.randomUUID();
 
-      // Upsert la session avec le groupe
+      // 1️⃣ NOUVEAU : CRÉER LE GROUPE DANS LA BASE DE DONNÉES !
+      const { error: groupErr } = await supabase
+        .from("investigation_groups")
+        .insert({
+          id: newGroupId,
+          investigation_id: inv.id,
+          created_by: userId,
+          invite_code: newGroupCode,
+          status: "waiting", 
+        });
+
+      if (groupErr) {
+        console.error("Erreur création groupe dans Supabase:", groupErr);
+        throw groupErr;
+      }
+
+      // 2️⃣ Upsert la session avec le groupe
       if (existingSession) {
         await supabase
           .from("investigation_sessions")
