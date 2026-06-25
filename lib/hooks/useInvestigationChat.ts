@@ -323,6 +323,7 @@ export function useInvestigationChat(
   }, [investigationId, groupId]);
 
   // ✅ Envoyer un message
+   // ✅ Envoyer un message (CORRIGÉ)
   const sendMessage = useCallback(
     async (
       content: string,
@@ -335,11 +336,12 @@ export function useInvestigationChat(
       if (!userId || !content.trim() || !investigationId) return;
 
       try {
-        const { error: err } = await supabase
+        const { error: err, data } = await supabase
           .from('investigation_messages')
           .insert({
+            // On s'assure de forcer 'null' au lieu de 'undefined'
             investigation_id: investigationId,
-            group_id: groupId,
+            group_id: groupId || null, 
             user_id: userId,
             character_id: characterId || null,
             content: content.trim(),
@@ -347,9 +349,14 @@ export function useInvestigationChat(
             scene_id: sceneId || null,
             metadata: metadata || null,
             replied_to_message_id: repliedToMessageId || null,
-          });
+          })
+          .select(); // On rajoute .select() pour s'assurer du retour
 
-        if (err) throw err;
+        if (err) {
+          // Affiche L'ERREUR EXACTE de la base de données dans la console
+          console.error('❌ Détail de l\'erreur Supabase:', err.message, err.details, err.hint);
+          throw err;
+        }
       } catch (err: any) {
         console.error('Send message error:', err);
       }
