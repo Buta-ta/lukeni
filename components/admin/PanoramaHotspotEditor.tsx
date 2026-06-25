@@ -707,24 +707,23 @@ export default function PanoramaHotspotEditor({
     document.addEventListener('mousemove', handleMouseMove); document.addEventListener('mouseup', handleMouseUp);
   }, [activeSceneIndex, updateHotspot]);
 
- const handleSave = async () => {
+  const handleSave = async () => {
     if (!activeScene) return;
     setIsSaving(true);
-    await supabase.from('investigation_scenes').update({ 
-      hotspots: activeScene.hotspots, 
-      ambient_audio_url: activeScene.ambient_audio_url, 
-      ambient_audio_volume: activeScene.ambient_audio_volume ?? 0.5, // ✅ AJOUT
-      timer_duration: activeScene.timer_duration, 
-      visual_filter: activeScene.visual_filter, 
-      instruction_id: activeScene.instruction_id || null 
+    await supabase.from('investigation_scenes').update({
+      panorama_url: activeScene.panorama_url, // ✅ AJOUT CRUCIAL ICI
+      hotspots: activeScene.hotspots,
+      ambient_audio_url: activeScene.ambient_audio_url,
+      ambient_audio_volume: activeScene.ambient_audio_volume ?? 0.5,
+      timer_duration: activeScene.timer_duration,
+      visual_filter: activeScene.visual_filter,
+      instruction_id: activeScene.instruction_id || null
     }).eq('id', activeScene.id);
-    setIsDirty(false); 
-    setIsSaving(false);
-};
+    setIsDirty(false); setIsSaving(false);
+  };
 
-  const uploadSceneMedia = (field: 'panorama_url' | 'ambient_audio_url', isAudio = false) => {
+  const uploadSceneMedia = (field: 'panorama_url' | 'ambient_audio_url' | 'replace_panorama', isAudio = false) => {
     setIsUploadingScene(true);
-
     const createWidget = () => {
       // @ts-ignore
       const widget = window.cloudinary.createUploadWidget({
@@ -738,9 +737,14 @@ export default function PanoramaHotspotEditor({
         if (result?.event === 'success') {
           const url = result.info.secure_url;
           if (field === 'panorama_url') {
+            // Création d'une nouvelle scène
             const newScene = { id: uuidv4(), chapter_id: chapterId, scene_order: scenes.length + 1, title_fr: `Scène ${scenes.length + 1}`, title_en: `Scene ${scenes.length + 1}`, panorama_url: url, hotspots: [] };
             const { data } = await supabase.from('investigation_scenes').insert(newScene).select().single();
             if (data) { setScenes(prev => [...prev, data]); setActiveSceneIndex(scenes.length); onScenesUpdate(); }
+          } else if (field === 'replace_panorama') {
+            // ✅ Remplacement de l'image de la scène ACTUELLE
+            setScenes(prev => prev.map((sc, idx) => idx === activeSceneIndex ? { ...sc, panorama_url: url } : sc));
+            setIsDirty(true);
           } else {
             setScenes(prev => prev.map((sc, idx) => idx === activeSceneIndex ? { ...sc, [field]: url } : sc)); setIsDirty(true);
           }
@@ -1110,6 +1114,18 @@ export default function PanoramaHotspotEditor({
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className={`lg:col-span-2 relative rounded-xl overflow-hidden border-2 ${isPlacingMode ? 'border-red-500 cursor-crosshair' : 'border-white/10'}`} style={{ minHeight: '300px' }}>
+
+              {/* ✅ NOUVEAU BOUTON : Changer l'image de fond */}
+              <div className="absolute top-2 right-2 z-20">
+                <button
+                  onClick={(e) => { e.stopPropagation(); uploadSceneMedia('replace_panorama'); }}
+                  className="flex items-center gap-2 bg-black/80 hover:bg-black text-white px-3 py-2 rounded-lg text-xs font-bold border border-white/20 shadow-xl transition-all"
+                >
+                  {isUploadingScene ? <Loader2 size={14} className="animate-spin" /> : <ImagePlus size={14} />}
+                  Changer l'image 360°
+                </button>
+              </div>
+
               <img ref={imageRef} src={activeScene.panorama_url} className="w-full h-full object-cover select-none" onLoad={() => setImageLoaded(true)} onClick={handleImageClick} draggable={false} style={{ minHeight: '280px', maxHeight: '420px' }} />
               {imageLoaded && hotspots.map(h => (
                 <div key={h.id} className="absolute z-10 -translate-x-1/2 -translate-y-1/2 group" style={{ left: `${h.x_percent}%`, top: `${h.y_percent}%` }} onMouseDown={e => handleMarkerMouseDown(e, h.id)} onClick={e => { e.stopPropagation(); setSelectedHotspotId(h.id); }}>
