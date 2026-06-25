@@ -1403,11 +1403,7 @@ export default function InvestigationGame(props: {
         `input[name="enigma-choice-${enigma.id}"]:checked`
       ) as HTMLInputElement | null;
       if (!selectedRadio) {
-        sendChatMessage(
-          lang === "fr" ? "❌ Sélectionnez une réponse !" : "❌ Select an answer!",
-          "system",
-          selectedCharacterId || undefined,
-        );
+        
         return;
       }
       const selectedIndex = parseInt(selectedRadio.value);
@@ -1451,11 +1447,7 @@ export default function InvestigationGame(props: {
         });
 
       solveEnigma(enigma.id);
-      sendChatMessage(
-        "🧩 Bonne réponse ! (+5 Cauris)",
-        "system",
-        selectedCharacterId || undefined,
-      );
+      
 
       // ✅ ARRÊTER LE TIMER D'ÉNIGME (IMPORTANT !)
       setEnigmaTimerActive(false);
@@ -1558,11 +1550,7 @@ export default function InvestigationGame(props: {
       }
 
       if (newBudget <= 0) {
-        sendChatMessage(
-          "💀 Ruiné ! Vos Cauris sont épuisés...",
-          "system",
-          selectedCharacterId || undefined,
-        );
+        
 
         // ✅ NOUVEAU : Déclencher l'événement "on_failure"
         if (enigma.trigger_event_on_failure_id) {
@@ -1578,11 +1566,7 @@ export default function InvestigationGame(props: {
           type: "abandon",
         });
       } else {
-        sendChatMessage(
-          "❌ Mauvaise réponse ! (-1 Cauris)",
-          "system",
-          selectedCharacterId || undefined,
-        );
+        
       }
     }
   };
