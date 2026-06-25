@@ -300,6 +300,7 @@ export function useInvestigationSession(
   );
 
   // ✅ Créer un groupe multijoueur
+  // ✅ Créer un groupe multijoueur (CORRIGÉ)
   const createGroup = useCallback(async (): Promise<{
     group_code: string;
     group_id: string;
@@ -311,6 +312,23 @@ export function useInvestigationSession(
       const newGroupCode = generateGroupCode();
       const newGroupId = crypto.randomUUID();
 
+      // 1️⃣ ON CRÉE LE GROUPE DANS LA BASE DE DONNÉES (La ligne qui manquait !)
+      const { error: groupErr } = await supabase
+        .from('investigation_groups')
+        .insert({
+          id: newGroupId,
+          investigation_id: session.investigation_id,
+          created_by: session.user_id,
+          invite_code: newGroupCode,
+          status: 'playing', // ou 'waiting' selon ta logique
+        });
+
+      if (groupErr) {
+        console.error('Erreur lors de la création du groupe dans Supabase:', groupErr);
+        throw groupErr;
+      }
+
+      // 2️⃣ ENSUITE SEULEMENT, ON MET À JOUR LA SESSION DU JOUEUR
       const { error: err } = await supabase
         .from('investigation_sessions')
         .update({
@@ -323,6 +341,7 @@ export function useInvestigationSession(
 
       if (err) throw err;
 
+      // 3️⃣ ON MET À JOUR L'AFFICHAGE LOCAL
       setSession((prev) =>
         prev
           ? serializeSession({
