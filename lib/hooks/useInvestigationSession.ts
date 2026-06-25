@@ -400,6 +400,7 @@ export function useInvestigationSession(
   }, [session]);
 
   // ✅ Rejoindre un groupe via code
+  // ✅ Rejoindre un groupe via code (CORRIGÉ)
   const joinGroupByCode = useCallback(
     async (
       code: string
@@ -408,25 +409,39 @@ export function useInvestigationSession(
 
       setIsSaving(true);
       try {
-        const { data: creatorSession, error: searchErr } = await supabase
-          .from('investigation_sessions')
-          .select(
-            'group_id, user_id, profiles(full_name)'
-          )
-          .eq('group_code', code.toUpperCase().trim())
+        const cleanCode = code.toUpperCase().trim();
+
+        // 1️⃣ On cherche le groupe directement dans la table des groupes !
+        const { data: groupData, error: searchErr } = await supabase
+          .from('investigation_groups')
+          .select('id, created_by')
+          .eq('invite_code', cleanCode)
           .eq('investigation_id', investigationId)
           .maybeSingle();
 
         if (searchErr) throw searchErr;
 
-        if (!creatorSession || !creatorSession.group_id) {
+        if (!groupData || !groupData.id) {
           return { success: false, error: 'invalid_code' };
         }
 
+        // 2️⃣ (Optionnel) On récupère le nom du créateur
+        let creatorName = undefined;
+        if (groupData.created_by) {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', groupData.created_by)
+            .maybeSingle();
+          if (profileData) creatorName = profileData.full_name;
+        }
+
+        // 3️⃣ On met à jour la session du joueur pour l'ajouter au groupe
         const { error: updateErr } = await supabase
           .from('investigation_sessions')
           .update({
-            group_id: creatorSession.group_id,
+            group_id: groupData.id,
+            group_code: cleanCode, // On sauvegarde aussi le code chez le joueur
             is_group_creator: false,
             last_played_at: new Date().toISOString(),
           })
@@ -434,14 +449,12 @@ export function useInvestigationSession(
 
         if (updateErr) throw updateErr;
 
-        const creatorName =
-          (creatorSession as any).profiles?.full_name || undefined;
-
         setSession((prev) =>
           prev
             ? serializeSession({
               ...prev,
-              group_id: creatorSession.group_id,
+              group_id: groupData.id,
+              group_code: cleanCode,
               is_group_creator: false,
             })
             : null
