@@ -1502,9 +1502,7 @@ export default function InvestigationGame(props: {
       setEnigmaAttempts(newAttempts);
 
       const autoRevealAfter = outroConfig?.game_economy?.auto_reveal_after || 3;
-      const enigmaClues =
-        currentChapter?.enigmas?.find((e: any) => e.id === enigma.id)?.clues ||
-        [];
+      const enigmaClues = allChapterEnigmas.find((e: any) => e.id === enigma.id)?.clues || [];
 
       if (currentAttempts % autoRevealAfter === 0 && enigmaClues.length > 0) {
         const nextClue = enigmaClues.find(
@@ -2947,8 +2945,8 @@ export default function InvestigationGame(props: {
                                 <div
                                   key={clue.id}
                                   className={`p-3 rounded-lg text-xs border ${isRevealed
-                                      ? "bg-blue-900/20 border-blue-500/30"
-                                      : "bg-black/40 border-white/10"
+                                    ? "bg-blue-900/20 border-blue-500/30"
+                                    : "bg-black/40 border-white/10"
                                     }`}
                                 >
                                   {isRevealed ? (
@@ -2993,8 +2991,8 @@ export default function InvestigationGame(props: {
                                         onClick={() => handleRevealClue(clue.id)}
                                         disabled={budgetCauris < clueCost}
                                         className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${budgetCauris >= clueCost
-                                            ? "bg-[#D4AF37] hover:bg-white text-black shadow-lg hover:shadow-xl"
-                                            : "bg-red-500/10 border border-red-500/30 text-red-400 cursor-not-allowed"
+                                          ? "bg-[#D4AF37] hover:bg-white text-black shadow-lg hover:shadow-xl"
+                                          : "bg-red-500/10 border border-red-500/30 text-red-400 cursor-not-allowed"
                                           }`}
                                       >
                                         <span>💰</span>
