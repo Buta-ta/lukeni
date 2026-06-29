@@ -22,6 +22,7 @@ interface Instruction {
   id: string;
   investigation_id: string;
   name: string;
+  name_en?: string;
   instruction_fr: string;
   instruction_en: string;
   icon: string;
@@ -52,6 +53,7 @@ export default function InstructionsLibrary({
 
   const [formData, setFormData] = useState<Partial<Instruction>>({
     name: "",
+    name_en: "", 
     instruction_fr: "",
     instruction_en: "",
     icon: "💡",
@@ -106,6 +108,7 @@ export default function InstructionsLibrary({
           .from("investigation_instructions")
           .update({
             name: formData.name,
+            name_en: formData.name_en,
             instruction_fr: formData.instruction_fr,
             instruction_en: formData.instruction_en,
             icon: formData.icon,
@@ -120,6 +123,7 @@ export default function InstructionsLibrary({
               ? {
                   ...i,
                   name: formData.name!,
+                  name_en: formData.name_en,
                   instruction_fr: formData.instruction_fr!,
                   instruction_en: formData.instruction_en!,
                   icon: formData.icon!,
@@ -135,6 +139,7 @@ export default function InstructionsLibrary({
           id: uuidv4(),
           investigation_id: investigationId,
           name: formData.name!,
+          name_en: formData.name_en,
           instruction_fr: formData.instruction_fr!,
           instruction_en: formData.instruction_en!,
           icon: formData.icon!,
@@ -193,6 +198,20 @@ export default function InstructionsLibrary({
       showMsg("error", "Erreur de traduction");
     }
     setIsTranslating(false);
+  };
+
+    const [isTranslatingName, setIsTranslatingName] = useState(false);
+
+  const handleTranslateName = async () => {
+    if (!formData.name?.trim()) return;
+    setIsTranslatingName(true);
+    try {
+      const t = await autoTranslate(formData.name, "fr");
+      setFormData((prev) => ({ ...prev, name_en: t }));
+    } catch {
+      showMsg("error", "Erreur de traduction du nom");
+    }
+    setIsTranslatingName(false);
   };
 
   // ── TOGGLER EXPANSION ──
@@ -256,20 +275,49 @@ export default function InstructionsLibrary({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {/* Nom */}
-            <div>
-              <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">
-                Nom (interne)
-              </label>
-              <input
-                type="text"
-                value={formData.name || ""}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, name: e.target.value }))
-                }
-                placeholder="Ex: Explication Timeline"
-                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-              />
+                        {/* Nom FR & EN */}
+            <div className="col-span-1 md:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">
+                  Nom FR (Interne & Affiché)
+                </label>
+                <input
+                  type="text"
+                  value={formData.name || ""}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, name: e.target.value }))
+                  }
+                  placeholder="Ex: Explication Timeline"
+                  className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">
+                  Name EN
+                </label>
+                <div className="flex gap-2 items-start">
+                  <input
+                    type="text"
+                    value={formData.name_en || ""}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, name_en: e.target.value }))
+                    }
+                    placeholder="Ex: Timeline Explanation"
+                    className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                  />
+                  <button
+                    onClick={handleTranslateName}
+                    className="p-2 bg-white/5 rounded hover:bg-white/10 flex-shrink-0"
+                  >
+                    {isTranslatingName ? (
+                      <Loader2 size={14} className="animate-spin text-blue-500" />
+                    ) : (
+                      <Languages size={14} className="text-gray-400" />
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Icône */}

@@ -406,7 +406,8 @@ export default function InvestigationGame(props: {
         const newNotif = {
           id: Math.random().toString(36).slice(2), // ID unique garanti
           icon: data.icon,
-          name: data.name,
+          
+          name: lang === "fr" ? data.name : (data.name_en || data.name), 
           text: lang === "fr" ? data.instruction_fr : data.instruction_en,
         };
 
@@ -2921,55 +2922,38 @@ export default function InvestigationGame(props: {
                           )}
                         </div>
                       )}
-
-                      {/* ✅ INDICES PAYANTS */}
+                      {/* ✅ INDICES PAYANTS - TOUJOURS VISIBLES */}
                       {(() => {
-                        const enigmaClues =
-                          currentChapter?.enigmas?.find(
-                            (e: any) => e.id === enigma.id,
-                          )?.clues || [];
+                        const enigmaClues = currentChapter?.enigmas?.find((e: any) => e.id === enigma.id)?.clues || [];
                         if (enigmaClues.length === 0 || isSolved) return null;
 
                         const attempts = enigmaAttempts[enigma.id] || 0;
-                        const autoRevealAfter =
-                          outroConfig?.game_economy?.auto_reveal_after || 3;
+                        const autoRevealAfter = outroConfig?.game_economy?.auto_reveal_after || 3;
 
                         return (
-                          <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
-                            <p className="text-[10px] text-gray-500 font-mono uppercase tracking-wider flex items-center gap-1">
-                              💡 {lang === "fr" ? "Indices" : "Clues"} (
-                              {
-                                enigmaClues.filter((c: any) =>
-                                  revealedClues.includes(c.id),
-                                ).length
-                              }
-                              /{enigmaClues.length})
+                          <div className="mt-4 space-y-3 border-t border-blue-500/20 pt-4">
+                            <p className="text-[10px] text-blue-400 font-mono uppercase tracking-wider flex items-center gap-1 font-bold">
+                              💡 {lang === "fr" ? "Indices disponibles" : "Available Clues"}
                             </p>
+                            
                             {enigmaClues.map((clue: any, clueIdx: number) => {
-                              const isRevealed = revealedClues.includes(
-                                clue.id,
-                              );
-                              const clueText =
-                                lang === "fr"
-                                  ? clue.text_fr
-                                  : clue.text_en || clue.text_fr;
+                              const isRevealed = revealedClues.includes(clue.id);
+                              const clueText = lang === "fr" ? clue.text_fr : clue.text_en || clue.text_fr;
                               const clueCost = clue.reveal_cost_cauris ?? 5;
-                              const errorsUntilAuto = isRevealed
-                                ? 0
-                                : autoRevealAfter -
-                                (attempts % autoRevealAfter);
-
+                              const errorsUntilAuto = isRevealed ? 0 : autoRevealAfter - (attempts % autoRevealAfter);
+                              
                               return (
                                 <div
                                   key={clue.id}
-                                  className={`p-3 rounded-lg text-xs border ${isRevealed
-                                    ? "bg-blue-900/20 border-blue-500/30"
-                                    : "bg-black/40 border-white/10"
-                                    }`}
+                                  className={`p-3 rounded-lg text-xs border ${
+                                    isRevealed
+                                      ? "bg-blue-900/20 border-blue-500/30"
+                                      : "bg-black/40 border-white/10"
+                                  }`}
                                 >
                                   {isRevealed ? (
                                     <div className="space-y-2">
-                                      {/* TEXTE */}
+                                      {/* TEXTE RÉVÉLÉ */}
                                       <p className="font-serif italic leading-relaxed text-blue-300">
                                         <span className="text-blue-400 font-mono mr-1">
                                           [{clueIdx + 1}]
@@ -2980,24 +2964,11 @@ export default function InvestigationGame(props: {
                                       {clue.media_url && (
                                         <div className="mt-2 p-2 bg-blue-900/30 rounded border border-blue-500/20">
                                           {clue.media_type === "image" ? (
-                                            <img
-                                              src={clue.media_url}
-                                              alt="Indice"
-                                              className="w-full h-32 object-cover rounded border border-blue-500/30"
-                                            />
+                                            <img src={clue.media_url} alt="Indice" className="w-full h-32 object-cover rounded border border-blue-500/30" />
                                           ) : clue.media_type === "audio" ? (
-                                            <audio
-                                              src={clue.media_url}
-                                              controls
-                                              className="w-full h-6"
-                                            />
+                                            <audio src={clue.media_url} controls className="w-full h-6" />
                                           ) : (
-                                            <a
-                                              href={clue.media_url}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="text-blue-400 underline text-[10px]"
-                                            >
+                                            <a href={clue.media_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline text-[10px]">
                                               📄 {lang === "fr" ? "Document" : "Document"}
                                             </a>
                                           )}
@@ -3005,28 +2976,31 @@ export default function InvestigationGame(props: {
                                       )}
                                     </div>
                                   ) : (
-                                    <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center justify-between gap-3">
                                       <div className="flex-1 min-w-0">
-                                        <span className="text-gray-600 font-mono text-[10px] block">
+                                        <span className="text-gray-400 font-mono text-[10px] block font-bold">
                                           🔒 {lang === "fr" ? `Indice ${clueIdx + 1}` : `Clue ${clueIdx + 1}`}
                                         </span>
-                                        <span className="text-gray-700 text-[9px]">
+                                        <span className="text-gray-500 text-[9px]">
                                           {lang === "fr"
-                                            ? `encore ${errorsUntilAuto} erreur(s) ou`
-                                            : `${errorsUntilAuto} more error(s) or`}
+                                            ? `Débloqué auto après ${errorsUntilAuto} erreur(s)`
+                                            : `Auto-unlock after ${errorsUntilAuto} error(s)`}
                                         </span>
                                       </div>
+                                      
+                                      {/* ✅ BOUTON D'ACHAT BIEN VISIBLE */}
                                       <button
-                                        onClick={() =>
-                                          handleRevealClue(clue.id)
-                                        }
+                                        onClick={() => handleRevealClue(clue.id)}
                                         disabled={budgetCauris < clueCost}
-                                        className={`flex-shrink-0 px-2 py-1.5 rounded text-[10px] font-bold transition-colors whitespace-nowrap ${budgetCauris >= clueCost
-                                          ? "bg-[#D4AF37]/20 hover:bg-[#D4AF37]/40 border border-[#D4AF37]/30 text-[#D4AF37]"
-                                          : "bg-red-500/10 border border-red-500/30 text-red-400 cursor-not-allowed"
-                                          }`}
+                                        className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
+                                          budgetCauris >= clueCost
+                                            ? "bg-[#D4AF37] hover:bg-white text-black shadow-lg hover:shadow-xl"
+                                            : "bg-red-500/10 border border-red-500/30 text-red-400 cursor-not-allowed"
+                                        }`}
                                       >
-                                        💡 -{clueCost}
+                                        <span>💰</span>
+                                        <span>{clueCost}</span>
+                                        <CaurisIcon className="w-3 h-3" />
                                       </button>
                                     </div>
                                   )}
