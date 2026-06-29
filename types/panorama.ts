@@ -163,6 +163,8 @@ export interface PanoramaScene {
   mission_objectives_en?: string[];
   mission_hint_fr?: string;
   mission_hint_en?: string;
+  historical_context_fr?: string | null; 
+  historical_context_en?: string | null; 
 
 }
 

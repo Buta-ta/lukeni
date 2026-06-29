@@ -475,6 +475,7 @@ export default function PanoramaHotspotEditor({
 
   const [isTranslatingScene, setIsTranslatingScene] = useState(false);
   const [isTranslatingMission, setIsTranslatingMission] = useState(false);
+  const [isTranslatingContext, setIsTranslatingContext] = useState(false);
 
   const imageRef = useRef<HTMLImageElement>(null);
   const activeScene = scenes[activeSceneIndex] || null;
@@ -590,6 +591,21 @@ export default function PanoramaHotspotEditor({
       console.error("Translation error:", err);
     }
     setIsTranslatingMission(false);
+  };
+
+
+    // ── Traduction du Contexte Historique ──
+  const translateContext = async (sceneId: string, frText: string) => {
+    if (!frText.trim()) return;
+    setIsTranslatingContext(true);
+    try {
+      const translated = await autoTranslate(frText, "fr");
+      setScenes(prev => prev.map(s => s.id === sceneId ? { ...s, historical_context_en: translated } : s));
+      await supabase.from("investigation_scenes").update({ historical_context_en: translated }).eq("id", sceneId);
+    } catch (err) {
+      console.error("Translation error:", err);
+    }
+    setIsTranslatingContext(false);
   };
 
 
@@ -715,6 +731,8 @@ export default function PanoramaHotspotEditor({
       hotspots: activeScene.hotspots,
       ambient_audio_url: activeScene.ambient_audio_url,
       ambient_audio_volume: activeScene.ambient_audio_volume ?? 0.5,
+      historical_context_fr: activeScene.historical_context_fr || null, 
+      historical_context_en: activeScene.historical_context_en || null,
       timer_duration: activeScene.timer_duration,
       visual_filter: activeScene.visual_filter,
       instruction_id: activeScene.instruction_id || null
@@ -1069,6 +1087,47 @@ export default function PanoramaHotspotEditor({
                   className="p-2 bg-white/5 rounded hover:bg-white/10"
                 >
                   {isTranslatingMission ? <Loader2 size={14} className="animate-spin text-green-500" /> : <Languages size={14} className="text-gray-400" />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+
+
+
+                    {/* ── MÉMOIRE / CONTEXTE HISTORIQUE DU LIEU ── */}
+          <div className="bg-[#111] p-4 rounded-xl border border-[#06b6d4]/20 space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-bold text-[#06b6d4] flex items-center gap-2">
+                📖 Mémoire (Contexte Historique du lieu)
+              </h4>
+            </div>
+
+            <div>
+              <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Texte FR</label>
+              <textarea
+                rows={3}
+                value={activeScene.historical_context_fr || ''}
+                onChange={e => { setScenes(p => p.map((s, i) => i === activeSceneIndex ? { ...s, historical_context_fr: e.target.value } : s)); setIsDirty(true); }}
+                placeholder="Ex: Ce bâtiment a été construit en 1960..."
+                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white resize-none outline-none focus:border-[#06b6d4]"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Texte EN</label>
+              <div className="flex gap-2">
+                <textarea
+                  rows={3}
+                  value={activeScene.historical_context_en || ''}
+                  onChange={e => { setScenes(p => p.map((s, i) => i === activeSceneIndex ? { ...s, historical_context_en: e.target.value } : s)); setIsDirty(true); }}
+                  placeholder="Ex: This building was constructed in 1960..."
+                  className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white resize-none outline-none"
+                />
+                <button
+                  onClick={() => translateContext(activeScene.id, activeScene.historical_context_fr || '')}
+                  className="p-2 bg-white/5 rounded hover:bg-white/10 mt-1 h-fit flex-shrink-0"
+                >
+                  {isTranslatingContext ? <Loader2 size={14} className="animate-spin text-[#06b6d4]" /> : <Languages size={14} className="text-gray-400" />}
                 </button>
               </div>
             </div>

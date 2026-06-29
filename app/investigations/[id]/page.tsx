@@ -120,6 +120,9 @@ interface Scene {
   mission_objectives_en?: string[];
   mission_hint_fr?: string;
   mission_hint_en?: string;
+
+  historical_context_fr?: string | null; 
+  historical_context_en?: string | null; 
 }
 interface Clue {
   id: string;
@@ -288,6 +291,8 @@ export default function InvestigationGame(props: {
   const [customEmojiInput, setCustomEmojiInput] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+    const [hasUnreadMemory, setHasUnreadMemory] = useState(false);
+
   const {
     session,
     isLoading: isSessionLoading,
@@ -451,6 +456,22 @@ export default function InvestigationGame(props: {
     );
   };
 
+
+
+    // ── GESTION DE LA NOTIFICATION MÉMOIRE ──
+  useEffect(() => {
+    // Si la nouvelle scène possède un contexte historique, on allume le point rouge
+    if (currentScene && (currentScene.historical_context_fr || currentScene.historical_context_en)) {
+      setHasUnreadMemory(true);
+    }
+  }, [currentScene?.id]);
+
+  useEffect(() => {
+    // Si le joueur ouvre le panneau "story" (Mémoire), on éteint le point rouge
+    if (activeUI === "story") {
+      setHasUnreadMemory(false);
+    }
+  }, [activeUI]);
 
   // Reset zoom quand on ouvre le panel énigmes
   useEffect(() => {
@@ -2062,14 +2083,18 @@ export default function InvestigationGame(props: {
       {/* COCKPIT INFÉRIEUR */}
       <div className="absolute bottom-6 inset-x-0 z-30 flex justify-center pointer-events-none">
         <div className="flex items-center gap-2 md:gap-4 bg-black/60 backdrop-blur-md border border-white/10 p-2 rounded-full pointer-events-auto shadow-2xl flex-wrap justify-center">
-          <button
+                    <button
             onClick={() => setActiveUI(activeUI === "story" ? null : "story")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors ${activeUI === "story" ? "bg-[#06b6d4] text-black" : "hover:bg-white/10 text-gray-300"}`}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors relative ${activeUI === "story" ? "bg-[#06b6d4] text-black" : "hover:bg-white/10 text-gray-300"}`}
           >
             <BookOpen size={18} />
             <span className="hidden md:block font-mono text-xs font-bold tracking-widest">
               {lang === "fr" ? "MÉMOIRE" : "MEMORY"}
             </span>
+            {/* ✅ NOUVEAU : Badge rouge si non lu */}
+            {hasUnreadMemory && activeUI !== "story" && (
+              <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+            )}
           </button>
 
 
@@ -2570,7 +2595,7 @@ export default function InvestigationGame(props: {
 
       {/* PANNEAUX DYNAMIQUES COMPLETS */}
       <AnimatePresence>
-        {activeUI === "story" && (
+                {activeUI === "story" && (
           <motion.div
             initial={{ opacity: 0, y: 100 }}
             animate={{ opacity: 1, y: 0 }}
@@ -2582,17 +2607,41 @@ export default function InvestigationGame(props: {
                 <BookOpen size={14} />{" "}
                 {lang === "fr" ? "DONNÉES HISTORIQUES" : "HISTORICAL DATA"}
               </span>
-              <button
-                onClick={() => setActiveUI(null)}
-                className="text-[#06b6d4] hover:text-white"
-              >
+              <button onClick={() => setActiveUI(null)} className="text-[#06b6d4] hover:text-white">
                 <X size={16} />
               </button>
             </div>
-            <div className="p-6 overflow-y-auto flex-1 font-serif text-gray-200 leading-relaxed text-sm md:text-base">
-              {chapNarrative || (
-                <span className="text-gray-500 font-mono italic">
-                  -- NOTES --
+            
+            <div className="p-6 overflow-y-auto flex-1 space-y-8">
+              
+              {/* ✅ BLOC 1 : Contexte Global (Chapitre) */}
+              {chapNarrative && (
+                <div>
+                  <h3 className="text-[#06b6d4] font-bold font-mono text-[10px] uppercase tracking-widest mb-3 border-b border-[#06b6d4]/30 pb-2">
+                    {lang === "fr" ? "Contexte Global" : "Global Context"}
+                  </h3>
+                  <div className="font-serif text-gray-200 leading-relaxed text-sm md:text-base">
+                    {chapNarrative}
+                  </div>
+                </div>
+              )}
+
+              {/* ✅ BLOC 2 : Archives du Lieu (Scène actuelle) */}
+              {(currentScene?.historical_context_fr || currentScene?.historical_context_en) && (
+                <div>
+                  <h3 className="text-[#D4AF37] font-bold font-mono text-[10px] uppercase tracking-widest mb-3 border-b border-[#D4AF37]/30 pb-2">
+                    {lang === "fr" ? `Archives du lieu : ${sceneTitle}` : `Location Archives: ${sceneTitle}`}
+                  </h3>
+                  <div className="font-serif text-gray-200 leading-relaxed text-sm md:text-base">
+                    {lang === "fr" ? currentScene.historical_context_fr : currentScene.historical_context_en || currentScene.historical_context_fr}
+                  </div>
+                </div>
+              )}
+
+              {/* Si rien n'est configuré */}
+              {!chapNarrative && !currentScene?.historical_context_fr && (
+                <span className="text-gray-500 font-mono italic block text-center mt-10">
+                  -- {lang === "fr" ? "AUCUNE DONNÉE" : "NO DATA"} --
                 </span>
               )}
             </div>
