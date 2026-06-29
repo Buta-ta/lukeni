@@ -53,7 +53,7 @@ function IconPicker({ currentIcon, currentIconUrl, onSelectEmoji, onSelectCustom
       // @ts-ignore
       const widget = window.cloudinary.createUploadWidget({
         cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-        uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET,
+        uploadPreset: "lukeni_upload",
         sources: ['local', 'url'], resourceType: 'image', folder: 'lukeni/hotspot-icons', croppingAspectRatio: 1,
       }, (error: any, result: any) => {
         setIsUploading(false);
