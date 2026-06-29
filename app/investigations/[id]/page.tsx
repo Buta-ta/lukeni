@@ -539,7 +539,11 @@ export default function InvestigationGame(props: {
         const { data: chaps } = await supabase
           .from("investigation_chapters")
           .select(
-            `*, enigmas:investigation_enigmas(*), scenes:investigation_scenes(*)`,
+            `
+    *,
+    enigmas:investigation_enigmas(*, clues:investigation_clues(*)),
+    scenes:investigation_scenes(*)
+  `,
           )
           .eq("investigation_id", invId)
           .order("step_order", { ascending: true });
@@ -2923,7 +2927,8 @@ export default function InvestigationGame(props: {
                       {/* ✅ INDICES PAYANTS - TOUJOURS VISIBLES */}
                       {(() => {
                         // ✅ FIX : Chercher dans allChapterEnigmas au lieu de currentChapter.enigmas
-                        const enigmaClues = allChapterEnigmas.find((e: any) => e.id === enigma.id)?.clues || [];
+                        console.log('Énigme:', enigma.id, 'Clues:', enigma.clues);
+                        const enigmaClues = enigma.clues || [];
                         if (enigmaClues.length === 0 || isSolved) return null;
 
                         const attempts = enigmaAttempts[enigma.id] || 0;
