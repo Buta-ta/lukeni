@@ -121,8 +121,8 @@ interface Scene {
   mission_hint_fr?: string;
   mission_hint_en?: string;
 
-  historical_context_fr?: string | null; 
-  historical_context_en?: string | null; 
+  historical_context_fr?: string | null;
+  historical_context_en?: string | null;
 }
 interface Clue {
   id: string;
@@ -291,7 +291,7 @@ export default function InvestigationGame(props: {
   const [customEmojiInput, setCustomEmojiInput] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-    const [hasUnreadMemory, setHasUnreadMemory] = useState(false);
+  const [hasUnreadMemory, setHasUnreadMemory] = useState(false);
 
   const {
     session,
@@ -406,8 +406,8 @@ export default function InvestigationGame(props: {
         const newNotif = {
           id: Math.random().toString(36).slice(2), // ID unique garanti
           icon: data.icon,
-          
-          name: lang === "fr" ? data.name : (data.name_en || data.name), 
+
+          name: lang === "fr" ? data.name : (data.name_en || data.name),
           text: lang === "fr" ? data.instruction_fr : data.instruction_en,
         };
 
@@ -459,7 +459,7 @@ export default function InvestigationGame(props: {
 
 
 
-    // ── GESTION DE LA NOTIFICATION MÉMOIRE ──
+  // ── GESTION DE LA NOTIFICATION MÉMOIRE ──
   useEffect(() => {
     // Si la nouvelle scène possède un contexte historique, on allume le point rouge
     if (currentScene && (currentScene.historical_context_fr || currentScene.historical_context_en)) {
@@ -1425,7 +1425,7 @@ export default function InvestigationGame(props: {
         `input[name="enigma-choice-${enigma.id}"]:checked`
       ) as HTMLInputElement | null;
       if (!selectedRadio) {
-        
+
         return;
       }
       const selectedIndex = parseInt(selectedRadio.value);
@@ -1469,7 +1469,7 @@ export default function InvestigationGame(props: {
         });
 
       solveEnigma(enigma.id);
-      
+
 
       // ✅ ARRÊTER LE TIMER D'ÉNIGME (IMPORTANT !)
       setEnigmaTimerActive(false);
@@ -1572,7 +1572,7 @@ export default function InvestigationGame(props: {
       }
 
       if (newBudget <= 0) {
-        
+
 
         // ✅ NOUVEAU : Déclencher l'événement "on_failure"
         if (enigma.trigger_event_on_failure_id) {
@@ -1588,7 +1588,7 @@ export default function InvestigationGame(props: {
           type: "abandon",
         });
       } else {
-        
+
       }
     }
   };
@@ -2084,7 +2084,7 @@ export default function InvestigationGame(props: {
       {/* COCKPIT INFÉRIEUR */}
       <div className="absolute bottom-6 inset-x-0 z-30 flex justify-center pointer-events-none">
         <div className="flex items-center gap-2 md:gap-4 bg-black/60 backdrop-blur-md border border-white/10 p-2 rounded-full pointer-events-auto shadow-2xl flex-wrap justify-center">
-                    <button
+          <button
             onClick={() => setActiveUI(activeUI === "story" ? null : "story")}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors relative ${activeUI === "story" ? "bg-[#06b6d4] text-black" : "hover:bg-white/10 text-gray-300"}`}
           >
@@ -2596,7 +2596,7 @@ export default function InvestigationGame(props: {
 
       {/* PANNEAUX DYNAMIQUES COMPLETS */}
       <AnimatePresence>
-                {activeUI === "story" && (
+        {activeUI === "story" && (
           <motion.div
             initial={{ opacity: 0, y: 100 }}
             animate={{ opacity: 1, y: 0 }}
@@ -2612,9 +2612,9 @@ export default function InvestigationGame(props: {
                 <X size={16} />
               </button>
             </div>
-            
+
             <div className="p-6 overflow-y-auto flex-1 space-y-8">
-              
+
               {/* ✅ BLOC 1 : Contexte Global (Chapitre) */}
               {chapNarrative && (
                 <div>
@@ -2924,7 +2924,8 @@ export default function InvestigationGame(props: {
                       )}
                       {/* ✅ INDICES PAYANTS - TOUJOURS VISIBLES */}
                       {(() => {
-                        const enigmaClues = currentChapter?.enigmas?.find((e: any) => e.id === enigma.id)?.clues || [];
+                        // ✅ FIX : Chercher dans allChapterEnigmas au lieu de currentChapter.enigmas
+                        const enigmaClues = allChapterEnigmas.find((e: any) => e.id === enigma.id)?.clues || [];
                         if (enigmaClues.length === 0 || isSolved) return null;
 
                         const attempts = enigmaAttempts[enigma.id] || 0;
@@ -2935,21 +2936,20 @@ export default function InvestigationGame(props: {
                             <p className="text-[10px] text-blue-400 font-mono uppercase tracking-wider flex items-center gap-1 font-bold">
                               💡 {lang === "fr" ? "Indices disponibles" : "Available Clues"}
                             </p>
-                            
+
                             {enigmaClues.map((clue: any, clueIdx: number) => {
                               const isRevealed = revealedClues.includes(clue.id);
                               const clueText = lang === "fr" ? clue.text_fr : clue.text_en || clue.text_fr;
                               const clueCost = clue.reveal_cost_cauris ?? 5;
                               const errorsUntilAuto = isRevealed ? 0 : autoRevealAfter - (attempts % autoRevealAfter);
-                              
+
                               return (
                                 <div
                                   key={clue.id}
-                                  className={`p-3 rounded-lg text-xs border ${
-                                    isRevealed
+                                  className={`p-3 rounded-lg text-xs border ${isRevealed
                                       ? "bg-blue-900/20 border-blue-500/30"
                                       : "bg-black/40 border-white/10"
-                                  }`}
+                                    }`}
                                 >
                                   {isRevealed ? (
                                     <div className="space-y-2">
@@ -2987,16 +2987,15 @@ export default function InvestigationGame(props: {
                                             : `Auto-unlock after ${errorsUntilAuto} error(s)`}
                                         </span>
                                       </div>
-                                      
+
                                       {/* ✅ BOUTON D'ACHAT BIEN VISIBLE */}
                                       <button
                                         onClick={() => handleRevealClue(clue.id)}
                                         disabled={budgetCauris < clueCost}
-                                        className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
-                                          budgetCauris >= clueCost
+                                        className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${budgetCauris >= clueCost
                                             ? "bg-[#D4AF37] hover:bg-white text-black shadow-lg hover:shadow-xl"
                                             : "bg-red-500/10 border border-red-500/30 text-red-400 cursor-not-allowed"
-                                        }`}
+                                          }`}
                                       >
                                         <span>💰</span>
                                         <span>{clueCost}</span>
@@ -3807,7 +3806,7 @@ export default function InvestigationGame(props: {
       />
 
       {/* ── ÉCRAN DE FIN CONTEXTUALISÉE ── */}
-            {showContextualEnding && (
+      {showContextualEnding && (
         <ContextualEnding
           lang={lang}
           title={showContextualEnding.title}
