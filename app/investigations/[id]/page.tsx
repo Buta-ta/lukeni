@@ -1198,8 +1198,6 @@ export default function InvestigationGame(props: {
   const handleHotspotActivate = useCallback(
     async (hotspot: Hotspot) => {
       // ✅ FIX 1 : Vérification de la condition de verrouillage
-      // ✅ Vérification de la condition de verrouillage (Énigmes ET Mots Mêlés)
-      // ✅ Vérification de la condition de verrouillage
       if (hotspot.condition) {
         let isConditionMet = false;
         let lockName = "";
@@ -1217,9 +1215,11 @@ export default function InvestigationGame(props: {
         else if (hotspot.condition.startsWith('wordsearch_')) {
           lockType = "wordsearch";
           const wsId = hotspot.condition.replace('wordsearch_', '').replace('_completed', '');
-          isConditionMet = (session as any)?.completed_word_searches?.includes(wsId);
+          // ✅ CORRECTION : Vérifier que completed_word_searches existe ET contient l'ID
+          isConditionMet = Array.isArray((session as any)?.completed_word_searches)
+            && (session as any)?.completed_word_searches?.includes(wsId);
           const ws = wordSearches.find((w: any) => w.id === wsId);
-          lockName = ws ? ws.title_fr : "ce mots mêlés";
+          lockName = ws ? (lang === "fr" ? ws.title_fr : ws.title_en || ws.title_fr) : (lang === "fr" ? "ce mots mêlés" : "this word search");
         }
 
         if (!isConditionMet) {
