@@ -1041,25 +1041,13 @@ export default function InvestigationGame(props: {
         switch (activeEnigma.timer_behavior || "alert") {
           case "pause":
             // ⏸️ Pause : le joueur ne peut plus interagir
-            sendChatMessage(
-              lang === "fr"
-                ? "⏱️ Temps écoulé pour cette énigme ! Vous ne pouvez plus répondre."
-                : "⏱️ Time's up for this enigma! You can no longer answer.",
-              "system",
-              selectedCharacterId || undefined,
-            );
+            
             // On garde enigmaTimerActive = false, l'énigme est bloquée
             break;
 
           case "end_game":
             // 🔴 Fin de jeu
-            sendChatMessage(
-              lang === "fr"
-                ? "💀 Temps écoulé ! Le jeu se termine."
-                : "💀 Time's up! Game over.",
-              "system",
-              selectedCharacterId || undefined,
-            );
+            
             setShowContextualEnding({
               title: lang === "fr" ? "TEMPS ÉCOULÉ" : "TIME OUT",
               message:
@@ -1073,13 +1061,7 @@ export default function InvestigationGame(props: {
           case "alert":
           default:
             // 💡 Juste alerte : le jeu continue
-            sendChatMessage(
-              lang === "fr"
-                ? "⏱️ Le temps pour cette énigme est écoulé !"
-                : "⏱️ Time's up for this enigma!",
-              "system",
-              selectedCharacterId || undefined,
-            );
+           
           // Le joueur peut toujours répondre mais ne gagne plus de bonus temps
         }
       }
@@ -1469,12 +1451,7 @@ export default function InvestigationGame(props: {
           .update({ revealed_hotspot_ids: newRevealed })
           .eq("id", session.id);
 
-        sendChatMessage(
-          lang === "fr"
-            ? `👁️ ${hotspot.reveals_hotspot_ids.length} nouvel(aux) élément(s) révélé(s) !`
-            : `👁️ ${hotspot.reveals_hotspot_ids.length} new element(s) revealed!`,
-          "system",
-        );
+        
       }
 
       // ✅ NOUVEAU : Navigation après interaction
@@ -3822,12 +3799,7 @@ export default function InvestigationGame(props: {
             switch (currentWordSearch.attempt_behavior || "alert") {
               case "pause":
                 // ⏸️ Pause : le jeu de mots mêlés est bloqué
-                sendChatMessage(
-                  lang === "fr"
-                    ? "⏸️ Le jeu de mots mêlés est suspendu."
-                    : "⏸️ Word search game is paused.",
-                  "system",
-                );
+               
                 break;
 
               case "end_game":
@@ -3946,11 +3918,7 @@ export default function InvestigationGame(props: {
             const newCompleted = [...((session as any)?.completed_word_searches || []), wsConditionString];
             console.log("🧩 newCompleted À SAUVEGARDER:", newCompleted);
 
-            sendChatMessage(
-              "🧩 Tous les mots ont été trouvés !",
-              "system",
-              selectedCharacterId || undefined
-            );
+            
 
             // ✅ SAUVEGARDE
             const { data: updateResult, error } = await supabase
