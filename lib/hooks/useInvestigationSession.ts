@@ -639,6 +639,54 @@ export function useInvestigationSession(
   );
 
 
+  // ✅ NOUVEAU : Forcer le refresh de la session depuis la BDD
+const refreshSession = useCallback(async () => {
+  if (!session) return;
+
+  try {
+    const { data: freshData, error } = await supabase
+      .from('investigation_sessions')
+      .select('*')
+      .eq('id', session.id)
+      .single();
+
+    if (error) throw error;
+
+    console.log("🔄 Session rechargée depuis BDD:", freshData?.completed_word_searches);
+    setSession(serializeSession(freshData));
+  } catch (err: any) {
+    console.error('Refresh session error:', err);
+  }
+}, [session?.id]);
+
+
+
+// ✅ NOUVEAU : Forcer une mise à jour complète depuis la BDD
+const forceRefreshSession = useCallback(async () => {
+  if (!session) return;
+
+  try {
+    const { data: freshData, error } = await supabase
+      .from('investigation_sessions')
+      .select('*')
+      .eq('id', session.id)
+      .single();
+
+    if (error) {
+      console.error('❌ Erreur forceRefreshSession:', error);
+      return;
+    }
+
+    console.log("🔄 FORÇAGE : Session mise à jour dans React:", freshData?.completed_word_searches);
+    setSession(serializeSession(freshData));
+  } catch (err: any) {
+    console.error('Force refresh error:', err);
+  }
+}, [session?.id]);
+
+
+
+
 
   // ✅ Realtime sync
   useEffect(() => {
@@ -682,5 +730,7 @@ export function useInvestigationSession(
     abandonInvestigation,
     resetSession,
     saveWordSearchProgress,
+    refreshSession,
+    forceRefreshSession, 
   };
 }

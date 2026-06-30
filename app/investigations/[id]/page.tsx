@@ -24,7 +24,10 @@ import {
   Edit3,
   LogOut,
   Trophy,
-  AlertTriangle, Loader2, Users, Lightbulb
+  AlertTriangle,
+  Loader2,
+  Users,
+  Lightbulb,
 } from "lucide-react";
 import { Hotspot } from "@/types/panorama";
 import EvidenceModal from "@/components/game/EvidenceModal";
@@ -142,7 +145,7 @@ interface Enigma {
   trigger_event_id?: string;
   clues?: Clue[];
   evidence_id?: string;
-  response_type?: 'text' | 'choice';
+  response_type?: "text" | "choice";
   choices_fr?: string[];
   choices_en?: string[];
   correct_choice_index?: number;
@@ -152,7 +155,7 @@ interface Enigma {
   trigger_event_on_success_id?: string;
   trigger_event_on_failure_id?: string;
   trigger_event_on_timeout_id?: string;
-  timer_behavior?: 'alert' | 'pause' | 'end_game';
+  timer_behavior?: "alert" | "pause" | "end_game";
 }
 interface Character {
   id: string;
@@ -221,12 +224,9 @@ export default function InvestigationGame(props: {
   const [showAbortMenu, setShowAbortMenu] = useState(false);
   const [showTimeOver, setShowTimeOver] = useState(false);
 
-
   const [showBuyTimeModal, setShowBuyTimeModal] = useState(false);
   const [isSavingSession, setIsSavingSession] = useState(false);
   const [saveProgress, setSaveProgress] = useState(0); // 0-100
-
-
 
   const [timeRewardPopup, setTimeRewardPopup] = useState<number | null>(null);
   const [activeMilestone, setActiveMilestone] = useState<{
@@ -240,8 +240,12 @@ export default function InvestigationGame(props: {
   const [dialogueSpeakers, setDialogueSpeakers] = useState<any[]>([]);
 
   const [wordSearches, setWordSearches] = useState<any[]>([]);
-  const [wordSearchProgress, setWordSearchProgress] = useState<Record<string, string[]>>({});
-  const [wordSearchAttempts, setWordSearchAttempts] = useState<Record<string, number>>({});
+  const [wordSearchProgress, setWordSearchProgress] = useState<
+    Record<string, string[]>
+  >({});
+  const [wordSearchAttempts, setWordSearchAttempts] = useState<
+    Record<string, number>
+  >({});
   const [isLoading, setIsLoading] = useState(true);
 
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
@@ -259,7 +263,9 @@ export default function InvestigationGame(props: {
   const [timerActive, setTimerActive] = useState(false);
 
   // ✅ NOUVEAU : Timer d'énigme indépendant
-  const [enigmaTimerSeconds, setEnigmaTimerSeconds] = useState<number | null>(null);
+  const [enigmaTimerSeconds, setEnigmaTimerSeconds] = useState<number | null>(
+    null,
+  );
   const [enigmaTimerActive, setEnigmaTimerActive] = useState(false);
   const [activeEnigmaId, setActiveEnigmaId] = useState<string | null>(null);
   const [wrongEnigmaIds, setWrongEnigmaIds] = useState<string[]>([]); // Pour l'alerte visuelle
@@ -267,7 +273,14 @@ export default function InvestigationGame(props: {
   const [revealedHotspotIds, setRevealedHotspotIds] = useState<string[]>([]);
 
   const [activeUI, setActiveUI] = useState<
-    "story" | "mission" | "enigmas" | "inventory" | "chat" | "deduction" | "wordsearch" | null
+    | "story"
+    | "mission"
+    | "enigmas"
+    | "inventory"
+    | "chat"
+    | "deduction"
+    | "wordsearch"
+    | null
   >(null);
   const [activeHotspot, setActiveHotspot] = useState<Hotspot | null>(null);
   const [activeEvidence, setActiveEvidence] = useState<any | null>(null);
@@ -307,6 +320,7 @@ export default function InvestigationGame(props: {
     deleteSession,
     resetSession,
     saveWordSearchProgress,
+    forceRefreshSession,
   } = useInvestigationSession(invId, user);
   const {
     messages: chatMessages,
@@ -324,18 +338,16 @@ export default function InvestigationGame(props: {
   const currentScene = currentChapter?.scenes?.[currentSceneIndex] || null;
   const hotspots = currentScene?.hotspots || [];
   // ✅ NOUVEAU : Filtrer les énigmes par scène
-  const allChapterEnigmas = (currentChapter?.enigmas || []).filter((enig: any) => {
-    // Si l'énigme a une scene_id, elle ne doit s'afficher QUE sur cette scène
-    if (enig.scene_id) {
-      return enig.scene_id === currentScene?.id;
-    }
-    // Sinon elle s'affiche partout dans le chapitre
-    return true;
-  });
-
-
-
-
+  const allChapterEnigmas = (currentChapter?.enigmas || []).filter(
+    (enig: any) => {
+      // Si l'énigme a une scene_id, elle ne doit s'afficher QUE sur cette scène
+      if (enig.scene_id) {
+        return enig.scene_id === currentScene?.id;
+      }
+      // Sinon elle s'affiche partout dans le chapitre
+      return true;
+    },
+  );
 
   // ── HOOK DÉDUCTION ──
   const {
@@ -391,7 +403,6 @@ export default function InvestigationGame(props: {
     { id: string; icon: string; name: string; text: string }[]
   >([]);
 
-
   // ── Ajouter une notification d'instruction ──
   // ── Ajouter une notification d'instruction ──
   const addInstructionNotification = useCallback(
@@ -407,17 +418,15 @@ export default function InvestigationGame(props: {
           id: Math.random().toString(36).slice(2), // ID unique garanti
           icon: data.icon,
 
-          name: lang === "fr" ? data.name : (data.name_en || data.name),
+          name: lang === "fr" ? data.name : data.name_en || data.name,
           text: lang === "fr" ? data.instruction_fr : data.instruction_en,
         };
 
         // On ajoute TOUTES les notifications, sans filtrer
         setInstructionNotifications((prev) => [...prev, newNotif]);
-
-
       }
     },
-    [lang]
+    [lang],
   );
 
   // ── Fermer une notification individuellement ──
@@ -432,8 +441,8 @@ export default function InvestigationGame(props: {
   );
   const [revealedClues, setRevealedClues] = useState<string[]>([]);
   const [clueToast, setClueToast] = useState<string | null>(null);
-  const [zoomLevel, setZoomLevel] = useState(1);  // ✅ Pour zoom image
-  const [isZooming, setIsZooming] = useState(false);  // ✅ État zoom
+  const [zoomLevel, setZoomLevel] = useState(1); // ✅ Pour zoom image
+  const [isZooming, setIsZooming] = useState(false); // ✅ État zoom
 
   const renderAvatar = (
     url: string | null | undefined,
@@ -457,12 +466,13 @@ export default function InvestigationGame(props: {
     );
   };
 
-
-
   // ── GESTION DE LA NOTIFICATION MÉMOIRE ──
   useEffect(() => {
     // Si la nouvelle scène possède un contexte historique, on allume le point rouge
-    if (currentScene && (currentScene.historical_context_fr || currentScene.historical_context_en)) {
+    if (
+      currentScene &&
+      (currentScene.historical_context_fr || currentScene.historical_context_en)
+    ) {
       setHasUnreadMemory(true);
     }
   }, [currentScene?.id]);
@@ -575,7 +585,6 @@ export default function InvestigationGame(props: {
           .eq("investigation_id", invId);
         setDialogueSpeakers(dSpeakers || []);
 
-
         // ✅ Charger les mots mêlés
         // ✅ Charger les mots mêlés AVEC les clues imbriquées
         const { data: wsData } = await supabase
@@ -657,7 +666,6 @@ export default function InvestigationGame(props: {
       setRevealedClues(sessionRevealedClues);
     }
 
-
     // ✅ Charger la progression des mots mêlés depuis la session
     // ✅ Charger la progression des mots mêlés depuis la session
     const wsProgress = (session as any)?.word_search_progress;
@@ -688,8 +696,7 @@ export default function InvestigationGame(props: {
     // ✅ Charger la progression des mots mêlés
     if ((session as any)?.word_search_progress) {
       setWordSearchProgress((session as any).word_search_progress || {});
-    }
-    else {
+    } else {
       setShowCharacterSelect(true);
     }
     if (session.current_chapter_id) {
@@ -734,7 +741,6 @@ export default function InvestigationGame(props: {
     setTimerActive(true);
   }, [currentScene?.id]);
 
-
   // ── DÉCLENCHER INSTRUCTION DU HOTSPOT ──
   useEffect(() => {
     if (!activeHotspot?.instruction_id) return;
@@ -748,7 +754,11 @@ export default function InvestigationGame(props: {
 
     if (!currentScene?.instruction_id) return;
     addInstructionNotification(currentScene.instruction_id);
-  }, [currentScene?.id, currentScene?.instruction_id, addInstructionNotification]);
+  }, [
+    currentScene?.id,
+    currentScene?.instruction_id,
+    addInstructionNotification,
+  ]);
 
   // ── DÉCLENCHER INSTRUCTION DU BOARD / TIMELINE ──
   const shownDeductionNotifs = useRef(new Set<string>());
@@ -761,32 +771,46 @@ export default function InvestigationGame(props: {
     }
 
     // 1. Notification du Board (S'affiche en premier, donc "en haut")
-    if (board?.instruction_id && !shownDeductionNotifs.current.has(`board_${board.instruction_id}`)) {
+    if (
+      board?.instruction_id &&
+      !shownDeductionNotifs.current.has(`board_${board.instruction_id}`)
+    ) {
       shownDeductionNotifs.current.add(`board_${board.instruction_id}`);
       addInstructionNotification(board.instruction_id);
     }
 
     // 2. Notification de la Timeline (Décalée de 400ms, s'affichera juste "en bas" de la première)
-    if (timeline?.instruction_id && !shownDeductionNotifs.current.has(`timeline_${timeline.instruction_id}`)) {
+    if (
+      timeline?.instruction_id &&
+      !shownDeductionNotifs.current.has(`timeline_${timeline.instruction_id}`)
+    ) {
       shownDeductionNotifs.current.add(`timeline_${timeline.instruction_id}`);
       setTimeout(() => {
         addInstructionNotification(timeline.instruction_id);
       }, 400);
     }
-  }, [activeUI, board?.instruction_id, timeline?.instruction_id, addInstructionNotification]);
-
-
-
+  }, [
+    activeUI,
+    board?.instruction_id,
+    timeline?.instruction_id,
+    addInstructionNotification,
+  ]);
 
   // ✅ FIX : Charger le timer sauvegardé en base au lieu de toujours partir de 0
   useEffect(() => {
     if (!session || isSessionLoading || !currentScene) return;
 
     // Si le joueur a un timer sauvegardé en base, l'utiliser
-    if (session.current_timer_seconds !== null && session.current_timer_seconds > 0) {
+    if (
+      session.current_timer_seconds !== null &&
+      session.current_timer_seconds > 0
+    ) {
       setTimerSeconds(session.current_timer_seconds);
       setTimerActive(true);
-    } else if (currentScene?.timer_duration && currentScene.timer_duration > 0) {
+    } else if (
+      currentScene?.timer_duration &&
+      currentScene.timer_duration > 0
+    ) {
       // Sinon, utiliser le timer de la scène
       setTimerSeconds(currentScene.timer_duration);
       setTimerActive(true);
@@ -795,16 +819,19 @@ export default function InvestigationGame(props: {
       setTimerSeconds(null);
       setTimerActive(false);
     }
-  }, [session?.current_timer_seconds, currentScene?.timer_duration, session?.id, isSessionLoading]);
-
+  }, [
+    session?.current_timer_seconds,
+    currentScene?.timer_duration,
+    session?.id,
+    isSessionLoading,
+  ]);
 
   // ── GESTION DES RÉCOMPENSES DE DÉDUCTION ──
   useEffect(() => {
     if (pendingRewards.length === 0) return;
 
-    pendingRewards.forEach(reward => {
+    pendingRewards.forEach((reward) => {
       switch (reward.type) {
-
         case "evidence":
           // Ajouter directement la preuve à l'inventaire
           if (reward.target_id && session) {
@@ -818,7 +845,7 @@ export default function InvestigationGame(props: {
           setActiveUI("enigmas");
           setTimeout(() => {
             const el = document.querySelector(
-              `input[data-enigma="${reward.target_id}"]`
+              `input[data-enigma="${reward.target_id}"]`,
             );
             el?.scrollIntoView({ behavior: "smooth", block: "center" });
             (el as HTMLInputElement)?.focus();
@@ -829,7 +856,9 @@ export default function InvestigationGame(props: {
         case "chapter":
           // Débloquer le chapitre cible
           if (reward.target_id) {
-            const chapIdx = chapters.findIndex(c => c.id === reward.target_id);
+            const chapIdx = chapters.findIndex(
+              (c) => c.id === reward.target_id,
+            );
             if (chapIdx !== -1) {
               setCurrentChapterIndex(chapIdx);
               setCurrentSceneIndex(0);
@@ -842,7 +871,7 @@ export default function InvestigationGame(props: {
           // Changer de scène
           if (reward.target_id && currentChapter) {
             const sceneIdx = currentChapter.scenes?.findIndex(
-              s => s.id === reward.target_id
+              (s) => s.id === reward.target_id,
             );
             if (sceneIdx !== undefined && sceneIdx !== -1) {
               setCurrentSceneIndex(sceneIdx);
@@ -863,9 +892,10 @@ export default function InvestigationGame(props: {
           // Déclencher une fin alternative
           setShowContextualEnding({
             title: lang === "fr" ? "FIN ALTERNATIVE" : "ALTERNATIVE ENDING",
-            message: lang === "fr"
-              ? reward.notif_fr || "Votre déduction a tout changé."
-              : reward.notif_en || "Your deduction changed everything.",
+            message:
+              lang === "fr"
+                ? reward.notif_fr || "Votre déduction a tout changé."
+                : reward.notif_en || "Your deduction changed everything.",
             type: (reward.target_id as any) || "alternate",
           });
           consumeReward(reward.id);
@@ -883,7 +913,7 @@ export default function InvestigationGame(props: {
             setClueToast(
               lang === "fr"
                 ? "💡 Un indice a été révélé par votre déduction !"
-                : "💡 A clue was revealed by your deduction!"
+                : "💡 A clue was revealed by your deduction!",
             );
             setTimeout(() => setClueToast(null), 3000);
           }
@@ -942,7 +972,12 @@ export default function InvestigationGame(props: {
 
   useEffect(() => {
     // ✅ Mettre en pause les DEUX timers si abandon ou achat
-    if (!timerActive || timerSeconds === null || showAbortMenu || showBuyTimeModal) {
+    if (
+      !timerActive ||
+      timerSeconds === null ||
+      showAbortMenu ||
+      showBuyTimeModal
+    ) {
       setEnigmaTimerActive(false); // ✅ PAUSE AUSSI LE TIMER D'ÉNIGME
       return;
     }
@@ -969,9 +1004,7 @@ export default function InvestigationGame(props: {
       setTimerSeconds((prev) => (prev !== null ? prev - 1 : null));
     }, 1000);
     return () => clearInterval(interval);
-  }, [timerActive, timerSeconds, showAbortMenu, showBuyTimeModal]);  // ✅ Ajout des dépendances
-
-
+  }, [timerActive, timerSeconds, showAbortMenu, showBuyTimeModal]); // ✅ Ajout des dépendances
 
   // ✅ NOUVEAU : Timer d'énigme indépendant
   useEffect(() => {
@@ -989,7 +1022,9 @@ export default function InvestigationGame(props: {
       setEnigmaTimerActive(false);
 
       // ✅ Récupérer l'énigme active
-      const activeEnigma = currentChapter?.enigmas?.find((e: any) => e.id === activeEnigmaId);
+      const activeEnigma = currentChapter?.enigmas?.find(
+        (e: any) => e.id === activeEnigmaId,
+      );
 
       if (activeEnigma) {
         // 1. Afficher l'instruction si configurée
@@ -1003,8 +1038,8 @@ export default function InvestigationGame(props: {
         }
 
         // 3. Gérer le comportement du timer
-        switch (activeEnigma.timer_behavior || 'alert') {
-          case 'pause':
+        switch (activeEnigma.timer_behavior || "alert") {
+          case "pause":
             // ⏸️ Pause : le joueur ne peut plus interagir
             sendChatMessage(
               lang === "fr"
@@ -1016,7 +1051,7 @@ export default function InvestigationGame(props: {
             // On garde enigmaTimerActive = false, l'énigme est bloquée
             break;
 
-          case 'end_game':
+          case "end_game":
             // 🔴 Fin de jeu
             sendChatMessage(
               lang === "fr"
@@ -1035,7 +1070,7 @@ export default function InvestigationGame(props: {
             });
             break;
 
-          case 'alert':
+          case "alert":
           default:
             // 💡 Juste alerte : le jeu continue
             sendChatMessage(
@@ -1056,7 +1091,15 @@ export default function InvestigationGame(props: {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [enigmaTimerActive, enigmaTimerSeconds, showAbortMenu, showBuyTimeModal, activeEnigmaId, currentChapter, lang]);
+  }, [
+    enigmaTimerActive,
+    enigmaTimerSeconds,
+    showAbortMenu,
+    showBuyTimeModal,
+    activeEnigmaId,
+    currentChapter,
+    lang,
+  ]);
 
   useEffect(() => {
     if (activeUI === "chat" && chatMessages.length > 0) {
@@ -1086,10 +1129,10 @@ export default function InvestigationGame(props: {
       .eq("id", session.id);
 
     // On ajoute le temps
-    const newTimerSeconds = (timerSeconds ?? currentScene?.timer_duration ?? 0) + seconds;
+    const newTimerSeconds =
+      (timerSeconds ?? currentScene?.timer_duration ?? 0) + seconds;
     setTimerSeconds(newTimerSeconds);
     setEnigmaTimerActive(false);
-
 
     // ✅ FIX : Sauvegarder le nouveau timer en base
     await supabase
@@ -1197,40 +1240,94 @@ export default function InvestigationGame(props: {
 
   const handleHotspotActivate = useCallback(
     async (hotspot: Hotspot) => {
-      // ✅ FIX 1 : Vérification de la condition de verrouillage
-      if (hotspot.condition) {
-        let isConditionMet = false;
-        let lockName = "";
-        let lockType = "";
+    console.log("🔓 ========== HOTSPOT ACTIVÉ ==========");
+    console.log("🔓 Hotspot label:", hotspot.label_fr);
+    console.log("🔓 Hotspot condition:", hotspot.condition);
+    console.log("🔓 Hotspot type:", hotspot.type);
 
-        // Format: enigma_<id>_solved
-        if (hotspot.condition.startsWith('enigma_')) {
-          lockType = "enigma";
-          const enigmaId = hotspot.condition.replace('enigma_', '').replace('_solved', '');
-          isConditionMet = session?.solved_enigmas?.includes(hotspot.condition);
-          const enigma = allChapterEnigmas.find((e: any) => e.id === enigmaId);
-          lockName = enigma ? (lang === "fr" ? enigma.question_fr : enigma.question_en) : "cette énigme";
-        }
-        // Format: wordsearch_<id>_completed
-        else if (hotspot.condition.startsWith('wordsearch_')) {
-          lockType = "wordsearch";
-          const wsId = hotspot.condition.replace('wordsearch_', '').replace('_completed', '');
-          // ✅ CORRECTION : Vérifier que completed_word_searches existe ET contient l'ID
-          isConditionMet = Array.isArray((session as any)?.completed_word_searches)
-            && (session as any)?.completed_word_searches?.includes(wsId);
-          const ws = wordSearches.find((w: any) => w.id === wsId);
-          lockName = ws ? (lang === "fr" ? ws.title_fr : ws.title_en || ws.title_fr) : (lang === "fr" ? "ce mots mêlés" : "this word search");
-        }
+    // ✅ FIX 1 : Vérification de la condition de verrouillage
+    if (hotspot.condition) {
+      let isConditionMet = false;
+      let lockName = "";
+      let lockType = "";
 
-        if (!isConditionMet) {
-          const message = lang === "fr"
-            ? `🔒 Accès verrouillé. Vous devez d'abord : ${lockType === 'enigma' ? 'résoudre' : 'terminer'} "${lockName}"`
-            : `🔒 Access locked. You must first: ${lockType === 'enigma' ? 'solve' : 'complete'} "${lockName}"`;
+      console.log("🔓 Vérification de condition...");
 
-          sendChatMessage(message, "system");
-          return;
-        }
+      // Format: enigma_<id>_solved
+      if (hotspot.condition.startsWith("enigma_")) {
+        console.log("🔓 Type de condition: ÉNIGME");
+        lockType = "enigma";
+        const enigmaId = hotspot.condition
+          .replace("enigma_", "")
+          .replace("_solved", "");
+        console.log("🔓 Énigma ID à vérifier:", enigmaId);
+        console.log("🔓 solved_enigmas en session:", session?.solved_enigmas);
+
+        isConditionMet = session?.solved_enigmas?.includes(hotspot.condition);
+        console.log("🔓 Énigme résolue ?", isConditionMet);
+
+        const enigma = allChapterEnigmas.find((e: any) => e.id === enigmaId);
+        lockName = enigma
+          ? lang === "fr"
+            ? enigma.question_fr
+            : enigma.question_en
+          : "cette énigme";
       }
+      // Format: wordsearch_<id>_completed
+      else if (hotspot.condition.startsWith("wordsearch_")) {
+        console.log("🔓 Type de condition: WORD SEARCH");
+        lockType = "wordsearch";
+        const wsId = hotspot.condition
+          .replace("wordsearch_", "")
+          .replace("_completed", "");
+        console.log("🔓 Word Search ID à vérifier:", wsId);
+        console.log(
+          "🔓 completed_word_searches en session:",
+          (session as any)?.completed_word_searches,
+        );
+        console.log(
+          "🔓 Type de completed_word_searches:",
+          Array.isArray((session as any)?.completed_word_searches)
+            ? "TABLEAU"
+            : "NON TABLEAU",
+        );
+
+        // ✅ CORRECTION : Vérifier que completed_word_searches existe ET contient l'ID
+        isConditionMet =
+          Array.isArray((session as any)?.completed_word_searches) &&
+          (session as any)?.completed_word_searches?.includes(wsId);
+
+        console.log("🔓 Word Search complété ?", isConditionMet);
+
+        const ws = wordSearches.find((w: any) => w.id === wsId);
+        lockName = ws
+          ? lang === "fr"
+            ? ws.title_fr
+            : ws.title_en || ws.title_fr
+          : lang === "fr"
+            ? "ce mots mêlés"
+            : "this word search";
+        console.log("🔓 Nom du word search:", lockName);
+      }
+
+      console.log("🔓 Condition rencontrée ?", isConditionMet);
+
+      if (!isConditionMet) {
+        const message =
+          lang === "fr"
+            ? `🔒 Accès verrouillé. Vous devez d'abord : ${lockType === "enigma" ? "résoudre" : "terminer"} "${lockName}"`
+            : `🔒 Access locked. You must first: ${lockType === "enigma" ? "solve" : "complete"} "${lockName}"`;
+
+        console.log("❌ HOTSPOT VERROUILLÉ - Message:", message);
+        sendChatMessage(message, "system");
+        console.log("🔓 ========== FIN VÉRIFICATION (VERROUILLÉ) ==========");
+        return;
+      }
+
+      console.log("✅ Condition rencontrée ! Hotspot déverrouillé");
+    } else {
+      console.log("🔓 Pas de condition - Hotspot toujours accessible");
+    }
 
       // ✅ FIX 2 : Fin alternative avec titre et message séparés
       if (hotspot.type === "ending") {
@@ -1324,8 +1421,7 @@ export default function InvestigationGame(props: {
         return;
       }
 
-
-      if (hotspot.type === 'dialogue_bubble') {
+      if (hotspot.type === "dialogue_bubble") {
         setActiveHotspot(hotspot);
         setActiveEvidence(null);
         // Pas de trigger_event ici, le joueur vient d'ouvrir la bulle
@@ -1358,8 +1454,13 @@ export default function InvestigationGame(props: {
       }
 
       // ✅ NOUVEAU : Révéler d'autres hotspots
-      if (hotspot.reveals_hotspot_ids && hotspot.reveals_hotspot_ids.length > 0) {
-        const newRevealed = [...new Set([...revealedHotspotIds, ...hotspot.reveals_hotspot_ids])];
+      if (
+        hotspot.reveals_hotspot_ids &&
+        hotspot.reveals_hotspot_ids.length > 0
+      ) {
+        const newRevealed = [
+          ...new Set([...revealedHotspotIds, ...hotspot.reveals_hotspot_ids]),
+        ];
         setRevealedHotspotIds(newRevealed);
 
         // Sauvegarder en BDD
@@ -1378,7 +1479,9 @@ export default function InvestigationGame(props: {
 
       // ✅ NOUVEAU : Navigation après interaction
       if (hotspot.target_chapter_id) {
-        const chapIdx = chapters.findIndex(c => c.id === hotspot.target_chapter_id);
+        const chapIdx = chapters.findIndex(
+          (c) => c.id === hotspot.target_chapter_id,
+        );
         if (chapIdx !== -1) {
           setTimeout(() => {
             setCurrentChapterIndex(chapIdx);
@@ -1387,7 +1490,9 @@ export default function InvestigationGame(props: {
           }, 500);
         }
       } else if (hotspot.target_scene_id && currentChapter) {
-        const sceneIdx = currentChapter.scenes?.findIndex(s => s.id === hotspot.target_scene_id);
+        const sceneIdx = currentChapter.scenes?.findIndex(
+          (s) => s.id === hotspot.target_scene_id,
+        );
         if (sceneIdx !== undefined && sceneIdx !== -1) {
           setTimeout(() => {
             setCurrentSceneIndex(sceneIdx);
@@ -1396,7 +1501,16 @@ export default function InvestigationGame(props: {
         }
       }
     },
-    [currentChapter, chapters, characters, evidences, outroConfig, lang, revealedHotspotIds, session],
+    [
+      currentChapter,
+      chapters,
+      characters,
+      evidences,
+      outroConfig,
+      lang,
+      revealedHotspotIds,
+      session,
+    ],
   );
 
   const handleSelectCharacter = async (characterId: string) => {
@@ -1408,13 +1522,13 @@ export default function InvestigationGame(props: {
     if (!chatInput.trim() || !user) return;
     await sendChatMessage(
       chatInput,
-      'text',
+      "text",
       undefined,
       currentScene?.id,
       undefined,
-      replyingTo?.id || undefined
+      replyingTo?.id || undefined,
     );
-    setChatInput('');
+    setChatInput("");
     setReplyingTo(null);
     setShowEmojiPicker(null);
   };
@@ -1422,15 +1536,14 @@ export default function InvestigationGame(props: {
   const checkAnswer = (enigma: Enigma) => {
     let userAnswer = "";
     let isCorrect = false;
-    const responseType = enigma.response_type || 'text';
+    const responseType = enigma.response_type || "text";
 
     // ── SI CHOIX MULTIPLES ──
-    if (responseType === 'choice') {
+    if (responseType === "choice") {
       const selectedRadio = document.querySelector(
-        `input[name="enigma-choice-${enigma.id}"]:checked`
+        `input[name="enigma-choice-${enigma.id}"]:checked`,
       ) as HTMLInputElement | null;
       if (!selectedRadio) {
-
         return;
       }
       const selectedIndex = parseInt(selectedRadio.value);
@@ -1467,14 +1580,13 @@ export default function InvestigationGame(props: {
         .eq("id", session.id)
         .then(({ error }) => {
           if (error) {
-            console.error('❌ Erreur sauvegarde Cauris:', error);
+            console.error("❌ Erreur sauvegarde Cauris:", error);
           } else {
-            console.log('✅ Cauris sauvegardés:', newBudget);
+            console.log("✅ Cauris sauvegardés:", newBudget);
           }
         });
 
       solveEnigma(enigma.id);
-
 
       // ✅ ARRÊTER LE TIMER D'ÉNIGME (IMPORTANT !)
       setEnigmaTimerActive(false);
@@ -1488,7 +1600,6 @@ export default function InvestigationGame(props: {
       if (enigma.trigger_event_id) {
         triggerNarrativeEvent(enigma.trigger_event_id);
       }
-
     } else {
       // ── MAUVAISE RÉPONSE : -1 CAURI ──
       const newBudget = Math.max(0, budgetCauris - 1);
@@ -1497,9 +1608,9 @@ export default function InvestigationGame(props: {
       setTimeout(() => setCaurisDelta(null), 1200);
 
       // ✅ NOUVEAU : Ajouter l'énigme à la liste des "mauvaises"
-      setWrongEnigmaIds(prev => [...new Set([...prev, enigma.id])]);
+      setWrongEnigmaIds((prev) => [...new Set([...prev, enigma.id])]);
       setTimeout(() => {
-        setWrongEnigmaIds(prev => prev.filter(id => id !== enigma.id));
+        setWrongEnigmaIds((prev) => prev.filter((id) => id !== enigma.id));
       }, 2000); // L'alerte disparaît après 2 secondes
 
       const currentAttempts = (enigmaAttempts[enigma.id] || 0) + 1;
@@ -1507,7 +1618,8 @@ export default function InvestigationGame(props: {
       setEnigmaAttempts(newAttempts);
 
       const autoRevealAfter = outroConfig?.game_economy?.auto_reveal_after || 3;
-      const enigmaClues = allChapterEnigmas.find((e: any) => e.id === enigma.id)?.clues || [];
+      const enigmaClues =
+        allChapterEnigmas.find((e: any) => e.id === enigma.id)?.clues || [];
 
       if (currentAttempts % autoRevealAfter === 0 && enigmaClues.length > 0) {
         const nextClue = enigmaClues.find(
@@ -1534,9 +1646,9 @@ export default function InvestigationGame(props: {
             .eq("id", session.id)
             .then(({ error }) => {
               if (error) {
-                console.error('❌ Erreur sauvegarde session:', error);
+                console.error("❌ Erreur sauvegarde session:", error);
               } else {
-                console.log('✅ Session sauvegardée');
+                console.log("✅ Session sauvegardée");
               }
             });
         } else {
@@ -1550,9 +1662,9 @@ export default function InvestigationGame(props: {
             .eq("id", session.id)
             .then(({ error }) => {
               if (error) {
-                console.error('❌ Erreur sauvegarde session:', error);
+                console.error("❌ Erreur sauvegarde session:", error);
               } else {
-                console.log('✅ Session sauvegardée');
+                console.log("✅ Session sauvegardée");
               }
             });
         }
@@ -1567,16 +1679,14 @@ export default function InvestigationGame(props: {
           .eq("id", session.id)
           .then(({ error }) => {
             if (error) {
-              console.error('❌ Erreur sauvegarde session:', error);
+              console.error("❌ Erreur sauvegarde session:", error);
             } else {
-              console.log('✅ Session sauvegardée');
+              console.log("✅ Session sauvegardée");
             }
           });
       }
 
       if (newBudget <= 0) {
-
-
         // ✅ NOUVEAU : Déclencher l'événement "on_failure"
         if (enigma.trigger_event_on_failure_id) {
           triggerNarrativeEvent(enigma.trigger_event_on_failure_id);
@@ -1591,12 +1701,9 @@ export default function InvestigationGame(props: {
           type: "abandon",
         });
       } else {
-
       }
     }
   };
-
-
 
   // ✅ FIX 4 : Révélation manuelle d'un indice (coût en Cauris)
   // ✅ FIX 4 : Révélation manuelle d'un indice (coût configurable par indice)
@@ -1787,13 +1894,13 @@ export default function InvestigationGame(props: {
   const sceneTitle =
     lang === "fr" ? currentScene.title_fr : currentScene.title_en;
 
-
   // ✅ Filtrer les mots mêlés pour la scène actuelle
-  const currentWordSearch = (wordSearches || []).find((ws: any) => {
-    if (ws.chapter_id !== currentChapter?.id) return false;
-    if (ws.scene_id && ws.scene_id !== currentScene?.id) return false;
-    return true;
-  }) || null;
+  const currentWordSearch =
+    (wordSearches || []).find((ws: any) => {
+      if (ws.chapter_id !== currentChapter?.id) return false;
+      if (ws.scene_id && ws.scene_id !== currentScene?.id) return false;
+      return true;
+    }) || null;
 
   // ── MOTEUR D'ÉVÉNEMENTS NARRATIFS ──
   // ── MOTEUR D'ÉVÉNEMENTS NARRATIFS ──
@@ -1870,19 +1977,23 @@ export default function InvestigationGame(props: {
       {currentScene.panorama_url ? (
         <PanoramaViewer
           panoramaUrl={currentScene.panorama_url}
-          hotspots={activeUI || showAbortMenu ? [] : hotspots
-            .filter(h => h.id !== activeHotspot?.id)
-            .filter(h => {
-              // Si le hotspot a une condition, vérifier s'il est révélé
-              if (h.condition && !revealedHotspotIds.includes(h.id)) {
-                // Afficher quand même mais grisé (le joueur verra le message de verrouillage)
-                return true;
-              }
-              return true;
-            })
+          hotspots={
+            activeUI || showAbortMenu
+              ? []
+              : hotspots
+                .filter((h) => h.id !== activeHotspot?.id)
+                .filter((h) => {
+                  // Si le hotspot a une condition, vérifier s'il est révélé
+                  if (h.condition && !revealedHotspotIds.includes(h.id)) {
+                    // Afficher quand même mais grisé (le joueur verra le message de verrouillage)
+                    return true;
+                  }
+                  return true;
+                })
           }
           evidences={evidences}
           solvedEnigmas={session?.solved_enigmas || []}
+          completedWordSearches={(session as any)?.completed_word_searches || []}
           lang={lang}
           onHotspotActivate={handleHotspotActivate}
           onSceneChange={(sceneId) => {
@@ -1947,7 +2058,8 @@ export default function InvestigationGame(props: {
                 }}
                 className="flex items-center gap-2 text-gray-400 hover:text-white font-mono text-[10px] tracking-widest"
               >
-                <ChevronLeft size={14} /> {lang === "fr" ? "ABANDONNER" : "ABORT"}
+                <ChevronLeft size={14} />{" "}
+                {lang === "fr" ? "ABANDONNER" : "ABORT"}
               </button>
             </div>
             <h1 className="font-serif text-lg md:text-2xl font-bold text-white drop-shadow-md">
@@ -2042,10 +2154,6 @@ export default function InvestigationGame(props: {
         </div>
       </div>
 
-
-
-
-
       {/* ── INSTRUCTION NOTIFICATIONS (Superposées dynamiquement) ── */}
       <div className="fixed top-24 md:top-32 inset-x-0 z-[60] flex flex-col items-center gap-3 pointer-events-none px-4">
         <AnimatePresence>
@@ -2060,9 +2168,7 @@ export default function InvestigationGame(props: {
             >
               <div className="bg-gradient-to-r from-[#D4AF37]/20 to-[#D4AF37]/10 backdrop-blur-md border border-[#D4AF37]/40 rounded-2xl p-4 shadow-[0_0_30px_rgba(212,175,55,0.2)]">
                 <div className="flex items-start gap-3">
-                  <span className="text-2xl flex-shrink-0">
-                    {notif.icon}
-                  </span>
+                  <span className="text-2xl flex-shrink-0">{notif.icon}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-[#D4AF37] font-mono text-xs tracking-widest font-bold uppercase mb-1">
                       {notif.name}
@@ -2101,12 +2207,11 @@ export default function InvestigationGame(props: {
             )}
           </button>
 
-
-
-
           <div className="w-px h-6 bg-white/20" />
           <button
-            onClick={() => setActiveUI(activeUI === "mission" ? null : "mission")}
+            onClick={() =>
+              setActiveUI(activeUI === "mission" ? null : "mission")
+            }
             className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors relative ${activeUI === "mission" ? "bg-green-600 text-white" : "hover:bg-white/10 text-gray-300"}`}
           >
             <Target size={18} />
@@ -2127,10 +2232,6 @@ export default function InvestigationGame(props: {
             })()}
           </button>
 
-
-
-
-
           <div className="w-px h-6 bg-white/20" />
           <button
             onClick={() => {
@@ -2140,7 +2241,11 @@ export default function InvestigationGame(props: {
               } else {
                 setActiveUI("enigmas");
                 // ✅ Redémarrer le timer s'il était en pause
-                if (enigmaTimerSeconds !== null && enigmaTimerSeconds > 0 && !enigmaTimerActive) {
+                if (
+                  enigmaTimerSeconds !== null &&
+                  enigmaTimerSeconds > 0 &&
+                  !enigmaTimerActive
+                ) {
                   setEnigmaTimerActive(true);
                 }
               }
@@ -2173,13 +2278,14 @@ export default function InvestigationGame(props: {
             )}
           </button>
 
-
           {/* Bouton Déduction — visible si timeline ou board existe */}
           {(timeline || board) && (
             <>
               <div className="w-px h-6 bg-white/20" />
               <button
-                onClick={() => setActiveUI(activeUI === "deduction" ? null : "deduction")}
+                onClick={() =>
+                  setActiveUI(activeUI === "deduction" ? null : "deduction")
+                }
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors relative ${activeUI === "deduction"
                   ? "bg-[#D4AF37] text-black"
                   : "hover:bg-white/10 text-gray-300"
@@ -2193,7 +2299,8 @@ export default function InvestigationGame(props: {
                 {(() => {
                   const totalSlots = timeline?.slots?.length || 0;
                   const totalConns = board?.connections?.length || 0;
-                  const validatedCount = (session as any)?.validated_deductions?.length || 0;
+                  const validatedCount =
+                    (session as any)?.validated_deductions?.length || 0;
                   const total = totalSlots + totalConns;
                   if (total > 0 && validatedCount < total) {
                     return (
@@ -2206,13 +2313,11 @@ export default function InvestigationGame(props: {
             </>
           )}
 
-
-
-
-
           <div className="w-px h-6 bg-white/20" />
           <button
-            onClick={() => setActiveUI(activeUI === "wordsearch" ? null : "wordsearch")}
+            onClick={() =>
+              setActiveUI(activeUI === "wordsearch" ? null : "wordsearch")
+            }
             className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors relative ${activeUI === "wordsearch"
               ? "bg-pink-600 text-white"
               : "hover:bg-white/10 text-gray-300"
@@ -2228,13 +2333,14 @@ export default function InvestigationGame(props: {
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 className="absolute -top-2 -right-2 w-3.5 h-3.5 bg-pink-500 rounded-full animate-pulse shadow-[0_0_12px_rgba(236,72,153,0.8)]"
-                title={lang === "fr" ? "Un mots mêlés vous attend !" : "A word search awaits you!"}
+                title={
+                  lang === "fr"
+                    ? "Un mots mêlés vous attend !"
+                    : "A word search awaits you!"
+                }
               />
             )}
           </button>
-
-
-
 
           {/* Chat visible uniquement si le joueur est dans un groupe */}
           {session?.group_id && (
@@ -2508,8 +2614,6 @@ export default function InvestigationGame(props: {
         )}
       </AnimatePresence>
 
-
-
       {activeUI === "mission" && (
         <motion.div
           initial={{ opacity: 0, y: 100 }}
@@ -2536,7 +2640,9 @@ export default function InvestigationGame(props: {
                 {lang === "fr" ? "Scène actuelle" : "Current scene"}
               </p>
               <h3 className="text-lg font-serif font-bold text-white">
-                {lang === "fr" ? currentScene?.title_fr : currentScene?.title_en || currentScene?.title_fr}
+                {lang === "fr"
+                  ? currentScene?.title_fr
+                  : currentScene?.title_en || currentScene?.title_fr}
               </h3>
             </div>
 
@@ -2561,47 +2667,56 @@ export default function InvestigationGame(props: {
                   {lang === "fr" ? "Objectifs" : "Objectives"}
                 </p>
                 <div className="space-y-2">
-                  {(currentScene.mission_objectives_fr || []).map((obj: string, idx: number) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-white/10"
-                    >
-                      <div className="w-5 h-5 rounded border-2 border-green-500/50 flex items-center justify-center">
-                        {/* Case à cocher (non interactive pour l'instant) */}
-                        <div className="w-2.5 h-2.5 rounded-sm bg-green-500/20" />
+                  {(currentScene.mission_objectives_fr || []).map(
+                    (obj: string, idx: number) => (
+                      <div
+                        key={idx}
+                        className="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-white/10"
+                      >
+                        <div className="w-5 h-5 rounded border-2 border-green-500/50 flex items-center justify-center">
+                          {/* Case à cocher (non interactive pour l'instant) */}
+                          <div className="w-2.5 h-2.5 rounded-sm bg-green-500/20" />
+                        </div>
+                        <span className="text-gray-300 text-sm">
+                          {lang === "fr"
+                            ? obj
+                            : (currentScene.mission_objectives_en || [])[idx] ||
+                            obj}
+                        </span>
                       </div>
-                      <span className="text-gray-300 text-sm">
-                        {lang === "fr"
-                          ? obj
-                          : (currentScene.mission_objectives_en || [])[idx] || obj}
-                      </span>
-                    </div>
-                  ))}
+                    ),
+                  )}
                 </div>
               </div>
             )}
 
             {/* Indice */}
-            {(currentScene?.mission_hint_fr || currentScene?.mission_hint_en) && (
-              <div className="bg-blue-900/10 p-4 rounded-xl border border-blue-500/20">
-                <p className="text-blue-400 text-xs font-mono uppercase tracking-widest mb-2 flex items-center gap-1">
-                  💡 {lang === "fr" ? "Indice" : "Hint"}
-                </p>
-                <p className="text-gray-300 text-sm italic font-serif">
-                  {lang === "fr"
-                    ? currentScene.mission_hint_fr
-                    : currentScene.mission_hint_en || currentScene.mission_hint_fr}
-                </p>
-              </div>
-            )}
+            {(currentScene?.mission_hint_fr ||
+              currentScene?.mission_hint_en) && (
+                <div className="bg-blue-900/10 p-4 rounded-xl border border-blue-500/20">
+                  <p className="text-blue-400 text-xs font-mono uppercase tracking-widest mb-2 flex items-center gap-1">
+                    💡 {lang === "fr" ? "Indice" : "Hint"}
+                  </p>
+                  <p className="text-gray-300 text-sm italic font-serif">
+                    {lang === "fr"
+                      ? currentScene.mission_hint_fr
+                      : currentScene.mission_hint_en ||
+                      currentScene.mission_hint_fr}
+                  </p>
+                </div>
+              )}
 
             {/* Si aucune mission */}
-            {!currentScene?.mission_fr && (!currentScene?.mission_objectives_fr || currentScene.mission_objectives_fr.length === 0) && (
-              <div className="text-center py-10 text-gray-600 font-mono text-sm">
-                <Target size={32} className="mx-auto mb-2 opacity-50" />
-                {lang === "fr" ? "Aucune mission pour cette scène" : "No mission for this scene"}
-              </div>
-            )}
+            {!currentScene?.mission_fr &&
+              (!currentScene?.mission_objectives_fr ||
+                currentScene.mission_objectives_fr.length === 0) && (
+                <div className="text-center py-10 text-gray-600 font-mono text-sm">
+                  <Target size={32} className="mx-auto mb-2 opacity-50" />
+                  {lang === "fr"
+                    ? "Aucune mission pour cette scène"
+                    : "No mission for this scene"}
+                </div>
+              )}
           </div>
         </motion.div>
       )}
@@ -2620,13 +2735,15 @@ export default function InvestigationGame(props: {
                 <BookOpen size={14} />{" "}
                 {lang === "fr" ? "DONNÉES HISTORIQUES" : "HISTORICAL DATA"}
               </span>
-              <button onClick={() => setActiveUI(null)} className="text-[#06b6d4] hover:text-white">
+              <button
+                onClick={() => setActiveUI(null)}
+                className="text-[#06b6d4] hover:text-white"
+              >
                 <X size={16} />
               </button>
             </div>
 
             <div className="p-6 overflow-y-auto flex-1 space-y-8">
-
               {/* ✅ BLOC 1 : Contexte Global (Chapitre) */}
               {chapNarrative && (
                 <div>
@@ -2640,16 +2757,22 @@ export default function InvestigationGame(props: {
               )}
 
               {/* ✅ BLOC 2 : Archives du Lieu (Scène actuelle) */}
-              {(currentScene?.historical_context_fr || currentScene?.historical_context_en) && (
-                <div>
-                  <h3 className="text-[#D4AF37] font-bold font-mono text-[10px] uppercase tracking-widest mb-3 border-b border-[#D4AF37]/30 pb-2">
-                    {lang === "fr" ? `Archives du lieu : ${sceneTitle}` : `Location Archives: ${sceneTitle}`}
-                  </h3>
-                  <div className="font-serif text-gray-200 leading-relaxed text-sm md:text-base">
-                    {lang === "fr" ? currentScene.historical_context_fr : currentScene.historical_context_en || currentScene.historical_context_fr}
+              {(currentScene?.historical_context_fr ||
+                currentScene?.historical_context_en) && (
+                  <div>
+                    <h3 className="text-[#D4AF37] font-bold font-mono text-[10px] uppercase tracking-widest mb-3 border-b border-[#D4AF37]/30 pb-2">
+                      {lang === "fr"
+                        ? `Archives du lieu : ${sceneTitle}`
+                        : `Location Archives: ${sceneTitle}`}
+                    </h3>
+                    <div className="font-serif text-gray-200 leading-relaxed text-sm md:text-base">
+                      {lang === "fr"
+                        ? currentScene.historical_context_fr
+                        : currentScene.historical_context_en ||
+                        currentScene.historical_context_fr}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* Si rien n'est configuré */}
               {!chapNarrative && !currentScene?.historical_context_fr && (
@@ -2674,11 +2797,12 @@ export default function InvestigationGame(props: {
                 {lang === "fr" ? "DÉCRYPTAGE" : "DECRYPTION"}
               </span>
 
-
               {/* ✅ NOUVEAU : Afficher le timer d'énigme si actif */}
               {enigmaTimerSeconds !== null && enigmaTimerActive && (
                 <motion.div
-                  animate={{ scale: enigmaTimerSeconds <= 10 ? [1, 1.1, 1] : 1 }}
+                  animate={{
+                    scale: enigmaTimerSeconds <= 10 ? [1, 1.1, 1] : 1,
+                  }}
                   transition={{
                     repeat: enigmaTimerSeconds <= 10 ? Infinity : 0,
                     duration: 0.5,
@@ -2705,13 +2829,12 @@ export default function InvestigationGame(props: {
               </button>
             </div>
             <div className="p-4 overflow-y-auto flex-1 space-y-6">
-
-
-
               {/* ✅ Si la scène a des énigmes avec timer, initialiser le timer */}
               {(() => {
                 const enigmaWithTimer = allChapterEnigmas.find((e: any) => {
-                  const isSolved = session?.solved_enigmas?.includes(`enigma_${e.id}_solved`); // ✅ Ajoute cette ligne
+                  const isSolved = session?.solved_enigmas?.includes(
+                    `enigma_${e.id}_solved`,
+                  ); // ✅ Ajoute cette ligne
                   return (
                     !isSolved &&
                     e.enigma_timer_seconds &&
@@ -2719,7 +2842,11 @@ export default function InvestigationGame(props: {
                   );
                 });
 
-                if (enigmaWithTimer && activeEnigmaId === null && enigmaTimerSeconds === null) {
+                if (
+                  enigmaWithTimer &&
+                  activeEnigmaId === null &&
+                  enigmaTimerSeconds === null
+                ) {
                   setTimeout(() => {
                     setActiveEnigmaId(enigmaWithTimer.id);
                     setEnigmaTimerSeconds(enigmaWithTimer.enigma_timer_seconds);
@@ -2738,9 +2865,9 @@ export default function InvestigationGame(props: {
                   const isWrong = wrongEnigmaIds.includes(enigma.id); // ✅ NOUVEAU
                   const question =
                     lang === "fr" ? enigma.question_fr : enigma.question_en;
-                  const responseType = enigma.response_type || 'text';
+                  const responseType = enigma.response_type || "text";
                   const linkedEvidence = enigma.evidence_id
-                    ? evidences.find(e => e.id === enigma.evidence_id)
+                    ? evidences.find((e) => e.id === enigma.evidence_id)
                     : null;
 
                   return (
@@ -2748,7 +2875,11 @@ export default function InvestigationGame(props: {
                       key={enigma.id}
                       onClick={() => {
                         // ✅ Quand on clique sur une énigme, démarrer son timer
-                        if (!isSolved && enigma.enigma_timer_seconds && enigma.enigma_timer_seconds > 0) {
+                        if (
+                          !isSolved &&
+                          enigma.enigma_timer_seconds &&
+                          enigma.enigma_timer_seconds > 0
+                        ) {
                           if (activeEnigmaId !== enigma.id) {
                             setActiveEnigmaId(enigma.id);
                             setEnigmaTimerSeconds(enigma.enigma_timer_seconds);
@@ -2763,8 +2894,6 @@ export default function InvestigationGame(props: {
                           : "bg-black/50 border-white/10 cursor-pointer hover:border-[#D4AF37]/50"
                         }`}
                     >
-
-
                       {/* Question */}
                       <p
                         className={`text-sm mb-4 ${isSolved ? "text-green-400" : "text-gray-300"}`}
@@ -2782,39 +2911,54 @@ export default function InvestigationGame(props: {
                           {/* ── AFFICHER LA PREUVE MÉDIA (image/audio/doc) ── */}
                           {linkedEvidence && (
                             <div className="p-4 bg-white/5 rounded-lg border border-white/10 space-y-3">
-                              {linkedEvidence.media_type === 'image' ? (
+                              {linkedEvidence.media_type === "image" ? (
                                 /* IMAGE avec zoom/dézoom ET navigation (pan) */
                                 <div className="relative bg-black rounded-lg border border-white/10 mb-3">
                                   <div
                                     className="overflow-auto rounded-lg"
                                     style={{
-                                      height: '12rem',
-                                      scrollbarWidth: 'none',
-                                      cursor: zoomLevel > 1 ? 'grab' : 'default'
+                                      height: "12rem",
+                                      scrollbarWidth: "none",
+                                      cursor:
+                                        zoomLevel > 1 ? "grab" : "default",
                                     }}
                                     onMouseDown={(e) => {
                                       if (zoomLevel <= 1) return;
                                       e.preventDefault();
                                       const container = e.currentTarget;
-                                      container.style.cursor = 'grabbing';
+                                      container.style.cursor = "grabbing";
                                       const startX = e.pageX;
                                       const startY = e.pageY;
                                       const scrollLeft = container.scrollLeft;
                                       const scrollTop = container.scrollTop;
 
                                       const handleMove = (ev: MouseEvent) => {
-                                        container.scrollLeft = scrollLeft - (ev.pageX - startX);
-                                        container.scrollTop = scrollTop - (ev.pageY - startY);
+                                        container.scrollLeft =
+                                          scrollLeft - (ev.pageX - startX);
+                                        container.scrollTop =
+                                          scrollTop - (ev.pageY - startY);
                                       };
 
                                       const handleUp = () => {
-                                        container.style.cursor = 'grab';
-                                        window.removeEventListener('mousemove', handleMove);
-                                        window.removeEventListener('mouseup', handleUp);
+                                        container.style.cursor = "grab";
+                                        window.removeEventListener(
+                                          "mousemove",
+                                          handleMove,
+                                        );
+                                        window.removeEventListener(
+                                          "mouseup",
+                                          handleUp,
+                                        );
                                       };
 
-                                      window.addEventListener('mousemove', handleMove);
-                                      window.addEventListener('mouseup', handleUp);
+                                      window.addEventListener(
+                                        "mousemove",
+                                        handleMove,
+                                      );
+                                      window.addEventListener(
+                                        "mouseup",
+                                        handleUp,
+                                      );
                                     }}
                                   >
                                     <img
@@ -2823,12 +2967,21 @@ export default function InvestigationGame(props: {
                                       draggable={false}
                                       className="select-none block"
                                       style={{
-                                        width: zoomLevel > 1 ? `${zoomLevel * 100}%` : undefined,
-                                        maxWidth: zoomLevel === 1 ? '100%' : 'none',
-                                        height: zoomLevel > 1 ? 'auto' : undefined,
-                                        maxHeight: zoomLevel === 1 ? '11.5rem' : 'none',
-                                        objectFit: zoomLevel === 1 ? 'contain' : undefined,
-                                        margin: '0 auto'
+                                        width:
+                                          zoomLevel > 1
+                                            ? `${zoomLevel * 100}%`
+                                            : undefined,
+                                        maxWidth:
+                                          zoomLevel === 1 ? "100%" : "none",
+                                        height:
+                                          zoomLevel > 1 ? "auto" : undefined,
+                                        maxHeight:
+                                          zoomLevel === 1 ? "11.5rem" : "none",
+                                        objectFit:
+                                          zoomLevel === 1
+                                            ? "contain"
+                                            : undefined,
+                                        margin: "0 auto",
                                       }}
                                     />
                                   </div>
@@ -2836,13 +2989,21 @@ export default function InvestigationGame(props: {
                                   {/* Contrôles zoom */}
                                   <div className="absolute bottom-2 right-2 flex gap-1 z-10">
                                     <button
-                                      onClick={() => setZoomLevel(z => Math.max(1, z - 0.5))}
+                                      onClick={() =>
+                                        setZoomLevel((z) =>
+                                          Math.max(1, z - 0.5),
+                                        )
+                                      }
                                       className="p-1.5 bg-black/70 rounded text-white hover:bg-black/90 text-xs font-bold backdrop-blur-sm border border-white/10"
                                     >
                                       −
                                     </button>
                                     <button
-                                      onClick={() => setZoomLevel(z => Math.min(5, z + 0.5))}
+                                      onClick={() =>
+                                        setZoomLevel((z) =>
+                                          Math.min(5, z + 0.5),
+                                        )
+                                      }
                                       className="p-1.5 bg-black/70 rounded text-white hover:bg-black/90 text-xs font-bold backdrop-blur-sm border border-white/10"
                                     >
                                       +
@@ -2852,7 +3013,7 @@ export default function InvestigationGame(props: {
                                     🔍 Zoomez et glissez pour examiner
                                   </p>
                                 </div>
-                              ) : linkedEvidence.media_type === 'audio' ? (
+                              ) : linkedEvidence.media_type === "audio" ? (
                                 /* AUDIO */
                                 <div className="mb-3">
                                   <audio
@@ -2861,13 +3022,16 @@ export default function InvestigationGame(props: {
                                     className="w-full"
                                   />
                                   <p className="text-[10px] text-gray-600 mt-2">
-                                    🎵 Écoutez attentivement et trouvez la réponse
+                                    🎵 Écoutez attentivement et trouvez la
+                                    réponse
                                   </p>
                                 </div>
                               ) : (
                                 /* DOCUMENT / AUTRE */
                                 <div className="mb-3 p-3 bg-blue-900/20 rounded border border-blue-500/20">
-                                  <p className="text-[10px] text-blue-400 mb-2">📄 Document</p>
+                                  <p className="text-[10px] text-blue-400 mb-2">
+                                    📄 Document
+                                  </p>
                                   <a
                                     href={linkedEvidence.media_url}
                                     target="_blank"
@@ -2882,10 +3046,12 @@ export default function InvestigationGame(props: {
                           )}
 
                           {/* ── MODE TEXTE : Input simple ── */}
-                          {responseType === 'text' ? (
+                          {responseType === "text" ? (
                             <div className="space-y-3">
                               <div className="flex border-b border-[#D4AF37]/50 focus-within:border-[#D4AF37] transition-colors pb-1">
-                                <span className="text-[#D4AF37] mr-2">{">"}</span>
+                                <span className="text-[#D4AF37] mr-2">
+                                  {">"}
+                                </span>
                                 <input
                                   type="text"
                                   data-enigma={enigma.id}
@@ -2906,24 +3072,28 @@ export default function InvestigationGame(props: {
                           ) : (
                             /* ── MODE CHOIX MULTIPLES ── */
                             <div className="space-y-2">
-                              {(enigma.choices_fr || []).map((choice: string, choiceIdx: number) => (
-                                <label
-                                  key={choiceIdx}
-                                  className="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-white/10 cursor-pointer hover:bg-white/10 transition-colors"
-                                >
-                                  <input
-                                    type="radio"
-                                    name={`enigma-choice-${enigma.id}`}
-                                    value={choiceIdx}
-                                    className="w-4 h-4 accent-[#D4AF37]"
-                                  />
-                                  <span className="text-sm text-gray-300">
-                                    {lang === "fr"
-                                      ? choice
-                                      : (enigma.choices_en || [])[choiceIdx] || choice}
-                                  </span>
-                                </label>
-                              ))}
+                              {(enigma.choices_fr || []).map(
+                                (choice: string, choiceIdx: number) => (
+                                  <label
+                                    key={choiceIdx}
+                                    className="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-white/10 cursor-pointer hover:bg-white/10 transition-colors"
+                                  >
+                                    <input
+                                      type="radio"
+                                      name={`enigma-choice-${enigma.id}`}
+                                      value={choiceIdx}
+                                      className="w-4 h-4 accent-[#D4AF37]"
+                                    />
+                                    <span className="text-sm text-gray-300">
+                                      {lang === "fr"
+                                        ? choice
+                                        : (enigma.choices_en || [])[
+                                        choiceIdx
+                                        ] || choice}
+                                    </span>
+                                  </label>
+                                ),
+                              )}
                               <button
                                 onClick={() => checkAnswer(enigma)}
                                 className="w-full bg-[#D4AF37] hover:bg-white text-black text-[10px] font-bold px-4 py-2 rounded transition-colors mt-2"
@@ -2937,24 +3107,41 @@ export default function InvestigationGame(props: {
                       {/* ✅ INDICES PAYANTS - TOUJOURS VISIBLES */}
                       {(() => {
                         // ✅ FIX : Chercher dans allChapterEnigmas au lieu de currentChapter.enigmas
-                        console.log('Énigme:', enigma.id, 'Clues:', enigma.clues);
+                        console.log(
+                          "Énigme:",
+                          enigma.id,
+                          "Clues:",
+                          enigma.clues,
+                        );
                         const enigmaClues = enigma.clues || [];
                         if (enigmaClues.length === 0 || isSolved) return null;
 
                         const attempts = enigmaAttempts[enigma.id] || 0;
-                        const autoRevealAfter = outroConfig?.game_economy?.auto_reveal_after || 3;
+                        const autoRevealAfter =
+                          outroConfig?.game_economy?.auto_reveal_after || 3;
 
                         return (
                           <div className="mt-4 space-y-3 border-t border-blue-500/20 pt-4">
                             <p className="text-[10px] text-blue-400 font-mono uppercase tracking-wider flex items-center gap-1 font-bold">
-                              💡 {lang === "fr" ? "Indices disponibles" : "Available Clues"}
+                              💡{" "}
+                              {lang === "fr"
+                                ? "Indices disponibles"
+                                : "Available Clues"}
                             </p>
 
                             {enigmaClues.map((clue: any, clueIdx: number) => {
-                              const isRevealed = revealedClues.includes(clue.id);
-                              const clueText = lang === "fr" ? clue.text_fr : clue.text_en || clue.text_fr;
+                              const isRevealed = revealedClues.includes(
+                                clue.id,
+                              );
+                              const clueText =
+                                lang === "fr"
+                                  ? clue.text_fr
+                                  : clue.text_en || clue.text_fr;
                               const clueCost = clue.reveal_cost_cauris ?? 5;
-                              const errorsUntilAuto = isRevealed ? 0 : autoRevealAfter - (attempts % autoRevealAfter);
+                              const errorsUntilAuto = isRevealed
+                                ? 0
+                                : autoRevealAfter -
+                                (attempts % autoRevealAfter);
 
                               return (
                                 <div
@@ -2977,12 +3164,28 @@ export default function InvestigationGame(props: {
                                       {clue.media_url && (
                                         <div className="mt-2 p-2 bg-blue-900/30 rounded border border-blue-500/20">
                                           {clue.media_type === "image" ? (
-                                            <img src={clue.media_url} alt="Indice" className="w-full h-32 object-cover rounded border border-blue-500/30" />
+                                            <img
+                                              src={clue.media_url}
+                                              alt="Indice"
+                                              className="w-full h-32 object-cover rounded border border-blue-500/30"
+                                            />
                                           ) : clue.media_type === "audio" ? (
-                                            <audio src={clue.media_url} controls className="w-full h-6" />
+                                            <audio
+                                              src={clue.media_url}
+                                              controls
+                                              className="w-full h-6"
+                                            />
                                           ) : (
-                                            <a href={clue.media_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline text-[10px]">
-                                              📄 {lang === "fr" ? "Document" : "Document"}
+                                            <a
+                                              href={clue.media_url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-blue-400 underline text-[10px]"
+                                            >
+                                              📄{" "}
+                                              {lang === "fr"
+                                                ? "Document"
+                                                : "Document"}
                                             </a>
                                           )}
                                         </div>
@@ -2992,7 +3195,10 @@ export default function InvestigationGame(props: {
                                     <div className="flex items-center justify-between gap-3">
                                       <div className="flex-1 min-w-0">
                                         <span className="text-gray-400 font-mono text-[10px] block font-bold">
-                                          🔒 {lang === "fr" ? `Indice ${clueIdx + 1}` : `Clue ${clueIdx + 1}`}
+                                          🔒{" "}
+                                          {lang === "fr"
+                                            ? `Indice ${clueIdx + 1}`
+                                            : `Clue ${clueIdx + 1}`}
                                         </span>
                                         <span className="text-gray-500 text-[9px]">
                                           {lang === "fr"
@@ -3003,7 +3209,9 @@ export default function InvestigationGame(props: {
 
                                       {/* ✅ BOUTON D'ACHAT BIEN VISIBLE */}
                                       <button
-                                        onClick={() => handleRevealClue(clue.id)}
+                                        onClick={() =>
+                                          handleRevealClue(clue.id)
+                                        }
                                         disabled={budgetCauris < clueCost}
                                         className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${budgetCauris >= clueCost
                                           ? "bg-[#D4AF37] hover:bg-white text-black shadow-lg hover:shadow-xl"
@@ -3546,7 +3754,6 @@ export default function InvestigationGame(props: {
           </motion.div>
         )}
 
-
         {activeUI === "deduction" && (
           <DeductionPanel
             timeline={timeline}
@@ -3565,10 +3772,6 @@ export default function InvestigationGame(props: {
         )}
       </AnimatePresence>
 
-
-
-
-
       {activeUI === "wordsearch" && currentWordSearch && (
         <WordSearchGame
           wordSearch={currentWordSearch}
@@ -3582,42 +3785,52 @@ export default function InvestigationGame(props: {
           onMaxAttemptsReached={async (behavior: string) => {
             // Déterminer le message selon le comportement
             let systemMessage = "";
-            const attemptBehavior = currentWordSearch.attempt_behavior || 'alert';
+            const attemptBehavior =
+              currentWordSearch.attempt_behavior || "alert";
 
-            if (attemptBehavior === 'pause') {
-              systemMessage = lang === "fr"
-                ? "⏸️ Vous avez atteint la limite d'essais. Le jeu de mots mêlés est maintenant suspendu."
-                : "⏸️ You have reached the attempt limit. Word search game is now paused.";
-            } else if (attemptBehavior === 'end_game') {
-              systemMessage = lang === "fr"
-                ? "💀 Limite d'essais atteinte ! Le jeu se termine."
-                : "💀 Attempt limit reached! Game is ending.";
+            if (attemptBehavior === "pause") {
+              systemMessage =
+                lang === "fr"
+                  ? "⏸️ Vous avez atteint la limite d'essais. Le jeu de mots mêlés est maintenant suspendu."
+                  : "⏸️ You have reached the attempt limit. Word search game is now paused.";
+            } else if (attemptBehavior === "end_game") {
+              systemMessage =
+                lang === "fr"
+                  ? "💀 Limite d'essais atteinte ! Le jeu se termine."
+                  : "💀 Attempt limit reached! Game is ending.";
             } else {
-              systemMessage = lang === "fr"
-                ? "⚠️ Vous avez atteint la limite d'essais."
-                : "⚠️ You have reached the attempt limit.";
+              systemMessage =
+                lang === "fr"
+                  ? "⚠️ Vous avez atteint la limite d'essais."
+                  : "⚠️ You have reached the attempt limit.";
             }
 
-            sendChatMessage(systemMessage, "system", selectedCharacterId || undefined);
+            sendChatMessage(
+              systemMessage,
+              "system",
+              selectedCharacterId || undefined,
+            );
 
             // Déclencher l'événement narratif si configuré
             if (currentWordSearch.trigger_event_on_max_attempts) {
-              triggerNarrativeEvent(currentWordSearch.trigger_event_on_max_attempts);
+              triggerNarrativeEvent(
+                currentWordSearch.trigger_event_on_max_attempts,
+              );
             }
 
             // Appliquer le comportement du timer
-            switch (currentWordSearch.attempt_behavior || 'alert') {
-              case 'pause':
+            switch (currentWordSearch.attempt_behavior || "alert") {
+              case "pause":
                 // ⏸️ Pause : le jeu de mots mêlés est bloqué
                 sendChatMessage(
                   lang === "fr"
                     ? "⏸️ Le jeu de mots mêlés est suspendu."
                     : "⏸️ Word search game is paused.",
-                  "system"
+                  "system",
                 );
                 break;
 
-              case 'end_game':
+              case "end_game":
                 // 🔴 Fin de jeu
                 setShowContextualEnding({
                   title: lang === "fr" ? "LIMITE D'ESSAIS" : "ATTEMPT LIMIT",
@@ -3629,7 +3842,7 @@ export default function InvestigationGame(props: {
                 });
                 break;
 
-              case 'alert':
+              case "alert":
               default:
                 // 💡 Juste alerte : le jeu continue
                 break;
@@ -3685,7 +3898,11 @@ export default function InvestigationGame(props: {
               .update({ current_cauris: newBudget })
               .eq("id", session.id)
               .then(({ error }) => {
-                if (error) console.error('❌ Erreur sauvegarde Cauris (WS found):', error);
+                if (error)
+                  console.error(
+                    "❌ Erreur sauvegarde Cauris (WS found):",
+                    error,
+                  );
               });
           }}
           onBadAttempt={(penalty) => {
@@ -3696,7 +3913,8 @@ export default function InvestigationGame(props: {
             setTimeout(() => setCaurisDelta(null), 1200);
 
             // ✅ INCRÉMENTER LES TENTATIVES
-            const newAttempts = (wordSearchAttempts[currentWordSearch.id] || 0) + 1;
+            const newAttempts =
+              (wordSearchAttempts[currentWordSearch.id] || 0) + 1;
             setWordSearchAttempts((prev) => ({
               ...prev,
               [currentWordSearch.id]: newAttempts,
@@ -3707,35 +3925,64 @@ export default function InvestigationGame(props: {
               .update({ current_cauris: newBudget })
               .eq("id", session.id)
               .then(({ error }) => {
-                if (error) console.error('❌ Erreur sauvegarde Cauris (WS fail):', error);
+                if (error)
+                  console.error(
+                    "❌ Erreur sauvegarde Cauris (WS fail):",
+                    error,
+                  );
               });
             if (currentWordSearch?.trigger_event_on_failure_id) {
-              triggerNarrativeEvent(currentWordSearch.trigger_event_on_failure_id);
+              triggerNarrativeEvent(
+                currentWordSearch.trigger_event_on_failure_id,
+              );
             }
           }}
           onGameComplete={async () => {
+            console.log("🧩 ========== WORD SEARCH COMPLÉTÉ ==========");
+            console.log("🧩 session?.id:", session?.id);
+            console.log("🧩 currentWordSearch?.id:", currentWordSearch?.id);
+
+            const wsConditionString = `wordsearch_${currentWordSearch.id}_completed`;
+            const newCompleted = [...((session as any)?.completed_word_searches || []), wsConditionString];
+            console.log("🧩 newCompleted À SAUVEGARDER:", newCompleted);
+
             sendChatMessage(
               "🧩 Tous les mots ont été trouvés !",
               "system",
               selectedCharacterId || undefined
             );
 
-            // ✅ Sauvegarder le mot mêlé comme complété
-            const newCompleted = [...((session as any)?.completed_word_searches || []), currentWordSearch.id];
-            await supabase
+            // ✅ SAUVEGARDE
+            const { data: updateResult, error } = await supabase
               .from("investigation_sessions")
               .update({ completed_word_searches: newCompleted })
-              .eq("id", session.id);
+              .eq("id", session.id)
+              .select();
 
-            // ✅ NE PAS effacer la progression — la conserver pour que le joueur voie ce qu'il a fait
-            // (on garde juste le flag completed_word_searches pour les conditions)
+            if (error) {
+              console.error("❌ ERREUR SAUVEGARDE:", error.message);
+              return;
+            }
 
-            // ✅ Événement narratif de succès
+            console.log("✅ Sauvegarde réussie");
+
+            // ✅ FORCER LA MISE À JOUR DU STATE REACT
+            console.log("🔄 Forçage de la mise à jour du state React...");
+
+            // Utilise la fonction du hook
+            // Cherche où tu destructures useInvestigationSession et ajoute forceRefreshSession
+            // Par exemple : const { ..., forceRefreshSession } = useInvestigationSession(...);
+
+            // Appelle-la ici :
+            await forceRefreshSession?.();
+
+            console.log("✅ State React forcément mis à jour");
+
+            // ✅ Événements et navigation
             if (currentWordSearch?.trigger_event_on_success_id) {
               triggerNarrativeEvent(currentWordSearch.trigger_event_on_success_id);
             }
 
-            // ✅ Navigation vers la scène/chapitre cible
             if (currentWordSearch.success_target_chapter_id) {
               const chapIdx = chapters.findIndex(c => c.id === currentWordSearch.success_target_chapter_id);
               if (chapIdx !== -1) {
@@ -3749,12 +3996,11 @@ export default function InvestigationGame(props: {
               }
             }
 
+            console.log("🧩 ========== FIN WORD SEARCH ==========");
             setActiveUI(null);
           }}
         />
       )}
-
-
 
       <EvidenceModal
         hotspot={activeHotspot}
@@ -3772,12 +4018,18 @@ export default function InvestigationGame(props: {
       {/* ════════════════════════════════════════════════════
     BULLE DE DIALOGUE
 ════════════════════════════════════════════════════ */}
-      {activeHotspot?.type === 'dialogue_bubble' && (
+      {activeHotspot?.type === "dialogue_bubble" && (
         <DialogueBubble
-          text={lang === "fr" ? activeHotspot.dialogue_text_fr || "" : activeHotspot.dialogue_text_en || ""}
-          speaker={dialogueSpeakers.find((s: any) => s.id === activeHotspot.dialogue_speaker_id)}
-          style={activeHotspot.dialogue_style || 'classic_blue'}
-          size={activeHotspot.dialogue_size || 'medium'}
+          text={
+            lang === "fr"
+              ? activeHotspot.dialogue_text_fr || ""
+              : activeHotspot.dialogue_text_en || ""
+          }
+          speaker={dialogueSpeakers.find(
+            (s: any) => s.id === activeHotspot.dialogue_speaker_id,
+          )}
+          style={activeHotspot.dialogue_style || "classic_blue"}
+          size={activeHotspot.dialogue_size || "medium"}
           speed={activeHotspot.dialogue_typewriter_speed || 30}
           lang={lang}
           onClose={() => setActiveHotspot(null)}
@@ -3824,7 +4076,9 @@ export default function InvestigationGame(props: {
           totalEvidences={totalEvidencesCount}
           reward={investigation?.reward_cauris || 0}
           budgetCauris={budgetCauris}
-          solvedWordSearches={(session as any)?.completed_word_searches?.length || 0}
+          solvedWordSearches={
+            (session as any)?.completed_word_searches?.length || 0
+          }
           totalWordSearches={wordSearches.length}
           onReplay={handleReplay}
           onExit={() => router.push("/investigations")}
@@ -3853,14 +4107,18 @@ export default function InvestigationGame(props: {
                 <div className="flex items-center gap-2">
                   <Users size={16} className="text-purple-400" />
                   <span className="font-bold text-white text-sm">
-                    {lang === 'fr' ? 'Rejoindre une partie' : 'Join a game'}
+                    {lang === "fr" ? "Rejoindre une partie" : "Join a game"}
                   </span>
                 </div>
                 <button
                   onClick={() => {
                     setShowJoinGroupModal(false);
                     setJoinError(null);
-                    window.history.replaceState({}, '', `/investigations/${invId}`);
+                    window.history.replaceState(
+                      {},
+                      "",
+                      `/investigations/${invId}`,
+                    );
                   }}
                   className="text-gray-500 hover:text-white"
                 >
@@ -3870,24 +4128,24 @@ export default function InvestigationGame(props: {
 
               <div className="p-5 space-y-4">
                 <p className="text-gray-400 text-sm">
-                  {lang === 'fr'
-                    ? 'Entrez le code de la partie pour rejoindre vos coéquipiers :'
-                    : 'Enter the game code to join your teammates:'}
+                  {lang === "fr"
+                    ? "Entrez le code de la partie pour rejoindre vos coéquipiers :"
+                    : "Enter the game code to join your teammates:"}
                 </p>
 
                 {/* Input code */}
                 <input
                   type="text"
                   value={groupCodeInput}
-                  onChange={e => {
+                  onChange={(e) => {
                     setGroupCodeInput(e.target.value.toUpperCase());
                     setJoinError(null);
                   }}
-                  onKeyDown={e => e.key === 'Enter' && handleJoinGroup()}
+                  onKeyDown={(e) => e.key === "Enter" && handleJoinGroup()}
                   placeholder="LUKENI-XXXXXX"
                   className={`w-full bg-black/50 border rounded-xl px-4 py-3 text-center font-mono font-black text-xl text-white outline-none tracking-[0.3em] transition-colors ${joinError
-                    ? 'border-red-500/50 focus:border-red-500'
-                    : 'border-purple-500/30 focus:border-purple-500'
+                    ? "border-red-500/50 focus:border-red-500"
+                    : "border-purple-500/30 focus:border-purple-500"
                     }`}
                   maxLength={13}
                   autoFocus
@@ -3913,12 +4171,16 @@ export default function InvestigationGame(props: {
                     onClick={() => {
                       setShowJoinGroupModal(false);
                       setJoinError(null);
-                      window.history.replaceState({}, '', `/investigations/${invId}`);
+                      window.history.replaceState(
+                        {},
+                        "",
+                        `/investigations/${invId}`,
+                      );
                     }}
                     disabled={isJoining}
                     className="flex-1 py-3 bg-white/5 border border-white/10 text-white rounded-xl text-sm font-bold hover:bg-white/10 transition-colors disabled:opacity-50"
                   >
-                    {lang === 'fr' ? 'Annuler' : 'Cancel'}
+                    {lang === "fr" ? "Annuler" : "Cancel"}
                   </button>
                   <button
                     onClick={handleJoinGroup}
@@ -3930,7 +4192,7 @@ export default function InvestigationGame(props: {
                     ) : (
                       <Users size={14} />
                     )}
-                    {lang === 'fr' ? 'Rejoindre' : 'Join'}
+                    {lang === "fr" ? "Rejoindre" : "Join"}
                   </button>
                 </div>
               </div>
@@ -3938,7 +4200,6 @@ export default function InvestigationGame(props: {
           </motion.div>
         )}
       </AnimatePresence>
-
 
       {/* ════════════════════════════════════════════════════
           LOADING SAUVEGARDE SESSION
@@ -3976,10 +4237,14 @@ export default function InvestigationGame(props: {
               {/* Texte */}
               <div className="text-center space-y-2">
                 <h2 className="text-xl font-bold text-white font-serif">
-                  {lang === "fr" ? "Sauvegarde de l'enquête" : "Saving investigation"}
+                  {lang === "fr"
+                    ? "Sauvegarde de l'enquête"
+                    : "Saving investigation"}
                 </h2>
                 <p className="text-sm text-gray-400 font-mono">
-                  {lang === "fr" ? "Sécurisation de votre progression..." : "Securing your progress..."}
+                  {lang === "fr"
+                    ? "Sécurisation de votre progression..."
+                    : "Securing your progress..."}
                 </p>
               </div>
 
@@ -3997,17 +4262,28 @@ export default function InvestigationGame(props: {
                   <span className="text-gray-500 font-mono">
                     {lang === "fr" ? "Progression" : "Progress"}
                   </span>
-                  <span className="text-[#D4AF37] font-bold font-mono">{saveProgress}%</span>
+                  <span className="text-[#D4AF37] font-bold font-mono">
+                    {saveProgress}%
+                  </span>
                 </div>
               </div>
 
               {/* Étapes de sauvegarde */}
               <div className="w-full space-y-2 text-xs">
                 {[
-                  { pct: 25, label: lang === "fr" ? "Mots mêlés" : "Word search" },
+                  {
+                    pct: 25,
+                    label: lang === "fr" ? "Mots mêlés" : "Word search",
+                  },
                   { pct: 50, label: lang === "fr" ? "Budget" : "Budget" },
-                  { pct: 75, label: lang === "fr" ? "Progression" : "Progress" },
-                  { pct: 100, label: lang === "fr" ? "Fin de session" : "Finalizing" },
+                  {
+                    pct: 75,
+                    label: lang === "fr" ? "Progression" : "Progress",
+                  },
+                  {
+                    pct: 100,
+                    label: lang === "fr" ? "Fin de session" : "Finalizing",
+                  },
                 ].map((step) => (
                   <div
                     key={step.pct}
@@ -4031,7 +4307,6 @@ export default function InvestigationGame(props: {
         )}
       </AnimatePresence>
 
-
       {/* ── INSTRUCTIONS PANEL ── */}
       <InstructionsPanel
         isOpen={showInstructions}
@@ -4047,9 +4322,9 @@ export default function InvestigationGame(props: {
       <AnimatePresence>
         {joinSuccess && (
           <motion.div
-            initial={{ opacity: 0, y: -20, x: '-50%' }}
-            animate={{ opacity: 1, y: 0, x: '-50%' }}
-            exit={{ opacity: 0, y: -20, x: '-50%' }}
+            initial={{ opacity: 0, y: -20, x: "-50%" }}
+            animate={{ opacity: 1, y: 0, x: "-50%" }}
+            exit={{ opacity: 0, y: -20, x: "-50%" }}
             className="fixed top-20 left-1/2 z-[80] bg-green-500/90 text-white px-6 py-3 rounded-full font-bold text-sm shadow-[0_0_20px_rgba(34,197,94,0.5)] pointer-events-none"
           >
             {joinSuccess}

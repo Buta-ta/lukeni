@@ -170,13 +170,15 @@ function calculateHotspotProximity(cameraRotation: { x: number; y: number }, hot
 
 // ── Hotspot 3D ──
 function HotspotMarker({
-  hotspot, onActivate, solvedEnigmas, lang, characters, proximityState, isTransitioning
+  hotspot, onActivate, solvedEnigmas,completedWordSearches, lang, characters, proximityState, isTransitioning
 }: any) {
   const { position } = flatToSpherical(hotspot.x_percent, hotspot.y_percent);
   const [hovered, setHovered] = useState(false);
   const config = HOTSPOT_CONFIG[hotspot.type] || { color: '#ffffff', icon: '❓' };
   const activeColor = hotspot.color || config.color;
-  const isLocked = hotspot.condition ? !solvedEnigmas.includes(hotspot.condition) : false;
+  const isLocked = hotspot.condition 
+    ? !solvedEnigmas.includes(hotspot.condition) && !(completedWordSearches || []).includes(hotspot.condition) 
+    : false;
   const isTransition = hotspot.type === 'transition';
   const state = isTransition ? (proximityState || 'FAR') : null;
 
@@ -314,6 +316,7 @@ interface PanoramaViewerProps {
   hotspots: Hotspot[];
   evidences: any[];
   solvedEnigmas: string[];
+  completedWordSearches?: string[];
   lang?: 'fr' | 'en';
   onHotspotActivate: (hotspot: Hotspot, evidence?: any) => void;
   onTransition?: (chapterId: string) => void;
@@ -323,10 +326,11 @@ interface PanoramaViewerProps {
   visualFilter?: string;
   isEditorPreview?: boolean;
   characters?: any[];
+
 }
 
 export default function PanoramaViewer({
-  panoramaUrl, hotspots, evidences, solvedEnigmas, lang = 'fr',
+  panoramaUrl, hotspots, evidences, solvedEnigmas,completedWordSearches = [], lang = 'fr',
   onHotspotActivate, onTransition, onSceneChange,
   ambientAudioUrl, ambientAudioVolume = 0.5, visualFilter = 'none', isEditorPreview = false, characters = [],
 }: PanoramaViewerProps) {
@@ -565,6 +569,7 @@ export default function PanoramaViewer({
                 hotspot={hotspot}
                 onActivate={handleHotspotActivate}
                 solvedEnigmas={solvedEnigmas}
+                completedWordSearches={completedWordSearches || []}
                 lang={lang}
                 characters={characters}
                 proximityState={proximities[hotspot.id]}
