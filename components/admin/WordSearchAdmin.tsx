@@ -628,6 +628,37 @@ export default function WordSearchAdmin({
                                         placeholder="Mot piège FR"
                                         className="flex-1 bg-[#1a1a1a] border border-red-500/30 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-red-500 uppercase"
                                     />
+                                    {/* ✅ NOUVELLE SECTION : Input EN */}
+                                    <input
+                                        type="text"
+                                        value={(formData.trap_words_en || [])[idx] || ""}
+                                        onChange={(e) => {
+                                            const newList = [...(formData.trap_words_en || [])];
+                                            newList[idx] = e.target.value.toUpperCase();
+                                            setFormData((prev: any) => ({ ...prev, trap_words_en: newList }));
+                                        }}
+                                        placeholder="Trap word EN"
+                                        className="flex-1 bg-[#1a1a1a] border border-red-500/30 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-red-500 uppercase"
+                                    />
+                                    {/* ✅ BOUTON TRADUCTION */}
+                                    <button
+                                        onClick={async () => {
+                                            if (!word.trim()) return;
+                                            setIsTranslating(true);
+                                            const t = await autoTranslate(word, "fr");
+                                            const newList = [...(formData.trap_words_en || [])];
+                                            newList[idx] = t.toUpperCase();
+                                            setFormData((prev: any) => ({ ...prev, trap_words_en: newList }));
+                                            setIsTranslating(false);
+                                        }}
+                                        className="p-1.5 bg-white/5 rounded text-gray-400 hover:text-white flex-shrink-0"
+                                    >
+                                        {isTranslating ? (
+                                            <Loader2 size={12} className="animate-spin" />
+                                        ) : (
+                                            <Languages size={12} />
+                                        )}
+                                    </button>
                                     <button
                                         onClick={() => {
                                             setFormData((prev: any) => ({

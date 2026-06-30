@@ -577,9 +577,10 @@ export default function InvestigationGame(props: {
 
 
         // ✅ Charger les mots mêlés
+        // ✅ Charger les mots mêlés AVEC les clues imbriquées
         const { data: wsData } = await supabase
           .from("investigation_word_search")
-          .select("*")
+          .select("*, word_search_clues:investigation_word_search_clues(*)")
           .eq("investigation_id", invId);
         setWordSearches(wsData || []);
 
@@ -2221,6 +2222,15 @@ export default function InvestigationGame(props: {
             <span className="hidden md:block font-mono text-xs font-bold tracking-widest">
               {lang === "fr" ? "MOTS MÊLÉS" : "WORD SEARCH"}
             </span>
+            {/* ✅ BADGE DE NOTIFICATION SI MOTS MÊLÉS DISPONIBLES */}
+            {currentWordSearch && activeUI !== "wordsearch" && (
+              <motion.span
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="absolute -top-2 -right-2 w-3.5 h-3.5 bg-pink-500 rounded-full animate-pulse shadow-[0_0_12px_rgba(236,72,153,0.8)]"
+                title={lang === "fr" ? "Un mots mêlés vous attend !" : "A word search awaits you!"}
+              />
+            )}
           </button>
 
 
