@@ -3727,16 +3727,8 @@ export default function InvestigationGame(props: {
               .update({ completed_word_searches: newCompleted })
               .eq("id", session.id);
 
-
-
-            // ✅ Effacer la progression de ce mots mêlés (car complété)
-            const newProgress = { ...wordSearchProgress };
-            delete newProgress[currentWordSearch.id];
-            setWordSearchProgress(newProgress);
-            await supabase
-              .from("investigation_sessions")
-              .update({ word_search_progress: newProgress })
-              .eq("id", session.id);
+            // ✅ NE PAS effacer la progression — la conserver pour que le joueur voie ce qu'il a fait
+            // (on garde juste le flag completed_word_searches pour les conditions)
 
             // ✅ Événement narratif de succès
             if (currentWordSearch?.trigger_event_on_success_id) {
