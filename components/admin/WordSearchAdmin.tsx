@@ -78,7 +78,7 @@ export default function WordSearchAdmin({
             setIsLoading(true);
             const { data, error } = await supabase
                 .from("investigation_word_search")
-                .select("*")
+                .select("*, word_search_clues:investigation_word_search_clues(*)")
                 .eq("investigation_id", investigationId)
                 .order("created_at", { ascending: false });
 
@@ -152,6 +152,7 @@ export default function WordSearchAdmin({
 
         setIsSaving(true);
         try {
+            // ✅ Créer le payload SANS word_search_clues
             const payload = {
                 investigation_id: investigationId,
                 chapter_id: formData.chapter_id,
@@ -181,10 +182,13 @@ export default function WordSearchAdmin({
                 attempt_behavior: formData.attempt_behavior || "alert",
                 auto_reveal_clue_after_attempts: formData.auto_reveal_clue_after_attempts || null,
                 trigger_event_on_max_attempts: formData.trigger_event_on_max_attempts || null,
-                word_search_clues: formData.word_search_clues || [],
+                // ✅ PAS de word_search_clues ici !
             };
 
+            let wordSearchId = editingId;
+
             if (editingId) {
+                // ✅ MODIFICATION
                 const { error } = await supabase
                     .from("investigation_word_search")
                     .update(payload)
@@ -192,17 +196,52 @@ export default function WordSearchAdmin({
                 if (error) throw error;
                 showMsg("success", "Mots mêlés mis à jour !");
             } else {
-                const { error } = await supabase
+                // ✅ CRÉATION
+                const { data: newWS, error } = await supabase
                     .from("investigation_word_search")
-                    .insert(payload);
+                    .insert(payload)
+                    .select()
+                    .single();
                 if (error) throw error;
+                wordSearchId = newWS.id;
                 showMsg("success", "Mots mêlés créé !");
             }
 
-            // Recharger
+            // ✅ SAUVEGARDER LES INDICES SÉPARÉMENT
+            if (formData.word_search_clues && formData.word_search_clues.length > 0) {
+                for (const clue of formData.word_search_clues) {
+                    const clueId = clue.id as string;
+
+                    // ✅ Vérifier si c'est une clue existante (UUID) ou nouvelle (Date.now)
+                    if (clueId && clueId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-/)) {
+                        // Mise à jour d'une clue existante
+                        await supabase
+                            .from("investigation_word_search_clues")
+                            .update({
+                                text_fr: clue.text_fr,
+                                text_en: clue.text_en,
+                                reveal_cost_cauris: clue.reveal_cost_cauris ?? 5,
+                            })
+                            .eq("id", clueId);
+                    } else if (clue.text_fr?.trim()) {
+                        // Nouvelle clue (créer)
+                        await supabase
+                            .from("investigation_word_search_clues")
+                            .insert({
+                                word_search_id: wordSearchId,
+                                text_fr: clue.text_fr,
+                                text_en: clue.text_en || null,
+                                reveal_cost_cauris: clue.reveal_cost_cauris ?? 5,
+                                clue_order: formData.word_search_clues.indexOf(clue),
+                            });
+                    }
+                }
+            }
+
+            // ✅ RECHARGER LES MOTS MÊLÉS AVEC LES CLUES
             const { data } = await supabase
                 .from("investigation_word_search")
-                .select("*")
+                .select("*, word_search_clues:investigation_word_search_clues(*)")
                 .eq("investigation_id", investigationId)
                 .order("created_at", { ascending: false });
             setWordSearches(data || []);
@@ -210,6 +249,7 @@ export default function WordSearchAdmin({
             setEditingId(null);
         } catch (err: any) {
             showMsg("error", `Erreur: ${err.message}`);
+            console.error("HandleSave error:", err);
         }
         setIsSaving(false);
     };
