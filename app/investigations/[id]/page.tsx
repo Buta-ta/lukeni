@@ -1,6 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef, use } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  use,
+  useMemo,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -28,6 +35,7 @@ import {
   Loader2,
   Users,
   Lightbulb,
+  RotateCcw,
 } from "lucide-react";
 import { Hotspot } from "@/types/panorama";
 import EvidenceModal from "@/components/game/EvidenceModal";
@@ -290,6 +298,91 @@ export default function InvestigationGame(props: {
 
   const [chatInput, setChatInput] = useState("");
 
+
+
+  // ✅ Vérifier si deux preuves sont liées (même énigme, scène ou chapitre)
+const checkEvidencesLinked = (ev1: any, ev2: any, chaps: any[]): boolean => {
+  // Chercher dans quelle(s) énigme(s) ces preuves apparaissent
+  const enigmas1 = chaps
+    .flatMap((c) => c.enigmas || [])
+    .filter((e: any) => e.evidence_id === ev1.id);
+  
+  const enigmas2 = chaps
+    .flatMap((c) => c.enigmas || [])
+    .filter((e: any) => e.evidence_id === ev2.id);
+
+  // Même énigme ?
+  const sameEnigma = enigmas1.some((e1: any) =>
+    enigmas2.some((e2: any) => e1.id === e2.id)
+  );
+  if (sameEnigma) return true;
+
+  // Même chapitre ?
+  const chapter1 = chaps.find((c) =>
+    (c.enigmas || []).some((e: any) => e.evidence_id === ev1.id)
+  );
+  const chapter2 = chaps.find((c) =>
+    (c.enigmas || []).some((e: any) => e.evidence_id === ev2.id)
+  );
+  if (chapter1 && chapter2 && chapter1.id === chapter2.id) return true;
+
+  return false;
+};
+
+// ✅ Filtrer et trier les preuves collectées
+const getFilteredAndSortedEvidences = () => {
+  if (!session?.collected_evidences) return [];
+
+  let filtered = (session.collected_evidences || [])
+    .map((eid) => evidences.find((ev) => ev.id === eid))
+    .filter((ev) => ev !== undefined);
+
+  // Filtre par type
+  if (inventoryFilter.type === "favorites") {
+    filtered = filtered.filter((ev) =>
+      JSON.parse(localStorage.getItem(`fav_${ev.id}`) || "false")
+    );
+  } else if (inventoryFilter.type !== "all") {
+    filtered = filtered.filter(
+      (ev) => ev?.media_type === inventoryFilter.type
+    );
+  }
+
+  // Filtre par chapitre
+  if (inventoryFilter.chapter) {
+    filtered = filtered.filter((ev) => {
+      const enigma = chapters
+        .flatMap((c) => c.enigmas || [])
+        .find((e: any) => e.evidence_id === ev.id);
+      return enigma ? chapters.find((c) => c.enigmas?.includes(enigma))?.id === inventoryFilter.chapter : false;
+    });
+  }
+
+  // Filtre par recherche
+  if (inventoryFilter.search) {
+    const search = inventoryFilter.search.toLowerCase();
+    filtered = filtered.filter((ev) => {
+      const name = lang === "fr" ? ev.name_fr : ev.name_en || ev.name_fr;
+      return name?.toLowerCase().includes(search);
+    });
+  }
+
+  // Tri
+  if (inventoryFilter.sort === "alpha") {
+    filtered.sort((a, b) => {
+      const nameA = lang === "fr" ? a?.name_fr : a?.name_en || a?.name_fr;
+      const nameB = lang === "fr" ? b?.name_fr : b?.name_en || b?.name_fr;
+      return (nameA || "").localeCompare(nameB || "");
+    });
+  } else if (inventoryFilter.sort === "type") {
+    filtered.sort((a, b) =>
+      (a?.media_type || "").localeCompare(b?.media_type || "")
+    );
+  }
+
+  return filtered;
+};
+
   // ── GROUPE MULTIJOUEUR ──
   const [showJoinGroupModal, setShowJoinGroupModal] = useState(false);
   const [groupCodeInput, setGroupCodeInput] = useState("");
@@ -322,6 +415,22 @@ export default function InvestigationGame(props: {
     saveWordSearchProgress,
     forceRefreshSession,
   } = useInvestigationSession(invId, user);
+
+  // ✅ Wrapper pour collectEvidence avec gestion du badge "NOUVEAU"
+  const handleCollectEvidence = async (evidenceId: string) => {
+    await collectEvidence(evidenceId);
+
+    // ✅ Ajouter au tableau "recentlyAdded" pour le badge NOUVEAU
+    setRecentlyAddedEvidences((prev) => [...prev, evidenceId]);
+
+    // ✅ Retirer le badge après 10 secondes
+    setTimeout(() => {
+      setRecentlyAddedEvidences((prev) =>
+        prev.filter((id) => id !== evidenceId),
+      );
+    }, 10000);
+  };
+
   const {
     messages: chatMessages,
     sendMessage: sendChatMessage,
@@ -1041,13 +1150,13 @@ export default function InvestigationGame(props: {
         switch (activeEnigma.timer_behavior || "alert") {
           case "pause":
             // ⏸️ Pause : le joueur ne peut plus interagir
-            
+
             // On garde enigmaTimerActive = false, l'énigme est bloquée
             break;
 
           case "end_game":
             // 🔴 Fin de jeu
-            
+
             setShowContextualEnding({
               title: lang === "fr" ? "TEMPS ÉCOULÉ" : "TIME OUT",
               message:
@@ -1060,8 +1169,8 @@ export default function InvestigationGame(props: {
 
           case "alert":
           default:
-            // 💡 Juste alerte : le jeu continue
-           
+          // 💡 Juste alerte : le jeu continue
+
           // Le joueur peut toujours répondre mais ne gagne plus de bonus temps
         }
       }
@@ -1222,94 +1331,94 @@ export default function InvestigationGame(props: {
 
   const handleHotspotActivate = useCallback(
     async (hotspot: Hotspot) => {
-    console.log("🔓 ========== HOTSPOT ACTIVÉ ==========");
-    console.log("🔓 Hotspot label:", hotspot.label_fr);
-    console.log("🔓 Hotspot condition:", hotspot.condition);
-    console.log("🔓 Hotspot type:", hotspot.type);
+      console.log("🔓 ========== HOTSPOT ACTIVÉ ==========");
+      console.log("🔓 Hotspot label:", hotspot.label_fr);
+      console.log("🔓 Hotspot condition:", hotspot.condition);
+      console.log("🔓 Hotspot type:", hotspot.type);
 
-    // ✅ FIX 1 : Vérification de la condition de verrouillage
-    if (hotspot.condition) {
-      let isConditionMet = false;
-      let lockName = "";
-      let lockType = "";
+      // ✅ FIX 1 : Vérification de la condition de verrouillage
+      if (hotspot.condition) {
+        let isConditionMet = false;
+        let lockName = "";
+        let lockType = "";
 
-      console.log("🔓 Vérification de condition...");
+        console.log("🔓 Vérification de condition...");
 
-      // Format: enigma_<id>_solved
-      if (hotspot.condition.startsWith("enigma_")) {
-        console.log("🔓 Type de condition: ÉNIGME");
-        lockType = "enigma";
-        const enigmaId = hotspot.condition
-          .replace("enigma_", "")
-          .replace("_solved", "");
-        console.log("🔓 Énigma ID à vérifier:", enigmaId);
-        console.log("🔓 solved_enigmas en session:", session?.solved_enigmas);
+        // Format: enigma_<id>_solved
+        if (hotspot.condition.startsWith("enigma_")) {
+          console.log("🔓 Type de condition: ÉNIGME");
+          lockType = "enigma";
+          const enigmaId = hotspot.condition
+            .replace("enigma_", "")
+            .replace("_solved", "");
+          console.log("🔓 Énigma ID à vérifier:", enigmaId);
+          console.log("🔓 solved_enigmas en session:", session?.solved_enigmas);
 
-        isConditionMet = session?.solved_enigmas?.includes(hotspot.condition);
-        console.log("🔓 Énigme résolue ?", isConditionMet);
+          isConditionMet = session?.solved_enigmas?.includes(hotspot.condition);
+          console.log("🔓 Énigme résolue ?", isConditionMet);
 
-        const enigma = allChapterEnigmas.find((e: any) => e.id === enigmaId);
-        lockName = enigma
-          ? lang === "fr"
-            ? enigma.question_fr
-            : enigma.question_en
-          : "cette énigme";
+          const enigma = allChapterEnigmas.find((e: any) => e.id === enigmaId);
+          lockName = enigma
+            ? lang === "fr"
+              ? enigma.question_fr
+              : enigma.question_en
+            : "cette énigme";
+        }
+        // Format: wordsearch_<id>_completed
+        else if (hotspot.condition.startsWith("wordsearch_")) {
+          console.log("🔓 Type de condition: WORD SEARCH");
+          lockType = "wordsearch";
+          const wsId = hotspot.condition
+            .replace("wordsearch_", "")
+            .replace("_completed", "");
+          console.log("🔓 Word Search ID à vérifier:", wsId);
+          console.log(
+            "🔓 completed_word_searches en session:",
+            (session as any)?.completed_word_searches,
+          );
+          console.log(
+            "🔓 Type de completed_word_searches:",
+            Array.isArray((session as any)?.completed_word_searches)
+              ? "TABLEAU"
+              : "NON TABLEAU",
+          );
+
+          // ✅ CORRECTION : Vérifier que completed_word_searches existe ET contient l'ID
+          isConditionMet =
+            Array.isArray((session as any)?.completed_word_searches) &&
+            (session as any)?.completed_word_searches?.includes(wsId);
+
+          console.log("🔓 Word Search complété ?", isConditionMet);
+
+          const ws = wordSearches.find((w: any) => w.id === wsId);
+          lockName = ws
+            ? lang === "fr"
+              ? ws.title_fr
+              : ws.title_en || ws.title_fr
+            : lang === "fr"
+              ? "ce mots mêlés"
+              : "this word search";
+          console.log("🔓 Nom du word search:", lockName);
+        }
+
+        console.log("🔓 Condition rencontrée ?", isConditionMet);
+
+        if (!isConditionMet) {
+          const message =
+            lang === "fr"
+              ? `🔒 Accès verrouillé. Vous devez d'abord : ${lockType === "enigma" ? "résoudre" : "terminer"} "${lockName}"`
+              : `🔒 Access locked. You must first: ${lockType === "enigma" ? "solve" : "complete"} "${lockName}"`;
+
+          console.log("❌ HOTSPOT VERROUILLÉ - Message:", message);
+          sendChatMessage(message, "system");
+          console.log("🔓 ========== FIN VÉRIFICATION (VERROUILLÉ) ==========");
+          return;
+        }
+
+        console.log("✅ Condition rencontrée ! Hotspot déverrouillé");
+      } else {
+        console.log("🔓 Pas de condition - Hotspot toujours accessible");
       }
-      // Format: wordsearch_<id>_completed
-      else if (hotspot.condition.startsWith("wordsearch_")) {
-        console.log("🔓 Type de condition: WORD SEARCH");
-        lockType = "wordsearch";
-        const wsId = hotspot.condition
-          .replace("wordsearch_", "")
-          .replace("_completed", "");
-        console.log("🔓 Word Search ID à vérifier:", wsId);
-        console.log(
-          "🔓 completed_word_searches en session:",
-          (session as any)?.completed_word_searches,
-        );
-        console.log(
-          "🔓 Type de completed_word_searches:",
-          Array.isArray((session as any)?.completed_word_searches)
-            ? "TABLEAU"
-            : "NON TABLEAU",
-        );
-
-        // ✅ CORRECTION : Vérifier que completed_word_searches existe ET contient l'ID
-        isConditionMet =
-          Array.isArray((session as any)?.completed_word_searches) &&
-          (session as any)?.completed_word_searches?.includes(wsId);
-
-        console.log("🔓 Word Search complété ?", isConditionMet);
-
-        const ws = wordSearches.find((w: any) => w.id === wsId);
-        lockName = ws
-          ? lang === "fr"
-            ? ws.title_fr
-            : ws.title_en || ws.title_fr
-          : lang === "fr"
-            ? "ce mots mêlés"
-            : "this word search";
-        console.log("🔓 Nom du word search:", lockName);
-      }
-
-      console.log("🔓 Condition rencontrée ?", isConditionMet);
-
-      if (!isConditionMet) {
-        const message =
-          lang === "fr"
-            ? `🔒 Accès verrouillé. Vous devez d'abord : ${lockType === "enigma" ? "résoudre" : "terminer"} "${lockName}"`
-            : `🔒 Access locked. You must first: ${lockType === "enigma" ? "solve" : "complete"} "${lockName}"`;
-
-        console.log("❌ HOTSPOT VERROUILLÉ - Message:", message);
-        sendChatMessage(message, "system");
-        console.log("🔓 ========== FIN VÉRIFICATION (VERROUILLÉ) ==========");
-        return;
-      }
-
-      console.log("✅ Condition rencontrée ! Hotspot déverrouillé");
-    } else {
-      console.log("🔓 Pas de condition - Hotspot toujours accessible");
-    }
 
       // ✅ FIX 2 : Fin alternative avec titre et message séparés
       if (hotspot.type === "ending") {
@@ -1450,8 +1559,6 @@ export default function InvestigationGame(props: {
           .from("investigation_sessions")
           .update({ revealed_hotspot_ids: newRevealed })
           .eq("id", session.id);
-
-        
       }
 
       // ✅ NOUVEAU : Navigation après interaction
@@ -1729,6 +1836,48 @@ export default function InvestigationGame(props: {
   // ── EMOJIS DE RÉACTION PRÉDÉFINIS ──
   const PRESET_EMOJIS = ["❤️", "👍", "🔥", "🧩", "🕵️", "😮"];
 
+  // ✅ NOUVEAU : États pour le panel Preuves
+ const [inventoryFilter, setInventoryFilter] = useState<{
+  type: "all" | "favorites" | "image" | "audio" | "document" | "video";
+  chapter: string;
+  sort: "date" | "alpha" | "type";
+  search?: string;
+}>({
+  type: "all",
+  chapter: "",
+  sort: "date",
+  search: "",
+});
+
+  // ✅ Preuves récemment ajoutées (pour badge "NOUVEAU")
+  const [recentlyAddedEvidences, setRecentlyAddedEvidences] = useState<
+    string[]
+  >([]);
+
+
+
+  // ✅ Navigation entre preuves
+  const handleNavigateEvidence = (direction: "prev" | "next") => {
+    if (!activeEvidence || !session?.collected_evidences) return;
+
+    const currentIndex = filteredEvidences.findIndex(ev => ev?.id === activeEvidence.id);
+    if (currentIndex === -1) return;
+
+    const newIndex = direction === "prev"
+      ? (currentIndex - 1 + filteredEvidences.length) % filteredEvidences.length
+      : (currentIndex + 1) % filteredEvidences.length;
+
+    const newEvidence = filteredEvidences[newIndex];
+    if (newEvidence) {
+      setActiveEvidence(newEvidence);
+    }
+  };
+
+  // ✅ Preuves filtrées
+ const filteredEvidences = useMemo(() => {
+  return getFilteredAndSortedEvidences();
+}, [session?.collected_evidences, evidences, inventoryFilter, lang, chapters]);
+
   if (!isMounted) return null;
   if (!invId)
     return (
@@ -1970,7 +2119,9 @@ export default function InvestigationGame(props: {
           }
           evidences={evidences}
           solvedEnigmas={session?.solved_enigmas || []}
-          completedWordSearches={(session as any)?.completed_word_searches || []}
+          completedWordSearches={
+            (session as any)?.completed_word_searches || []
+          }
           lang={lang}
           onHotspotActivate={handleHotspotActivate}
           onSceneChange={(sceneId) => {
@@ -2264,8 +2415,8 @@ export default function InvestigationGame(props: {
                   setActiveUI(activeUI === "deduction" ? null : "deduction")
                 }
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors relative ${activeUI === "deduction"
-                  ? "bg-[#D4AF37] text-black"
-                  : "hover:bg-white/10 text-gray-300"
+                    ? "bg-[#D4AF37] text-black"
+                    : "hover:bg-white/10 text-gray-300"
                   }`}
               >
                 <span className="text-lg">🧠</span>
@@ -2296,8 +2447,8 @@ export default function InvestigationGame(props: {
               setActiveUI(activeUI === "wordsearch" ? null : "wordsearch")
             }
             className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors relative ${activeUI === "wordsearch"
-              ? "bg-pink-600 text-white"
-              : "hover:bg-white/10 text-gray-300"
+                ? "bg-pink-600 text-white"
+                : "hover:bg-white/10 text-gray-300"
               }`}
           >
             <span className="text-lg">🧩</span>
@@ -2326,8 +2477,8 @@ export default function InvestigationGame(props: {
               <button
                 onClick={() => setActiveUI(activeUI === "chat" ? null : "chat")}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors relative ${activeUI === "chat"
-                  ? "bg-purple-600 text-white"
-                  : "hover:bg-white/10 text-gray-300"
+                    ? "bg-purple-600 text-white"
+                    : "hover:bg-white/10 text-gray-300"
                   }`}
               >
                 <MessageCircle size={18} />
@@ -2785,10 +2936,10 @@ export default function InvestigationGame(props: {
                     duration: 0.5,
                   }}
                   className={`flex items-center gap-1.5 px-2 py-1 rounded font-mono text-xs font-bold border ${enigmaTimerSeconds <= 10
-                    ? "bg-red-500/20 border-red-500/50 text-red-400"
-                    : enigmaTimerSeconds <= 30
-                      ? "bg-amber-500/20 border-amber-500/30 text-amber-400"
-                      : "bg-black/50 border-white/20 text-white"
+                      ? "bg-red-500/20 border-red-500/50 text-red-400"
+                      : enigmaTimerSeconds <= 30
+                        ? "bg-amber-500/20 border-amber-500/30 text-amber-400"
+                        : "bg-black/50 border-white/20 text-white"
                     }`}
                 >
                   <Clock size={12} />
@@ -2865,10 +3016,10 @@ export default function InvestigationGame(props: {
                         }
                       }}
                       className={`p-4 rounded-xl border font-mono ${isSolved
-                        ? "bg-green-900/10 border-green-500/30"
-                        : isWrong
-                          ? "bg-red-900/20 border-red-500/50 animate-pulse"
-                          : "bg-black/50 border-white/10 cursor-pointer hover:border-[#D4AF37]/50"
+                          ? "bg-green-900/10 border-green-500/30"
+                          : isWrong
+                            ? "bg-red-900/20 border-red-500/50 animate-pulse"
+                            : "bg-black/50 border-white/10 cursor-pointer hover:border-[#D4AF37]/50"
                         }`}
                     >
                       {/* Question */}
@@ -3124,8 +3275,8 @@ export default function InvestigationGame(props: {
                                 <div
                                   key={clue.id}
                                   className={`p-3 rounded-lg text-xs border ${isRevealed
-                                    ? "bg-blue-900/20 border-blue-500/30"
-                                    : "bg-black/40 border-white/10"
+                                      ? "bg-blue-900/20 border-blue-500/30"
+                                      : "bg-black/40 border-white/10"
                                     }`}
                                 >
                                   {isRevealed ? (
@@ -3191,8 +3342,8 @@ export default function InvestigationGame(props: {
                                         }
                                         disabled={budgetCauris < clueCost}
                                         className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${budgetCauris >= clueCost
-                                          ? "bg-[#D4AF37] hover:bg-white text-black shadow-lg hover:shadow-xl"
-                                          : "bg-red-500/10 border border-red-500/30 text-red-400 cursor-not-allowed"
+                                            ? "bg-[#D4AF37] hover:bg-white text-black shadow-lg hover:shadow-xl"
+                                            : "bg-red-500/10 border border-red-500/30 text-red-400 cursor-not-allowed"
                                           }`}
                                       >
                                         <span>💰</span>
@@ -3281,12 +3432,19 @@ export default function InvestigationGame(props: {
             initial={{ opacity: 0, y: 100 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 100 }}
-            className="absolute z-30 bottom-24 inset-x-4 md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:bottom-24 md:w-[600px] h-64 bg-black/90 backdrop-blur-xl border border-white/20 rounded-2xl flex flex-col overflow-hidden shadow-2xl"
+            className="absolute z-30 bottom-24 inset-x-4 md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:bottom-24 md:w-[800px] max-h-[75vh] bg-black/95 backdrop-blur-xl border border-white/20 rounded-2xl flex flex-col overflow-hidden shadow-2xl"
           >
-            <div className="bg-white/5 px-4 py-3 flex items-center justify-between border-b border-white/10">
+            {/* ════════════════════════════════════════════════════════════════
+        HEADER
+    ════════════════════════════════════════════════════════════════ */}
+            <div className="bg-white/5 px-4 py-3 flex items-center justify-between border-b border-white/10 flex-shrink-0">
               <span className="font-mono text-xs text-white tracking-widest font-bold flex items-center gap-2">
-                <Briefcase size={14} />{" "}
+                <Briefcase size={14} />
                 {lang === "fr" ? "PREUVES COLLECTÉES" : "COLLECTED EVIDENCE"}
+                <span className="text-gray-500 font-normal">
+                  ({session?.collected_evidences?.length || 0}/
+                  {evidences.length})
+                </span>
               </span>
               <button
                 onClick={() => setActiveUI(null)}
@@ -3295,45 +3453,377 @@ export default function InvestigationGame(props: {
                 <X size={16} />
               </button>
             </div>
-            <div className="p-4 overflow-y-auto flex-1">
-              {(session?.collected_evidences?.length || 0) > 0 ? (
-                <div className="grid grid-cols-4 md:grid-cols-5 gap-3">
-                  {(session?.collected_evidences || []).map((eid) => {
-                    const ev = evidences.find((e) => e.id === eid);
-                    if (!ev) return null;
-                    return (
-                      <div
-                        key={eid}
-                        onClick={() => {
-                          setActiveEvidence(ev);
-                          setActiveHotspot(null);
-                        }}
-                        className="aspect-square rounded-xl overflow-hidden border border-white/20 cursor-pointer hover:border-[#06b6d4] hover:shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all bg-white/5 flex items-center justify-center relative group"
-                      >
-                        {ev.media_type === "image" ? (
-                          <img
-                            src={ev.media_url}
-                            className="w-full h-full object-cover"
-                            alt=""
+
+            {/* ════════════════════════════════════════════════════════════════
+        BARRE DE RECHERCHE
+    ════════════════════════════════════════════════════════════════ */}
+            <div className="px-4 py-3 border-b border-white/10 bg-black/30 flex-shrink-0">
+              <input
+                type="text"
+                placeholder={lang === "fr" ? "🔍 Rechercher une preuve..." : "🔍 Search evidence..."}
+                value={inventoryFilter.search || ""}
+                onChange={(e) =>
+                  setInventoryFilter({
+                    ...inventoryFilter,
+                    search: e.target.value,
+                  })
+                }
+                className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-600 outline-none focus:border-white/30"
+              />
+            </div>
+
+            {/* ════════════════════════════════════════════════════════════════
+        ONGLETS PAR TYPE
+    ════════════════════════════════════════════════════════════════ */}
+            <div className="flex gap-1 px-4 py-2 border-b border-white/10 bg-black/20 flex-shrink-0 overflow-x-auto">
+              {[
+                {
+                  id: "all",
+                  label: lang === "fr" ? "Tous" : "All",
+                  icon: "📁",
+                  count: session?.collected_evidences?.length || 0,
+                },
+                {
+                  id: "favorites",
+                  label: lang === "fr" ? "Favoris" : "Favorites",
+                  icon: "⭐",
+                  count: (session?.collected_evidences || []).filter(
+                    (eid) => JSON.parse(localStorage.getItem(`fav_${eid}`) || "false")
+                  ).length,
+                },
+                {
+                  id: "image",
+                  label: lang === "fr" ? "Photos" : "Photos",
+                  icon: "🖼️",
+                  count: (session?.collected_evidences || []).filter(
+                    (eid) =>
+                      evidences.find((ev) => ev.id === eid)?.media_type === "image"
+                  ).length,
+                },
+                {
+                  id: "audio",
+                  label: lang === "fr" ? "Audio" : "Audio",
+                  icon: "🎵",
+                  count: (session?.collected_evidences || []).filter(
+                    (eid) =>
+                      evidences.find((ev) => ev.id === eid)?.media_type === "audio"
+                  ).length,
+                },
+                {
+                  id: "document",
+                  label: lang === "fr" ? "Docs" : "Docs",
+                  icon: "📄",
+                  count: (session?.collected_evidences || []).filter(
+                    (eid) =>
+                      evidences.find((ev) => ev.id === eid)?.media_type === "document"
+                  ).length,
+                },
+                {
+                  id: "video",
+                  label: lang === "fr" ? "Vidéo" : "Video",
+                  icon: "🎬",
+                  count: (session?.collected_evidences || []).filter(
+                    (eid) =>
+                      evidences.find((ev) => ev.id === eid)?.media_type === "video"
+                  ).length,
+                },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() =>
+                    setInventoryFilter({
+                      ...inventoryFilter,
+                      type: tab.id as
+                        | "all"
+                        | "favorites"
+                        | "image"
+                        | "audio"
+                        | "document"
+                        | "video",
+                    })
+                  }
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${inventoryFilter.type === tab.id
+                      ? "bg-white/10 text-white border border-white/30"
+                      : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"
+                    }`}
+                >
+                  <span>{tab.icon}</span>
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded-full ${inventoryFilter.type === tab.id
+                        ? "bg-white/20"
+                        : "bg-white/10"
+                      }`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* ════════════════════════════════════════════════════════════════
+        BARRE DE FILTRES & TRI
+    ════════════════════════════════════════════════════════════════ */}
+            <div className="flex items-center gap-2 px-4 py-2 border-b border-white/10 bg-black/20 flex-shrink-0 flex-wrap">
+              {/* Filtre par chapitre */}
+              <select
+                value={inventoryFilter.chapter}
+                onChange={(e) =>
+                  setInventoryFilter({
+                    ...inventoryFilter,
+                    chapter: e.target.value,
+                  })
+                }
+                className="bg-white/5 border border-white/10 rounded px-2 py-1 text-xs text-white outline-none focus:border-white/30"
+              >
+                <option value="">
+                  {lang === "fr" ? "Tous les chapitres" : "All chapters"}
+                </option>
+                {chapters.map((chap, idx) => (
+                  <option key={chap.id} value={chap.id}>
+                    {lang === "fr" ? chap.title_fr : chap.title_en}
+                  </option>
+                ))}
+              </select>
+
+              {/* Tri */}
+              <select
+                value={inventoryFilter.sort}
+                onChange={(e) =>
+                  setInventoryFilter({
+                    ...inventoryFilter,
+                    sort: e.target.value as "date" | "alpha" | "type",
+                  })
+                }
+                className="bg-white/5 border border-white/10 rounded px-2 py-1 text-xs text-white outline-none focus:border-white/30"
+              >
+                <option value="date">
+                  {lang === "fr" ? "📅 Date découverte" : "📅 Discovery date"}
+                </option>
+                <option value="alpha">
+                  {lang === "fr" ? "🔤 Alphabétique" : "🔤 Alphabetical"}
+                </option>
+                <option value="type">
+                  {lang === "fr" ? "📍 Type" : "📍 Type"}
+                </option>
+              </select>
+
+              {/* Reset filtres */}
+              {(inventoryFilter.type !== "all" ||
+                inventoryFilter.chapter ||
+                inventoryFilter.sort !== "date" ||
+                inventoryFilter.search) && (
+                  <button
+                    onClick={() =>
+                      setInventoryFilter({
+                        type: "all",
+                        chapter: "",
+                        sort: "date",
+                        search: "",
+                      })
+                    }
+                    className="text-xs text-gray-400 hover:text-white flex items-center gap-1"
+                  >
+                    <RotateCcw size={10} /> Reset
+                  </button>
+                )}
+            </div>
+
+            {/* ════════════════════════════════════════════════════════════════
+        GRILLE DES PREUVES (Carrousel + Connexions)
+    ════════════════════════════════════════════════════════════════ */}
+            <div className="p-4 overflow-y-auto flex-1 relative">
+              {filteredEvidences.length > 0 ? (
+                <>
+                  {/* Connexions visuelles (SVG) */}
+                  <svg
+                    className="absolute inset-0 w-full h-full pointer-events-none"
+                    style={{ top: 0, left: 0 }}
+                  >
+                    {filteredEvidences.map((ev1, idx1) => {
+                      return filteredEvidences.map((ev2, idx2) => {
+                        if (idx1 >= idx2) return null;
+
+                        // Vérifier si liées (même énigme, même scène, même chapitre)
+                        const isLinked = checkEvidencesLinked(ev1, ev2, chapters);
+                        if (!isLinked) return null;
+
+                        // Calculer les positions des cartes
+                        const perRow = Math.ceil(Math.sqrt(filteredEvidences.length));
+                        const x1 =
+                          ((idx1 % perRow) * (100 / perRow)) + 100 / perRow / 2 + "%";
+                        const y1 =
+                          (Math.floor(idx1 / perRow) * (100 / (Math.ceil(filteredEvidences.length / perRow)))) +
+                          50 +
+                          "px";
+                        const x2 =
+                          ((idx2 % perRow) * (100 / perRow)) + 100 / perRow / 2 + "%";
+                        const y2 =
+                          (Math.floor(idx2 / perRow) * (100 / (Math.ceil(filteredEvidences.length / perRow)))) +
+                          50 +
+                          "px";
+
+                        return (
+                          <line
+                            key={`${ev1.id}-${ev2.id}`}
+                            x1={x1}
+                            y1={y1}
+                            x2={x2}
+                            y2={y2}
+                            stroke="#D4AF37"
+                            strokeWidth="1.5"
+                            opacity="0.3"
+                            strokeDasharray="4,4"
                           />
-                        ) : (
-                          <div className="text-2xl">
-                            {ev.media_type === "audio" ? "🎵" : "📄"}
+                        );
+                      });
+                    })}
+                  </svg>
+
+                  {/* Grille des preuves */}
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 relative z-10">
+                    {filteredEvidences.map((ev) => {
+                      const isFavorite = JSON.parse(
+                        localStorage.getItem(`fav_${ev.id}`) || "false"
+                      );
+                      const isRecentlyAdded = recentlyAddedEvidences.includes(ev.id);
+
+                      return (
+                        <motion.div
+                          key={ev.id}
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className={`group relative aspect-square rounded-xl overflow-hidden border cursor-pointer transition-all hover:shadow-lg ${isRecentlyAdded
+                              ? "border-[#D4AF37] shadow-[0_0_15px_rgba(212,175,55,0.3)]"
+                              : "border-white/20 hover:border-white/40"
+                            } bg-white/5`}
+  onClick={() => {
+  setActiveEvidence(ev);
+  const fakeHotspot: any = {
+    id: `inventory_${ev.id}`,
+    type: "evidence",
+    x_percent: 50,
+    y_percent: 50,
+    label_fr: lang === "fr" ? ev.name_fr : ev.name_en || ev.name_fr,
+    label_en: ev.name_en || ev.name_fr,
+    icon: ev.media_type === "image" ? "📸" : ev.media_type === "audio" ? "🎵" : ev.media_type === "video" ? "🎬" : "📄",
+    color: "#D4AF37",
+    evidence_id: ev.id,
+    invisible: false,
+    condition: null,
+    hotspot_order: 0,
+  };
+  setActiveHotspot(fakeHotspot);
+}}
+                        >
+                          {/* Badge "NOUVEAU" */}
+                          {isRecentlyAdded && (
+                            <div className="absolute top-1 right-1 z-20 bg-[#D4AF37] text-black text-[8px] font-bold px-1.5 py-0.5 rounded animate-pulse">
+                              NOUVEAU
+                            </div>
+                          )}
+
+                          {/* Bouton Favoris */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              localStorage.setItem(
+                                `fav_${ev.id}`,
+                                JSON.stringify(!isFavorite)
+                              );
+                              setInventoryFilter({ ...inventoryFilter });
+                            }}
+                            className="absolute top-1 left-1 z-20 p-1 bg-black/60 rounded-lg hover:bg-black/90 transition-colors"
+                          >
+                            <Star
+                              size={12}
+                              className={
+                                isFavorite
+                                  ? "fill-yellow-400 text-yellow-400"
+                                  : "text-gray-400"
+                              }
+                            />
+                          </button>
+
+                          {/* Contenu (image/icon) */}
+                          {ev.media_type === "image" ? (
+                            <img
+                              src={ev.media_url}
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                              alt=""
+                            />
+                          ) : ev.media_type === "audio" ? (
+                            <div className="w-full h-full flex items-center justify-center text-3xl bg-purple-900/30">
+                              🎵
+                            </div>
+                          ) : ev.media_type === "video" ? (
+                            <div className="w-full h-full flex items-center justify-center text-3xl bg-red-900/30">
+                              🎬
+                            </div>
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-3xl bg-blue-900/30">
+                              📄
+                            </div>
+                          )}
+
+                          {/* Overlay au hover */}
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                            <Search size={20} className="text-white" />
                           </div>
-                        )}
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                          <Search size={20} className="text-white" />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+
+                          {/* Nom de la preuve (en bas) */}
+                          <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <p className="text-[10px] text-white text-center truncate">
+                              {lang === "fr" ? ev.name_fr : ev.name_en || ev.name_fr}
+                            </p>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </>
               ) : (
-                <div className="h-full flex flex-col items-center justify-center text-gray-600 font-mono text-xs">
+                <div className="h-40 flex flex-col items-center justify-center text-gray-600 font-mono text-xs">
                   <Briefcase size={32} className="mb-2 opacity-50" />
-                  {lang === "fr" ? "VIDE" : "EMPTY"}
+                  {lang === "fr"
+                    ? "Aucune preuve dans cette catégorie"
+                    : "No evidence in this category"}
                 </div>
               )}
+            </div>
+
+            {/* ════════════════════════════════════════════════════════════════
+        FOOTER AVEC STATS
+    ════════════════════════════════════════════════════════════════ */}
+            <div className="px-4 py-2 bg-white/5 border-t border-white/10 text-[10px] text-gray-500 flex items-center justify-between flex-shrink-0 flex-wrap gap-2">
+              <span>
+                {lang === "fr" ? "Affichées" : "Displayed"}:{" "}
+                {filteredEvidences.length} /{" "}
+                {session?.collected_evidences?.length || 0}
+              </span>
+
+              {/* Statistiques rapides */}
+              <div className="flex items-center gap-2 text-[9px]">
+                <span className="flex items-center gap-1">
+                  <span className="text-purple-400">🎵</span>
+                  {(session?.collected_evidences || []).filter(
+                    (eid) => evidences.find((ev) => ev.id === eid)?.media_type === "audio"
+                  ).length}
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="text-blue-400">🎬</span>
+                  {(session?.collected_evidences || []).filter(
+                    (eid) => evidences.find((ev) => ev.id === eid)?.media_type === "video"
+                  ).length}
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="text-yellow-400">⭐</span>
+                  {(session?.collected_evidences || []).filter(
+                    (eid) =>
+                      JSON.parse(localStorage.getItem(`fav_${eid}`) || "false")
+                  ).length}
+                </span>
+              </div>
             </div>
           </motion.div>
         )}
@@ -3393,8 +3883,8 @@ export default function InvestigationGame(props: {
                       <div
                         key={member.user_id}
                         className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-[10px] ${isOnline
-                          ? "bg-green-500/10 border-green-500/20 text-green-300"
-                          : "bg-white/5 border-white/10 text-gray-500"
+                            ? "bg-green-500/10 border-green-500/20 text-green-300"
+                            : "bg-white/5 border-white/10 text-gray-500"
                           }`}
                       >
                         {/* Avatar */}
@@ -3517,8 +4007,8 @@ export default function InvestigationGame(props: {
                             {/* Bulle de message */}
                             <div
                               className={`relative max-w-[85%] px-3 py-2 rounded-2xl text-xs ${isMyMessage
-                                ? "bg-purple-600/30 text-white rounded-tr-none"
-                                : "bg-white/5 text-gray-200 rounded-tl-none"
+                                  ? "bg-purple-600/30 text-white rounded-tr-none"
+                                  : "bg-white/5 text-gray-200 rounded-tl-none"
                                 }`}
                             >
                               {msg.content}
@@ -3526,8 +4016,8 @@ export default function InvestigationGame(props: {
                               {/* Boutons d'action (survol desktop / toujours visible mobile) */}
                               <div
                                 className={`absolute top-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ${isMyMessage
-                                  ? "right-full mr-1"
-                                  : "left-full ml-1"
+                                    ? "right-full mr-1"
+                                    : "left-full ml-1"
                                   }`}
                               >
                                 {/* Répondre */}
@@ -3590,8 +4080,8 @@ export default function InvestigationGame(props: {
                                             setShowEmojiPicker(null);
                                           }}
                                           className={`text-lg hover:scale-125 transition-transform p-1 rounded-lg ${hasReacted
-                                            ? "bg-purple-500/20"
-                                            : "hover:bg-white/10"
+                                              ? "bg-purple-500/20"
+                                              : "hover:bg-white/10"
                                             }`}
                                         >
                                           {emoji}
@@ -3646,8 +4136,8 @@ export default function InvestigationGame(props: {
                                       addReaction(msg.id, reaction.emoji)
                                     }
                                     className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] border transition-all ${reaction.hasUserReacted
-                                      ? "bg-purple-500/20 border-purple-500/40 text-purple-300"
-                                      : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
+                                        ? "bg-purple-500/20 border-purple-500/40 text-purple-300"
+                                        : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
                                       }`}
                                   >
                                     <span>{reaction.emoji}</span>
@@ -3799,7 +4289,7 @@ export default function InvestigationGame(props: {
             switch (currentWordSearch.attempt_behavior || "alert") {
               case "pause":
                 // ⏸️ Pause : le jeu de mots mêlés est bloqué
-               
+
                 break;
 
               case "end_game":
@@ -3915,10 +4405,11 @@ export default function InvestigationGame(props: {
             console.log("🧩 currentWordSearch?.id:", currentWordSearch?.id);
 
             const wsConditionString = `wordsearch_${currentWordSearch.id}_completed`;
-            const newCompleted = [...((session as any)?.completed_word_searches || []), wsConditionString];
+            const newCompleted = [
+              ...((session as any)?.completed_word_searches || []),
+              wsConditionString,
+            ];
             console.log("🧩 newCompleted À SAUVEGARDER:", newCompleted);
-
-            
 
             // ✅ SAUVEGARDE
             const { data: updateResult, error } = await supabase
@@ -3948,17 +4439,26 @@ export default function InvestigationGame(props: {
 
             // ✅ Événements et navigation
             if (currentWordSearch?.trigger_event_on_success_id) {
-              triggerNarrativeEvent(currentWordSearch.trigger_event_on_success_id);
+              triggerNarrativeEvent(
+                currentWordSearch.trigger_event_on_success_id,
+              );
             }
 
             if (currentWordSearch.success_target_chapter_id) {
-              const chapIdx = chapters.findIndex(c => c.id === currentWordSearch.success_target_chapter_id);
+              const chapIdx = chapters.findIndex(
+                (c) => c.id === currentWordSearch.success_target_chapter_id,
+              );
               if (chapIdx !== -1) {
                 setCurrentChapterIndex(chapIdx);
                 setCurrentSceneIndex(0);
               }
-            } else if (currentWordSearch.success_target_scene_id && currentChapter) {
-              const sceneIdx = currentChapter.scenes?.findIndex(s => s.id === currentWordSearch.success_target_scene_id);
+            } else if (
+              currentWordSearch.success_target_scene_id &&
+              currentChapter
+            ) {
+              const sceneIdx = currentChapter.scenes?.findIndex(
+                (s) => s.id === currentWordSearch.success_target_scene_id,
+              );
               if (sceneIdx !== undefined && sceneIdx !== -1) {
                 setCurrentSceneIndex(sceneIdx);
               }
@@ -4112,8 +4612,8 @@ export default function InvestigationGame(props: {
                   onKeyDown={(e) => e.key === "Enter" && handleJoinGroup()}
                   placeholder="LUKENI-XXXXXX"
                   className={`w-full bg-black/50 border rounded-xl px-4 py-3 text-center font-mono font-black text-xl text-white outline-none tracking-[0.3em] transition-colors ${joinError
-                    ? "border-red-500/50 focus:border-red-500"
-                    : "border-purple-500/30 focus:border-purple-500"
+                      ? "border-red-500/50 focus:border-red-500"
+                      : "border-purple-500/30 focus:border-purple-500"
                     }`}
                   maxLength={13}
                   autoFocus
@@ -4256,14 +4756,14 @@ export default function InvestigationGame(props: {
                   <div
                     key={step.pct}
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${saveProgress >= step.pct
-                      ? "bg-[#D4AF37]/20 border-[#D4AF37]/50 text-[#D4AF37]"
-                      : "bg-white/5 border-white/10 text-gray-600"
+                        ? "bg-[#D4AF37]/20 border-[#D4AF37]/50 text-[#D4AF37]"
+                        : "bg-white/5 border-white/10 text-gray-600"
                       }`}
                   >
                     <div
                       className={`w-3 h-3 rounded-full transition-all ${saveProgress >= step.pct
-                        ? "bg-[#D4AF37] shadow-[0_0_6px_rgba(212,175,55,0.6)]"
-                        : "bg-gray-600"
+                          ? "bg-[#D4AF37] shadow-[0_0_6px_rgba(212,175,55,0.6)]"
+                          : "bg-gray-600"
                         }`}
                     />
                     <span className="font-mono">{step.label}</span>
@@ -4299,6 +4799,22 @@ export default function InvestigationGame(props: {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── MODALE DE VISUALISATION DES PREUVES ── */}
+      <EvidenceModal
+        hotspot={activeHotspot}
+        evidence={activeEvidence}
+        lang={lang}
+        onClose={() => {
+          setActiveHotspot(null);
+          setActiveEvidence(null);
+        }}
+        onEvidenceCollected={(id) => {
+          if (session) handleCollectEvidence(id);
+        }}
+
+        onNavigate={handleNavigateEvidence}
+      />
     </div>
   );
 }

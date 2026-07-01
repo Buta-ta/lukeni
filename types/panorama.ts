@@ -168,6 +168,63 @@ export interface PanoramaScene {
 
 }
 
+
+// ✅ NOUVEAU : Types pour Timeline Conditionnelle
+export interface TimelineAction {
+  id: string;
+  actionType:
+    | "navigate_scene"
+    | "navigate_chapter"
+    | "reveal_hotspot"
+    | "trigger_event"
+    | "reward";
+  targetId?: string;
+  rewardData?: {
+    type: string;
+    target_id?: string;
+    notif_fr?: string;
+    notif_en?: string;
+  };
+  description_fr: string;
+  description_en: string;
+}
+
+export interface TimelineCondition {
+  id: string;
+  type: "success" | "failure" | "partial";
+  actions: TimelineAction[];
+}
+
+export interface TimelineSlot {
+  id: string;
+  label_fr: string;
+  label_en: string;
+  hint_fr: string;
+  hint_en: string;
+  expected_evidence_id: string;
+  rewards: any[]; // Reward[]
+  instruction_id?: string;
+  conditions?: TimelineCondition[]; // ✅ NOUVEAU
+}
+
+// ✅ NOUVEAU : Types pour Board Conditionnelle
+export interface BoardAction extends TimelineAction {
+  // Réutilise les mêmes types
+}
+
+export interface BoardCondition {
+  id: string;
+  type: "success" | "failure" | "partial";
+  actions: BoardAction[];
+}
+
+export interface BoardConnection {
+  id: string;
+  node_a_id: string;
+  node_b_id: string;
+  conditions?: BoardCondition[]; // ✅ NOUVEAU
+}
+
 export function flatToSpherical(xPercent: number, yPercent: number) {
   const phi = (yPercent / 100) * Math.PI;
   const theta = (xPercent / 100) * 2 * Math.PI;

@@ -180,7 +180,7 @@ const LoadingScreen = memo(({ lang }: { lang: 'fr' | 'en' }) => (
     </motion.div>
     <motion.p animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.5, repeat: Infinity }}
       className="text-[#D4AF37] text-xs tracking-[0.4em] font-light uppercase">
-      {lang === 'fr' ? 'Chargement de la bibliothèque...' : 'Loading the library...'}
+      {lang === 'fr' ? 'On ne peut gagner sa liberté qu en...' : 'You get freedom by...'}
     </motion.p>
   </motion.div>
 ));

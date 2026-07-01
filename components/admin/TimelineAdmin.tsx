@@ -6,9 +6,12 @@ import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/lib/supabase";
 import { autoTranslate } from "@/lib/lingua";
 import {
-    Plus, Trash2, Save, Loader2, Languages, ChevronDown,
-    ChevronUp, Calendar, Gift, AlertCircle
+    X, Plus, Trash2, Save, Loader2, Languages, ChevronDown,
+    ChevronUp, Calendar, Gift, AlertCircle, Upload, PlusCircle, Layers,
+    ArrowRight, Music, Camera, Clock, ImagePlus, User, FileQuestion, Paperclip, AlertTriangle, Zap, Lightbulb
 } from "lucide-react";
+
+import TimelineConditionEditor from "@/components/admin/TimelineConditionEditor";
 
 // ── TYPES ──────────────────────────────────────────────────
 interface Reward {
@@ -27,6 +30,7 @@ interface TimelineSlot {
     hint_en: string;
     expected_evidence_id: string;
     rewards: Reward[];
+    conditions?: TimelineCondition[];
     instruction_id?: string;
 }
 
@@ -36,7 +40,7 @@ interface Timeline {
     title_fr: string;
     title_en: string;
     slots: TimelineSlot[];
-    instruction_id?: string; 
+    instruction_id?: string;
 }
 
 interface Props {
@@ -46,10 +50,27 @@ interface Props {
     chapters: any[];
     enigmas: any[];
     outroConfig: any;
+    wordSearches?: any[];
+    lang?: "fr" | "en";
     showMsg: (type: "success" | "error", text: string) => void;
     investigationId?: string;
 }
 
+
+interface TimelineAction {
+    id: string;
+    actionType: "navigate_scene" | "navigate_chapter" | "reveal_hotspot" | "trigger_event" | "reward";
+    targetId?: string;
+    rewardData?: Reward;
+    description_fr: string;
+    description_en: string;
+}
+
+interface TimelineCondition {
+    id: string;
+    type: "success" | "failure" | "partial";
+    actions: TimelineAction[];
+}
 // ── REWARD TYPES CONFIG ────────────────────────────────────
 const REWARD_TYPES = [
     { value: "scene", label: "🗺️ Scène panoramique", color: "#8b5cf6" },
@@ -315,9 +336,20 @@ function RewardForm({
 
 // ── SOUS-COMPOSANT : UN SLOT DE TIMELINE ──────────────────
 function TimelineSlotForm({
-    slot, index, evidences, scenes, chapters, enigmas, outroConfig,
+    slot,
+    index,
+    evidences,
+    scenes,
+    chapters,
+    enigmas,
+    outroConfig,
     allInstructions,
-    onChange, onDelete, isTranslating, setIsTranslating
+    wordSearches,
+    lang,
+    onChange,
+    onDelete,
+    isTranslating,
+    setIsTranslating
 }: {
     slot: TimelineSlot;
     index: number;
@@ -327,6 +359,8 @@ function TimelineSlotForm({
     enigmas: any[];
     outroConfig: any;
     allInstructions: any[];
+    wordSearches: any[];
+    lang: "fr" | "en";
     onChange: (updated: TimelineSlot) => void;
     onDelete: () => void;
     isTranslating: boolean;
@@ -523,6 +557,23 @@ function TimelineSlotForm({
                         </p>
                     </div>
 
+
+
+                    {/* ✅ AJOUTE JUSTE AVANT LES RÉCOMPENSES */}
+                    <TimelineConditionEditor
+                        slot={slot}
+                        onUpdateSlot={onChange}
+                        scenes={scenes}
+                        chapters={chapters}
+                        outroConfig={outroConfig}
+                        wordSearches={wordSearches}
+                        allEnigmas={enigmas}
+                        lang={lang}
+                        evidences={evidences}
+                        sceneHotspots={scenes.flatMap((sc: any) => sc.hotspots || [])}
+                    />
+
+
                     {/* Récompenses */}
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
@@ -567,7 +618,16 @@ function TimelineSlotForm({
 
 // ── COMPOSANT PRINCIPAL ────────────────────────────────────
 export default function TimelineAdmin({
-    chapterId, evidences, scenes, chapters, enigmas, outroConfig, showMsg, investigationId
+    chapterId,
+    evidences,
+    scenes,
+    chapters,
+    enigmas,
+    outroConfig,
+    wordSearches = [],
+    lang = "fr",
+    showMsg,
+    investigationId
 }: Props) {
     const [timeline, setTimeline] = useState<Timeline | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -775,24 +835,24 @@ export default function TimelineAdmin({
 
 
 
-                  {/* Instruction de la timeline */}
-      <div>
-        <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">
-          💡 Instruction à afficher quand le joueur ouvre cette timeline (optionnel)
-        </label>
-        <select
-          value={timeline.instruction_id || ""}
-          onChange={e => setTimeline({ ...timeline, instruction_id: e.target.value || undefined })}
-          className="w-full bg-[#1a1a1a] border border-blue-500/30 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-        >
-          <option value="">— Aucune instruction —</option>
-          {allInstructions.map((instr: any) => (
-            <option key={instr.id} value={instr.id}>
-              {instr.icon} {instr.name}
-            </option>
-          ))}
-        </select>
-      </div>
+            {/* Instruction de la timeline */}
+            <div>
+                <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">
+                    💡 Instruction à afficher quand le joueur ouvre cette timeline (optionnel)
+                </label>
+                <select
+                    value={timeline.instruction_id || ""}
+                    onChange={e => setTimeline({ ...timeline, instruction_id: e.target.value || undefined })}
+                    className="w-full bg-[#1a1a1a] border border-blue-500/30 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                >
+                    <option value="">— Aucune instruction —</option>
+                    {allInstructions.map((instr: any) => (
+                        <option key={instr.id} value={instr.id}>
+                            {instr.icon} {instr.name}
+                        </option>
+                    ))}
+                </select>
+            </div>
 
             {/* Slots */}
             <div className="space-y-3">
@@ -807,6 +867,8 @@ export default function TimelineAdmin({
                         enigmas={enigmas}
                         outroConfig={outroConfig}
                         allInstructions={allInstructions}
+                        wordSearches={wordSearches}
+                        lang={lang}
                         onChange={updated => updateSlot(idx, updated)}
                         onDelete={() => deleteSlot(idx)}
                         isTranslating={isTranslating}

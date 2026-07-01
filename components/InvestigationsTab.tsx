@@ -54,10 +54,8 @@ export default function InvestigationsTab({
 }) {
   const [investigations, setInvestigations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
   const [allInstructions, setAllInstructions] = useState<any[]>([]);
 
-  // ── Niveau 1 : Dossier ──
   const [editingId, setEditingId] = useState<string | null>(null);
   const [invData, setInvData] = useState({
     title_fr: "",
@@ -71,12 +69,13 @@ export default function InvestigationsTab({
     status: "draft",
   });
 
-  // ── Niveau 2 : Scénario ──
   const [chapters, setChapters] = useState<any[]>([]);
   const [evidences, setEvidences] = useState<any[]>([]);
-  const [expandedChapters, setExpandedChapters] = useState<
-    Record<string, boolean>
-  >({});
+  const [expandedChapters, setExpandedChapters] = useState<Record<string, boolean>>({});
+  const [expandedEnigmas, setExpandedEnigmas] = useState<Record<string, boolean>>({});
+
+  const toggleEnigma = (enigmaId: string) =>
+    setExpandedEnigmas((prev) => ({ ...prev, [enigmaId]: !prev[enigmaId] }));
 
   const [introConfig, setIntroConfig] = useState<{
     background_image_url: string | null;
@@ -103,12 +102,12 @@ export default function InvestigationsTab({
   const [outroConfig, setOutroConfig] = useState<any | null>(null);
   const [showOutroPreview, setShowOutroPreview] = useState<
     | {
-      isTimeout: boolean;
-      title: string;
-      message: string;
-      color?: string;
-      score?: number;
-    }
+        isTimeout: boolean;
+        title: string;
+        message: string;
+        color?: string;
+        score?: number;
+      }
     | false
   >(false);
   const [previewMilestone, setPreviewMilestone] = useState<{
@@ -122,7 +121,7 @@ export default function InvestigationsTab({
     "#9CA3AF",
     "#F59E0B",
     "#D946EF",
-  ]; // Couleurs auto pour les nouveaux rangs
+  ];
 
   const [previewAbortMsg, setPreviewAbortMsg] = useState<string | null>(null);
   const [isTranslatingOutro, setIsTranslatingOutro] = useState(false);
@@ -130,11 +129,8 @@ export default function InvestigationsTab({
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
-  const [isTranslatingEvidence, setIsTranslatingEvidence] = useState<
-    string | null
-  >(null);
+  const [isTranslatingEvidence, setIsTranslatingEvidence] = useState<string | null>(null);
 
-  // ── Suppression ──
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{
     id: string;
@@ -216,7 +212,6 @@ export default function InvestigationsTab({
 
     fetchFullScenario(inv.id);
 
-    // ✅ Charger les instructions pour la configuration du timer d'énigme
     const { data: instrs } = await supabase
       .from("investigation_instructions")
       .select("*")
@@ -225,7 +220,6 @@ export default function InvestigationsTab({
       setAllInstructions(instrs);
     }
 
-    // ✅ Charger la config de l'intro
     try {
       const { data: intro } = await supabase
         .from("investigation_intro_config")
@@ -268,7 +262,6 @@ export default function InvestigationsTab({
       console.error("Load intro config error:", err);
     }
 
-    // ✅ Charger la config de l'outro
     try {
       const { data: outro } = await supabase
         .from("investigation_outro_config")
@@ -285,7 +278,6 @@ export default function InvestigationsTab({
             buy_seconds: 60,
             reward_seconds: 30,
           },
-          // ✅ FIX 10 : Initialisation de game_economy
           game_economy: outro.game_economy || {
             hint_cost_cauris: 5,
             auto_reveal_after: 3,
@@ -299,7 +291,6 @@ export default function InvestigationsTab({
           ranks: [],
           game_overs: [],
           time_economy: { buy_cost: 50, buy_seconds: 60, reward_seconds: 30 },
-          // ✅ FIX 10 : Valeurs par défaut
           game_economy: { hint_cost_cauris: 5, auto_reveal_after: 3 },
           abort_msg_fr: "Vous abandonnez ?",
           abort_msg_en: "Giving up?",
@@ -388,11 +379,11 @@ export default function InvestigationsTab({
       prev.map((c) =>
         c.id === cId
           ? {
-            ...c,
-            enigmas: c.enigmas.map((e: any) =>
-              e.id === eId ? { ...e, [field]: val } : e,
-            ),
-          }
+              ...c,
+              enigmas: c.enigmas.map((e: any) =>
+                e.id === eId ? { ...e, [field]: val } : e,
+              ),
+            }
           : c,
       ),
     );
@@ -408,18 +399,18 @@ export default function InvestigationsTab({
       prev.map((c) =>
         c.id === cId
           ? {
-            ...c,
-            enigmas: c.enigmas.map((e: any) =>
-              e.id === eId
-                ? {
-                  ...e,
-                  clues: e.clues.map((cl: any) =>
-                    cl.id === clId ? { ...cl, [field]: val } : cl,
-                  ),
-                }
-                : e,
-            ),
-          }
+              ...c,
+              enigmas: c.enigmas.map((e: any) =>
+                e.id === eId
+                  ? {
+                      ...e,
+                      clues: e.clues.map((cl: any) =>
+                        cl.id === clId ? { ...cl, [field]: val } : cl,
+                      ),
+                    }
+                  : e,
+              ),
+            }
           : c,
       ),
     );
@@ -477,7 +468,6 @@ export default function InvestigationsTab({
     setIsTranslatingEvidence(null);
   };
 
-  // ── Ajouter un choix ──
   const addChoice = async (enigmaId: string) => {
     const enigma = chapters
       .flatMap((c) => c.enigmas || [])
@@ -510,7 +500,6 @@ export default function InvestigationsTab({
       .eq("id", enigmaId);
   };
 
-  // ── Modifier un choix ──
   const updateChoice = async (
     enigmaId: string,
     index: number,
@@ -543,7 +532,6 @@ export default function InvestigationsTab({
       .eq("id", enigmaId);
   };
 
-  // ── Supprimer un choix ──
   const deleteChoice = async (enigmaId: string, index: number) => {
     const enigma = chapters
       .flatMap((c) => c.enigmas || [])
@@ -574,7 +562,6 @@ export default function InvestigationsTab({
       .eq("id", enigmaId);
   };
 
-  // ── Définir la bonne réponse ──
   const setCorrectChoice = async (enigmaId: string, index: number) => {
     setChapters((prev) =>
       prev.map((c) => ({
@@ -698,7 +685,6 @@ export default function InvestigationsTab({
       );
       widget.open();
     };
-
     // @ts-ignore
     if (!window.cloudinary) {
       const script = document.createElement("script");
@@ -727,7 +713,7 @@ export default function InvestigationsTab({
             callback(signature);
           },
           sources: ["local", "url"],
-          resourceType: "video", // Cloudinary classe les audios en "video"
+          resourceType: "video",
           folder: "lukeni/investigations/intro",
           maxFileSize: 50000000,
           multiple: false,
@@ -744,7 +730,6 @@ export default function InvestigationsTab({
       );
       widget.open();
     };
-
     // @ts-ignore
     if (!window.cloudinary) {
       const script = document.createElement("script");
@@ -809,7 +794,6 @@ export default function InvestigationsTab({
 
   const saveIntroConfig = async (invId: string) => {
     if (!introConfig) return;
-
     try {
       const { data: existing } = await supabase
         .from("investigation_intro_config")
@@ -831,28 +815,21 @@ export default function InvestigationsTab({
         final_message_en: introConfig.final_message_en || "Good investigation",
         final_message_icon: introConfig.final_message_icon || "✦",
         text_effect: introConfig.text_effect || "none",
-        typewriter_speed: introConfig.typewriter_speed || 30, // ✅ AJOUT
-        text_color: introConfig.text_color || "#FFFFFF", // ✅ AJOUT
-        text_font: introConfig.text_font || "serif", // ✅ AJOUT
+        typewriter_speed: introConfig.typewriter_speed || 30,
+        text_color: introConfig.text_color || "#FFFFFF",
+        text_font: introConfig.text_font || "serif",
       };
 
       if (existing) {
-        // Mettre à jour
         const { error } = await supabase
           .from("investigation_intro_config")
           .update(payload)
           .eq("investigation_id", invId);
-
         if (error) throw error;
       } else {
-        // Créer
         const { error } = await supabase
           .from("investigation_intro_config")
-          .insert({
-            investigation_id: invId,
-            ...payload,
-          });
-
+          .insert({ investigation_id: invId, ...payload });
         if (error) throw error;
       }
 
@@ -905,7 +882,6 @@ export default function InvestigationsTab({
               )}
             </div>
             <div className="bg-[#111] p-2 flex-1 flex flex-col gap-2">
-              {/* ✅ MESSAGE DE DÉCOUVERTE CONTEXTUEL */}
               <div className="bg-purple-900/10 p-1.5 rounded border border-purple-500/20">
                 <label className="text-[8px] text-purple-400 uppercase font-bold flex items-center gap-1">
                   <Zap size={8} /> Révélation (Toast)
@@ -1069,29 +1045,28 @@ export default function InvestigationsTab({
     );
   };
 
-  // ── Composant interne pour les onglets de déduction (évite le hook dans callback) ──
   const DeductionSection = ({ chap }: { chap: any }) => {
-    const [deductionTab, setDeductionTab] = React.useState<
-      "timeline" | "board"
-    >("timeline");
+    const [deductionTab, setDeductionTab] = React.useState<"timeline" | "board">("timeline");
     return (
       <div className="space-y-4">
         <div className="flex gap-1 bg-black/40 p-1 rounded-lg border border-white/10">
           <button
             onClick={() => setDeductionTab("timeline")}
-            className={`flex-1 py-2 rounded text-xs font-bold transition-colors flex items-center justify-center gap-2 ${deductionTab === "timeline"
-              ? "bg-amber-600/30 text-amber-300 border border-amber-500/30"
-              : "text-gray-500 hover:text-white"
-              }`}
+            className={`flex-1 py-2 rounded text-xs font-bold transition-colors flex items-center justify-center gap-2 ${
+              deductionTab === "timeline"
+                ? "bg-amber-600/30 text-amber-300 border border-amber-500/30"
+                : "text-gray-500 hover:text-white"
+            }`}
           >
             🗓️ Timeline Chronologique
           </button>
           <button
             onClick={() => setDeductionTab("board")}
-            className={`flex-1 py-2 rounded text-xs font-bold transition-colors flex items-center justify-center gap-2 ${deductionTab === "board"
-              ? "bg-purple-600/30 text-purple-300 border border-purple-500/30"
-              : "text-gray-500 hover:text-white"
-              }`}
+            className={`flex-1 py-2 rounded text-xs font-bold transition-colors flex items-center justify-center gap-2 ${
+              deductionTab === "board"
+                ? "bg-purple-600/30 text-purple-300 border border-purple-500/30"
+                : "text-gray-500 hover:text-white"
+            }`}
           >
             🕸️ Tableau de Connexions
           </button>
@@ -1130,17 +1105,15 @@ export default function InvestigationsTab({
     );
   };
 
-
-  // ✅ FONCTION RÉUTILISABLE POUR SAUVEGARDER UNE ÉNIGME
   const saveEnigmaToDb = async (enigmaToSave: any) => {
     const { error } = await supabase
-      .from('investigation_enigmas')
+      .from("investigation_enigmas")
       .update({
         question_fr: enigmaToSave.question_fr,
         question_en: enigmaToSave.question_en,
         expected_answer_fr: enigmaToSave.expected_answer_fr,
         expected_answer_en: enigmaToSave.expected_answer_en,
-        response_type: enigmaToSave.response_type || 'text',
+        response_type: enigmaToSave.response_type || "text",
         choices_fr: enigmaToSave.choices_fr || [],
         choices_en: enigmaToSave.choices_en || [],
         correct_choice_index: enigmaToSave.correct_choice_index,
@@ -1152,12 +1125,12 @@ export default function InvestigationsTab({
         trigger_event_on_success_id: enigmaToSave.trigger_event_on_success_id || null,
         trigger_event_on_failure_id: enigmaToSave.trigger_event_on_failure_id || null,
         trigger_event_on_timeout_id: enigmaToSave.trigger_event_on_timeout_id || null,
-        timer_behavior: enigmaToSave.timer_behavior || 'alert',
+        timer_behavior: enigmaToSave.timer_behavior || "alert",
       })
-      .eq('id', enigmaToSave.id);
+      .eq("id", enigmaToSave.id);
 
     if (error) {
-      console.error('Erreur sauvegarde énigme:', error);
+      console.error("Erreur sauvegarde énigme:", error);
       return false;
     }
     return true;
@@ -1196,10 +1169,6 @@ export default function InvestigationsTab({
               <X size={14} /> Fermer
             </button>
           )}
-
-
-
-
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pb-4 border-b border-white/5">
@@ -1248,7 +1217,6 @@ export default function InvestigationsTab({
               className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-red-500"
             />
           </div>
-
           <div>
             <label className="text-xs text-gray-400 mb-1 flex items-center gap-1">
               <Star size={10} /> Budget de départ (Cauris)
@@ -1398,9 +1366,7 @@ export default function InvestigationsTab({
         </div>
       </div>
 
-      {/* ════════════════════════════════════════════════════
-          NIVEAU 1.5 : PERSONNAGES (PNJ)
-      ════════════════════════════════════════════════════ */}
+      {/* PERSONNAGES */}
       {editingId && (
         <InvestigationCharacters
           investigationId={editingId}
@@ -1409,11 +1375,7 @@ export default function InvestigationsTab({
         />
       )}
 
-
-
-      {/* ════════════════════════════════════════════════════
-    DIALOGUE SPEAKERS
-════════════════════════════════════════════════════ */}
+      {/* DIALOGUE SPEAKERS */}
       {editingId && (
         <div className="bg-purple-950/10 p-4 sm:p-6 rounded-xl border border-purple-500/20 space-y-4">
           <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
@@ -1426,11 +1388,7 @@ export default function InvestigationsTab({
         </div>
       )}
 
-
-
-      {/* ════════════════════════════════════════════════════
-    MOTS MÊLÉS
-════════════════════════════════════════════════════ */}
+      {/* MOTS MÊLÉS */}
       {editingId && (
         <div className="bg-pink-950/10 p-4 sm:p-6 rounded-xl border border-pink-500/20 space-y-4">
           <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
@@ -1446,9 +1404,7 @@ export default function InvestigationsTab({
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════
-          NIVEAU 1.2 : BIBLIOTHÈQUE D'INSTRUCTIONS
-      ════════════════════════════════════════════════════ */}
+      {/* INSTRUCTIONS */}
       {editingId && (
         <div className="bg-blue-950/10 p-4 sm:p-6 rounded-xl border border-blue-500/20 space-y-4">
           <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
@@ -1459,9 +1415,7 @@ export default function InvestigationsTab({
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════
-          NIVEAU 1.3 : ÉCRAN D'INTRODUCTION
-      ════════════════════════════════════════════════════ */}
+      {/* INTRO */}
       {editingId && introConfig && (
         <div className="bg-indigo-950/10 p-4 sm:p-6 rounded-xl border border-indigo-500/20 space-y-4">
           <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
@@ -1470,7 +1424,6 @@ export default function InvestigationsTab({
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Image de fond */}
             <div>
               <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
                 Image de fond
@@ -1493,7 +1446,6 @@ export default function InvestigationsTab({
               )}
             </div>
 
-            {/* Vitesse Machine à écrire */}
             {introConfig.text_effect === "typewriter" && (
               <div>
                 <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
@@ -1518,7 +1470,6 @@ export default function InvestigationsTab({
               </div>
             )}
 
-            {/* Couleur du texte */}
             <div>
               <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
                 🎨 Couleur du texte
@@ -1549,7 +1500,6 @@ export default function InvestigationsTab({
               </div>
             </div>
 
-            {/* Police du texte */}
             <div>
               <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
                 ✏️ Police du texte
@@ -1567,20 +1517,13 @@ export default function InvestigationsTab({
                 <option value="serif">Serif (Classique)</option>
                 <option value="sans-serif">Sans-Serif (Moderne)</option>
                 <option value="monospace">Monospace (Machine)</option>
-                <option value="'Courier New', Courier">
-                  Courier (Télétype)
-                </option>
+                <option value="'Courier New', Courier">Courier (Télétype)</option>
                 <option value="'Georgia', serif">Georgia (Élégant)</option>
-                <option value="'Times New Roman', serif">
-                  Times (Journal)
-                </option>
-                <option value="'Brush Script MT', cursive">
-                  Cursive (Manuscrit)
-                </option>
+                <option value="'Times New Roman', serif">Times (Journal)</option>
+                <option value="'Brush Script MT', cursive">Cursive (Manuscrit)</option>
               </select>
             </div>
 
-            {/* Audio narratif */}
             <div>
               <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
                 Audio narratif
@@ -1604,7 +1547,6 @@ export default function InvestigationsTab({
             </div>
           </div>
 
-          {/* Textes défilants FR */}
           <div>
             <label className="text-xs text-gray-400 mb-2 block font-bold uppercase">
               Textes défilants (FR)
@@ -1656,7 +1598,6 @@ export default function InvestigationsTab({
             </div>
           </div>
 
-          {/* Textes défilants EN avec traduction */}
           <div>
             <label className="text-xs text-gray-400 mb-2 block font-bold uppercase flex items-center gap-2">
               Textes défilants (EN)
@@ -1738,7 +1679,6 @@ export default function InvestigationsTab({
             </div>
           </div>
 
-          {/* Message Final */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-white/10 pt-4">
             <div>
               <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
@@ -1822,7 +1762,6 @@ export default function InvestigationsTab({
             </div>
           </div>
 
-          {/* Paramètres */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
@@ -1842,7 +1781,6 @@ export default function InvestigationsTab({
                 className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white"
               />
             </div>
-
             <div>
               <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
                 Volume audio (0-1)
@@ -1865,7 +1803,6 @@ export default function InvestigationsTab({
                 className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white"
               />
             </div>
-
             <div>
               <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
                 Permettre de passer ?
@@ -1886,7 +1823,6 @@ export default function InvestigationsTab({
             </div>
           </div>
 
-          {/* Filtres et Effets Vidéo */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-white/10 pt-4">
             <div>
               <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
@@ -1909,7 +1845,6 @@ export default function InvestigationsTab({
                 <option value="noir">Film Noir (Sombre)</option>
               </select>
             </div>
-
             <div>
               <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
                 Effet Vidéo (Mouvement)
@@ -1931,7 +1866,6 @@ export default function InvestigationsTab({
                 <option value="pan-right">Panoramique Droite</option>
               </select>
             </div>
-
             <div>
               <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
                 Effet de Texte
@@ -1955,7 +1889,6 @@ export default function InvestigationsTab({
             </div>
           </div>
 
-          {/* Boutons d'action */}
           <div className="flex gap-3 pt-2">
             <button
               onClick={() => setShowIntroPreview(true)}
@@ -1973,7 +1906,6 @@ export default function InvestigationsTab({
         </div>
       )}
 
-      {/* Modale Aperçu Intro */}
       {showIntroPreview && introConfig && (
         <div className="fixed inset-0 z-[9999] bg-black">
           <div className="absolute top-4 right-4 z-50">
@@ -1993,23 +1925,18 @@ export default function InvestigationsTab({
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════
-          NIVEAU 1.4 : ÉCRAN DE CONCLUSION & RÈGLES (OUTRO)
-      ════════════════════════════════════════════════════ */}
+      {/* OUTRO */}
       {editingId && outroConfig && (
         <div className="bg-green-950/10 p-4 sm:p-6 rounded-xl border border-green-500/20 space-y-6">
           <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-            <Trophy size={18} className="text-green-400" /> Conclusions & Règles
-            du Temps
+            <Trophy size={18} className="text-green-400" /> Conclusions & Règles du Temps
           </h3>
 
-          {/* 0. ÉCONOMIE DU JEU */}
           <div className="space-y-4 bg-[#D4AF37]/10 p-4 rounded-xl border border-[#D4AF37]/30">
             <h4 className="text-sm font-bold text-[#D4AF37] border-b border-[#D4AF37]/20 pb-2 flex items-center gap-2">
               <Star size={16} /> Économie du Jeu (Cauris & Temps)
             </h4>
 
-            {/* Sous-section : Temps */}
             <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
               ⏱ Gestion du Temps
             </p>
@@ -2073,7 +2000,6 @@ export default function InvestigationsTab({
               </div>
             </div>
 
-            {/* ✅ FIX 10 : Sous-section Indices */}
             <div className="border-t border-[#D4AF37]/20 pt-4">
               <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-3">
                 💡 Gestion des Indices
@@ -2122,27 +2048,23 @@ export default function InvestigationsTab({
                     className="w-full bg-[#1a1a1a] border border-[#D4AF37]/50 rounded px-3 py-2 text-sm text-white"
                   />
                   <p className="text-[10px] text-gray-500 mt-1">
-                    Ex: 3 = après 3 erreurs sur cette énigme, l'indice suivant
-                    se débloque.
+                    Ex: 3 = après 3 erreurs sur cette énigme, l'indice suivant se débloque.
                   </p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* 1. TEXTE DE VICTOIRE */}
           <div className="space-y-4 pt-4 border-t border-white/10">
             <h4 className="text-sm font-bold text-white border-b border-white/10 pb-2">
               1. Victoire & Rangs Infinis
             </h4>
-
             <div className="space-y-4">
               {outroConfig.ranks?.map((rank: any, rIdx: number) => (
                 <div
                   key={rank.id || rIdx}
                   className="bg-black/30 p-4 rounded-xl border border-white/10 space-y-4"
                 >
-                  {/* ✅ NOM INTERNE DU RANG (Pour la bibliothèque) */}
                   <div className="mb-4">
                     <label className="text-[10px] text-gray-500 font-bold">
                       Nom de la règle (interne, pour bibliothèque)
@@ -2160,11 +2082,9 @@ export default function InvestigationsTab({
                     />
                   </div>
 
-                  {/* ✅ TITRE GÉANT AFFICHÉ POUR CE RANG */}
                   <div className="space-y-2 border-b border-white/10 pb-4">
                     <p className="text-[10px] text-[#D4AF37] uppercase tracking-widest font-bold flex items-center gap-1">
-                      <Star size={10} /> Titre géant affiché (ex: ENQUÊTE
-                      TERMINÉE)
+                      <Star size={10} /> Titre géant affiché (ex: ENQUÊTE TERMINÉE)
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <input
@@ -2193,10 +2113,7 @@ export default function InvestigationsTab({
                         <button
                           onClick={async () => {
                             setIsTranslatingOutro(true);
-                            const t = await autoTranslate(
-                              rank.main_title_fr,
-                              "fr",
-                            );
+                            const t = await autoTranslate(rank.main_title_fr, "fr");
                             const r = [...outroConfig.ranks];
                             r[rIdx].main_title_en = t;
                             setOutroConfig({ ...outroConfig, ranks: r });
@@ -2210,7 +2127,6 @@ export default function InvestigationsTab({
                     </div>
                   </div>
 
-                  {/* ✅ SCORE MIN & NOM DU RANG */}
                   <div className="flex flex-col sm:flex-row gap-4 items-end border-b border-white/10 pb-4">
                     <div className="w-28 flex-shrink-0">
                       <label className="text-[10px] text-green-400 font-bold">
@@ -2285,7 +2201,6 @@ export default function InvestigationsTab({
                     </div>
                   </div>
 
-                  {/* ✅ MESSAGES ALÉATOIRES POUR CE RANG */}
                   <div className="space-y-2 pl-4 border-l-2 border-green-500/30">
                     <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
                       Messages aléatoires pour ce rang
@@ -2405,11 +2320,9 @@ export default function InvestigationsTab({
             </div>
           </div>
 
-          {/* 2. GAME OVER MULTIPLES */}
           <div className="space-y-4 pt-6 border-t border-white/10">
             <h4 className="text-sm font-bold text-red-500 border-b border-red-500/20 pb-2 flex items-center gap-2">
-              <AlertTriangle size={16} /> 2. Fins Tragiques (Game Over / Time
-              Out Aléatoires)
+              <AlertTriangle size={16} /> 2. Fins Tragiques (Game Over / Time Out Aléatoires)
             </h4>
             <div className="space-y-2">
               {outroConfig.game_overs?.map((go: any, idx: number) => (
@@ -2517,16 +2430,13 @@ export default function InvestigationsTab({
             </div>
           </div>
 
-          {/* 2.5. ABANDONS (MENU PAUSE) */}
           <div className="space-y-4 pt-6 border-t border-white/10">
             <h4 className="text-sm font-bold text-yellow-500 border-b border-yellow-500/20 pb-2 flex items-center gap-2">
               <AlertTriangle size={16} /> 2. Abandons (Menu Pause / Fuite)
             </h4>
             <p className="text-xs text-gray-400">
-              Messages affichés si le joueur clique sur "Abandonner" ou fuit par
-              un hotspot.
+              Messages affichés si le joueur clique sur "Abandonner" ou fuit par un hotspot.
             </p>
-
             <div className="space-y-3">
               {(outroConfig.abandons || []).map((ab: any, idx: number) => (
                 <div
@@ -2633,24 +2543,19 @@ export default function InvestigationsTab({
             </div>
           </div>
 
-          {/* 3. PALIERS D'ENCOURAGEMENT */}
           <div className="space-y-4 pt-6 border-t border-white/10">
             <h4 className="text-sm font-bold text-green-400 border-b border-green-500/20 pb-2 flex items-center gap-2">
-              <Trophy size={16} /> 3. Paliers d'encouragement (Toasts pendant le
-              jeu)
+              <Trophy size={16} /> 3. Paliers d'encouragement (Toasts pendant le jeu)
             </h4>
             <p className="text-xs text-gray-400">
-              Ces messages s'affichent sous forme de notification quand le
-              joueur atteint un certain pourcentage de résolution.
+              Ces messages s'affichent sous forme de notification quand le joueur atteint un certain pourcentage de résolution.
             </p>
-
             <div className="space-y-2">
               {(outroConfig.milestones || []).map((m: any, idx: number) => (
                 <div
                   key={m.id || idx}
                   className="space-y-2 bg-black/30 p-3 rounded-lg border border-white/10"
                 >
-                  {/* Ligne 1 : Nom interne et Seuil */}
                   <div className="flex gap-2 items-end">
                     <div className="flex-1">
                       <label className="text-[10px] text-gray-500 font-bold">
@@ -2684,7 +2589,6 @@ export default function InvestigationsTab({
                       />
                     </div>
                   </div>
-                  {/* Ligne 2 : Messages */}
                   <div className="flex gap-2 items-start">
                     <input
                       type="text"
@@ -2769,121 +2673,104 @@ export default function InvestigationsTab({
             </div>
           </div>
 
-          {/* 4. BIBLIOTHÈQUE D'ÉVÉNEMENTS NARRATIFS */}
           <div className="space-y-4 pt-6 border-t border-white/10">
             <h4 className="text-sm font-bold text-purple-400 border-b border-purple-500/20 pb-2 flex items-center gap-2">
-              <Zap size={16} /> 4. Bibliothèque d'Événements (Assignables aux
-              Hotspots/Énigmes)
+              <Zap size={16} /> 4. Bibliothèque d'Événements (Assignables aux Hotspots/Énigmes)
             </h4>
             <p className="text-xs text-gray-400">
-              Sélectionnez une règle que vous avez nommée ci-dessus pour la
-              transformer en événement assignable.
+              Sélectionnez une règle que vous avez nommée ci-dessus pour la transformer en événement assignable.
             </p>
-
             <div className="space-y-3">
-              {(outroConfig.narrative_events || []).map(
-                (ev: any, idx: number) => (
-                  <div
-                    key={ev.id || idx}
-                    className="flex gap-3 items-center bg-purple-950/20 p-3 rounded-lg border border-purple-500/20"
-                  >
-                    <div className="flex-1">
-                      <select
-                        value={`${ev.source_type}|${ev.source_id}`}
-                        onChange={(e) => {
-                          const n = [...outroConfig.narrative_events];
-                          const [type, id] = e.target.value.split("|");
-                          const ruleName =
-                            type === "rank"
-                              ? outroConfig.ranks.find((r: any) => r.id === id)
-                                ?.name
-                              : type === "game_over"
-                                ? outroConfig.game_overs.find(
-                                  (g: any) => g.id === id,
-                                )?.name
-                                : type === "abandon"
-                                  ? outroConfig.abandons.find(
-                                    (a: any) => a.id === id,
-                                  )?.name
-                                  : outroConfig.milestones.find(
-                                    (m: any) => m.id === id,
-                                  )?.name || "";
-                          n[idx] = {
-                            id: n[idx].id,
-                            source_type: type,
-                            source_id: id,
-                            name: ruleName,
-                          };
-                          setOutroConfig({
-                            ...outroConfig,
-                            narrative_events: n,
-                          });
-                        }}
-                        className="w-full bg-[#1a1a1a] border border-purple-500/30 rounded px-3 py-2 text-sm text-white"
-                      >
-                        <option value="">-- Choisir une règle nommée --</option>
-                        <optgroup label="🏆 1. Victoires & Rangs">
-                          {(outroConfig.ranks || [])
-                            .filter((r: any) => r.name)
-                            .map((r: any) => (
-                              <option key={r.id} value={`rank|${r.id}`}>
-                                Rang: {r.name} ({r.min_percent}%)
-                              </option>
-                            ))}
-                        </optgroup>
-                        <optgroup label="💀 2. Fins Tragiques (Game Over)">
-                          {(outroConfig.game_overs || [])
-                            .filter((g: any) => g.name)
-                            .map((g: any) => (
-                              <option key={g.id} value={`game_over|${g.id}`}>
-                                Game Over: {g.name}
-                              </option>
-                            ))}
-                        </optgroup>
-
-                        <optgroup label="🚪 2.5 Abandons">
-                          {(outroConfig.abandons || [])
-                            .filter((a: any) => a.name)
-                            .map((a: any) => (
-                              <option key={a.id} value={`abandon|${a.id}`}>
-                                Abandon: {a.name}
-                              </option>
-                            ))}
-                        </optgroup>
-                        <optgroup label="💭 3. Paliers (Toasts)">
-                          {(outroConfig.milestones || [])
-                            .filter((m: any) => m.name)
-                            .map((m: any) => (
-                              <option key={m.id} value={`milestone|${m.id}`}>
-                                Toast: {m.name} ({m.percent}%)
-                              </option>
-                            ))}
-                        </optgroup>
-                      </select>
-                    </div>
-                    <div className="w-48">
-                      <input
-                        type="text"
-                        value={ev.name}
-                        readOnly
-                        placeholder="Nom auto"
-                        className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-2 text-xs text-gray-400 font-mono"
-                      />
-                    </div>
-                    <button
-                      onClick={() => {
-                        const n = outroConfig.narrative_events.filter(
-                          (_: any, i: number) => i !== idx,
-                        );
+              {(outroConfig.narrative_events || []).map((ev: any, idx: number) => (
+                <div
+                  key={ev.id || idx}
+                  className="flex gap-3 items-center bg-purple-950/20 p-3 rounded-lg border border-purple-500/20"
+                >
+                  <div className="flex-1">
+                    <select
+                      value={`${ev.source_type}|${ev.source_id}`}
+                      onChange={(e) => {
+                        const n = [...outroConfig.narrative_events];
+                        const [type, id] = e.target.value.split("|");
+                        const ruleName =
+                          type === "rank"
+                            ? outroConfig.ranks.find((r: any) => r.id === id)?.name
+                            : type === "game_over"
+                              ? outroConfig.game_overs.find((g: any) => g.id === id)?.name
+                              : type === "abandon"
+                                ? outroConfig.abandons.find((a: any) => a.id === id)?.name
+                                : outroConfig.milestones.find((m: any) => m.id === id)?.name || "";
+                        n[idx] = {
+                          id: n[idx].id,
+                          source_type: type,
+                          source_id: id,
+                          name: ruleName,
+                        };
                         setOutroConfig({ ...outroConfig, narrative_events: n });
                       }}
-                      className="p-2 text-red-500 hover:bg-red-500/20 rounded flex-shrink-0"
+                      className="w-full bg-[#1a1a1a] border border-purple-500/30 rounded px-3 py-2 text-sm text-white"
                     >
-                      <Trash2 size={16} />
-                    </button>
+                      <option value="">-- Choisir une règle nommée --</option>
+                      <optgroup label="🏆 1. Victoires & Rangs">
+                        {(outroConfig.ranks || [])
+                          .filter((r: any) => r.name)
+                          .map((r: any) => (
+                            <option key={r.id} value={`rank|${r.id}`}>
+                              Rang: {r.name} ({r.min_percent}%)
+                            </option>
+                          ))}
+                      </optgroup>
+                      <optgroup label="💀 2. Fins Tragiques (Game Over)">
+                        {(outroConfig.game_overs || [])
+                          .filter((g: any) => g.name)
+                          .map((g: any) => (
+                            <option key={g.id} value={`game_over|${g.id}`}>
+                              Game Over: {g.name}
+                            </option>
+                          ))}
+                      </optgroup>
+                      <optgroup label="🚪 2.5 Abandons">
+                        {(outroConfig.abandons || [])
+                          .filter((a: any) => a.name)
+                          .map((a: any) => (
+                            <option key={a.id} value={`abandon|${a.id}`}>
+                              Abandon: {a.name}
+                            </option>
+                          ))}
+                      </optgroup>
+                      <optgroup label="💭 3. Paliers (Toasts)">
+                        {(outroConfig.milestones || [])
+                          .filter((m: any) => m.name)
+                          .map((m: any) => (
+                            <option key={m.id} value={`milestone|${m.id}`}>
+                              Toast: {m.name} ({m.percent}%)
+                            </option>
+                          ))}
+                      </optgroup>
+                    </select>
                   </div>
-                ),
-              )}
+                  <div className="w-48">
+                    <input
+                      type="text"
+                      value={ev.name}
+                      readOnly
+                      placeholder="Nom auto"
+                      className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-2 text-xs text-gray-400 font-mono"
+                    />
+                  </div>
+                  <button
+                    onClick={() => {
+                      const n = outroConfig.narrative_events.filter(
+                        (_: any, i: number) => i !== idx,
+                      );
+                      setOutroConfig({ ...outroConfig, narrative_events: n });
+                    }}
+                    className="p-2 text-red-500 hover:bg-red-500/20 rounded flex-shrink-0"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              ))}
               <button
                 onClick={() =>
                   setOutroConfig({
@@ -2911,14 +2798,12 @@ export default function InvestigationsTab({
               onClick={() => saveOutroConfig(editingId)}
               className="w-full py-4 bg-green-600 hover:bg-green-500 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg"
             >
-              <Save size={18} /> Sauvegarder toute la configuration (Temps,
-              Rangs, Game Over)
+              <Save size={18} /> Sauvegarder toute la configuration (Temps, Rangs, Game Over)
             </button>
           </div>
         </div>
       )}
 
-      {/* Modale Aperçu Outro Ciblée */}
       {showOutroPreview !== false && outroConfig && (
         <div className="fixed inset-0 z-[9999] bg-black">
           <div className="absolute top-4 right-4 z-50">
@@ -2954,7 +2839,6 @@ export default function InvestigationsTab({
         </div>
       )}
 
-      {/* 🟡 APERÇU ABANDON 🟡 */}
       <AnimatePresence>
         {previewAbortMsg && (
           <motion.div
@@ -2988,7 +2872,6 @@ export default function InvestigationsTab({
         )}
       </AnimatePresence>
 
-      {/* 🟢 TOAST D'ENCOURAGEMENT (APERÇU ADMIN) 🟢 */}
       <AnimatePresence>
         {previewMilestone && (
           <motion.div
@@ -3003,10 +2886,7 @@ export default function InvestigationsTab({
         )}
       </AnimatePresence>
 
-      {/* ════════════════════════════════════════════════════
-          NIVEAU 2 : CHAPITRES
-      ════════════════════════════════════════════════════ */}
-
+      {/* CHAPITRES */}
       {editingId && (
         <div className="bg-red-950/10 p-4 sm:p-6 rounded-xl border border-red-500/20 space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-red-500/20 pb-4">
@@ -3080,11 +2960,7 @@ export default function InvestigationsTab({
                           type="text"
                           value={chap.title_fr}
                           onChange={(e) =>
-                            updateLocalChapter(
-                              chap.id,
-                              "title_fr",
-                              e.target.value,
-                            )
+                            updateLocalChapter(chap.id, "title_fr", e.target.value)
                           }
                           onBlur={(e) =>
                             updateDB("investigation_chapters", chap.id, {
@@ -3104,11 +2980,7 @@ export default function InvestigationsTab({
                             type="text"
                             value={chap.title_en || ""}
                             onChange={(e) =>
-                              updateLocalChapter(
-                                chap.id,
-                                "title_en",
-                                e.target.value,
-                              )
+                              updateLocalChapter(chap.id, "title_en", e.target.value)
                             }
                             onBlur={(e) =>
                               updateDB("investigation_chapters", chap.id, {
@@ -3125,8 +2997,7 @@ export default function InvestigationsTab({
                                 "investigation_chapters",
                                 chap.id,
                                 "title_en",
-                                (val) =>
-                                  updateLocalChapter(chap.id, "title_en", val),
+                                (val) => updateLocalChapter(chap.id, "title_en", val),
                               )
                             }
                             className="p-2 bg-white/5 rounded text-gray-400 hover:text-white flex-shrink-0"
@@ -3150,11 +3021,7 @@ export default function InvestigationsTab({
                           rows={4}
                           value={chap.narrative_fr}
                           onChange={(e) =>
-                            updateLocalChapter(
-                              chap.id,
-                              "narrative_fr",
-                              e.target.value,
-                            )
+                            updateLocalChapter(chap.id, "narrative_fr", e.target.value)
                           }
                           onBlur={(e) =>
                             updateDB("investigation_chapters", chap.id, {
@@ -3174,11 +3041,7 @@ export default function InvestigationsTab({
                             rows={4}
                             value={chap.narrative_en || ""}
                             onChange={(e) =>
-                              updateLocalChapter(
-                                chap.id,
-                                "narrative_en",
-                                e.target.value,
-                              )
+                              updateLocalChapter(chap.id, "narrative_en", e.target.value)
                             }
                             onBlur={(e) =>
                               updateDB("investigation_chapters", chap.id, {
@@ -3195,12 +3058,7 @@ export default function InvestigationsTab({
                                 "investigation_chapters",
                                 chap.id,
                                 "narrative_en",
-                                (val) =>
-                                  updateLocalChapter(
-                                    chap.id,
-                                    "narrative_en",
-                                    val,
-                                  ),
+                                (val) => updateLocalChapter(chap.id, "narrative_en", val),
                               )
                             }
                             className="p-2 bg-white/5 rounded text-gray-400 hover:text-white mt-1 flex-shrink-0"
@@ -3233,7 +3091,7 @@ export default function InvestigationsTab({
                         </span>
                       </div>
                       <PanoramaHotspotEditor
-                        investigationId={editingId!} // <-- LIGNE À AJOUTER
+                        investigationId={editingId!}
                         chapterId={chap.id}
                         scenes={chap.scenes || []}
                         evidences={evidences}
@@ -3245,6 +3103,7 @@ export default function InvestigationsTab({
                       />
                     </div>
 
+                    {/* ÉNIGMES */}
                     <div className="border-t border-white/5 pt-6">
                       <div className="flex items-center justify-between mb-4">
                         <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider flex items-center gap-1">
@@ -3257,1006 +3116,859 @@ export default function InvestigationsTab({
                           <PlusCircle size={12} /> Ajouter une Énigme
                         </button>
                       </div>
-                      <div className="space-y-4">
 
-
-
+                      <div className="space-y-3">
                         {chap.enigmas?.map((enig: any, eIdx: number) => {
-                          const enigmaType = enig.enigma_type || "text";
+                          const isEnigmaExpanded = expandedEnigmas[enig.id] !== false;
 
                           return (
                             <div
                               key={enig.id}
-                              className="bg-[#1a1a1a] p-4 rounded-lg border border-yellow-500/20 relative"
+                              className="bg-[#1a1a1a] rounded-lg border border-yellow-500/20 overflow-hidden"
                             >
-                              <div className="flex items-center justify-between mb-3">
-                                <span className="text-xs text-yellow-500 font-bold flex items-center gap-1">
-                                  <FileQuestion size={12} /> Énigme {eIdx + 1}
-                                </span>
-                                <button
-                                  onClick={() => {
-                                    setItemToDelete({
-                                      id: enig.id,
-                                      table: "investigation_enigmas",
-                                    });
-                                    setDeleteModalOpen(true);
-                                  }}
-                                  className="p-1 text-gray-600 hover:text-red-500"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-
-                              {/* Sélectionner un indice existant */}
-                              <div className="mb-4">
-                                <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
-                                  📎 Sélectionner un indice (preuve média)
-                                </label>
-                                <select
-                                  value={enig.evidence_id || ""}
-                                  onChange={(event) => {
-                                    const newValue = event.target.value || null;
-                                    setChapters((prev) =>
-                                      prev.map((c) => ({
-                                        ...c,
-                                        enigmas: c.enigmas.map((enigma: any) =>
-                                          enigma.id === enig.id
-                                            ? {
-                                              ...enigma,
-                                              evidence_id: newValue,
-                                            }
-                                            : enigma,
-                                        ),
-                                      })),
-                                    );
-
-                                    // ✅ Sauvegarde AVEC gestion d'erreur
-                                    supabase
-                                      .from("investigation_enigmas")
-                                      .update({ evidence_id: newValue })
-                                      .eq("id", enig.id)
-                                      .then(({ error }) => {
-                                        if (error) {
-                                          console.error(
-                                            "Erreur SQL evidence_id:",
-                                            error,
-                                          );
-                                          showMsg(
-                                            "error",
-                                            `Erreur BDD: ${error.message}`,
-                                          );
-                                        } else {
-                                          showMsg(
-                                            "success",
-                                            "✅ Indice lié à l'énigme !",
-                                          );
-                                        }
-                                      });
-                                  }}
-                                  className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-yellow-500/50"
-                                >
-                                  <option value="">— Aucun indice —</option>
-                                  {evidences.map((ev) => (
-                                    <option key={ev.id} value={ev.id}>
-                                      {ev.media_type === "image"
-                                        ? "🖼️"
-                                        : ev.media_type === "audio"
-                                          ? "🎵"
-                                          : "📄"}{" "}
-                                      {ev.name_fr}
-                                    </option>
-                                  ))}
-                                </select>
-                                {enig.evidence_id &&
-                                  (() => {
-                                    const ev = evidences.find(
-                                      (e) => e.id === enig.evidence_id,
-                                    );
-                                    return ev ? (
-                                      <p className="text-[10px] text-gray-600 mt-1">
-                                        ✅ Indice sélectionné : {ev.name_fr}
-                                      </p>
-                                    ) : null;
-                                  })()}
-                              </div>
-
-                              {/* Portée et Configuration Énigme */}
-                              <div className="mb-4 space-y-3 bg-blue-900/10 p-3 rounded border border-blue-500/20">
-                                <div>
-                                  <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
-                                    📍 Portée de l'énigme
-                                  </label>
-                                  <select
-                                    value={
-                                      enig.scene_id ? "specific" : "chapter"
-                                    }
-                                    onChange={(e) => {
-                                      if (e.target.value === "specific") {
-                                        // Sélectionner la première scène par défaut
-                                        const firstScene = chap.scenes?.[0];
-                                        setChapters((prev) =>
-                                          prev.map((c) => ({
-                                            ...c,
-                                            enigmas: c.enigmas.map((e: any) =>
-                                              e.id === enig.id
-                                                ? {
-                                                  ...e,
-                                                  scene_id:
-                                                    firstScene?.id || null,
-                                                }
-                                                : e,
-                                            ),
-                                          })),
-                                        );
-                                        supabase
-                                          .from("investigation_enigmas")
-                                          .update({
-                                            scene_id: firstScene?.id || null,
-                                          })
-                                          .eq("id", enig.id);
-                                      } else {
-                                        setChapters((prev) =>
-                                          prev.map((c) => ({
-                                            ...c,
-                                            enigmas: c.enigmas.map((e: any) =>
-                                              e.id === enig.id
-                                                ? { ...e, scene_id: null }
-                                                : e,
-                                            ),
-                                          })),
-                                        );
-                                        supabase
-                                          .from("investigation_enigmas")
-                                          .update({ scene_id: null })
-                                          .eq("id", enig.id);
-                                      }
-                                    }}
-                                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-                                  >
-                                    <option value="chapter">
-                                      📚 Tout le chapitre
-                                    </option>
-                                    <option value="specific">
-                                      📍 Scène spécifique
-                                    </option>
-                                  </select>
-                                </div>
-
-                                {/* Si scène spécifique, afficher le select */}
-                                {enig.scene_id && (
-                                  <div>
-                                    <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
-                                      Choisir la scène
-                                    </label>
-                                    <select
-                                      value={enig.scene_id || ""}
-                                      onChange={(event) => {
-                                        // ✅ Renomme 'e' en 'event'
-                                        setChapters((prev) =>
-                                          prev.map((c) => ({
-                                            ...c,
-                                            enigmas: c.enigmas.map(
-                                              (
-                                                enigma: any, // ✅ Renomme 'e' en 'enigma'
-                                              ) =>
-                                                enigma.id === enig.id
-                                                  ? {
-                                                    ...enigma,
-                                                    scene_id:
-                                                      event.target.value ||
-                                                      null,
-                                                  }
-                                                  : enigma, // ✅ Utilise event et enigma
-                                            ),
-                                          })),
-                                        );
-                                        supabase
-                                          .from("investigation_enigmas")
-                                          .update({
-                                            scene_id:
-                                              event.target.value || null,
-                                          }) // ✅ event ici aussi
-                                          .eq("id", enig.id);
-                                      }}
-                                      className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-                                    >
-                                      <option value="">
-                                        — Sélectionner une scène —
-                                      </option>
-                                      {(chap.scenes || []).map(
-                                        (scene: any, idx: number) => (
-                                          <option
-                                            key={scene.id}
-                                            value={scene.id}
-                                          >
-                                            Scène {idx + 1} — {scene.title_fr}
-                                          </option>
-                                        ),
+                              {/* HEADER ACCORDÉON */}
+                              <div
+                                className="flex items-center justify-between p-3 cursor-pointer hover:bg-white/[0.02] transition-colors"
+                                onClick={() => toggleEnigma(enig.id)}
+                              >
+                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                  <span className="w-6 h-6 rounded-full bg-yellow-500/20 flex items-center justify-center text-[10px] font-bold text-yellow-400 flex-shrink-0">
+                                    {eIdx + 1}
+                                  </span>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-xs text-yellow-400 font-bold">
+                                        Énigme {eIdx + 1}
+                                      </span>
+                                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-gray-500 border border-white/10">
+                                        {(enig.response_type || "text") === "text" ? "✍️ Texte" : "✅ QCM"}
+                                      </span>
+                                      {enig.enigma_timer_seconds > 0 && (
+                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 flex items-center gap-1">
+                                          <Clock size={8} /> {enig.enigma_timer_seconds}s
+                                        </span>
                                       )}
-                                    </select>
+                                      {enig.evidence_id && (
+                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                          📎
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-[11px] text-gray-400 truncate mt-0.5">
+                                      {enig.question_fr || "Question non définie"}
+                                    </p>
                                   </div>
-                                )}
-                                {/* Timer d'énigme */}
-                                <div>
-                                  <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block flex items-center gap-1">
-                                    <Clock size={12} /> Timer d'énigme (secondes)
-                                  </label>
-                                  <input
-                                    type="number"
-                                    value={enig.enigma_timer_seconds || 0}
-                                    onChange={(event) => {  // ✅ Renomme 'e' en 'event'
-                                      setChapters(prev => prev.map(c => ({
-                                        ...c,
-                                        enigmas: c.enigmas.map((enigma: any) =>  // ✅ Renomme 'e' en 'enigma'
-                                          enigma.id === enig.id ? { ...enigma, enigma_timer_seconds: Number(event.target.value) } : enigma  // ✅ event et enigma
-                                        )
-                                      })));
-                                    }}
-                                    onBlur={(event) => {  // ✅ Aussi ici
-                                      supabase
-                                        .from('investigation_enigmas')
-                                        .update({ enigma_timer_seconds: Number(event.target.value) })
-                                        .eq('id', enig.id);
-                                    }}
-                                    placeholder="0 = pas de timer"
-                                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-                                  />
                                 </div>
-                                {/* Instruction si timeout */}
-                                {enig.enigma_timer_seconds > 0 && (
-                                  <div>
-                                    <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block flex items-center gap-1">
-                                      <AlertTriangle
-                                        size={12}
-                                        className="text-red-400"
-                                      />{" "}
-                                      Action à l'expiration (optionnel)
+                                <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setItemToDelete({ id: enig.id, table: "investigation_enigmas" });
+                                      setDeleteModalOpen(true);
+                                    }}
+                                    className="p-1 text-gray-600 hover:text-red-500"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                  {isEnigmaExpanded ? (
+                                    <ChevronUp size={14} className="text-gray-500" />
+                                  ) : (
+                                    <ChevronDown size={14} className="text-gray-500" />
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* CONTENU ACCORDÉON */}
+                              {isEnigmaExpanded && (
+                                <div className="p-4 border-t border-white/5 space-y-4">
+
+                                  {/* Sélectionner un indice existant */}
+                                  <div className="mb-4">
+                                    <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
+                                      📎 Sélectionner un indice (preuve média)
                                     </label>
                                     <select
-                                      value={enig.timer_timeout_instruction_id || ''}
-                                      onChange={(event) => {  // ✅ Renomme
-                                        setChapters(prev => prev.map(c => ({
-                                          ...c,
-                                          enigmas: c.enigmas.map((enigma: any) =>  // ✅ Renomme
-                                            enigma.id === enig.id ? { ...enigma, timer_timeout_instruction_id: event.target.value || null } : enigma  // ✅
-                                          )
-                                        })));
+                                      value={enig.evidence_id || ""}
+                                      onChange={(event) => {
+                                        const newValue = event.target.value || null;
+                                        setChapters((prev) =>
+                                          prev.map((c) => ({
+                                            ...c,
+                                            enigmas: c.enigmas.map((enigma: any) =>
+                                              enigma.id === enig.id
+                                                ? { ...enigma, evidence_id: newValue }
+                                                : enigma,
+                                            ),
+                                          })),
+                                        );
                                         supabase
-                                          .from('investigation_enigmas')
-                                          .update({ timer_timeout_instruction_id: event.target.value || null })
-                                          .eq('id', enig.id);
+                                          .from("investigation_enigmas")
+                                          .update({ evidence_id: newValue })
+                                          .eq("id", enig.id)
+                                          .then(({ error }) => {
+                                            if (error) {
+                                              console.error("Erreur SQL evidence_id:", error);
+                                              showMsg("error", `Erreur BDD: ${error.message}`);
+                                            } else {
+                                              showMsg("success", "✅ Indice lié à l'énigme !");
+                                            }
+                                          });
                                       }}
-                                      className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-blue-500"
+                                      className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-yellow-500/50"
                                     >
-                                      <option value="">
-                                        — Aucune action —
-                                      </option>
-                                      {allInstructions.map((instr: any) => (
-                                        <option key={instr.id} value={instr.id}>
-                                          {instr.icon} {instr.name}
+                                      <option value="">— Aucun indice —</option>
+                                      {evidences.map((ev) => (
+                                        <option key={ev.id} value={ev.id}>
+                                          {ev.media_type === "image"
+                                            ? "🖼️"
+                                            : ev.media_type === "audio"
+                                              ? "🎵"
+                                              : "📄"}{" "}
+                                          {ev.name_fr}
                                         </option>
                                       ))}
                                     </select>
-                                    <p className="text-[10px] text-gray-600 mt-1">
-                                      Une instruction s'affichera quand ce timer
-                                      arrive à 0
-                                    </p>
+                                    {enig.evidence_id &&
+                                      (() => {
+                                        const ev = evidences.find((e) => e.id === enig.evidence_id);
+                                        return ev ? (
+                                          <p className="text-[10px] text-gray-600 mt-1">
+                                            ✅ Indice sélectionné : {ev.name_fr}
+                                          </p>
+                                        ) : null;
+                                      })()}
                                   </div>
-                                )}
-                              </div>
 
+                                  {/* Portée et Configuration */}
+                                  <div className="mb-4 space-y-3 bg-blue-900/10 p-3 rounded border border-blue-500/20">
+                                    <div>
+                                      <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
+                                        📍 Portée de l'énigme
+                                      </label>
+                                      <select
+                                        value={enig.scene_id ? "specific" : "chapter"}
+                                        onChange={(e) => {
+                                          if (e.target.value === "specific") {
+                                            const firstScene = chap.scenes?.[0];
+                                            setChapters((prev) =>
+                                              prev.map((c) => ({
+                                                ...c,
+                                                enigmas: c.enigmas.map((enigma: any) =>
+                                                  enigma.id === enig.id
+                                                    ? { ...enigma, scene_id: firstScene?.id || null }
+                                                    : enigma,
+                                                ),
+                                              })),
+                                            );
+                                            supabase
+                                              .from("investigation_enigmas")
+                                              .update({ scene_id: firstScene?.id || null })
+                                              .eq("id", enig.id);
+                                          } else {
+                                            setChapters((prev) =>
+                                              prev.map((c) => ({
+                                                ...c,
+                                                enigmas: c.enigmas.map((enigma: any) =>
+                                                  enigma.id === enig.id
+                                                    ? { ...enigma, scene_id: null }
+                                                    : enigma,
+                                                ),
+                                              })),
+                                            );
+                                            supabase
+                                              .from("investigation_enigmas")
+                                              .update({ scene_id: null })
+                                              .eq("id", enig.id);
+                                          }
+                                        }}
+                                        className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                                      >
+                                        <option value="chapter">📚 Tout le chapitre</option>
+                                        <option value="specific">📍 Scène spécifique</option>
+                                      </select>
+                                    </div>
 
-
-                              {/* ✅ NOUVEAU : Événements narratifs liés à l'énigme */}
-                              <div className="border-t border-white/10 pt-4 space-y-4 bg-purple-900/10 p-3 rounded border border-purple-500/20">
-                                <h4 className="text-[10px] text-purple-400 font-bold uppercase tracking-wider flex items-center gap-1">
-                                  <Zap size={12} /> Événements Narratifs (selon le résultat)
-                                </h4>
-
-                                {/* Si RÉSOLUE */}
-                                <div>
-                                  <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
-                                    ✅ Si énigme résolue
-                                  </label>
-                                  <select
-                                    value={enig.trigger_event_on_success_id || ''}
-                                    onChange={(event) => {
-                                      setChapters(prev => prev.map(c => ({
-                                        ...c,
-                                        enigmas: c.enigmas.map((enigma: any) =>
-                                          enigma.id === enig.id ? { ...enigma, trigger_event_on_success_id: event.target.value || null } : enigma
-                                        )
-                                      })));
-                                    }}
-                                    onBlur={async (event) => {
-                                      const enigmaToSave = chapters
-                                        .find(c => c.id === chap.id)
-                                        ?.enigmas?.find((en: any) => en.id === enig.id);
-                                      if (enigmaToSave) {
-                                        enigmaToSave.trigger_event_on_success_id = event.target.value || null;
-                                        await saveEnigmaToDb(enigmaToSave);
-                                      }
-                                    }}
-                                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
-                                  >
-                                    <option value="">— Aucun événement —</option>
-                                    {(outroConfig?.narrative_events || []).map((ev: any) => (
-                                      <option key={ev.id} value={ev.id}>
-                                        {ev.name || `Événement ${ev.id.slice(0, 4)}`}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <p className="text-[10px] text-gray-600 mt-1">Cet événement se déclenche quand le joueur résout l'énigme</p>
-                                </div>
-
-                                {/* Si RATÉE */}
-                                <div>
-                                  <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
-                                    ❌ Si énigme ratée (budget = 0)
-                                  </label>
-                                  <select
-                                    value={enig.trigger_event_on_failure_id || ''}
-                                    onChange={(event) => {
-                                      setChapters(prev => prev.map(c => ({
-                                        ...c,
-                                        enigmas: c.enigmas.map((enigma: any) =>
-                                          enigma.id === enig.id ? { ...enigma, trigger_event_on_failure_id: event.target.value || null } : enigma
-                                        )
-                                      })));
-                                    }}
-                                    onBlur={async (event) => {
-                                      const enigmaToSave = chapters
-                                        .find(c => c.id === chap.id)
-                                        ?.enigmas?.find((en: any) => en.id === enig.id);
-                                      if (enigmaToSave) {
-                                        enigmaToSave.trigger_event_on_failure_id = event.target.value || null;
-                                        await saveEnigmaToDb(enigmaToSave);
-                                      }
-                                    }}
-                                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
-                                  >
-                                    <option value="">— Aucun événement —</option>
-                                    {(outroConfig?.narrative_events || []).map((ev: any) => (
-                                      <option key={ev.id} value={ev.id}>
-                                        {ev.name || `Événement ${ev.id.slice(0, 4)}`}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <p className="text-[10px] text-gray-600 mt-1">Cet événement se déclenche si le joueur épuise son budget en tentant cette énigme</p>
-                                </div>
-
-                                {/* Si TIMEOUT */}
-                                <div>
-                                  <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
-                                    ⏱️ Si timer énigme = 0
-                                  </label>
-                                  <select
-                                    value={enig.trigger_event_on_timeout_id || ''}
-                                    onChange={(event) => {
-                                      setChapters(prev => prev.map(c => ({
-                                        ...c,
-                                        enigmas: c.enigmas.map((enigma: any) =>
-                                          enigma.id === enig.id ? { ...enigma, trigger_event_on_timeout_id: event.target.value || null } : enigma
-                                        )
-                                      })));
-                                    }}
-                                    onBlur={async (event) => {
-                                      const enigmaToSave = chapters
-                                        .find(c => c.id === chap.id)
-                                        ?.enigmas?.find((en: any) => en.id === enig.id);
-                                      if (enigmaToSave) {
-                                        enigmaToSave.trigger_event_on_timeout_id = event.target.value || null;
-                                        await saveEnigmaToDb(enigmaToSave);
-                                      }
-                                    }}
-                                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
-                                  >
-                                    <option value="">— Aucun événement —</option>
-                                    {(outroConfig?.narrative_events || []).map((ev: any) => (
-                                      <option key={ev.id} value={ev.id}>
-                                        {ev.name || `Événement ${ev.id.slice(0, 4)}`}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <p className="text-[10px] text-gray-600 mt-1">Cet événement se déclenche quand le timer de l'énigme arrive à 0</p>
-                                </div>
-
-                                {/* Comportement du timer */}
-                                {enig.enigma_timer_seconds > 0 && (
-                                  <div>
-                                    <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
-                                      ⚙️ Comportement du timer
-                                    </label>
-                                    <select
-                                      value={enig.timer_behavior || 'alert'}
-                                      onChange={(event) => {
-                                        setChapters(prev => prev.map(c => ({
-                                          ...c,
-                                          enigmas: c.enigmas.map((enigma: any) =>
-                                            enigma.id === enig.id ? { ...enigma, timer_behavior: event.target.value as any } : enigma
-                                          )
-                                        })));
-                                      }}
-                                      onBlur={async (event) => {
-                                        const enigmaToSave = chapters
-                                          .find(c => c.id === chap.id)
-                                          ?.enigmas?.find((en: any) => en.id === enig.id);
-                                        if (enigmaToSave) {
-                                          enigmaToSave.timer_behavior = event.target.value as any;
-                                          await saveEnigmaToDb(enigmaToSave);
-                                        }
-                                      }}
-                                      className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
-                                    >
-                                      <option value="alert">💡 Juste alerte (le jeu continue)</option>
-                                      <option value="pause">⏸️ Pause le jeu (le joueur ne peut plus répondre)</option>
-                                      <option value="end_game">🔴 Termine le jeu (affiche une fin alternative)</option>
-                                    </select>
-                                    <p className="text-[10px] text-gray-600 mt-1">Que faire quand ce timer arrive à 0 ?</p>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Mode de réponse */}
-                              <div className="mb-4">
-                                <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
-                                  Mode de réponse
-                                </label>
-                                <div className="flex gap-2">
-                                  {[
-                                    {
-                                      value: "text",
-                                      label: "✍️ Texte à taper",
-                                      activeClass:
-                                        "bg-gray-600/30 border-gray-500/50 text-gray-400",
-                                    },
-                                    {
-                                      value: "choice",
-                                      label: "✅ Choix multiples",
-                                      activeClass:
-                                        "bg-green-600/30 border-green-500/50 text-green-400",
-                                    },
-                                  ].map((type) => (
-                                    <button
-                                      key={type.value}
-                                      onClick={() => {
-                                        setChapters((prev) =>
-                                          prev.map((c) => ({
-                                            ...c,
-                                            enigmas: c.enigmas.map((e: any) =>
-                                              e.id === enig.id
-                                                ? {
-                                                  ...e,
-                                                  response_type: type.value,
-                                                }
-                                                : e,
-                                            ),
-                                          })),
-                                        );
-                                        supabase
-                                          .from("investigation_enigmas")
-                                          .update({ response_type: type.value })
-                                          .eq("id", enig.id);
-                                      }}
-                                      className={`px-3 py-1.5 rounded text-xs font-bold border transition-colors ${(enig.response_type || "text") ===
-                                        type.value
-                                        ? type.activeClass
-                                        : "bg-white/5 border-white/10 text-gray-400 hover:text-white"
-                                        }`}
-                                    >
-                                      {type.label}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-
-                              {/* Questions FR/EN */}
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
-                                <div className="space-y-2">
-                                  <input
-                                    type="text"
-                                    value={enig.question_fr || ""}
-                                    onChange={(e) =>
-                                      updateLocalEnigma(
-                                        chap.id,
-                                        enig.id,
-                                        "question_fr",
-                                        e.target.value,
-                                      )
-                                    }
-                                    onBlur={async (e) => {
-                                      // ✅ NOUVEAU : Sauvegarder l'énigme complète
-                                      const enigmaToSave = chapters
-                                        .find(c => c.id === chap.id)
-                                        ?.enigmas?.find((en: any) => en.id === enig.id);
-                                      if (enigmaToSave) {
-                                        await saveEnigmaToDb(enigmaToSave);
-                                      }
-                                    }}
-                                    placeholder="Question FR"
-                                    className="w-full bg-[#111] border border-white/10 rounded px-3 py-2 text-sm text-white focus:border-yellow-500/50 outline-none"
-                                  />
-                                  <div className="flex items-center gap-2">
-                                    <KeyRound
-                                      size={12}
-                                      className="text-green-500 flex-shrink-0"
-                                    />
-                                    <input
-                                      type="text"
-                                      value={enig.expected_answer_fr || ""}
-                                      onChange={(e) =>
-                                        updateLocalEnigma(
-                                          chap.id,
-                                          enig.id,
-                                          "expected_answer_fr",
-                                          e.target.value,
-                                        )
-                                      }
-                                      onBlur={(e) =>
-                                        updateDB(
-                                          "investigation_enigmas",
-                                          enig.id,
-                                          {
-                                            expected_answer_fr: e.target.value,
-                                          },
-                                        )
-                                      }
-                                      placeholder="Réponse FR"
-                                      className="flex-1 bg-[#111] border border-green-500/30 rounded px-3 py-1.5 text-sm font-mono text-green-400 focus:border-green-500 outline-none"
-                                    />
-                                  </div>
-                                </div>
-                                <div className="space-y-2">
-                                  <div className="flex gap-2">
-                                    <input
-                                      type="text"
-                                      value={enig.question_en || ""}
-                                      onChange={(e) =>
-                                        updateLocalEnigma(
-                                          chap.id,
-                                          enig.id,
-                                          "question_en",
-                                          e.target.value,
-                                        )
-                                      }
-                                      onBlur={(e) =>
-                                        updateDB(
-                                          "investigation_enigmas",
-                                          enig.id,
-                                          { question_en: e.target.value },
-                                        )
-                                      }
-                                      placeholder="Question EN"
-                                      className="flex-1 bg-[#111] border border-white/10 rounded px-3 py-2 text-sm text-white focus:border-yellow-500/50 outline-none"
-                                    />
-                                    <button
-                                      onClick={() =>
-                                        handleTranslateNested(
-                                          enig.question_fr,
-                                          "investigation_enigmas",
-                                          enig.id,
-                                          "question_en",
-                                          (val) =>
-                                            updateLocalEnigma(
-                                              chap.id,
-                                              enig.id,
-                                              "question_en",
-                                              val,
-                                            ),
-                                        )
-                                      }
-                                      className="p-2 bg-white/5 rounded text-gray-400 hover:text-white flex-shrink-0"
-                                    >
-                                      {isProcessing ===
-                                        enig.id + "question_en" ? (
-                                        <Loader2
-                                          size={14}
-                                          className="animate-spin"
-                                        />
-                                      ) : (
-                                        <Languages size={14} />
-                                      )}
-                                    </button>
-                                  </div>
-                                  <input
-                                    type="text"
-                                    value={enig.expected_answer_en || ""}
-                                    onChange={(e) =>
-                                      updateLocalEnigma(
-                                        chap.id,
-                                        enig.id,
-                                        "expected_answer_en",
-                                        e.target.value,
-                                      )
-                                    }
-                                    onBlur={(e) =>
-                                      updateDB(
-                                        "investigation_enigmas",
-                                        enig.id,
-                                        {
-                                          expected_answer_en: e.target.value,
-                                        },
-                                      )
-                                    }
-                                    placeholder="Réponse EN (optionnel)"
-                                    className="w-full bg-[#111] border border-green-500/10 rounded px-3 py-1.5 text-sm font-mono text-green-400 focus:border-green-500 outline-none"
-                                  />
-                                </div>
-                              </div>
-
-                              {/* ── SI MODE CHOIX MULTIPLES ── */}
-                              {(enig.response_type || "text") === "choice" && (
-                                <div className="mb-4 p-4 bg-green-900/10 border border-green-500/20 rounded-lg space-y-3">
-                                  <div className="flex items-center justify-between">
-                                    <label className="text-[10px] text-green-400 font-bold uppercase">
-                                      ✅ Options de réponse (max 4)
-                                    </label>
-                                    <button
-                                      onClick={() => addChoice(enig.id)}
-                                      disabled={
-                                        (enig.choices_fr || []).length >= 4
-                                      }
-                                      className="px-3 py-1.5 bg-green-600/20 text-green-400 border border-green-500/30 rounded text-xs font-bold hover:bg-green-600/40 flex items-center gap-1 disabled:opacity-50"
-                                    >
-                                      <PlusCircle size={10} /> Ajouter
-                                    </button>
-                                  </div>
-                                  <div className="space-y-2">
-                                    {(enig.choices_fr || []).map(
-                                      (choice: string, idx: number) => (
-                                        <div
-                                          key={idx}
-                                          className="flex gap-2 items-center"
+                                    {enig.scene_id && (
+                                      <div>
+                                        <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
+                                          Choisir la scène
+                                        </label>
+                                        <select
+                                          value={enig.scene_id || ""}
+                                          onChange={(event) => {
+                                            setChapters((prev) =>
+                                              prev.map((c) => ({
+                                                ...c,
+                                                enigmas: c.enigmas.map((enigma: any) =>
+                                                  enigma.id === enig.id
+                                                    ? { ...enigma, scene_id: event.target.value || null }
+                                                    : enigma,
+                                                ),
+                                              })),
+                                            );
+                                            supabase
+                                              .from("investigation_enigmas")
+                                              .update({ scene_id: event.target.value || null })
+                                              .eq("id", enig.id);
+                                          }}
+                                          className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
                                         >
-                                          {/* Radio pour la bonne réponse */}
-                                          <input
-                                            type="radio"
-                                            name={`correct-${enig.id}`}
-                                            checked={
-                                              enig.correct_choice_index === idx
-                                            }
-                                            onChange={() =>
-                                              setCorrectChoice(enig.id, idx)
-                                            }
-                                            className="w-4 h-4 accent-green-500"
-                                          />
-                                          {/* Option FR */}
-                                          <input
-                                            type="text"
-                                            value={choice}
-                                            onChange={(e) =>
-                                              updateChoice(
-                                                enig.id,
-                                                idx,
-                                                e.target.value,
-                                                "fr",
-                                              )
-                                            }
-                                            placeholder="Option FR"
-                                            className="flex-1 bg-[#111] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-green-500"
-                                          />
-                                          {/* Option EN */}
-                                          <input
-                                            type="text"
-                                            value={
-                                              (enig.choices_en || [])[idx] || ""
-                                            }
-                                            onChange={(e) =>
-                                              updateChoice(
-                                                enig.id,
-                                                idx,
-                                                e.target.value,
-                                                "en",
-                                              )
-                                            }
-                                            placeholder="EN"
-                                            className="flex-1 bg-[#111] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-green-500"
-                                          />
-                                          {/* Traduction */}
-                                          <button
-                                            onClick={async () => {
-                                              if (!choice.trim()) return;
-                                              const translated =
-                                                await autoTranslate(
-                                                  choice,
-                                                  "fr",
-                                                );
-                                              updateChoice(
-                                                enig.id,
-                                                idx,
-                                                translated,
-                                                "en",
-                                              );
-                                            }}
-                                            className="p-1.5 bg-white/5 rounded hover:bg-white/10"
-                                          >
-                                            <Languages
-                                              size={10}
-                                              className="text-gray-400"
-                                            />
-                                          </button>
-                                          {/* Supprimer */}
-                                          <button
-                                            onClick={() =>
-                                              deleteChoice(enig.id, idx)
-                                            }
-                                            className="p-1 text-red-500 hover:bg-red-500/10 rounded"
-                                          >
-                                            <Trash2 size={12} />
-                                          </button>
-                                        </div>
-                                      ),
+                                          <option value="">— Sélectionner une scène —</option>
+                                          {(chap.scenes || []).map((scene: any, idx: number) => (
+                                            <option key={scene.id} value={scene.id}>
+                                              Scène {idx + 1} — {scene.title_fr}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
                                     )}
-                                    {(enig.choices_fr || []).length === 0 && (
-                                      <p className="text-[10px] text-gray-600 italic">
-                                        Aucune option
-                                      </p>
-                                    )}
-                                  </div>
-                                  <p className="text-[10px] text-gray-500">
-                                    ⚠️ Cochez la radio button de la bonne
-                                    réponse
-                                  </p>
-                                </div>
-                              )}
 
-                              {renderEvidenceList(enig.id, "enigma")}
-
-                              {/* ✅ ASSIGNATION ÉVÉNEMENT NARRATIF */}
-                              <div className="mt-4 bg-purple-900/10 border border-purple-500/20 rounded-lg p-3">
-                                <label className="text-[10px] text-purple-400 font-bold uppercase tracking-wider flex items-center gap-1 mb-2">
-                                  <Zap size={10} /> Déclencher un Événement si
-                                  résolue
-                                </label>
-                                <select
-                                  value={enig.trigger_event_id || ""}
-                                  onChange={(e) =>
-                                    updateLocalEnigma(
-                                      chap.id,
-                                      enig.id,
-                                      "trigger_event_id",
-                                      e.target.value,
-                                    )
-                                  }
-                                  onBlur={(e) =>
-                                    updateDB("investigation_enigmas", enig.id, {
-                                      trigger_event_id: e.target.value,
-                                    })
-                                  }
-                                  className="w-full bg-[#111] border border-purple-500/30 rounded px-3 py-2 text-sm text-white outline-none focus:border-purple-500"
-                                >
-                                  <option value="">— Aucun événement —</option>
-                                  {(outroConfig?.narrative_events || []).map(
-                                    (ev: any) => (
-                                      <option key={ev.id} value={ev.id}>
-                                        {ev.type === "takeover" ? "🎬" : "💭"}{" "}
-                                        {ev.name ||
-                                          `Événement ${ev.id.slice(0, 4)}`}
-                                      </option>
-                                    ),
-                                  )}
-                                </select>
-                              </div>
-
-                              <div className="mt-4 space-y-2 ml-0 sm:ml-4">
-                                <label className="text-[10px] text-gray-600 font-bold uppercase tracking-wider flex items-center gap-1">
-                                  <Lightbulb size={10} /> Indices (Payants)
-                                </label>
-                                {enig.clues?.map((clue: any, clIdx: number) => (
-                                  <div
-                                    key={clue.id}
-                                    className="bg-blue-900/10 p-3 rounded border border-blue-500/20 relative space-y-3"
-                                  >
-                                    <button
-                                      onClick={() => {
-                                        setItemToDelete({
-                                          id: clue.id,
-                                          table: "investigation_clues",
-                                        });
-                                        setDeleteModalOpen(true);
-                                      }}
-                                      className="absolute top-2 right-2 p-1 text-gray-600 hover:text-red-500"
-                                    >
-                                      <X size={12} />
-                                    </button>
-                                    <span className="text-[10px] text-blue-400 font-bold flex items-center gap-1 mb-2">
-                                      <Lightbulb size={10} /> Indice {clIdx + 1}
-                                    </span>
-
-                                    {/* ✅ COÛT EN CAURIS */}
-                                    <div className="flex gap-2 items-center p-2 bg-[#D4AF37]/10 rounded border border-[#D4AF37]/30">
-                                      <span className="text-[10px] text-[#D4AF37] font-bold flex-shrink-0">💰</span>
+                                    <div>
+                                      <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
+                                        <Clock size={12} className="inline mr-1" /> Timer d'énigme (secondes)
+                                      </label>
                                       <input
                                         type="number"
-                                        value={clue.reveal_cost_cauris ?? 5}
-                                        onChange={(e) => {
+                                        value={enig.enigma_timer_seconds || 0}
+                                        onChange={(event) => {
                                           setChapters((prev) =>
                                             prev.map((c) => ({
                                               ...c,
-                                              enigmas: c.enigmas.map((e: any) =>
-                                                e.id === enig.id
-                                                  ? {
-                                                    ...e,
-                                                    clues: e.clues.map(
-                                                      (cl: any) =>
-                                                        cl.id === clue.id
-                                                          ? {
-                                                            ...cl,
-                                                            reveal_cost_cauris:
-                                                              Number(
-                                                                e.target
-                                                                  .value
-                                                              ),
-                                                          }
-                                                          : cl,
-                                                    ),
-                                                  }
-                                                  : e,
+                                              enigmas: c.enigmas.map((enigma: any) =>
+                                                enigma.id === enig.id
+                                                  ? { ...enigma, enigma_timer_seconds: Number(event.target.value) }
+                                                  : enigma,
                                               ),
-                                            }))
+                                            })),
                                           );
                                         }}
-                                        onBlur={(e) =>
-                                          updateDB(
-                                            "investigation_clues",
-                                            clue.id,
-                                            {
-                                              reveal_cost_cauris: Number(
-                                                e.target.value
-                                              ),
-                                            },
-                                          )
-                                        }
-                                        min={0}
-                                        className="flex-1 bg-[#1a1a1a] border border-[#D4AF37]/30 rounded px-2 py-1 text-xs text-[#D4AF37] font-bold outline-none focus:border-[#D4AF37]"
-                                        placeholder="5"
+                                        onBlur={(event) => {
+                                          supabase
+                                            .from("investigation_enigmas")
+                                            .update({ enigma_timer_seconds: Number(event.target.value) })
+                                            .eq("id", enig.id);
+                                        }}
+                                        placeholder="0 = pas de timer"
+                                        className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
                                       />
-                                      <span className="text-[10px] text-gray-500">Cauris</span>
                                     </div>
 
-                                    {/* TEXTE */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+                                    {enig.enigma_timer_seconds > 0 && (
+                                      <div>
+                                        <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
+                                          <AlertTriangle size={12} className="inline mr-1 text-red-400" />
+                                          Action à l'expiration (optionnel)
+                                        </label>
+                                        <select
+                                          value={enig.timer_timeout_instruction_id || ""}
+                                          onChange={(event) => {
+                                            setChapters((prev) =>
+                                              prev.map((c) => ({
+                                                ...c,
+                                                enigmas: c.enigmas.map((enigma: any) =>
+                                                  enigma.id === enig.id
+                                                    ? { ...enigma, timer_timeout_instruction_id: event.target.value || null }
+                                                    : enigma,
+                                                ),
+                                              })),
+                                            );
+                                            supabase
+                                              .from("investigation_enigmas")
+                                              .update({ timer_timeout_instruction_id: event.target.value || null })
+                                              .eq("id", enig.id);
+                                          }}
+                                          className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-blue-500"
+                                        >
+                                          <option value="">— Aucune action —</option>
+                                          {allInstructions.map((instr: any) => (
+                                            <option key={instr.id} value={instr.id}>
+                                              {instr.icon} {instr.name}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        <p className="text-[10px] text-gray-600 mt-1">
+                                          Une instruction s'affichera quand ce timer arrive à 0
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Événements narratifs */}
+                                  <div className="space-y-4 bg-purple-900/10 p-3 rounded border border-purple-500/20">
+                                    <h4 className="text-[10px] text-purple-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                                      <Zap size={12} /> Événements Narratifs (selon le résultat)
+                                    </h4>
+
+                                    <div>
+                                      <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
+                                        ✅ Si énigme résolue
+                                      </label>
+                                      <select
+                                        value={enig.trigger_event_on_success_id || ""}
+                                        onChange={(event) => {
+                                          setChapters((prev) =>
+                                            prev.map((c) => ({
+                                              ...c,
+                                              enigmas: c.enigmas.map((enigma: any) =>
+                                                enigma.id === enig.id
+                                                  ? { ...enigma, trigger_event_on_success_id: event.target.value || null }
+                                                  : enigma,
+                                              ),
+                                            })),
+                                          );
+                                        }}
+                                        onBlur={async (event) => {
+                                          const enigmaToSave = chapters
+                                            .find((c) => c.id === chap.id)
+                                            ?.enigmas?.find((en: any) => en.id === enig.id);
+                                          if (enigmaToSave) {
+                                            enigmaToSave.trigger_event_on_success_id = event.target.value || null;
+                                            await saveEnigmaToDb(enigmaToSave);
+                                          }
+                                        }}
+                                        className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
+                                      >
+                                        <option value="">— Aucun événement —</option>
+                                        {(outroConfig?.narrative_events || []).map((ev: any) => (
+                                          <option key={ev.id} value={ev.id}>
+                                            {ev.name || `Événement ${ev.id.slice(0, 4)}`}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <p className="text-[10px] text-gray-600 mt-1">
+                                        Cet événement se déclenche quand le joueur résout l'énigme
+                                      </p>
+                                    </div>
+
+                                    <div>
+                                      <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
+                                        ❌ Si énigme ratée (budget = 0)
+                                      </label>
+                                      <select
+                                        value={enig.trigger_event_on_failure_id || ""}
+                                        onChange={(event) => {
+                                          setChapters((prev) =>
+                                            prev.map((c) => ({
+                                              ...c,
+                                              enigmas: c.enigmas.map((enigma: any) =>
+                                                enigma.id === enig.id
+                                                  ? { ...enigma, trigger_event_on_failure_id: event.target.value || null }
+                                                  : enigma,
+                                              ),
+                                            })),
+                                          );
+                                        }}
+                                        onBlur={async (event) => {
+                                          const enigmaToSave = chapters
+                                            .find((c) => c.id === chap.id)
+                                            ?.enigmas?.find((en: any) => en.id === enig.id);
+                                          if (enigmaToSave) {
+                                            enigmaToSave.trigger_event_on_failure_id = event.target.value || null;
+                                            await saveEnigmaToDb(enigmaToSave);
+                                          }
+                                        }}
+                                        className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
+                                      >
+                                        <option value="">— Aucun événement —</option>
+                                        {(outroConfig?.narrative_events || []).map((ev: any) => (
+                                          <option key={ev.id} value={ev.id}>
+                                            {ev.name || `Événement ${ev.id.slice(0, 4)}`}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <p className="text-[10px] text-gray-600 mt-1">
+                                        Cet événement se déclenche si le joueur épuise son budget
+                                      </p>
+                                    </div>
+
+                                    <div>
+                                      <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
+                                        ⏱️ Si timer énigme = 0
+                                      </label>
+                                      <select
+                                        value={enig.trigger_event_on_timeout_id || ""}
+                                        onChange={(event) => {
+                                          setChapters((prev) =>
+                                            prev.map((c) => ({
+                                              ...c,
+                                              enigmas: c.enigmas.map((enigma: any) =>
+                                                enigma.id === enig.id
+                                                  ? { ...enigma, trigger_event_on_timeout_id: event.target.value || null }
+                                                  : enigma,
+                                              ),
+                                            })),
+                                          );
+                                        }}
+                                        onBlur={async (event) => {
+                                          const enigmaToSave = chapters
+                                            .find((c) => c.id === chap.id)
+                                            ?.enigmas?.find((en: any) => en.id === enig.id);
+                                          if (enigmaToSave) {
+                                            enigmaToSave.trigger_event_on_timeout_id = event.target.value || null;
+                                            await saveEnigmaToDb(enigmaToSave);
+                                          }
+                                        }}
+                                        className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
+                                      >
+                                        <option value="">— Aucun événement —</option>
+                                        {(outroConfig?.narrative_events || []).map((ev: any) => (
+                                          <option key={ev.id} value={ev.id}>
+                                            {ev.name || `Événement ${ev.id.slice(0, 4)}`}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <p className="text-[10px] text-gray-600 mt-1">
+                                        Cet événement se déclenche quand le timer arrive à 0
+                                      </p>
+                                    </div>
+
+                                    {enig.enigma_timer_seconds > 0 && (
+                                      <div>
+                                        <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
+                                          ⚙️ Comportement du timer
+                                        </label>
+                                        <select
+                                          value={enig.timer_behavior || "alert"}
+                                          onChange={(event) => {
+                                            setChapters((prev) =>
+                                              prev.map((c) => ({
+                                                ...c,
+                                                enigmas: c.enigmas.map((enigma: any) =>
+                                                  enigma.id === enig.id
+                                                    ? { ...enigma, timer_behavior: event.target.value as any }
+                                                    : enigma,
+                                                ),
+                                              })),
+                                            );
+                                          }}
+                                          onBlur={async (event) => {
+                                            const enigmaToSave = chapters
+                                              .find((c) => c.id === chap.id)
+                                              ?.enigmas?.find((en: any) => en.id === enig.id);
+                                            if (enigmaToSave) {
+                                              enigmaToSave.timer_behavior = event.target.value as any;
+                                              await saveEnigmaToDb(enigmaToSave);
+                                            }
+                                          }}
+                                          className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
+                                        >
+                                          <option value="alert">💡 Juste alerte (le jeu continue)</option>
+                                          <option value="pause">⏸️ Pause le jeu</option>
+                                          <option value="end_game">🔴 Termine le jeu</option>
+                                        </select>
+                                        <p className="text-[10px] text-gray-600 mt-1">
+                                          Que faire quand ce timer arrive à 0 ?
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Mode de réponse */}
+                                  <div className="mb-4">
+                                    <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
+                                      Mode de réponse
+                                    </label>
+                                    <div className="flex gap-2">
+                                      {[
+                                        {
+                                          value: "text",
+                                          label: "✍️ Texte à taper",
+                                          activeClass: "bg-gray-600/30 border-gray-500/50 text-gray-400",
+                                        },
+                                        {
+                                          value: "choice",
+                                          label: "✅ Choix multiples",
+                                          activeClass: "bg-green-600/30 border-green-500/50 text-green-400",
+                                        },
+                                      ].map((type) => (
+                                        <button
+                                          key={type.value}
+                                          onClick={() => {
+                                            setChapters((prev) =>
+                                              prev.map((c) => ({
+                                                ...c,
+                                                enigmas: c.enigmas.map((enigma: any) =>
+                                                  enigma.id === enig.id
+                                                    ? { ...enigma, response_type: type.value }
+                                                    : enigma,
+                                                ),
+                                              })),
+                                            );
+                                            supabase
+                                              .from("investigation_enigmas")
+                                              .update({ response_type: type.value })
+                                              .eq("id", enig.id);
+                                          }}
+                                          className={`px-3 py-1.5 rounded text-xs font-bold border transition-colors ${
+                                            (enig.response_type || "text") === type.value
+                                              ? type.activeClass
+                                              : "bg-white/5 border-white/10 text-gray-400 hover:text-white"
+                                          }`}
+                                        >
+                                          {type.label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  {/* Questions FR/EN */}
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
+                                    <div className="space-y-2">
                                       <input
                                         type="text"
-                                        value={clue.text_fr || ""}
+                                        value={enig.question_fr || ""}
                                         onChange={(e) =>
-                                          updateLocalClue(
-                                            chap.id,
-                                            enig.id,
-                                            clue.id,
-                                            "text_fr",
-                                            e.target.value,
-                                          )
+                                          updateLocalEnigma(chap.id, enig.id, "question_fr", e.target.value)
                                         }
-                                        onBlur={(e) =>
-                                          updateDB(
-                                            "investigation_clues",
-                                            clue.id,
-                                            { text_fr: e.target.value },
-                                          )
-                                        }
-                                        placeholder="Indice FR"
-                                        className="w-full bg-[#111] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500/50"
+                                        onBlur={async () => {
+                                          const enigmaToSave = chapters
+                                            .find((c) => c.id === chap.id)
+                                            ?.enigmas?.find((en: any) => en.id === enig.id);
+                                          if (enigmaToSave) {
+                                            await saveEnigmaToDb(enigmaToSave);
+                                          }
+                                        }}
+                                        placeholder="Question FR"
+                                        className="w-full bg-[#111] border border-white/10 rounded px-3 py-2 text-sm text-white focus:border-yellow-500/50 outline-none"
                                       />
-                                      <div className="flex gap-1">
+                                      <div className="flex items-center gap-2">
+                                        <KeyRound size={12} className="text-green-500 flex-shrink-0" />
                                         <input
                                           type="text"
-                                          value={clue.text_en || ""}
+                                          value={enig.expected_answer_fr || ""}
                                           onChange={(e) =>
-                                            updateLocalClue(
-                                              chap.id,
-                                              enig.id,
-                                              clue.id,
-                                              "text_en",
-                                              e.target.value,
-                                            )
+                                            updateLocalEnigma(chap.id, enig.id, "expected_answer_fr", e.target.value)
                                           }
                                           onBlur={(e) =>
-                                            updateDB(
-                                              "investigation_clues",
-                                              clue.id,
-                                              { text_en: e.target.value },
-                                            )
+                                            updateDB("investigation_enigmas", enig.id, {
+                                              expected_answer_fr: e.target.value,
+                                            })
                                           }
-                                          placeholder="Indice EN"
-                                          className="flex-1 bg-[#111] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500/50"
+                                          placeholder="Réponse FR"
+                                          className="flex-1 bg-[#111] border border-green-500/30 rounded px-3 py-1.5 text-sm font-mono text-green-400 focus:border-green-500 outline-none"
+                                        />
+                                      </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                      <div className="flex gap-2">
+                                        <input
+                                          type="text"
+                                          value={enig.question_en || ""}
+                                          onChange={(e) =>
+                                            updateLocalEnigma(chap.id, enig.id, "question_en", e.target.value)
+                                          }
+                                          onBlur={(e) =>
+                                            updateDB("investigation_enigmas", enig.id, {
+                                              question_en: e.target.value,
+                                            })
+                                          }
+                                          placeholder="Question EN"
+                                          className="flex-1 bg-[#111] border border-white/10 rounded px-3 py-2 text-sm text-white focus:border-yellow-500/50 outline-none"
                                         />
                                         <button
                                           onClick={() =>
                                             handleTranslateNested(
-                                              clue.text_fr,
-                                              "investigation_clues",
-                                              clue.id,
-                                              "text_en",
-                                              (val) =>
-                                                updateLocalClue(
-                                                  chap.id,
-                                                  enig.id,
-                                                  clue.id,
-                                                  "text_en",
-                                                  val,
-                                                ),
+                                              enig.question_fr,
+                                              "investigation_enigmas",
+                                              enig.id,
+                                              "question_en",
+                                              (val) => updateLocalEnigma(chap.id, enig.id, "question_en", val),
                                             )
                                           }
-                                          className="p-1.5 bg-white/5 rounded text-gray-400 hover:text-white flex-shrink-0"
+                                          className="p-2 bg-white/5 rounded text-gray-400 hover:text-white flex-shrink-0"
                                         >
-                                          {isProcessing ===
-                                            clue.id + "text_en" ? (
-                                            <Loader2
-                                              size={12}
-                                              className="animate-spin"
-                                            />
+                                          {isProcessing === enig.id + "question_en" ? (
+                                            <Loader2 size={14} className="animate-spin" />
                                           ) : (
-                                            <Languages size={12} />
+                                            <Languages size={14} />
                                           )}
                                         </button>
                                       </div>
+                                      <input
+                                        type="text"
+                                        value={enig.expected_answer_en || ""}
+                                        onChange={(e) =>
+                                          updateLocalEnigma(chap.id, enig.id, "expected_answer_en", e.target.value)
+                                        }
+                                        onBlur={(e) =>
+                                          updateDB("investigation_enigmas", enig.id, {
+                                            expected_answer_en: e.target.value,
+                                          })
+                                        }
+                                        placeholder="Réponse EN (optionnel)"
+                                        className="w-full bg-[#111] border border-green-500/10 rounded px-3 py-1.5 text-sm font-mono text-green-400 focus:border-green-500 outline-none"
+                                      />
                                     </div>
-
-                                    {/* MÉDIAS (Image/Audio/Document) */}
-                                    {renderEvidenceList(clue.id, "clue")}
                                   </div>
-                                ))}
-                                <button
-                                  onClick={() => addClue(enig.id)}
-                                  className="text-[10px] text-blue-400 font-bold flex items-center gap-1 bg-blue-500/10 px-2 py-1.5 rounded hover:bg-blue-500/20"
-                                >
-                                  <PlusCircle size={10} /> Ajouter un Indice
-                                </button>
-                              </div>
 
+                                  {/* Choix multiples */}
+                                  {(enig.response_type || "text") === "choice" && (
+                                    <div className="mb-4 p-4 bg-green-900/10 border border-green-500/20 rounded-lg space-y-3">
+                                      <div className="flex items-center justify-between">
+                                        <label className="text-[10px] text-green-400 font-bold uppercase">
+                                          ✅ Options de réponse (max 4)
+                                        </label>
+                                        <button
+                                          onClick={() => addChoice(enig.id)}
+                                          disabled={(enig.choices_fr || []).length >= 4}
+                                          className="px-3 py-1.5 bg-green-600/20 text-green-400 border border-green-500/30 rounded text-xs font-bold hover:bg-green-600/40 flex items-center gap-1 disabled:opacity-50"
+                                        >
+                                          <PlusCircle size={10} /> Ajouter
+                                        </button>
+                                      </div>
+                                      <div className="space-y-2">
+                                        {(enig.choices_fr || []).map((choice: string, idx: number) => (
+                                          <div key={idx} className="flex gap-2 items-center">
+                                            <input
+                                              type="radio"
+                                              name={`correct-${enig.id}`}
+                                              checked={enig.correct_choice_index === idx}
+                                              onChange={() => setCorrectChoice(enig.id, idx)}
+                                              className="w-4 h-4 accent-green-500"
+                                            />
+                                            <input
+                                              type="text"
+                                              value={choice}
+                                              onChange={(e) => updateChoice(enig.id, idx, e.target.value, "fr")}
+                                              placeholder="Option FR"
+                                              className="flex-1 bg-[#111] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-green-500"
+                                            />
+                                            <input
+                                              type="text"
+                                              value={(enig.choices_en || [])[idx] || ""}
+                                              onChange={(e) => updateChoice(enig.id, idx, e.target.value, "en")}
+                                              placeholder="EN"
+                                              className="flex-1 bg-[#111] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-green-500"
+                                            />
+                                            <button
+                                              onClick={async () => {
+                                                if (!choice.trim()) return;
+                                                const translated = await autoTranslate(choice, "fr");
+                                                updateChoice(enig.id, idx, translated, "en");
+                                              }}
+                                              className="p-1.5 bg-white/5 rounded hover:bg-white/10"
+                                            >
+                                              <Languages size={10} className="text-gray-400" />
+                                            </button>
+                                            <button
+                                              onClick={() => deleteChoice(enig.id, idx)}
+                                              className="p-1 text-red-500 hover:bg-red-500/10 rounded"
+                                            >
+                                              <Trash2 size={12} />
+                                            </button>
+                                          </div>
+                                        ))}
+                                        {(enig.choices_fr || []).length === 0 && (
+                                          <p className="text-[10px] text-gray-600 italic">Aucune option</p>
+                                        )}
+                                      </div>
+                                      <p className="text-[10px] text-gray-500">
+                                        ⚠️ Cochez la radio button de la bonne réponse
+                                      </p>
+                                    </div>
+                                  )}
 
-                              {/* ✅ BOUTON SAUVEGARDER ÉNIGME */}
-                              <div className="mt-6 pt-4 border-t border-white/10">
-                                <button
-                                  onClick={async () => {
-                                    // Sauvegarder TOUS les champs de l'énigme en DB
-                                    const { error } = await supabase
-                                      .from('investigation_enigmas')
-                                      .update({
-                                        question_fr: enig.question_fr,
-                                        question_en: enig.question_en,
-                                        expected_answer_fr: enig.expected_answer_fr,
-                                        expected_answer_en: enig.expected_answer_en,
-                                        response_type: enig.response_type || 'text',
-                                        choices_fr: enig.choices_fr || [],
-                                        choices_en: enig.choices_en || [],
-                                        correct_choice_index: enig.correct_choice_index,
-                                        evidence_id: enig.evidence_id || null,
-                                        scene_id: enig.scene_id || null,
-                                        enigma_timer_seconds: enig.enigma_timer_seconds || 0,
-                                        timer_timeout_instruction_id: enig.timer_timeout_instruction_id || null,
-                                        trigger_event_id: enig.trigger_event_id || null,
-                                      })
-                                      .eq('id', enig.id);
+                                  {renderEvidenceList(enig.id, "enigma")}
 
-                                    if (error) {
-                                      showMsg('error', `Erreur sauvegarde: ${error.message}`);
-                                    } else {
-                                      showMsg('success', '✅ Énigme sauvegardée !');
-                                    }
-                                  }}
-                                  className="w-full py-2.5 bg-yellow-600 hover:bg-yellow-500 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors"
-                                >
-                                  <Save size={14} /> Sauvegarder cette Énigme
-                                </button>
-                              </div>
+                                  {/* Événement si résolue */}
+                                  <div className="mt-4 bg-purple-900/10 border border-purple-500/20 rounded-lg p-3">
+                                    <label className="text-[10px] text-purple-400 font-bold uppercase tracking-wider flex items-center gap-1 mb-2">
+                                      <Zap size={10} /> Déclencher un Événement si résolue
+                                    </label>
+                                    <select
+                                      value={enig.trigger_event_id || ""}
+                                      onChange={(e) =>
+                                        updateLocalEnigma(chap.id, enig.id, "trigger_event_id", e.target.value)
+                                      }
+                                      onBlur={(e) =>
+                                        updateDB("investigation_enigmas", enig.id, {
+                                          trigger_event_id: e.target.value,
+                                        })
+                                      }
+                                      className="w-full bg-[#111] border border-purple-500/30 rounded px-3 py-2 text-sm text-white outline-none focus:border-purple-500"
+                                    >
+                                      <option value="">— Aucun événement —</option>
+                                      {(outroConfig?.narrative_events || []).map((ev: any) => (
+                                        <option key={ev.id} value={ev.id}>
+                                          {ev.type === "takeover" ? "🎬" : "💭"}{" "}
+                                          {ev.name || `Événement ${ev.id.slice(0, 4)}`}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+
+                                  {/* Indices */}
+                                  <div className="mt-4 space-y-2">
+                                    <label className="text-[10px] text-gray-600 font-bold uppercase tracking-wider flex items-center gap-1">
+                                      <Lightbulb size={10} /> Indices (Payants)
+                                    </label>
+                                    {enig.clues?.map((clue: any, clIdx: number) => (
+                                      <div
+                                        key={clue.id}
+                                        className="bg-blue-900/10 p-3 rounded border border-blue-500/20 relative space-y-3"
+                                      >
+                                        <button
+                                          onClick={() => {
+                                            setItemToDelete({
+                                              id: clue.id,
+                                              table: "investigation_clues",
+                                            });
+                                            setDeleteModalOpen(true);
+                                          }}
+                                          className="absolute top-2 right-2 p-1 text-gray-600 hover:text-red-500"
+                                        >
+                                          <X size={12} />
+                                        </button>
+                                        <span className="text-[10px] text-blue-400 font-bold flex items-center gap-1 mb-2">
+                                          <Lightbulb size={10} /> Indice {clIdx + 1}
+                                        </span>
+
+                                        <div className="flex gap-2 items-center p-2 bg-[#D4AF37]/10 rounded border border-[#D4AF37]/30">
+                                          <span className="text-[10px] text-[#D4AF37] font-bold flex-shrink-0">💰</span>
+                                          <input
+                                            type="number"
+                                            value={clue.reveal_cost_cauris ?? 5}
+                                            onChange={(e) => {
+                                              const newVal = Number(e.target.value);
+                                              setChapters((prev) =>
+                                                prev.map((c) => ({
+                                                  ...c,
+                                                  enigmas: c.enigmas.map((enigma: any) =>
+                                                    enigma.id === enig.id
+                                                      ? {
+                                                          ...enigma,
+                                                          clues: enigma.clues.map((cl: any) =>
+                                                            cl.id === clue.id
+                                                              ? { ...cl, reveal_cost_cauris: newVal }
+                                                              : cl,
+                                                          ),
+                                                        }
+                                                      : enigma,
+                                                  ),
+                                                })),
+                                              );
+                                            }}
+                                            onBlur={(e) =>
+                                              updateDB("investigation_clues", clue.id, {
+                                                reveal_cost_cauris: Number(e.target.value),
+                                              })
+                                            }
+                                            min={0}
+                                            className="flex-1 bg-[#1a1a1a] border border-[#D4AF37]/30 rounded px-2 py-1 text-xs text-[#D4AF37] font-bold outline-none focus:border-[#D4AF37]"
+                                            placeholder="5"
+                                          />
+                                          <span className="text-[10px] text-gray-500">Cauris</span>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+                                          <input
+                                            type="text"
+                                            value={clue.text_fr || ""}
+                                            onChange={(e) =>
+                                              updateLocalClue(chap.id, enig.id, clue.id, "text_fr", e.target.value)
+                                            }
+                                            onBlur={(e) =>
+                                              updateDB("investigation_clues", clue.id, { text_fr: e.target.value })
+                                            }
+                                            placeholder="Indice FR"
+                                            className="w-full bg-[#111] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500/50"
+                                          />
+                                          <div className="flex gap-1">
+                                            <input
+                                              type="text"
+                                              value={clue.text_en || ""}
+                                              onChange={(e) =>
+                                                updateLocalClue(chap.id, enig.id, clue.id, "text_en", e.target.value)
+                                              }
+                                              onBlur={(e) =>
+                                                updateDB("investigation_clues", clue.id, { text_en: e.target.value })
+                                              }
+                                              placeholder="Indice EN"
+                                              className="flex-1 bg-[#111] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500/50"
+                                            />
+                                            <button
+                                              onClick={() =>
+                                                handleTranslateNested(
+                                                  clue.text_fr,
+                                                  "investigation_clues",
+                                                  clue.id,
+                                                  "text_en",
+                                                  (val) => updateLocalClue(chap.id, enig.id, clue.id, "text_en", val),
+                                                )
+                                              }
+                                              className="p-1.5 bg-white/5 rounded text-gray-400 hover:text-white flex-shrink-0"
+                                            >
+                                              {isProcessing === clue.id + "text_en" ? (
+                                                <Loader2 size={12} className="animate-spin" />
+                                              ) : (
+                                                <Languages size={12} />
+                                              )}
+                                            </button>
+                                          </div>
+                                        </div>
+
+                                        {renderEvidenceList(clue.id, "clue")}
+                                      </div>
+                                    ))}
+                                    <button
+                                      onClick={() => addClue(enig.id)}
+                                      className="text-[10px] text-blue-400 font-bold flex items-center gap-1 bg-blue-500/10 px-2 py-1.5 rounded hover:bg-blue-500/20"
+                                    >
+                                      <PlusCircle size={10} /> Ajouter un Indice
+                                    </button>
+                                  </div>
+
+                                  {/* Bouton Sauvegarder */}
+                                  <div className="mt-6 pt-4 border-t border-white/10">
+                                    <button
+                                      onClick={async () => {
+                                        const { error } = await supabase
+                                          .from("investigation_enigmas")
+                                          .update({
+                                            question_fr: enig.question_fr,
+                                            question_en: enig.question_en,
+                                            expected_answer_fr: enig.expected_answer_fr,
+                                            expected_answer_en: enig.expected_answer_en,
+                                            response_type: enig.response_type || "text",
+                                            choices_fr: enig.choices_fr || [],
+                                            choices_en: enig.choices_en || [],
+                                            correct_choice_index: enig.correct_choice_index,
+                                            evidence_id: enig.evidence_id || null,
+                                            scene_id: enig.scene_id || null,
+                                            enigma_timer_seconds: enig.enigma_timer_seconds || 0,
+                                            timer_timeout_instruction_id: enig.timer_timeout_instruction_id || null,
+                                            trigger_event_id: enig.trigger_event_id || null,
+                                          })
+                                          .eq("id", enig.id);
+
+                                        if (error) {
+                                          showMsg("error", `Erreur sauvegarde: ${error.message}`);
+                                        } else {
+                                          showMsg("success", "✅ Énigme sauvegardée !");
+                                        }
+                                      }}
+                                      className="w-full py-2.5 bg-yellow-600 hover:bg-yellow-500 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors"
+                                    >
+                                      <Save size={14} /> Sauvegarder cette Énigme
+                                    </button>
+                                  </div>
+
+                                </div>
+                              )}
                             </div>
                           );
                         })}
                       </div>
                     </div>
 
-                    {/* ════ OUTILS DE DÉDUCTION ════ */}
+                    {/* Outils de Déduction */}
                     <div className="border-t border-white/5 pt-6">
                       <div className="mb-4">
                         <h5 className="text-sm font-bold text-white flex items-center gap-2">
                           🧠 Outils de Déduction
                         </h5>
                         <p className="text-[10px] text-gray-500 mt-1">
-                          Configurez la timeline et le tableau de connexions. Le
-                          joueur glisse ses preuves collectées pour valider ses
-                          déductions.
+                          Configurez la timeline et le tableau de connexions. Le joueur glisse ses preuves collectées pour valider ses déductions.
                         </p>
                       </div>
                       <DeductionSection chap={chap} />
@@ -4266,6 +3978,7 @@ export default function InvestigationsTab({
               </div>
             );
           })}
+
           {chapters.length === 0 && (
             <div className="text-center py-12 border border-dashed border-red-500/20 rounded-xl">
               <p className="text-gray-500 text-sm">Aucun chapitre créé</p>
@@ -4277,9 +3990,7 @@ export default function InvestigationsTab({
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════
-          LISTE DES DOSSIERS EXISTANTS
-      ════════════════════════════════════════════════════ */}
+      {/* LISTE DES DOSSIERS */}
       {!editingId && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {investigations.map((inv) => (
@@ -4303,11 +4014,13 @@ export default function InvestigationsTab({
                 <div className="min-w-0">
                   <div className="flex gap-2 mb-1 flex-wrap">
                     <span
-                      className={`text-[10px] px-2 py-0.5 rounded font-bold ${inv.status === "published" ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-400"}`}
+                      className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                        inv.status === "published"
+                          ? "bg-green-500/20 text-green-400"
+                          : "bg-yellow-500/20 text-yellow-400"
+                      }`}
                     >
-                      {inv.status === "published"
-                        ? "✅ Publié"
-                        : "📝 Brouillon"}
+                      {inv.status === "published" ? "✅ Publié" : "📝 Brouillon"}
                     </span>
                     <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-white/10 text-gray-300">
                       {inv.difficulty}
