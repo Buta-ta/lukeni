@@ -58,7 +58,7 @@ const MusicMap = dynamic(
     ssr: false,
     loading: () => (
       <div className="w-full h-full flex items-center justify-center bg-[#020111] rounded-2xl">
-        <div className="text-[#D4AF37] text-sm">Chargement de la carte...</div>
+        <div className="text-[#D4AF37] text-sm">Lukeni...</div>
       </div>
     )
   }
@@ -2239,7 +2239,7 @@ export default function ExplorePage() {
               animate={{ opacity: [0.4, 1, 0.4] }}
               transition={{ duration: 1.5, repeat: Infinity }}
               className="text-[#D4AF37] text-[10px] tracking-[0.4em] uppercase font-light">
-              {lang === 'fr' ? 'Chargement…' : 'Loading…'}
+              {lang === 'fr' ? 'Sans la lutte vous n obientrez…' : 'Without the struggle you shall not obtain…'}
             </motion.p>
           </motion.div>
         )}
