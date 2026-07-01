@@ -872,7 +872,7 @@ export default function LandingPage() {
               transition={{ duration: 1.5, repeat: Infinity }}
               className="relative z-10 text-[#D4AF37]/70 text-[10px] md:text-xs tracking-[0.25em] md:tracking-[0.4em] font-light text-center leading-relaxed"
             >
-              {lang === 'fr' ? 'CHARGEMENT DE LA CONSTELLATION...' : 'LOADING CONSTELLATION...'}
+              {lang === 'fr' ? 'L arme la plus puissante...' : 'The most powerful weapon...'}
             </motion.p>
             <div className="relative z-10 mt-8 md:mt-10 w-32 md:w-48 h-px bg-white/10 rounded-full overflow-hidden">
               <motion.div
