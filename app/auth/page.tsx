@@ -220,7 +220,7 @@ const handleRegister = async (e: React.FormEvent) => {
   }
 };
 
-  const handleGoogleAuth = async () => {
+   const handleGoogleAuth = async () => {
     setError(null);
     setIsLoading(true);
     try {
@@ -228,6 +228,12 @@ const handleRegister = async (e: React.FormEvent) => {
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            prompt: 'select_account',
+            // On force un paramètre pour contourner le comportement par défaut de Supabase
+            // sur certains navigateurs.
+            access_type: 'offline'
+          }
         },
       });
       if (err) {
