@@ -1355,6 +1355,50 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
 
 
 
+
+                      {/* TITRES */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-xs font-semibold text-gray-400 block">🇫🇷 Titre principal (Français) *</label>
+                          <input
+                            type="text"
+                            value={titleFr}
+                            onChange={e => setTitleFr(e.target.value)}
+                            placeholder={articleType === 'audio' ? 'Ex: Interview exclusive avec... | Épisode 12 : Les défis de...' : 'Ex: La musique congolaise rayonne sur la scène internationale'}
+                            className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 focus:border-blue-500 focus:outline-none transition-colors"
+                          />
+                          <div className="flex gap-2 flex-wrap">
+                            <button onClick={() => handleLingua('correct-fr')} className="text-xs bg-white/5 px-3 py-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 flex items-center gap-1 transition-colors">
+                              {isProcessing === 'correct-fr' ? <Loader2 size={12} className="animate-spin" /> : <SpellCheck size={12} />} Corriger FR
+                            </button>
+                            <button onClick={() => handleLingua('translate-fr')} className="text-xs bg-white/5 px-3 py-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 flex items-center gap-1 transition-colors">
+                              {isProcessing === 'translate-fr' ? <Loader2 size={12} className="animate-spin" /> : <Languages size={12} />} EN → FR
+                            </button>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-semibold text-gray-400 block">🇬🇧 Titre principal (Anglais)</label>
+                          <input
+                            type="text"
+                            value={titleEn}
+                            onChange={e => setTitleEn(e.target.value)}
+                            placeholder={articleType === 'audio' ? 'Ex: Exclusive interview with... | Episode 12: The challenges of...' : 'Ex: Congolese music shines on the international stage'}
+                            className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 focus:border-blue-500 focus:outline-none transition-colors"
+                          />
+                          <div className="flex gap-2 flex-wrap">
+                            <button onClick={() => handleLingua('correct-en')} className="text-xs bg-white/5 px-3 py-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 flex items-center gap-1 transition-colors">
+                              {isProcessing === 'correct-en' ? <Loader2 size={12} className="animate-spin" /> : <SpellCheck size={12} />} Correct EN
+                            </button>
+                            <button onClick={() => handleLingua('translate-en')} className="text-xs bg-white/5 px-3 py-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 flex items-center gap-1 transition-colors">
+                              {isProcessing === 'translate-en' ? <Loader2 size={12} className="animate-spin" /> : <Languages size={12} />} FR → EN
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+
+
+
                       {/* RÉSUMÉS */}
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div className="space-y-2">
