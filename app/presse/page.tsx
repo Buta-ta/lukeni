@@ -1072,7 +1072,7 @@ const ArticleView = ({ article, lang, onClose, mousePos, feedItems, user, userPr
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }}>
       <ReadingProgressBar />
 
-      {/* COVER */}
+            {/* COVER */}
       <div className="relative h-[50vh] min-h-[400px] overflow-hidden -mx-4 md:-mx-6 bg-[#000814]">
         {article.cover_url ? (
           <motion.img
@@ -1082,7 +1082,7 @@ const ArticleView = ({ article, lang, onClose, mousePos, feedItems, user, userPr
             initial={{ scale: 1.1, opacity: 0 }}
             animate={{ scale: imgLoaded ? 1 : 1.1, opacity: imgLoaded ? 1 : 0, x: mousePos.x * 20, y: mousePos.y * 10 }}
             transition={{ scale: { duration: 1.2, ease: [0.22, 1, 0.36, 1] }, opacity: { duration: 1.2 }, x: { type: 'spring', stiffness: 20, damping: 30 }, y: { type: 'spring', stiffness: 20, damping: 30 } }}
-            className="w-full h-full object-cover"
+            className={`w-full h-full ${isArchive ? 'object-contain' : 'object-cover'}`}
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-[#001233] to-[#000814] flex items-center justify-center">
@@ -1613,8 +1613,8 @@ export default function PressePage() {
         published_at: a.original_date || a.created_at,
         category_id: 'archive',
         category_color: '#F97316',
-        category_name_fr: 'Revue de presse',
-        category_name_en: 'Press Review',
+        category_name_fr: 'Archivres de Presse',
+        category_name_en: 'Press Archives',
         format: a.format,
         source_url: a.source_url,
         status: 'published',
@@ -1859,7 +1859,7 @@ export default function PressePage() {
                     onClick={() => setActiveCategory('archive')}
                     className={`flex-shrink-0 px-4 md:px-5 py-2 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap border border-orange-500/30 ${activeCategory === 'archive' ? 'bg-orange-500 text-white shadow-[0_0_20px_rgba(249,115,22,0.3)]' : 'bg-orange-500/10 text-orange-400 hover:text-white'
                       }`}>
-                    {lang === 'fr' ? 'Revue de presse' : 'Press Review'}
+                    {lang === 'fr' ? 'Archives de Presse' : 'Press Archives'}
                   </motion.button>
                 </div>
               </motion.div>

@@ -73,6 +73,318 @@ import {
   QuizzesPanel,
 } from "@/components/CircleReadingFeatures";
 
+
+
+
+// ✅ AJOUTE CETTE FONCTION ICI (avant tous les composants)
+function getFileType(url: string): 'pdf' | 'epub' | 'unknown' {
+  if (!url) return 'unknown';
+  const lower = url.toLowerCase().split('?')[0];
+  if (lower.endsWith('.epub')) return 'epub';
+  if (lower.endsWith('.pdf')) return 'pdf';
+  if (lower.includes('/epub/') || lower.includes('epub')) return 'epub';
+  if (lower.includes('/pdf/') || lower.includes('pdf')) return 'pdf';
+  return 'unknown';
+}
+
+
+
+// ✅ INTERFACE POUR EPUBReader
+interface EPUBReaderProps {
+  url: string;
+  title: string;
+  lang: 'fr' | 'en';
+  onClose: () => void;
+  isEmbedded?: boolean; // ✅ NOUVEAU : pour la page cercle
+  availableWidth?: string;
+}
+
+// ✅ COMPOSANT EPUBReader (version embedded pour cercle)
+const EPUBReader = React.memo(({ url, title, lang, onClose, isEmbedded = false }: EPUBReaderProps) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const renditionRef = useRef<any>(null);
+  const bookRef = useRef<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [toc, setToc] = useState<any[]>([]);
+  const [showToc, setShowToc] = useState(false);
+  const [fontSize, setFontSize] = useState(100);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const loadEpubJs = useCallback((): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      if (typeof window === 'undefined') {
+        reject(new Error('Window not available'));
+        return;
+      }
+      // @ts-ignore
+      if (window.ePub && window.JSZip) {
+        resolve();
+        return;
+      }
+      let attempts = 0;
+      const checkInterval = setInterval(() => {
+        // @ts-ignore
+        if (window.ePub && window.JSZip) {
+          clearInterval(checkInterval);
+          resolve();
+        } else if (attempts++ > 100) {
+          clearInterval(checkInterval);
+          reject(new Error('epub.js timeout'));
+        }
+      }, 100);
+    });
+  }, []);
+
+  useEffect(() => {
+    let destroyed = false;
+
+    const initReader = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        await loadEpubJs();
+        if (destroyed) return;
+
+        // @ts-ignore
+        const ePub = window.ePub;
+        if (!ePub) throw new Error('epub.js non disponible');
+
+        let bookSource: Blob | string;
+
+        if (url.includes('cloudinary.com')) {
+          try {
+            const proxyUrl = `/api/epub-proxy?url=${encodeURIComponent(url)}`;
+            const res = await fetch(proxyUrl);
+            if (!res.ok) throw new Error(`Proxy ${res.status}`);
+            const blob = await res.blob();
+            if (blob.size === 0) throw new Error('Blob vide');
+            bookSource = blob;
+          } catch (fetchErr: any) {
+            bookSource = url;
+          }
+        } else {
+          bookSource = url;
+        }
+
+        if (destroyed) return;
+
+        const book = ePub(bookSource);
+        bookRef.current = book;
+
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('Timeout ready')), 30000);
+          book.ready.then(() => {
+            clearTimeout(timeout);
+            resolve(undefined);
+          }).catch((err: any) => {
+            clearTimeout(timeout);
+            reject(err);
+          });
+        });
+
+        if (destroyed) return;
+
+        try {
+          const navigation = await book.loaded.navigation;
+          if (navigation?.toc?.length) setToc(navigation.toc);
+        } catch (navErr) { }
+
+        if (!containerRef.current) throw new Error('Conteneur non disponible');
+
+        const rendition = book.renderTo(containerRef.current, {
+          width: '100%',
+          height: '100%',
+          spread: isMobile ? 'none' : 'auto',
+          flow: 'paginated',
+          allowScriptedContent: false,
+        });
+        renditionRef.current = rendition;
+
+        rendition.themes.register('dark', {
+          'html': { 'background': '#0a0a14 !important' },
+          'body': {
+            'background': '#0a0a14 !important',
+            'color': '#e5e7eb !important',
+            'font-size': `${fontSize}% !important`,
+            'line-height': '1.8 !important',
+            'padding': '20px 40px !important',
+            'font-family': 'Georgia, serif !important',
+          },
+          'a': { 'color': '#10B981 !important' },
+          'h1, h2, h3, h4, h5, h6': { 'color': '#ffffff !important' },
+          'p': { 'color': '#d1d5db !important' },
+          'img': { 'max-width': '100% !important' },
+        });
+        rendition.themes.select('dark');
+
+        await rendition.display();
+        if (destroyed) return;
+
+        setIsLoading(false);
+
+        book.locations.generate(1024).then(() => {
+          if (destroyed) return;
+          setTotalPages(book.locations.total || 0);
+        }).catch(() => { });
+
+        rendition.on('locationChanged', (loc: any) => {
+          if (destroyed) return;
+          try {
+            if (book.locations?.total && loc?.start?.cfi) {
+              const pct = book.locations.percentageFromCfi(loc.start.cfi);
+              setCurrentPage(Math.max(1, Math.ceil(pct * book.locations.total)));
+            }
+          } catch { }
+        });
+
+      } catch (err: any) {
+        if (!destroyed) {
+          setError(err?.message || 'Erreur chargement EPUB');
+          setIsLoading(false);
+        }
+      }
+    };
+
+    initReader();
+
+    return () => {
+      destroyed = true;
+      if (renditionRef.current) {
+        try { renditionRef.current.destroy(); } catch { }
+        renditionRef.current = null;
+      }
+      if (bookRef.current) {
+        try { bookRef.current.destroy(); } catch { }
+        bookRef.current = null;
+      }
+    };
+  }, [url, loadEpubJs, isMobile, fontSize]);
+
+  const goNext = useCallback(() => {
+    try { renditionRef.current?.next(); } catch { }
+  }, []);
+
+  const goPrev = useCallback(() => {
+    try { renditionRef.current?.prev(); } catch { }
+  }, []);
+
+  const goToTocItem = useCallback((href: string) => {
+    try {
+      renditionRef.current?.display(href);
+      setShowToc(false);
+    } catch { }
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        goNext();
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        goPrev();
+      }
+      if (e.key === 'Escape' && isEmbedded) onClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [goNext, goPrev, onClose, isEmbedded]);
+
+
+
+
+
+
+
+  // ✅ SI EMBEDDED : retourne juste le reader sans fullscreen
+  if (isEmbedded) {
+    return (
+      <div className="w-full h-full flex flex-col relative">
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center z-10 bg-[#0a0a14]">
+            <div className="flex flex-col items-center gap-4">
+              <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}>
+                <CaurisIcon className="w-12 h-12 text-emerald-500" />
+              </motion.div>
+              <p className="text-gray-500 text-sm">{lang === 'fr' ? 'Chargement EPUB...' : 'Loading EPUB...'}</p>
+            </div>
+          </div>
+        )}
+        {error && !isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center z-10 bg-[#0a0a14]">
+            <div className="flex flex-col items-center gap-4">
+              <AlertCircle size={32} className="text-red-400" />
+              <p className="text-gray-400 text-sm">{error}</p>
+            </div>
+          </div>
+        )}
+        <div
+          ref={containerRef}
+          className="flex-1 relative w-full"
+          
+        />
+        {!isLoading && !error && (
+          <>
+            <button onClick={goPrev} className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center text-gray-400 hover:text-white">
+              <ChevronLeft size={16} />
+            </button>
+            <button onClick={goNext} className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-black/60 flex items-center justify-center text-gray-400 hover:text-white">
+              <ChevronRight size={16} />
+            </button>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // ✅ SINON : fullscreen (pour BibliothequePage)
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[60] bg-[#0a0a14] flex flex-col">
+      <div className="h-14 flex items-center justify-between px-4 border-b border-white/10 bg-[#080810]">
+        <h3 className="text-white font-bold text-sm truncate">{title}</h3>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setFontSize(f => Math.max(70, f - 10))} className="px-2 py-1 text-xs text-gray-400">A-</button>
+          <span className="text-xs text-gray-600">{fontSize}%</span>
+          <button onClick={() => setFontSize(f => Math.min(160, f + 10))} className="px-2 py-1 text-xs text-gray-400">A+</button>
+          <button onClick={onClose} className="ml-2 p-2 text-gray-400 hover:text-white"><X size={20} /></button>
+        </div>
+      </div>
+      <div className="flex-1 overflow-hidden relative">
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center z-10 bg-[#0a0a14]">
+            <Loader2 size={32} className="animate-spin text-emerald-500" />
+          </div>
+        )}
+        {error && !isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center z-10 bg-[#0a0a14]">
+            <AlertCircle size={32} className="text-red-400" />
+          </div>
+        )}
+        <div ref={containerRef} className="w-full h-full" />
+        {!isLoading && !error && (
+          <>
+            <button onClick={goPrev} className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-gray-400"><ChevronLeft size={20} /></button>
+            <button onClick={goNext} className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center text-gray-400"><ChevronRight size={20} /></button>
+          </>
+        )}
+      </div>
+    </motion.div>
+  );
+});
+EPUBReader.displayName = 'EPUBReader';
+
 const CaurisIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 100 100" className={className} fill="currentColor">
     <path d="M50 5C30 5 15 25 15 50C15 75 30 95 50 95C70 95 85 75 85 50C85 25 70 5 50 5ZM50 85C35 85 25 70 25 50C25 30 35 15 50 15C65 15 75 30 75 50C75 70 65 85 50 85Z" />
@@ -95,6 +407,7 @@ interface Book {
   cover_url: string;
   file_url: string;
 }
+
 
 // ============================================================================
 // NOTIFICATION MODAL
@@ -130,11 +443,10 @@ function NotificationModal({
           className="fixed top-6 right-6 z-[9999]"
         >
           <motion.div
-            className={`flex items-center gap-3 px-6 py-4 rounded-2xl border backdrop-blur-md ${
-              type === "success"
-                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
-                : "bg-red-500/10 border-red-500/30 text-red-300"
-            }`}
+            className={`flex items-center gap-3 px-6 py-4 rounded-2xl border backdrop-blur-md ${type === "success"
+              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+              : "bg-red-500/10 border-red-500/30 text-red-300"
+              }`}
             layout
           >
             {type === "success" ? (
@@ -396,6 +708,9 @@ export default function CirclePage() {
       supabase.removeChannel(channel);
     };
   }, [user, circle, isMember]);
+
+
+
 
   // ============================================================================
   // FONCTIONS : Chat Features
@@ -661,8 +976,8 @@ export default function CirclePage() {
   const avgProgress =
     members.length > 0
       ? Math.round(
-          members.reduce((acc, m) => acc + m.current_page, 0) / members.length,
-        )
+        members.reduce((acc, m) => acc + m.current_page, 0) / members.length,
+      )
       : 0;
 
   // ✅ Si l'utilisateur n'est pas membre, afficher l'interface appropriée
@@ -769,9 +1084,8 @@ export default function CirclePage() {
                 {[1, 2, 3].map((i) => (
                   <div
                     key={i}
-                    className={`h-1.5 flex-1 rounded-full ${
-                      i <= rejectedRequestsCount ? "bg-red-500" : "bg-white/10"
-                    }`}
+                    className={`h-1.5 flex-1 rounded-full ${i <= rejectedRequestsCount ? "bg-red-500" : "bg-white/10"
+                      }`}
                   />
                 ))}
               </div>
@@ -842,18 +1156,16 @@ export default function CirclePage() {
                 {[1, 2, 3].map((i) => (
                   <div
                     key={i}
-                    className={`h-1.5 flex-1 rounded-full ${
-                      i <= rejectedRequestsCount ? "bg-red-500" : "bg-white/10"
-                    }`}
+                    className={`h-1.5 flex-1 rounded-full ${i <= rejectedRequestsCount ? "bg-red-500" : "bg-white/10"
+                      }`}
                   />
                 ))}
               </div>
               <p
-                className={`text-xs font-bold ${
-                  3 - rejectedRequestsCount > 1
-                    ? "text-gray-400"
-                    : "text-amber-400"
-                }`}
+                className={`text-xs font-bold ${3 - rejectedRequestsCount > 1
+                  ? "text-gray-400"
+                  : "text-amber-400"
+                  }`}
               >
                 {lang === "fr"
                   ? `${3 - rejectedRequestsCount}/3 tentatives restantes`
@@ -957,16 +1269,30 @@ export default function CirclePage() {
         </div>
 
         {/* Reader */}
-        <div className="flex-1 overflow-hidden relative">
+
+        {/* ✅ DÉTECTE LE TYPE ET ROUTÉ AU BON LECTEUR */}
+        <div className="flex-1 overflow-hidden relative min-w-0">
           {book.file_url ? (
-            <CloudinaryPDFReader
-              url={book.file_url}
-              title={book.title_fr}
-              lang={lang}
-              bookId={book.id}
-              userId={user?.id}
-              onClose={() => router.push("/bibliotheque")}
-            />
+            getFileType(book.file_url) === 'epub' ? (
+              <EPUBReader
+                url={book.file_url}
+                title={book.title_fr}
+                lang={lang}
+                onClose={() => router.push("/bibliotheque")}
+                isEmbedded={true}
+                
+                key={isSidebarExpanded ? 'expanded' : 'collapsed'} // ✅ ET CELLE-CI
+              />
+            ) : (
+              <CloudinaryPDFReader
+                url={book.file_url}
+                title={book.title_fr}
+                lang={lang}
+                bookId={book.id}
+                userId={user?.id}
+                onClose={() => router.push("/bibliotheque")}
+              />
+            )
           ) : (
             <div className="w-full h-full flex items-center justify-center text-center px-4">
               <div>
@@ -1076,11 +1402,10 @@ export default function CirclePage() {
                 <button
                   key={key}
                   onClick={() => setSidebarMode(key)}
-                  className={`flex items-center justify-center gap-2 py-3 px-3 text-sm font-bold transition-all flex-shrink-0 whitespace-nowrap ${
-                    sidebarMode === key
-                      ? "text-emerald-400 border-b-2 border-emerald-400"
-                      : "text-gray-500 hover:text-gray-300"
-                  }`}
+                  className={`flex items-center justify-center gap-2 py-3 px-3 text-sm font-bold transition-all flex-shrink-0 whitespace-nowrap ${sidebarMode === key
+                    ? "text-emerald-400 border-b-2 border-emerald-400"
+                    : "text-gray-500 hover:text-gray-300"
+                    }`}
                 >
                   <Icon size={16} />
                   <span className="hidden sm:inline">{label}</span>
@@ -1241,11 +1566,10 @@ export default function CirclePage() {
                                           ? unpinMessage(msg.id)
                                           : pinMessage(circleId, msg.id)
                                       }
-                                      className={`p-1 transition-colors rounded ${
-                                        msg.isPinned
-                                          ? "text-amber-400"
-                                          : "text-gray-600 hover:text-amber-400"
-                                      }`}
+                                      className={`p-1 transition-colors rounded ${msg.isPinned
+                                        ? "text-amber-400"
+                                        : "text-gray-600 hover:text-amber-400"
+                                        }`}
                                       title={lang === "fr" ? "Épingler" : "Pin"}
                                     >
                                       <Pin size={12} />
@@ -1489,8 +1813,8 @@ export default function CirclePage() {
                                 {Math.round(
                                   (Date.now() -
                                     new Date(member.last_active_at).getTime()) /
-                                    1000 /
-                                    60,
+                                  1000 /
+                                  60,
                                 )}{" "}
                                 min
                               </span>
@@ -1766,9 +2090,9 @@ export default function CirclePage() {
                               showPollModal
                                 ? setPollData({ ...pollData, options: newOpts })
                                 : setQuizData({
-                                    ...quizData,
-                                    options: newOpts,
-                                  });
+                                  ...quizData,
+                                  options: newOpts,
+                                });
                             }}
                             className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-emerald-500/50"
                             placeholder={`Option ${idx + 1}`}
@@ -1779,23 +2103,23 @@ export default function CirclePage() {
                     {(showPollModal
                       ? pollData.options.length
                       : quizData.options.length) < 4 && (
-                      <button
-                        onClick={() =>
-                          showPollModal
-                            ? setPollData({
+                        <button
+                          onClick={() =>
+                            showPollModal
+                              ? setPollData({
                                 ...pollData,
                                 options: [...pollData.options, ""],
                               })
-                            : setQuizData({
+                              : setQuizData({
                                 ...quizData,
                                 options: [...quizData.options, ""],
                               })
-                        }
-                        className="text-xs text-emerald-400 hover:text-emerald-300 font-bold"
-                      >
-                        + Ajouter une option
-                      </button>
-                    )}
+                          }
+                          className="text-xs text-emerald-400 hover:text-emerald-300 font-bold"
+                        >
+                          + Ajouter une option
+                        </button>
+                      )}
                   </div>
                 </div>
                 <button

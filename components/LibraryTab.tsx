@@ -1170,26 +1170,42 @@ export default function LibraryTab({ showMsg }: { showMsg: (type: 'success' | 'e
     setIsProcessing(null);
   }, [titleFr, titleEn, authorFr, authorEn, descFr, descEn, showMsg]);
 
-  const createWidget = useCallback((fieldName: string, resourceType: string) => {
-    // @ts-ignore
-    const widget = window.cloudinary.createUploadWidget({
-      cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-      uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET,
-      sources: ['local', 'url', 'camera'], resourceType, multiple: false,
-      maxFileSize: 100_000_000, folder: 'lukeni/library',
-    }, (error: any, result: any) => {
-      setUploadingField(null);
-      if (error) { showMsg('error', 'Erreur upload'); return; }
-      if (result.event === 'success') {
-        const url = result.info.secure_url;
-        if (fieldName === 'cover') setCoverUrl(url);
-        else if (fieldName === 'file') setFileUrl(url);
-        else if (fieldName === 'audio') setAudioUrl(url);
-        showMsg('success', 'Fichier uploadé !');
-      }
-    });
-    widget.open();
-  }, [showMsg]);
+  // Dans LibraryTab → createWidget()
+// Remplace la fonction createWidget existante par :
+
+const createWidget = useCallback((fieldName: string, resourceType: string) => {
+  // ✅ Pour les EPUB/PDF : forcer 'raw' si c'est le champ fichier
+  // Cloudinary classe les EPUB comme ressources "raw" (non image/vidéo)
+  const effectiveResourceType = fieldName === 'file' ? 'raw' : resourceType;
+
+  // @ts-ignore
+  const widget = window.cloudinary.createUploadWidget({
+    cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+    uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET,
+    sources: ['local', 'url'],
+    resourceType: effectiveResourceType,
+    multiple: false,
+    maxFileSize: 100_000_000,
+    folder: 'lukeni/library',
+    // ✅ Autorise explicitement les formats EPUB et PDF
+    clientAllowedFormats: fieldName === 'file'
+      ? ['pdf', 'epub']
+      : fieldName === 'audio'
+      ? ['mp3', 'wav', 'ogg', 'm4a', 'aac']
+      : ['jpg', 'jpeg', 'png', 'webp'],
+  }, (error: any, result: any) => {
+    setUploadingField(null);
+    if (error) { showMsg('error', 'Erreur upload'); return; }
+    if (result.event === 'success') {
+      const url = result.info.secure_url;
+      if (fieldName === 'cover') setCoverUrl(url);
+      else if (fieldName === 'file') setFileUrl(url);
+      else if (fieldName === 'audio') setAudioUrl(url);
+      showMsg('success', `Fichier uploadé ! (${result.info.format?.toUpperCase() || 'OK'})`);
+    }
+  });
+  widget.open();
+}, [showMsg]);
 
   const openCloudinary = useCallback((fieldName: string, resourceType = 'auto') => {
     setUploadingField(fieldName);

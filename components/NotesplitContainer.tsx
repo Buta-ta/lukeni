@@ -1,11 +1,14 @@
+// NotesplitContainer.tsx — VERSION AVEC TRADUCTEUR
+
 'use client';
 
 import React, { useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    X, Loader2, Clock, Moon
+    X, Loader2, Clock, Moon, Languages, Copy, RotateCcw, Zap, Eye, EyeOff
 } from 'lucide-react';
 import { useNotesplit } from '@/lib/hooks/useNotesplit';
+import { autoTranslate } from '@/lib/lingua';
 
 interface NotesplitContainerProps {
     itemId: string;
@@ -17,7 +20,6 @@ interface NotesplitContainerProps {
     mode?: 'bottom' | 'side';
 }
 
-// ─── HOOK MOBILE ───────────────────────────
 function useIsMobile() {
     const [isMobile, setIsMobile] = useState(false);
     useEffect(() => {
@@ -38,7 +40,7 @@ const CaurisIcon = ({ className, style }: { className?: string; style?: React.CS
     </svg>
 );
 
-// ─── STARFIELD OPTIMISÉ ───────────────────────────────────────────────────────
+// ─── STARFIELD ───────────────────────────────────────────────────────
 interface StarData { id: number; x: number; y: number; size: number; duration: number; delay: number; depth: number; }
 interface NebulaData { id: number; x: number; y: number; size: number; color: string; opacity: number; }
 
@@ -91,12 +93,213 @@ function NotesStarField({ catColor, isMobile }: { catColor: string, isMobile: bo
                     transition={{ duration: star.duration, repeat: Infinity, delay: star.delay, ease: 'easeInOut' }}
                 />
             ))}
-            {!isMobile && (
-                <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.08 }}>
-                    <motion.line x1="15%" y1="20%" x2="30%" y2="35%" stroke="white" strokeWidth="0.5" animate={{ opacity: [0.3, 0.8, 0.3] }} transition={{ duration: 6, repeat: Infinity }} />
-                    <motion.line x1="30%" y1="35%" x2="50%" y2="25%" stroke="white" strokeWidth="0.5" animate={{ opacity: [0.3, 0.8, 0.3] }} transition={{ duration: 6, repeat: Infinity, delay: 0.5 }} />
-                    <motion.line x1="50%" y1="25%" x2="70%" y2="40%" stroke="white" strokeWidth="0.5" animate={{ opacity: [0.3, 0.8, 0.3] }} transition={{ duration: 6, repeat: Infinity, delay: 1 }} />
-                </svg>
+        </div>
+    );
+}
+
+// ─── COMPOSANT TRADUCTEUR ───────────────────────────────────────────────────────
+
+interface TranslationState {
+    original: string;
+    translated: string;
+    sourceLang: 'fr' | 'en';
+    targetLang: 'fr' | 'en';
+    isLoading: boolean;
+    error: string | null;
+}
+
+function NotesTranslator({
+    content,
+    catColor,
+    lang,
+}: {
+    content: string;
+    catColor: string;
+    lang: 'fr' | 'en';
+}) {
+    const [translation, setTranslation] = useState<TranslationState>({
+        original: '',
+        translated: '',
+        sourceLang: 'fr',
+        targetLang: 'en',
+        isLoading: false,
+        error: null,
+    });
+    const [showBilingual, setShowBilingual] = useState(false);
+    const [selectedText, setSelectedText] = useState('');
+
+    // ✅ Traduction du contenu complet
+    const handleTranslateAll = useCallback(async () => {
+        if (!content.trim()) return;
+        
+        setTranslation(prev => ({ ...prev, isLoading: true, error: null }));
+        try {
+            const targetLang = translation.sourceLang === 'fr' ? 'en' : 'fr';
+            const result = await autoTranslate(content, translation.sourceLang);
+            
+            setTranslation(prev => ({
+                ...prev,
+                original: content,
+                translated: result,
+                targetLang: targetLang,
+                isLoading: false,
+            }));
+            setShowBilingual(true);
+        } catch (err: any) {
+            setTranslation(prev => ({
+                ...prev,
+                isLoading: false,
+                error: err?.message || 'Erreur de traduction',
+            }));
+        }
+    }, [content, translation.sourceLang]);
+
+    // ✅ Traduction de la sélection
+    const handleTranslateSelection = useCallback(async () => {
+        if (!selectedText.trim()) return;
+
+        setTranslation(prev => ({ ...prev, isLoading: true, error: null }));
+        try {
+            const targetLang = translation.sourceLang === 'fr' ? 'en' : 'fr';
+            const result = await autoTranslate(selectedText, translation.sourceLang);
+
+            setTranslation(prev => ({
+                ...prev,
+                original: selectedText,
+                translated: result,
+                targetLang: targetLang,
+                isLoading: false,
+            }));
+        } catch (err: any) {
+            setTranslation(prev => ({
+                ...prev,
+                isLoading: false,
+                error: err?.message || 'Erreur de traduction',
+            }));
+        }
+    }, [selectedText, translation.sourceLang]);
+
+    // ✅ Swap langue source/cible
+    const handleSwapLanguages = useCallback(() => {
+        setTranslation(prev => ({
+            ...prev,
+            sourceLang: prev.targetLang,
+            targetLang: prev.sourceLang,
+            original: prev.translated,
+            translated: prev.original,
+        }));
+    }, []);
+
+    // ✅ Copie la traduction
+    const handleCopyTranslation = useCallback(() => {
+        navigator.clipboard.writeText(translation.translated);
+    }, [translation.translated]);
+
+    const hasTranslation = translation.original.length > 0;
+
+    return (
+        <div className="w-full space-y-3 z-20 relative">
+            {/* Boutons d'action */}
+            <div className="flex flex-wrap gap-2 items-center">
+                <button
+                    onClick={handleTranslateAll}
+                    disabled={!content.trim() || translation.isLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                    style={{
+                        backgroundColor: translation.isLoading ? 'rgba(255,255,255,0.05)' : `${catColor}30`,
+                        color: translation.isLoading ? 'rgba(255,255,255,0.4)' : catColor,
+                        opacity: !content.trim() ? 0.4 : 1,
+                    }}
+                >
+                    {translation.isLoading ? (
+                        <><Loader2 size={12} className="animate-spin" /> {lang === 'fr' ? 'Traduction...' : 'Translating...'}</>
+                    ) : (
+                        <><Languages size={12} /> {translation.sourceLang === 'fr' ? 'FR → EN' : 'EN → FR'}</>
+                    )}
+                </button>
+
+                {/* Swap langues */}
+                {hasTranslation && (
+                    <button
+                        onClick={handleSwapLanguages}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all"
+                        style={{
+                            backgroundColor: `${catColor}20`,
+                            color: catColor,
+                        }}
+                        title={lang === 'fr' ? 'Inverser les langues' : 'Swap languages'}
+                    >
+                        <RotateCcw size={11} />
+                    </button>
+                )}
+
+                {/* Afficher/masquer bilingue */}
+                {hasTranslation && (
+                    <button
+                        onClick={() => setShowBilingual(!showBilingual)}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all"
+                        style={{
+                            backgroundColor: showBilingual ? `${catColor}30` : 'rgba(255,255,255,0.05)',
+                            color: showBilingual ? catColor : 'rgba(255,255,255,0.4)',
+                        }}
+                        title={lang === 'fr' ? 'Mode bilingue' : 'Bilingual mode'}
+                    >
+                        {showBilingual ? <Eye size={11} /> : <EyeOff size={11} />}
+                    </button>
+                )}
+
+                {/* Copier traduction */}
+                {hasTranslation && (
+                    <button
+                        onClick={handleCopyTranslation}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all"
+                        style={{
+                            backgroundColor: 'rgba(255,255,255,0.05)',
+                            color: 'rgba(255,255,255,0.5)',
+                        }}
+                        title={lang === 'fr' ? 'Copier la traduction' : 'Copy translation'}
+                    >
+                        <Copy size={11} />
+                    </button>
+                )}
+            </div>
+
+            {/* Erreur */}
+            {translation.error && (
+                <div className="p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs">
+                    ⚠️ {translation.error}
+                </div>
+            )}
+
+            {/* Affichage bilingue */}
+            {showBilingual && hasTranslation && (
+                <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="grid grid-cols-2 gap-2 p-3 rounded-lg"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderLeft: `3px solid ${catColor}` }}
+                >
+                    {/* Colonne 1 : Original */}
+                    <div>
+                        <p className="text-[10px] font-bold mb-2" style={{ color: catColor }}>
+                            {translation.sourceLang.toUpperCase()}
+                        </p>
+                        <p className="text-xs leading-relaxed text-gray-300 bg-black/30 p-2 rounded max-h-24 overflow-y-auto scrollbar-hide">
+                            {translation.original}
+                        </p>
+                    </div>
+
+                    {/* Colonne 2 : Traduction */}
+                    <div>
+                        <p className="text-[10px] font-bold mb-2" style={{ color: catColor }}>
+                            {translation.targetLang.toUpperCase()}
+                        </p>
+                        <p className="text-xs leading-relaxed text-gray-300 bg-black/30 p-2 rounded max-h-24 overflow-y-auto scrollbar-hide">
+                            {translation.translated}
+                        </p>
+                    </div>
+                </motion.div>
             )}
         </div>
     );
@@ -125,7 +328,6 @@ export function NotesplitContainer({
     const startPos = useRef(0);
     const startSize = useRef(0);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-
     const [cursorParticles, setCursorParticles] = useState<{ id: number; x: number; y: number }[]>([]);
     const particleIdRef = useRef(0);
 
@@ -191,6 +393,11 @@ export function NotesplitContainer({
                         <X size={15} />
                     </button>
                 </div>
+            </div>
+
+            {/* ✅ TRADUCTEUR */}
+            <div className="flex-shrink-0 px-5 py-3 z-10 border-b" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+                <NotesTranslator content={content} catColor={catColor} lang={lang} />
             </div>
 
             <div className="flex-1 relative z-10 overflow-hidden">

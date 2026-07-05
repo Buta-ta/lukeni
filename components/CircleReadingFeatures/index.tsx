@@ -21,7 +21,7 @@ import type {
 export function BookmarksPanel({
   bookmarks,
   onAddBookmark,
-  onRemoveBookmark, 
+  onRemoveBookmark,
   currentPage,
   lang = 'fr',
 }: {
@@ -57,6 +57,8 @@ export function BookmarksPanel({
       setShowForm(false);
     }
   };
+
+  
 
   return (
     <motion.div
@@ -94,7 +96,7 @@ export function BookmarksPanel({
               </button>
             ) : (
               <div className="space-y-2">
-                 <textarea
+                <textarea
                   value={newLabel}
                   onChange={e => setNewLabel(e.target.value)}
                   placeholder={lang === 'fr' ? 'Écrivez votre repère ou note ici...' : 'Write your bookmark or note here...'}
@@ -112,8 +114,8 @@ export function BookmarksPanel({
                         key={cat.key}
                         onClick={() => setSelectedCategory(cat.key)}
                         className={`p-2 rounded text-center text-lg transition-all ${selectedCategory === cat.key
-                            ? 'bg-blue-500/40 border border-blue-400'
-                            : 'bg-white/5 border border-white/10 hover:bg-white/10'
+                          ? 'bg-blue-500/40 border border-blue-400'
+                          : 'bg-white/5 border border-white/10 hover:bg-white/10'
                           }`}
                         title={lang === 'fr' ? cat.label_fr : cat.label_en}
                       >
@@ -181,8 +183,8 @@ export function BookmarksPanel({
                   <span
                     key={page}
                     className={`px-2 py-1 rounded text-xs font-bold ${page === currentPage
-                        ? 'bg-blue-500 text-black'
-                        : 'bg-white/5 text-gray-400'
+                      ? 'bg-blue-500 text-black'
+                      : 'bg-white/5 text-gray-400'
                       }`}
                   >
                     p.{page}
@@ -583,10 +585,10 @@ export function QuizzesPanel({
                     <div
                       key={idx}
                       className={`p-2 rounded text-xs ${idx === quiz.userResponse?.selected_option_index
-                          ? quiz.userResponse?.is_correct
-                            ? 'bg-green-500/20 text-green-400 border border-green-500/50'
-                            : 'bg-red-500/20 text-red-400 border border-red-500/50'
-                          : 'bg-white/5 text-gray-400'
+                        ? quiz.userResponse?.is_correct
+                          ? 'bg-green-500/20 text-green-400 border border-green-500/50'
+                          : 'bg-red-500/20 text-red-400 border border-red-500/50'
+                        : 'bg-white/5 text-gray-400'
                         }`}
                     >
                       {option}

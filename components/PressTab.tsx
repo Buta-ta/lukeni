@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Loader2, Newspaper, PlusCircle, Edit2, Trash2, X, Languages, 
+import {
+  Loader2, Newspaper, PlusCircle, Edit2, Trash2, X, Languages,
   SpellCheck, CheckCircle, Lightbulb, Upload, Image as ImageIcon,
   Eye, Calendar, User, Tag, FileText, Sparkles, Clock, TrendingUp,
   Link as LinkIcon, Video, ExternalLink, BookOpen, Type, Code,
@@ -16,11 +16,11 @@ import { autoTranslate, autoCorrect } from '@/lib/lingua';
 
 // --- CUSTOM ICONS ---
 const InstagramIcon = ({ size = 24, className = "" }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="20" height="20" x="2" y="2" rx="5" ry="5" /><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" /><line x1="17.5" x2="17.51" y1="6.5" y2="6.5" /></svg>
 );
 
 const FacebookIcon = ({ size = 24, className = "" }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" /></svg>
 );
 
 interface Category { id: string; name_fr: string; name_en: string; }
@@ -37,24 +37,24 @@ interface Source {
   date?: string;
 }
 
-interface PressArticle { 
-  id: string; 
+interface PressArticle {
+  id: string;
   article_type: 'written' | 'audio';
-  title_fr: string; 
-  title_en: string; 
-  content_fr: string; 
-  content_en: string; 
-  summary_fr: string; 
-  summary_en: string; 
-  cover_url: string; 
+  title_fr: string;
+  title_en: string;
+  content_fr: string;
+  content_en: string;
+  summary_fr: string;
+  summary_en: string;
+  cover_url: string;
   audio_url?: string;
   reading_audio_url?: string;
   audio_content_url?: string;
   audio_duration?: string;
   audio_host?: string;
-  author_name: string; 
-  category_id: string; 
-  status: string; 
+  author_name: string;
+  category_id: string;
+  status: string;
   media_items?: MediaItem[];
   sources?: Source[];
   created_at?: string;
@@ -67,16 +67,16 @@ interface PressArticle {
   location_longitude?: number;
   reading_time_minutes?: number;
   related_articles_ids?: string[];
-  categories: Category; 
+  categories: Category;
 }
 
-interface PressSuggestion { 
-  id: string; 
-  suggested_topic: string; 
-  sources: string; 
-  user_email: string; 
+interface PressSuggestion {
+  id: string;
+  suggested_topic: string;
+  sources: string;
+  user_email: string;
   status: string;
-  created_at?: string; 
+  created_at?: string;
 }
 
 interface PressArchive {
@@ -280,7 +280,7 @@ function ArticleTypeSelector({ value, onChange }: { value: 'written' | 'audio'; 
 
 export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: string) => void }) {
   const [view, setView] = useState<'articles' | 'archives' | 'suggestions' | 'comments' | 'moderation' | 'announcements' | 'settings'>('articles');
-  
+
   const [articles, setArticles] = useState<PressArticle[]>([]);
   const [archives, setArchives] = useState<PressArchive[]>([]);
   const [suggestions, setSuggestions] = useState<PressSuggestion[]>([]);
@@ -342,18 +342,18 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
 
 
   // --- STATES ANNONCES ---
-const [announcements, setAnnouncements] = useState<PressAnnouncement[]>([]);
-const [showAnnouncementForm, setShowAnnouncementForm] = useState(false);
-const [announcementEditingId, setAnnouncementEditingId] = useState<string | null>(null);
-const [announcementTitleFr, setAnnouncementTitleFr] = useState('');
-const [announcementTitleEn, setAnnouncementTitleEn] = useState('');
-const [announcementDescriptionFr, setAnnouncementDescriptionFr] = useState('');
-const [announcementDescriptionEn, setAnnouncementDescriptionEn] = useState('');
-const [announcementImageUrl, setAnnouncementImageUrl] = useState('');
-const [announcementLegendFr, setAnnouncementLegendFr] = useState('');
-const [announcementLegendEn, setAnnouncementLegendEn] = useState('');
-const [announcementLinkUrl, setAnnouncementLinkUrl] = useState('');
-const [announcementStatus, setAnnouncementStatus] = useState<'active' | 'draft'>('draft');
+  const [announcements, setAnnouncements] = useState<PressAnnouncement[]>([]);
+  const [showAnnouncementForm, setShowAnnouncementForm] = useState(false);
+  const [announcementEditingId, setAnnouncementEditingId] = useState<string | null>(null);
+  const [announcementTitleFr, setAnnouncementTitleFr] = useState('');
+  const [announcementTitleEn, setAnnouncementTitleEn] = useState('');
+  const [announcementDescriptionFr, setAnnouncementDescriptionFr] = useState('');
+  const [announcementDescriptionEn, setAnnouncementDescriptionEn] = useState('');
+  const [announcementImageUrl, setAnnouncementImageUrl] = useState('');
+  const [announcementLegendFr, setAnnouncementLegendFr] = useState('');
+  const [announcementLegendEn, setAnnouncementLegendEn] = useState('');
+  const [announcementLinkUrl, setAnnouncementLinkUrl] = useState('');
+  const [announcementStatus, setAnnouncementStatus] = useState<'active' | 'draft'>('draft');
 
   // --- UI STATES ---
   const [isGeolocating, setIsGeolocating] = useState(false);
@@ -361,7 +361,7 @@ const [announcementStatus, setAnnouncementStatus] = useState<'active' | 'draft'>
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
-  
+
   const [showMediaModal, setShowMediaModal] = useState(false);
   const [mediaType, setMediaType] = useState<'image' | 'video' | 'link'>('image');
   const [mediaUrl, setMediaUrl] = useState('');
@@ -387,8 +387,8 @@ const [announcementStatus, setAnnouncementStatus] = useState<'active' | 'draft'>
     const { data: catData } = await supabase.from('categories').select('id, name_fr, name_en').eq('is_active', true).eq('show_presse', true);
     if (catData) setCategories(catData);
 
-      const { data: announcementData } = await supabase.from('press_announcements').select('*').order('created_at', { ascending: false });
-  if (announcementData) setAnnouncements(announcementData);
+    const { data: announcementData } = await supabase.from('press_announcements').select('*').order('created_at', { ascending: false });
+    if (announcementData) setAnnouncements(announcementData);
 
     const { data: artData } = await supabase.from('press_articles').select('*, categories(id, name_fr, name_en)').order('created_at', { ascending: false });
     if (artData) setArticles(artData as unknown as PressArticle[]);
@@ -407,72 +407,72 @@ const [announcementStatus, setAnnouncementStatus] = useState<'active' | 'draft'>
 
     const { data: settingsData } = await supabase.from('social_settings').select('*').eq('id', 1).single();
     if (settingsData) setSocialSettings(settingsData);
-    
+
     setIsLoading(false);
   }
 
-  const resetForm = () => { 
-    setEditingId(null); 
-    setArticleType('written'); 
-    setTitleFr(''); 
-    setTitleEn(''); 
-    setContentFr(''); 
-    setContentEn(''); 
-    setSummaryFr(''); 
-    setSummaryEn(''); 
-    setCoverUrl(''); 
-    setReadingAudioUrl(''); 
+  const resetForm = () => {
+    setEditingId(null);
+    setArticleType('written');
+    setTitleFr('');
+    setTitleEn('');
+    setContentFr('');
+    setContentEn('');
+    setSummaryFr('');
+    setSummaryEn('');
+    setCoverUrl('');
+    setReadingAudioUrl('');
     setAudioContentUrl('');
-    setAudioDuration(''); 
+    setAudioDuration('');
     setAudioHost('');
     setReadingTimeMinutes(1);
     setRelatedArticlesIds([]);
-    setAuthorName('Rédaction Lukeni'); 
-    setCategoryId(''); 
+    setAuthorName('Rédaction Lukeni');
+    setCategoryId('');
     setStatus('draft');
-    setMediaItems([]); 
-    setSources([]); 
-    setScheduledPublishAt(''); 
+    setMediaItems([]);
+    setSources([]);
+    setScheduledPublishAt('');
     setGeographicScope('');
-    setLocationCity(''); 
-    setLocationCountry(''); 
-    setLocationLatitude(undefined); 
+    setLocationCity('');
+    setLocationCountry('');
+    setLocationLatitude(undefined);
     setLocationLongitude(undefined);
-    setShowForm(false); 
+    setShowForm(false);
     setActiveTab('content');
   };
 
-  const handleEdit = (a: PressArticle) => { 
+  const handleEdit = (a: PressArticle) => {
     setEditingId(a.id);
     setArticleType(a.article_type || 'written');
-    setTitleFr(a.title_fr); 
-    setTitleEn(a.title_en || ''); 
-    setContentFr(a.content_fr || ''); 
-    setContentEn(a.content_en || ''); 
-    setSummaryFr(a.summary_fr || ''); 
-    setSummaryEn(a.summary_en || ''); 
-    setCoverUrl(a.cover_url || ''); 
-    setReadingAudioUrl(a.reading_audio_url || ''); 
+    setTitleFr(a.title_fr);
+    setTitleEn(a.title_en || '');
+    setContentFr(a.content_fr || '');
+    setContentEn(a.content_en || '');
+    setSummaryFr(a.summary_fr || '');
+    setSummaryEn(a.summary_en || '');
+    setCoverUrl(a.cover_url || '');
+    setReadingAudioUrl(a.reading_audio_url || '');
     setAudioContentUrl(a.audio_content_url || '');
     setAudioDuration(a.audio_duration || '');
     setAudioHost(a.audio_host || '');
     setReadingTimeMinutes(a.reading_time_minutes || 1);
     setRelatedArticlesIds(a.related_articles_ids || []);
-    setAuthorName(a.author_name || 'Rédaction Lukeni'); 
-    setCategoryId(a.category_id || ''); 
-    setStatus(a.status); 
-    setMediaItems(a.media_items || []); 
+    setAuthorName(a.author_name || 'Rédaction Lukeni');
+    setCategoryId(a.category_id || '');
+    setStatus(a.status);
+    setMediaItems(a.media_items || []);
     setSources(a.sources || []);
-    setGeographicScope(a.geographic_scope || ''); 
+    setGeographicScope(a.geographic_scope || '');
     setLocationCity(a.location_city || '');
-    setLocationCountry(a.location_country || ''); 
+    setLocationCountry(a.location_country || '');
     setLocationLatitude(a.location_latitude);
     setLocationLongitude(a.location_longitude);
     if (a.scheduled_publish_at) {
       setScheduledPublishAt(new Date(a.scheduled_publish_at).toISOString().slice(0, 16));
     }
     setShowForm(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' }); 
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSave = async () => {
@@ -481,31 +481,31 @@ const [announcementStatus, setAnnouncementStatus] = useState<'active' | 'draft'>
     setIsSaving(true);
     let finalStatus = status;
     if (scheduledPublishAt && new Date(scheduledPublishAt) > new Date()) finalStatus = 'scheduled';
-    
-    const payload = { 
+
+    const payload = {
       article_type: articleType,
-      title_fr: titleFr, 
-      title_en: titleEn || null, 
-      content_fr: contentFr || null, 
-      content_en: contentEn || null, 
-      summary_fr: summaryFr || null, 
-      summary_en: summaryEn || null, 
-      cover_url: coverUrl || null, 
+      title_fr: titleFr,
+      title_en: titleEn || null,
+      content_fr: contentFr || null,
+      content_en: contentEn || null,
+      summary_fr: summaryFr || null,
+      summary_en: summaryEn || null,
+      cover_url: coverUrl || null,
       reading_audio_url: articleType === 'written' ? (readingAudioUrl || null) : null,
       audio_content_url: articleType === 'audio' ? (audioContentUrl || null) : null,
       audio_duration: articleType === 'audio' ? (audioDuration || null) : null,
       audio_host: articleType === 'audio' ? (audioHost || null) : null,
       reading_time_minutes: readingTimeMinutes || 1,
       related_articles_ids: relatedArticlesIds.length > 0 ? relatedArticlesIds : null,
-      author_name: authorName, 
-      category_id: categoryId || null, 
+      author_name: authorName,
+      category_id: categoryId || null,
       status: finalStatus,
-      media_items: mediaItems.length > 0 ? mediaItems : null, 
+      media_items: mediaItems.length > 0 ? mediaItems : null,
       sources: sources.length > 0 ? sources : null,
-      geographic_scope: geographicScope || null, 
-      location_city: locationCity || null, 
+      geographic_scope: geographicScope || null,
+      location_city: locationCity || null,
       location_country: locationCountry || null,
-      location_latitude: locationLatitude || null, 
+      location_latitude: locationLatitude || null,
       location_longitude: locationLongitude || null,
       scheduled_publish_at: scheduledPublishAt ? new Date(scheduledPublishAt).toISOString() : null,
       published_at: finalStatus === 'published' && !editingId ? new Date().toISOString() : undefined
@@ -514,17 +514,17 @@ const [announcementStatus, setAnnouncementStatus] = useState<'active' | 'draft'>
     try {
       if (editingId) {
         const { error } = await supabase.from('press_articles').update(payload).eq('id', editingId);
-        if (error) throw error; 
+        if (error) throw error;
         showMsg('success', '✅ Article mis à jour avec succès');
       } else {
         const { error } = await supabase.from('press_articles').insert(payload);
-        if (error) throw error; 
+        if (error) throw error;
         showMsg('success', '🎉 Nouvel article enregistré');
       }
-      resetForm(); 
+      resetForm();
       fetchData();
-    } catch (err: any) { 
-      showMsg('error', `Erreur : ${err.message}`); 
+    } catch (err: any) {
+      showMsg('error', `Erreur : ${err.message}`);
     }
     setIsSaving(false);
   };
@@ -532,57 +532,57 @@ const [announcementStatus, setAnnouncementStatus] = useState<'active' | 'draft'>
   const handleDelete = async (id: string) => {
     if (!confirm('⚠️ Êtes-vous sûr de vouloir supprimer cet article ?')) return;
     const { error } = await supabase.from('press_articles').delete().eq('id', id);
-    if (!error) { 
-      setArticles(articles.filter(a => a.id !== id)); 
-      showMsg('success', '🗑️ Article supprimé'); 
-    } else { 
-      showMsg('error', error.message); 
+    if (!error) {
+      setArticles(articles.filter(a => a.id !== id));
+      showMsg('success', '🗑️ Article supprimé');
+    } else {
+      showMsg('error', error.message);
     }
   };
 
   // --- FONCTIONS ARCHIVE ---
   const resetArchiveForm = () => {
-    setArchiveEditingId(null); 
-    setArchiveTitleFr(''); 
+    setArchiveEditingId(null);
+    setArchiveTitleFr('');
     setArchiveTitleEn('');
-    setArchiveContentFr(''); 
-    setArchiveContentEn(''); 
+    setArchiveContentFr('');
+    setArchiveContentEn('');
     setArchiveFormat('image');
-    setArchiveMediaUrl(''); 
-    setArchiveSourceName(''); 
+    setArchiveMediaUrl('');
+    setArchiveSourceName('');
     setArchiveSourceUrl('');
-    setArchiveDate(''); 
-    setArchiveStatus('published'); 
+    setArchiveDate('');
+    setArchiveStatus('published');
     setShowArchiveForm(false);
   };
 
 
   const resetAnnouncementForm = () => {
-  setAnnouncementEditingId(null);
-  setAnnouncementTitleFr('');
-  setAnnouncementTitleEn('');
-  setAnnouncementDescriptionFr('');
-  setAnnouncementDescriptionEn('');
-  setAnnouncementImageUrl('');
-  setAnnouncementLegendFr('');
-  setAnnouncementLegendEn('');
-  setAnnouncementLinkUrl('');
-  setAnnouncementStatus('draft');
-  setShowAnnouncementForm(false);
-};
+    setAnnouncementEditingId(null);
+    setAnnouncementTitleFr('');
+    setAnnouncementTitleEn('');
+    setAnnouncementDescriptionFr('');
+    setAnnouncementDescriptionEn('');
+    setAnnouncementImageUrl('');
+    setAnnouncementLegendFr('');
+    setAnnouncementLegendEn('');
+    setAnnouncementLinkUrl('');
+    setAnnouncementStatus('draft');
+    setShowAnnouncementForm(false);
+  };
 
   const handleEditArchive = (a: PressArchive) => {
-    setArchiveEditingId(a.id); 
-    setArchiveTitleFr(a.title_fr); 
+    setArchiveEditingId(a.id);
+    setArchiveTitleFr(a.title_fr);
     setArchiveTitleEn(a.title_en || '');
-    setArchiveContentFr(a.content_fr || ''); 
+    setArchiveContentFr(a.content_fr || '');
     setArchiveContentEn(a.content_en || '');
-    setArchiveFormat(a.format); 
+    setArchiveFormat(a.format);
     setArchiveMediaUrl(a.media_url || '');
-    setArchiveSourceName(a.source_name || ''); 
+    setArchiveSourceName(a.source_name || '');
     setArchiveSourceUrl(a.source_url || '');
     setArchiveDate(a.original_date ? new Date(a.original_date).toISOString().split('T')[0] : '');
-    setArchiveStatus(a.status); 
+    setArchiveStatus(a.status);
     setShowArchiveForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -593,32 +593,32 @@ const [announcementStatus, setAnnouncementStatus] = useState<'active' | 'draft'>
     }
     setIsSaving(true);
     const payload = {
-      title_fr: archiveTitleFr, 
+      title_fr: archiveTitleFr,
       title_en: archiveTitleEn || null,
-      content_fr: archiveContentFr || null, 
+      content_fr: archiveContentFr || null,
       content_en: archiveContentEn || null,
-      format: archiveFormat, 
+      format: archiveFormat,
       media_url: archiveMediaUrl,
-      source_name: archiveSourceName, 
+      source_name: archiveSourceName,
       source_url: archiveSourceUrl || null,
-      original_date: archiveDate || null, 
+      original_date: archiveDate || null,
       status: archiveStatus
     };
 
     try {
       if (archiveEditingId) {
         const { error } = await supabase.from('press_archives').update(payload).eq('id', archiveEditingId);
-        if (error) throw error; 
+        if (error) throw error;
         showMsg('success', '✅ Archive mise à jour');
       } else {
         const { error } = await supabase.from('press_archives').insert(payload);
-        if (error) throw error; 
+        if (error) throw error;
         showMsg('success', '🎉 Archive créée');
       }
-      resetArchiveForm(); 
+      resetArchiveForm();
       fetchData();
-    } catch (err: any) { 
-      showMsg('error', err.message); 
+    } catch (err: any) {
+      showMsg('error', err.message);
     }
     setIsSaving(false);
   };
@@ -626,76 +626,76 @@ const [announcementStatus, setAnnouncementStatus] = useState<'active' | 'draft'>
   const handleDeleteArchive = async (id: string) => {
     if (!confirm('⚠️ Êtes-vous sûr de vouloir supprimer cette archive ?')) return;
     const { error } = await supabase.from('press_archives').delete().eq('id', id);
-    if (!error) { 
-      setArchives(archives.filter(a => a.id !== id)); 
-      showMsg('success', '🗑️ Archive supprimée'); 
-    } else { 
-      showMsg('error', error.message); 
+    if (!error) {
+      setArchives(archives.filter(a => a.id !== id));
+      showMsg('success', '🗑️ Archive supprimée');
+    } else {
+      showMsg('error', error.message);
     }
   };
 
 
 
   const handleEditAnnouncement = (a: PressAnnouncement) => {
-  setAnnouncementEditingId(a.id);
-  setAnnouncementTitleFr(a.title_fr);
-  setAnnouncementTitleEn(a.title_en || '');
-  setAnnouncementDescriptionFr(a.description_fr || '');
-  setAnnouncementDescriptionEn(a.description_en || '');
-  setAnnouncementImageUrl(a.image_url);
-  setAnnouncementLegendFr(a.legend_fr || '');
-  setAnnouncementLegendEn(a.legend_en || '');
-  setAnnouncementLinkUrl(a.link_url || '');
-  setAnnouncementStatus(a.status);
-  setShowAnnouncementForm(true);
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-};
-
-const handleSaveAnnouncement = async () => {
-  if (!announcementTitleFr.trim() || !announcementImageUrl.trim()) {
-    return showMsg('error', 'Le titre FR et l\'image sont requis');
-  }
-  setIsSaving(true);
-  const payload = {
-    title_fr: announcementTitleFr,
-    title_en: announcementTitleEn || null,
-    description_fr: announcementDescriptionFr || null,
-    description_en: announcementDescriptionEn || null,
-    image_url: announcementImageUrl,
-    legend_fr: announcementLegendFr || null,
-    legend_en: announcementLegendEn || null,
-    link_url: announcementLinkUrl || null,
-    status: announcementStatus
+    setAnnouncementEditingId(a.id);
+    setAnnouncementTitleFr(a.title_fr);
+    setAnnouncementTitleEn(a.title_en || '');
+    setAnnouncementDescriptionFr(a.description_fr || '');
+    setAnnouncementDescriptionEn(a.description_en || '');
+    setAnnouncementImageUrl(a.image_url);
+    setAnnouncementLegendFr(a.legend_fr || '');
+    setAnnouncementLegendEn(a.legend_en || '');
+    setAnnouncementLinkUrl(a.link_url || '');
+    setAnnouncementStatus(a.status);
+    setShowAnnouncementForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  try {
-    if (announcementEditingId) {
-      const { error } = await supabase.from('press_announcements').update(payload).eq('id', announcementEditingId);
-      if (error) throw error;
-      showMsg('success', '✅ Annonce mise à jour');
-    } else {
-      const { error } = await supabase.from('press_announcements').insert(payload);
-      if (error) throw error;
-      showMsg('success', '🎉 Annonce créée');
+  const handleSaveAnnouncement = async () => {
+    if (!announcementTitleFr.trim() || !announcementImageUrl.trim()) {
+      return showMsg('error', 'Le titre FR et l\'image sont requis');
     }
-    resetAnnouncementForm();
-    fetchData();
-  } catch (err: any) {
-    showMsg('error', err.message);
-  }
-  setIsSaving(false);
-};
+    setIsSaving(true);
+    const payload = {
+      title_fr: announcementTitleFr,
+      title_en: announcementTitleEn || null,
+      description_fr: announcementDescriptionFr || null,
+      description_en: announcementDescriptionEn || null,
+      image_url: announcementImageUrl,
+      legend_fr: announcementLegendFr || null,
+      legend_en: announcementLegendEn || null,
+      link_url: announcementLinkUrl || null,
+      status: announcementStatus
+    };
 
-const handleDeleteAnnouncement = async (id: string) => {
-  if (!confirm('⚠️ Êtes-vous sûr de vouloir supprimer cette annonce ?')) return;
-  const { error } = await supabase.from('press_announcements').delete().eq('id', id);
-  if (!error) {
-    setAnnouncements(announcements.filter(a => a.id !== id));
-    showMsg('success', '🗑️ Annonce supprimée');
-  } else {
-    showMsg('error', error.message);
-  }
-};
+    try {
+      if (announcementEditingId) {
+        const { error } = await supabase.from('press_announcements').update(payload).eq('id', announcementEditingId);
+        if (error) throw error;
+        showMsg('success', '✅ Annonce mise à jour');
+      } else {
+        const { error } = await supabase.from('press_announcements').insert(payload);
+        if (error) throw error;
+        showMsg('success', '🎉 Annonce créée');
+      }
+      resetAnnouncementForm();
+      fetchData();
+    } catch (err: any) {
+      showMsg('error', err.message);
+    }
+    setIsSaving(false);
+  };
+
+  const handleDeleteAnnouncement = async (id: string) => {
+    if (!confirm('⚠️ Êtes-vous sûr de vouloir supprimer cette annonce ?')) return;
+    const { error } = await supabase.from('press_announcements').delete().eq('id', id);
+    if (!error) {
+      setAnnouncements(announcements.filter(a => a.id !== id));
+      showMsg('success', '🗑️ Annonce supprimée');
+    } else {
+      showMsg('error', error.message);
+    }
+  };
 
   const loadCloudinaryScript = (callback: () => void) => {
     // @ts-ignore
@@ -748,8 +748,8 @@ const handleDeleteAnnouncement = async (id: string) => {
         if (action === 'translate-content-en') setArchiveContentEn(await autoTranslate(archiveContentFr, 'fr'));
       }
       showMsg('success', '✨ Traitement terminé avec succès');
-    } catch (e) { 
-      showMsg('error', 'Erreur API Lingua'); 
+    } catch (e) {
+      showMsg('error', 'Erreur API Lingua');
     }
     setIsProcessing(null);
   };
@@ -757,14 +757,14 @@ const handleDeleteAnnouncement = async (id: string) => {
   const getCurrentLocation = () => {
     setIsGeolocating(true);
     if (!navigator.geolocation) {
-      showMsg('error', 'La géolocalisation n\'est pas supportée'); 
-      setIsGeolocating(false); 
+      showMsg('error', 'La géolocalisation n\'est pas supportée');
+      setIsGeolocating(false);
       return;
     }
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
-        setLocationLatitude(latitude); 
+        setLocationLatitude(latitude);
         setLocationLongitude(longitude);
         try {
           const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=fr`);
@@ -772,7 +772,7 @@ const handleDeleteAnnouncement = async (id: string) => {
           if (data.address) {
             const city = data.address.city || data.address.town || data.address.village || data.address.state || '';
             const country = data.address.country || '';
-            setLocationCity(city); 
+            setLocationCity(city);
             setLocationCountry(country);
             if (country === 'République démocratique du Congo' || country === 'Democratic Republic of the Congo') {
               setGeographicScope('national');
@@ -781,14 +781,14 @@ const handleDeleteAnnouncement = async (id: string) => {
             }
             showMsg('success', `📍 Localisé à ${city}, ${country}`);
           }
-        } catch (error) { 
-          showMsg('error', 'Erreur lors de la récupération de l\'adresse'); 
+        } catch (error) {
+          showMsg('error', 'Erreur lors de la récupération de l\'adresse');
         }
         setIsGeolocating(false);
       },
-      (error) => { 
-        showMsg('error', 'Impossible d\'obtenir votre position'); 
-        setIsGeolocating(false); 
+      (error) => {
+        showMsg('error', 'Impossible d\'obtenir votre position');
+        setIsGeolocating(false);
       }
     );
   };
@@ -803,8 +803,8 @@ const handleDeleteAnnouncement = async (id: string) => {
         resourceType: mediaType === 'video' ? 'video' : 'image',
         multiple: false
       }, (error: any, result: any) => {
-        if (result?.event === 'success') { 
-          setMediaUrl(result.info.secure_url); 
+        if (result?.event === 'success') {
+          setMediaUrl(result.info.secure_url);
         }
         if (error) showMsg('error', 'Erreur Cloudinary');
       });
@@ -815,16 +815,16 @@ const handleDeleteAnnouncement = async (id: string) => {
   const addMediaItem = () => {
     if (!mediaUrl.trim()) return showMsg('error', 'URL requise');
     const newItem: MediaItem = { type: mediaType, url: mediaUrl, caption: mediaCaption || undefined, alt: mediaAlt || undefined };
-    setMediaItems([...mediaItems, newItem]); 
-    setMediaUrl(''); 
-    setMediaCaption(''); 
-    setMediaAlt(''); 
-    setShowMediaModal(false); 
+    setMediaItems([...mediaItems, newItem]);
+    setMediaUrl('');
+    setMediaCaption('');
+    setMediaAlt('');
+    setShowMediaModal(false);
     showMsg('success', '✅ Média ajouté');
   };
 
-  const removeMediaItem = (index: number) => { 
-    setMediaItems(mediaItems.filter((_, i) => i !== index)); 
+  const removeMediaItem = (index: number) => {
+    setMediaItems(mediaItems.filter((_, i) => i !== index));
   };
 
   const insertMediaIntoContent = (index: number, lang: 'fr' | 'en') => {
@@ -833,17 +833,17 @@ const handleDeleteAnnouncement = async (id: string) => {
     const content = lang === 'fr' ? contentFr : contentEn;
     const textarea = document.getElementById(`content-${lang}`) as HTMLTextAreaElement;
     if (textarea) {
-      const start = textarea.selectionStart; 
+      const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
       const newContent = content.substring(0, start) + marker + content.substring(end);
       setter(newContent);
-      setTimeout(() => { 
-        textarea.focus(); 
-        textarea.setSelectionRange(start + marker.length, start + marker.length); 
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + marker.length, start + marker.length);
       }, 0);
       showMsg('success', `📌 Média ${index + 1} inséré dans le texte ${lang.toUpperCase()}`);
     } else {
-      setter(content + marker); 
+      setter(content + marker);
       showMsg('success', `📌 Média ${index + 1} ajouté à la fin`);
     }
   };
@@ -851,17 +851,17 @@ const handleDeleteAnnouncement = async (id: string) => {
   const addSource = () => {
     if (!sourceTitle.trim() || !sourceUrl.trim()) return showMsg('error', 'Titre et URL requis');
     const newSource: Source = { title: sourceTitle, url: sourceUrl, author: sourceAuthor || undefined, date: sourceDate || undefined };
-    setSources([...sources, newSource]); 
-    setSourceTitle(''); 
-    setSourceUrl(''); 
-    setSourceAuthor(''); 
-    setSourceDate(''); 
-    setShowSourceModal(false); 
+    setSources([...sources, newSource]);
+    setSourceTitle('');
+    setSourceUrl('');
+    setSourceAuthor('');
+    setSourceDate('');
+    setShowSourceModal(false);
     showMsg('success', '✅ Source ajoutée');
   };
 
-  const removeSource = (index: number) => { 
-    setSources(sources.filter((_, i) => i !== index)); 
+  const removeSource = (index: number) => {
+    setSources(sources.filter((_, i) => i !== index));
   };
 
   const insertMarkdown = (syntax: string, cursorField: 'fr' | 'en') => {
@@ -870,68 +870,68 @@ const handleDeleteAnnouncement = async (id: string) => {
     if (!textarea) {
       const field = cursorField === 'fr' ? contentFr : contentEn;
       const setter = cursorField === 'fr' ? setContentFr : setContentEn;
-      setter(field + syntax); 
+      setter(field + syntax);
       return;
     }
-    const start = textarea.selectionStart; 
+    const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const field = cursorField === 'fr' ? contentFr : contentEn;
     const setter = cursorField === 'fr' ? setContentFr : setContentEn;
     const selectedText = field.substring(start, end);
-    let newText = ''; 
+    let newText = '';
     let cursorOffset = 0;
     if (syntax.includes('**texte gras**') || syntax.includes('**bold text**')) {
-      if (selectedText) { 
-        newText = field.substring(0, start) + '**' + selectedText + '**' + field.substring(end); 
-        cursorOffset = end + 4; 
-      } else { 
-        const placeholder = syntax.includes('gras') ? 'texte gras' : 'bold text'; 
-        newText = field.substring(0, start) + '**' + placeholder + '**' + field.substring(end); 
-        cursorOffset = start + 2 + placeholder.length + 2; 
+      if (selectedText) {
+        newText = field.substring(0, start) + '**' + selectedText + '**' + field.substring(end);
+        cursorOffset = end + 4;
+      } else {
+        const placeholder = syntax.includes('gras') ? 'texte gras' : 'bold text';
+        newText = field.substring(0, start) + '**' + placeholder + '**' + field.substring(end);
+        cursorOffset = start + 2 + placeholder.length + 2;
       }
     } else if (syntax.includes('*texte italique*') || syntax.includes('*italic text*')) {
-      if (selectedText) { 
-        newText = field.substring(0, start) + '*' + selectedText + '*' + field.substring(end); 
-        cursorOffset = end + 2; 
-      } else { 
-        const placeholder = syntax.includes('italique') ? 'texte italique' : 'italic text'; 
-        newText = field.substring(0, start) + '*' + placeholder + '*' + field.substring(end); 
-        cursorOffset = start + 1 + placeholder.length + 1; 
+      if (selectedText) {
+        newText = field.substring(0, start) + '*' + selectedText + '*' + field.substring(end);
+        cursorOffset = end + 2;
+      } else {
+        const placeholder = syntax.includes('italique') ? 'texte italique' : 'italic text';
+        newText = field.substring(0, start) + '*' + placeholder + '*' + field.substring(end);
+        cursorOffset = start + 1 + placeholder.length + 1;
       }
     } else if (syntax.includes('[texte') || syntax.includes('[link')) {
       const linkText = syntax.includes('texte') ? 'texte du lien' : 'link text';
-      if (selectedText) { 
-        newText = field.substring(0, start) + '[' + selectedText + '](url)' + field.substring(end); 
-        cursorOffset = start + selectedText.length + 3; 
-      } else { 
-        newText = field.substring(0, start) + '[' + linkText + '](url)' + field.substring(end); 
-        cursorOffset = start + 1 + linkText.length + 2; 
+      if (selectedText) {
+        newText = field.substring(0, start) + '[' + selectedText + '](url)' + field.substring(end);
+        cursorOffset = start + selectedText.length + 3;
+      } else {
+        newText = field.substring(0, start) + '[' + linkText + '](url)' + field.substring(end);
+        cursorOffset = start + 1 + linkText.length + 2;
       }
-    } else { 
-      newText = field.substring(0, start) + syntax + field.substring(end); 
-      cursorOffset = start + syntax.length; 
+    } else {
+      newText = field.substring(0, start) + syntax + field.substring(end);
+      cursorOffset = start + syntax.length;
     }
     setter(newText);
-    setTimeout(() => { 
-      textarea.focus(); 
-      textarea.setSelectionRange(cursorOffset, cursorOffset); 
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(cursorOffset, cursorOffset);
     }, 0);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, field: 'fr' | 'en') => {
     if (e.ctrlKey || e.metaKey) {
       switch (e.key) {
-        case 'b': 
-          e.preventDefault(); 
-          insertMarkdown(field === 'fr' ? '**texte gras**' : '**bold text**', field); 
+        case 'b':
+          e.preventDefault();
+          insertMarkdown(field === 'fr' ? '**texte gras**' : '**bold text**', field);
           break;
-        case 'i': 
-          e.preventDefault(); 
-          insertMarkdown(field === 'fr' ? '*texte italique*' : '*italic text*', field); 
+        case 'i':
+          e.preventDefault();
+          insertMarkdown(field === 'fr' ? '*texte italique*' : '*italic text*', field);
           break;
-        case 'k': 
-          e.preventDefault(); 
-          insertMarkdown(field === 'fr' ? '[texte du lien](url)' : '[link text](url)', field); 
+        case 'k':
+          e.preventDefault();
+          insertMarkdown(field === 'fr' ? '[texte du lien](url)' : '[link text](url)', field);
           break;
       }
     }
@@ -943,17 +943,17 @@ const handleDeleteAnnouncement = async (id: string) => {
       const { error } = await supabase.from('social_settings').upsert({ id: 1, ...socialSettings });
       if (error) throw error;
       showMsg('success', '⚙️ Paramètres mis à jour');
-    } catch (err: any) { 
-      showMsg('error', err.message); 
+    } catch (err: any) {
+      showMsg('error', err.message);
     }
     setIsSaving(false);
   };
 
   const markSuggestionUsed = async (id: string) => {
     const { error } = await supabase.from('press_suggestions').update({ status: 'used' }).eq('id', id);
-    if (!error) { 
-      setSuggestions(suggestions.map(s => s.id === id ? { ...s, status: 'used' } : s)); 
-      showMsg('success', '✅ Suggestion marquée comme utilisée'); 
+    if (!error) {
+      setSuggestions(suggestions.map(s => s.id === id ? { ...s, status: 'used' } : s));
+      showMsg('success', '✅ Suggestion marquée comme utilisée');
     }
   };
 
@@ -963,13 +963,13 @@ const handleDeleteAnnouncement = async (id: string) => {
     try {
       const { error } = await supabase.from('press_suggestions').delete().eq('id', suggestionToDelete.id);
       if (error) throw error;
-      setSuggestions(suggestions.filter(s => s.id !== suggestionToDelete.id)); 
-      showMsg('success', '🗑️ Suggestion supprimée'); 
+      setSuggestions(suggestions.filter(s => s.id !== suggestionToDelete.id));
+      showMsg('success', '🗑️ Suggestion supprimée');
       setSuggestionToDelete(null);
-    } catch (err: any) { 
-      showMsg('error', err.message || 'Erreur lors de la suppression'); 
-    } finally { 
-      setIsDeleting(false); 
+    } catch (err: any) {
+      showMsg('error', err.message || 'Erreur lors de la suppression');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -979,13 +979,13 @@ const handleDeleteAnnouncement = async (id: string) => {
     try {
       const { error } = await supabase.from('press_comments').delete().eq('id', commentToDelete.id);
       if (error) throw error;
-      setComments(comments.filter(c => c.id !== commentToDelete.id)); 
-      showMsg('success', '🗑️ Commentaire supprimé'); 
+      setComments(comments.filter(c => c.id !== commentToDelete.id));
+      showMsg('success', '🗑️ Commentaire supprimé');
       setCommentToDelete(null);
-    } catch (err: any) { 
-      showMsg('error', err.message || 'Erreur lors de la suppression'); 
-    } finally { 
-      setIsDeleting(false); 
+    } catch (err: any) {
+      showMsg('error', err.message || 'Erreur lors de la suppression');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -1000,7 +1000,7 @@ const handleDeleteAnnouncement = async (id: string) => {
         blocked_by_admin: 'admin'
       });
       if (error) throw error;
-      
+
       // Marquer les commentaires de l'utilisateur comme bloqués
       const { error: updateError } = await supabase.from('press_comments')
         .update({ is_blocked: true })
@@ -1008,12 +1008,12 @@ const handleDeleteAnnouncement = async (id: string) => {
       if (updateError) throw updateError;
 
       fetchData();
-      showMsg('success', '🚫 Utilisateur bloqué avec succès'); 
+      showMsg('success', '🚫 Utilisateur bloqué avec succès');
       setUserToBlock(null);
-    } catch (err: any) { 
-      showMsg('error', err.message || 'Erreur lors du blocage'); 
-    } finally { 
-      setIsDeleting(false); 
+    } catch (err: any) {
+      showMsg('error', err.message || 'Erreur lors du blocage');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -1021,7 +1021,7 @@ const handleDeleteAnnouncement = async (id: string) => {
     try {
       const { error } = await supabase.from('blocked_users').delete().eq('id', blockedUserId);
       if (error) throw error;
-      
+
       // Récupérer l'utilisateur débloqué
       const blockedUser = blockedUsers.find(bu => bu.id === blockedUserId);
       if (blockedUser) {
@@ -1032,23 +1032,23 @@ const handleDeleteAnnouncement = async (id: string) => {
       }
 
       fetchData();
-      showMsg('success', '✅ Utilisateur débloqué'); 
-    } catch (err: any) { 
-      showMsg('error', err.message || 'Erreur lors du déblocage'); 
+      showMsg('success', '✅ Utilisateur débloqué');
+    } catch (err: any) {
+      showMsg('error', err.message || 'Erreur lors du déblocage');
     }
   };
 
   const renderContentWithMedia = (content: string, mediaItems: MediaItem[]) => {
     let processedContent = parseMarkdown(content);
     mediaItems.forEach((media, index) => {
-      const marker = `[MEDIA:${index}]`; 
+      const marker = `[MEDIA:${index}]`;
       let mediaHTML = '';
-      if (media.type === 'image') { 
-        mediaHTML = `<div class="my-6"><img src="${media.url}" alt="${media.alt || 'Image'}" class="w-full rounded-xl shadow-lg" />${media.caption ? `<p class="text-center text-sm text-white/50 mt-3 italic">${media.caption}</p>` : ''}</div>`; 
-      } else if (media.type === 'video') { 
-        mediaHTML = `<div class="my-6"><video controls class="w-full rounded-xl shadow-lg"><source src="${media.url}" /></video>${media.caption ? `<p class="text-center text-sm text-white/50 mt-3 italic">${media.caption}</p>` : ''}</div>`; 
-      } else if (media.type === 'link') { 
-        mediaHTML = `<div class="my-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl"><a href="${media.url}" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 flex items-center gap-2">🔗 ${media.caption || media.url}</a></div>`; 
+      if (media.type === 'image') {
+        mediaHTML = `<div class="my-6"><img src="${media.url}" alt="${media.alt || 'Image'}" class="w-full rounded-xl shadow-lg" />${media.caption ? `<p class="text-center text-sm text-white/50 mt-3 italic">${media.caption}</p>` : ''}</div>`;
+      } else if (media.type === 'video') {
+        mediaHTML = `<div class="my-6"><video controls class="w-full rounded-xl shadow-lg"><source src="${media.url}" /></video>${media.caption ? `<p class="text-center text-sm text-white/50 mt-3 italic">${media.caption}</p>` : ''}</div>`;
+      } else if (media.type === 'link') {
+        mediaHTML = `<div class="my-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl"><a href="${media.url}" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 flex items-center gap-2">🔗 ${media.caption || media.url}</a></div>`;
       }
       processedContent = processedContent.replace(marker, mediaHTML);
     });
@@ -1098,7 +1098,7 @@ const handleDeleteAnnouncement = async (id: string) => {
       <div className="relative overflow-hidden bg-gradient-to-br from-blue-500/10 via-purple-500/5 to-pink-500/10 rounded-2xl border border-white/10 p-8">
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -z-10" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl -z-10" />
-        
+
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="p-4 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg shadow-blue-500/20">
@@ -1165,9 +1165,9 @@ const handleDeleteAnnouncement = async (id: string) => {
             {stats.blockedUsers > 0 && <span className="px-2 py-0.5 bg-white/20 rounded-full text-xs">{stats.blockedUsers}</span>}
           </div>
         </button>
-                <button onClick={() => setView('suggestions')} className={`group relative px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-300 whitespace-nowrap ${view === 'suggestions' ? 'bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-lg' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}`}>
+        <button onClick={() => setView('suggestions')} className={`group relative px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-300 whitespace-nowrap ${view === 'suggestions' ? 'bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-lg' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}`}>
           <div className="flex items-center gap-2">
-            <Lightbulb size={16} /> Suggestions 
+            <Lightbulb size={16} /> Suggestions
             {stats.pendingSuggestions > 0 && <span className="px-2 py-0.5 bg-white/20 rounded-full text-xs">{stats.pendingSuggestions}</span>}
           </div>
         </button>
@@ -1193,11 +1193,11 @@ const handleDeleteAnnouncement = async (id: string) => {
       </div>
 
 
-              {view === 'announcements' && !showAnnouncementForm && (
-          <button onClick={() => setShowAnnouncementForm(true)} className="ml-auto px-6 py-3 bg-gradient-to-r from-cyan-600 to-cyan-500 text-white rounded-xl font-semibold text-sm hover:shadow-lg transition-all flex items-center gap-2">
-            <PlusCircle size={16} /> Ajouter Annonce
-          </button>
-        )}
+      {view === 'announcements' && !showAnnouncementForm && (
+        <button onClick={() => setShowAnnouncementForm(true)} className="ml-auto px-6 py-3 bg-gradient-to-r from-cyan-600 to-cyan-500 text-white rounded-xl font-semibold text-sm hover:shadow-lg transition-all flex items-center gap-2">
+          <PlusCircle size={16} /> Ajouter Annonce
+        </button>
+      )}
 
       {/* VUE ARTICLES */}
       {view === 'articles' && (
@@ -1352,34 +1352,23 @@ const handleDeleteAnnouncement = async (id: string) => {
                         </div>
                       )}
 
-                      {/* TITRES & RÉSUMÉS */}
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <label className="text-xs font-semibold text-gray-400 block">🇫🇷 Titre (Français) *</label>
-                          <input type="text" value={titleFr} onChange={e => setTitleFr(e.target.value)} className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 focus:outline-none" />
-                          <div className="flex gap-2">
-                            <button onClick={() => handleLingua('correct-fr')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1">{isProcessing === 'correct-fr' ? <Loader2 size={12} className="animate-spin" /> : <SpellCheck size={12} />} Corriger</button>
-                            <button onClick={() => handleLingua('translate-fr')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1">{isProcessing === 'translate-fr' ? <Loader2 size={12} className="animate-spin" /> : <Languages size={12} />} EN → FR</button>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-semibold text-gray-400 block">🇬🇧 Titre (Anglais)</label>
-                          <input type="text" value={titleEn} onChange={e => setTitleEn(e.target.value)} className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 focus:outline-none" />
-                          <div className="flex gap-2">
-                            <button onClick={() => handleLingua('correct-en')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1">{isProcessing === 'correct-en' ? <Loader2 size={12} className="animate-spin" /> : <SpellCheck size={12} />} Correct</button>
-                            <button onClick={() => handleLingua('translate-en')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1">{isProcessing === 'translate-en' ? <Loader2 size={12} className="animate-spin" /> : <Languages size={12} />} FR → EN</button>
-                          </div>
-                        </div>
-                      </div>
 
+
+
+                      {/* RÉSUMÉS */}
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <label className="text-xs font-semibold text-gray-400 block">🇫🇷 Résumé (Français)</label>
                           <textarea value={summaryFr} onChange={e => setSummaryFr(e.target.value)} rows={3} className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 focus:outline-none" />
+                          <div className="flex gap-2">
+                            <button onClick={() => handleLingua('correct-fr')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1">{isProcessing === 'correct-fr' ? <Loader2 size={12} className="animate-spin" /> : <SpellCheck size={12} />} Corriger</button>
+                            <button onClick={() => handleLingua('translate-summary-fr')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1">{isProcessing === 'translate-summary-fr' ? <Loader2 size={12} className="animate-spin" /> : <Languages size={12} />} EN → FR</button>
+                          </div>
                         </div>
                         <div className="space-y-2">
                           <label className="text-xs font-semibold text-gray-400 block">🇬🇧 Résumé (Anglais)</label>
                           <textarea value={summaryEn} onChange={e => setSummaryEn(e.target.value)} rows={3} className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 focus:outline-none" />
+                          <button onClick={() => handleLingua('translate-summary-en')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1">{isProcessing === 'translate-summary-en' ? <Loader2 size={12} className="animate-spin" /> : <Languages size={12} />} FR → EN</button>
                         </div>
                       </div>
 
@@ -1388,10 +1377,27 @@ const handleDeleteAnnouncement = async (id: string) => {
                         <div className="space-y-2">
                           <label className="text-xs font-semibold text-gray-400 block">🇫🇷 {articleType === 'audio' ? 'Transcript / Description (FR)' : 'Contenu complet (FR)'}</label>
                           <textarea id="content-fr" value={contentFr} onChange={e => setContentFr(e.target.value)} onKeyDown={e => handleKeyDown(e, 'fr')} rows={16} className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm font-mono focus:border-blue-500 focus:outline-none" />
+                          <div className="flex gap-2 flex-wrap">
+                            <button onClick={() => insertMarkdown(articleType === 'audio' ? '**texte gras**' : '**texte gras**', 'fr')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1"><Bold size={12} /> Gras</button>
+                            <button onClick={() => insertMarkdown(articleType === 'audio' ? '*texte italique*' : '*texte italique*', 'fr')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1"><Italic size={12} /> Italique</button>
+                            <button onClick={() => insertMarkdown('[texte du lien](url)', 'fr')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1"><LinkIcon size={12} /> Lien</button>
+                            <button onClick={() => insertMarkdown('## Titre', 'fr')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1"><Heading size={12} /> Titre</button>
+                            <button onClick={() => insertMarkdown('> Citation', 'fr')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1"><Quote size={12} /> Citation</button>
+                            <button onClick={() => insertMarkdown('- Élément', 'fr')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1"><List size={12} /> Liste</button>
+                            <button onClick={() => handleLingua('translate-content-en')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1">{isProcessing === 'translate-content-en' ? <Loader2 size={12} className="animate-spin" /> : <Languages size={12} />} FR → EN</button>
+                          </div>
                         </div>
                         <div className="space-y-2">
                           <label className="text-xs font-semibold text-gray-400 block">🇬🇧 {articleType === 'audio' ? 'Transcript / Description (EN)' : 'Contenu complet (EN)'}</label>
                           <textarea id="content-en" value={contentEn} onChange={e => setContentEn(e.target.value)} onKeyDown={e => handleKeyDown(e, 'en')} rows={16} className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm font-mono focus:border-blue-500 focus:outline-none" />
+                          <div className="flex gap-2 flex-wrap">
+                            <button onClick={() => insertMarkdown('**bold text**', 'en')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1"><Bold size={12} /> Bold</button>
+                            <button onClick={() => insertMarkdown('*italic text*', 'en')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1"><Italic size={12} /> Italic</button>
+                            <button onClick={() => insertMarkdown('[link text](url)', 'en')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1"><LinkIcon size={12} /> Link</button>
+                            <button onClick={() => insertMarkdown('## Title', 'en')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1"><Heading size={12} /> Title</button>
+                            <button onClick={() => insertMarkdown('> Quote', 'en')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1"><Quote size={12} /> Quote</button>
+                            <button onClick={() => insertMarkdown('- Item', 'en')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1"><List size={12} /> List</button>
+                          </div>
                         </div>
                       </div>
 
@@ -1607,7 +1613,7 @@ const handleDeleteAnnouncement = async (id: string) => {
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-gray-400 flex items-center justify-between">
                       <span>Notes ou Transcription (EN) - Illimité</span>
-                      <button onClick={() => handleLingua('translate-content-en', true)} className="text-blue-400 hover:text-blue-300 flex items-center gap-1"><Languages size={12}/> Traduire FR {'>'} EN</button>
+                      <button onClick={() => handleLingua('translate-content-en', true)} className="text-blue-400 hover:text-blue-300 flex items-center gap-1"><Languages size={12} /> Traduire FR {'>'} EN</button>
                     </label>
                     <textarea value={archiveContentEn} onChange={e => setArchiveContentEn(e.target.value)} rows={10} className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm font-mono" />
                   </div>
@@ -1633,10 +1639,10 @@ const handleDeleteAnnouncement = async (id: string) => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="px-2 py-1 bg-orange-500/10 text-orange-400 text-[10px] font-bold rounded-full uppercase">{a.source_name}</span>
-                      {a.original_date && <span className="text-xs text-gray-500"><Calendar size={10} className="inline mr-1"/>{new Date(a.original_date).toLocaleDateString('fr-FR')}</span>}
+                      {a.original_date && <span className="text-xs text-gray-500"><Calendar size={10} className="inline mr-1" />{new Date(a.original_date).toLocaleDateString('fr-FR')}</span>}
                     </div>
                     <h3 className="text-white font-bold truncate">{a.title_fr}</h3>
-                    <a href={a.source_url} target="_blank" rel="noreferrer" className="text-blue-400 text-xs hover:underline flex items-center gap-1 mt-1"><ExternalLink size={10}/> Source originale</a>
+                    <a href={a.source_url} target="_blank" rel="noreferrer" className="text-blue-400 text-xs hover:underline flex items-center gap-1 mt-1"><ExternalLink size={10} /> Source originale</a>
                   </div>
                   <div className="flex items-center gap-2">
                     <button onClick={() => handleEditArchive(a)} className="p-2 bg-white/5 text-gray-400 hover:text-orange-400 rounded-lg"><Edit2 size={16} /></button>
@@ -1676,7 +1682,7 @@ const handleDeleteAnnouncement = async (id: string) => {
                       </div>
                       <p className="text-white/70 text-sm">{comment.content}</p>
                       <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-                        <span><Calendar size={10} className="inline mr-1"/>{new Date(comment.created_at).toLocaleDateString('fr-FR')}</span>
+                        <span><Calendar size={10} className="inline mr-1" />{new Date(comment.created_at).toLocaleDateString('fr-FR')}</span>
                       </div>
                     </div>
                   </div>
@@ -1792,7 +1798,7 @@ const handleDeleteAnnouncement = async (id: string) => {
       )}
 
 
-            {/* VUE ANNONCES */}
+      {/* VUE ANNONCES */}
       {view === 'announcements' && (
         <>
           {showAnnouncementForm && (
@@ -1817,7 +1823,7 @@ const handleDeleteAnnouncement = async (id: string) => {
                   </div>
                 </div>
 
-                                {/* Titres */}
+                {/* Titres */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-gray-400 block">🇫🇷 Titre (Français) *</label>
@@ -1845,7 +1851,7 @@ const handleDeleteAnnouncement = async (id: string) => {
                   </div>
                 </div>
 
-                               {/* Descriptions */}
+                {/* Descriptions */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-gray-400 block">🇫🇷 Description (Français)</label>
@@ -1867,7 +1873,7 @@ const handleDeleteAnnouncement = async (id: string) => {
                   </div>
                 </div>
 
-                                {/* Légendes */}
+                {/* Légendes */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-gray-400 block">🇫🇷 Légende (Français)</label>
@@ -1957,16 +1963,16 @@ const handleDeleteAnnouncement = async (id: string) => {
             <div className="bg-white/[0.02] border border-white/10 rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2"><MessageCircle className="text-green-400" /> WhatsApp</h3>
-                <input type="checkbox" checked={socialSettings.wa_active} onChange={e => setSocialSettings({...socialSettings, wa_active: e.target.checked})} className="rounded bg-black border-white/20" />
+                <input type="checkbox" checked={socialSettings.wa_active} onChange={e => setSocialSettings({ ...socialSettings, wa_active: e.target.checked })} className="rounded bg-black border-white/20" />
               </div>
               <div className="space-y-4">
                 <div>
                   <label className="text-xs font-semibold text-gray-400 mb-2 block">Numéro WhatsApp</label>
-                  <input type="text" value={socialSettings.whatsapp_number} onChange={e => setSocialSettings({...socialSettings, whatsapp_number: e.target.value})} placeholder="Ex: 243812345678" className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm" />
+                  <input type="text" value={socialSettings.whatsapp_number} onChange={e => setSocialSettings({ ...socialSettings, whatsapp_number: e.target.value })} placeholder="Ex: 243812345678" className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm" />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-gray-400 mb-2 block">Message automatique</label>
-                  <textarea value={socialSettings.whatsapp_message} onChange={e => setSocialSettings({...socialSettings, whatsapp_message: e.target.value})} placeholder="Bonjour, je vous contacte depuis Lukeni..." className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm" rows={2} />
+                  <textarea value={socialSettings.whatsapp_message} onChange={e => setSocialSettings({ ...socialSettings, whatsapp_message: e.target.value })} placeholder="Bonjour, je vous contacte depuis Lukeni..." className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm" rows={2} />
                 </div>
               </div>
             </div>
@@ -1974,17 +1980,17 @@ const handleDeleteAnnouncement = async (id: string) => {
             <div className="bg-white/[0.02] border border-white/10 rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2"><InstagramIcon className="text-pink-400" /> Instagram</h3>
-                <input type="checkbox" checked={socialSettings.ig_active} onChange={e => setSocialSettings({...socialSettings, ig_active: e.target.checked})} className="rounded" />
+                <input type="checkbox" checked={socialSettings.ig_active} onChange={e => setSocialSettings({ ...socialSettings, ig_active: e.target.checked })} className="rounded" />
               </div>
-              <input type="text" value={socialSettings.instagram_url} onChange={e => setSocialSettings({...socialSettings, instagram_url: e.target.value})} placeholder="https://instagram.com/..." className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm" />
+              <input type="text" value={socialSettings.instagram_url} onChange={e => setSocialSettings({ ...socialSettings, instagram_url: e.target.value })} placeholder="https://instagram.com/..." className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm" />
             </div>
 
             <div className="bg-white/[0.02] border border-white/10 rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2"><FacebookIcon className="text-blue-400" /> Facebook</h3>
-                <input type="checkbox" checked={socialSettings.fb_active} onChange={e => setSocialSettings({...socialSettings, fb_active: e.target.checked})} className="rounded" />
+                <input type="checkbox" checked={socialSettings.fb_active} onChange={e => setSocialSettings({ ...socialSettings, fb_active: e.target.checked })} className="rounded" />
               </div>
-              <input type="text" value={socialSettings.facebook_url} onChange={e => setSocialSettings({...socialSettings, facebook_url: e.target.value})} placeholder="https://facebook.com/..." className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm" />
+              <input type="text" value={socialSettings.facebook_url} onChange={e => setSocialSettings({ ...socialSettings, facebook_url: e.target.value })} placeholder="https://facebook.com/..." className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm" />
             </div>
           </div>
           <button onClick={handleSaveSettings} disabled={isSaving} className="mt-6 px-8 py-3 bg-blue-600 text-white rounded-xl font-bold flex items-center gap-2 ml-auto">

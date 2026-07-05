@@ -10,7 +10,8 @@ import {
   Library, Loader2, Search, X, Headphones, Download, BookOpen,
   Star, Heart, MessageCircle, Send, Play, Pause, Plus,
   Sparkles, Lightbulb, User as UserIcon, Globe, Upload,
-  FileText, Music, ChevronRight, Check, ExternalLink, AlertCircle, Users
+  FileText, Music, ChevronRight, Check, ExternalLink, AlertCircle, Users,
+  ChevronLeft,  Highlighter, Bookmark, BookmarkMinus, BookmarkPlus, Book, 
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import SpaceHeader from '@/components/SpaceHeader';
@@ -71,6 +72,18 @@ function formatTime(sec: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+// ── Détecte le type de fichier depuis l'URL ──────────────────────────────────
+function getFileType(url: string): 'pdf' | 'epub' | 'unknown' {
+  if (!url) return 'unknown';
+  const lower = url.toLowerCase().split('?')[0]; // ignore query params
+  if (lower.endsWith('.epub')) return 'epub';
+  if (lower.endsWith('.pdf')) return 'pdf';
+  // Cloudinary stocke parfois sans extension → cherche dans le path
+  if (lower.includes('/epub/') || lower.includes('epub')) return 'epub';
+  if (lower.includes('/pdf/') || lower.includes('pdf')) return 'pdf';
+  return 'unknown'; // on tentera PDF par défaut
+}
+
 // ============================================================================
 // CAURIS ICON
 // ============================================================================
@@ -107,7 +120,6 @@ const CollageBackground = memo(({ slots, settings }: {
             <div key={idx} className="relative overflow-hidden rounded-sm flex items-center justify-center bg-[#0a0a18]" style={{ gridArea: letter }}>
               {slot?.url ? (
                 <>
-                  {/* MODIFICATION ICI : object-contain au lieu de object-cover */}
                   <img src={slot.url} alt="" loading="lazy" className="w-full h-full object-contain" />
                   <div className="absolute inset-0 bg-[#020111]/40" />
                 </>
@@ -124,7 +136,6 @@ const CollageBackground = memo(({ slots, settings }: {
           <div key={idx} className={`relative overflow-hidden rounded-sm flex items-center justify-center bg-[#0a0a18] ${idx === 0 ? 'col-span-2' : ''}`}>
             {slot?.url ? (
               <>
-                {/* MODIFICATION ICI : object-contain au lieu de object-cover */}
                 <img src={slot.url} alt="" loading="lazy" className="w-full h-full object-contain" />
                 <div className="absolute inset-0 bg-[#020111]/40" />
               </>
@@ -187,21 +198,13 @@ const StarRating = memo(({ rating, onRate, size = 16, readonly = false }: {
 StarRating.displayName = 'StarRating';
 
 // ============================================================================
-// READ STATUS BADGE — Composant autonome sans dépendance à lucide Lock
+// LOCK ICON
 // ============================================================================
 
 const LockIcon = memo(({ size = 16, className = '' }: { size?: number; className?: string }) => (
   <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={2}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
+    width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
     <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
     <path d="M7 11V7a5 5 0 0 1 10 0v4" />
   </svg>
@@ -233,7 +236,6 @@ const ReadStatusBadge = memo(({ status, lang }: { status: ReadStatus; lang: 'fr'
       className: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
     },
   };
-
   const c = config[status];
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border ${c.className}`}>
@@ -242,6 +244,598 @@ const ReadStatusBadge = memo(({ status, lang }: { status: ReadStatus; lang: 'fr'
   );
 });
 ReadStatusBadge.displayName = 'ReadStatusBadge';
+
+// ============================================================================
+// EPUB READER — corrigé
+// ============================================================================
+// ============================================================================
+// EPUB READER — VERSION COMPLÈTE AVEC SURLIGNEUR ET SUPPORT MOBILE
+// ============================================================================
+
+interface EPUBReaderProps {
+  url: string;
+  title: string;
+  lang: 'fr' | 'en';
+  onClose: () => void;
+}
+
+const EPUBReader = memo(({ url, title, lang, onClose }: EPUBReaderProps) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const renditionRef = useRef<any>(null);
+  const bookRef = useRef<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [toc, setToc] = useState<any[]>([]);
+  const [showToc, setShowToc] = useState(false);
+  const [fontSize, setFontSize] = useState(100);
+  const [lineHeight, setLineHeight] = useState(1.8);
+  const [isMobile, setIsMobile] = useState(false);
+  const [highlights, setHighlights] = useState<string[]>([]);
+  const [highlightMode, setHighlightMode] = useState(false);
+
+  // Détecte si mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const loadEpubJs = useCallback((): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      // @ts-ignore
+      if (window.ePub && window.JSZip) {
+        console.log('[EPUBReader] epub.js et JSZip déjà chargés');
+        resolve();
+        return;
+      }
+
+      let attempts = 0;
+      const checkInterval = setInterval(() => {
+        // @ts-ignore
+        if (window.ePub && window.JSZip) {
+          clearInterval(checkInterval);
+          console.log('[EPUBReader] epub.js et JSZip prêts');
+          resolve();
+        } else if (attempts++ > 100) {
+          clearInterval(checkInterval);
+          reject(new Error('Timeout : epub.js ou JSZip non chargés'));
+        }
+      }, 100);
+    });
+  }, []);
+
+  useEffect(() => {
+    let destroyed = false;
+
+    const initReader = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        await loadEpubJs();
+        if (destroyed) return;
+
+        // @ts-ignore
+        const ePub = window.ePub;
+        if (!ePub) throw new Error('epub.js non disponible');
+
+        console.log('[EPUBReader] epub.js loaded, version:', ePub.VERSION);
+
+        let bookSource: Blob | string;
+
+        if (url.includes('cloudinary.com')) {
+          try {
+            console.log('[EPUBReader] Fetching EPUB via proxy from:', url);
+            const proxyUrl = `/api/epub-proxy?url=${encodeURIComponent(url)}`;
+            const res = await fetch(proxyUrl);
+
+            if (!res.ok) {
+              const errData = await res.json().catch(() => ({ error: res.statusText }));
+              throw new Error(`Proxy ${res.status}: ${errData.error || res.statusText}`);
+            }
+
+            const blob = await res.blob();
+            console.log('[EPUBReader] Blob reçu:', blob.size, 'bytes, type:', blob.type);
+
+            if (blob.size === 0) throw new Error('Blob vide reçu');
+            bookSource = blob;
+          } catch (fetchErr: any) {
+            console.error('[EPUBReader] Proxy fetch failed:', fetchErr);
+            bookSource = url;
+          }
+        } else {
+          bookSource = url;
+        }
+
+        if (destroyed) return;
+
+        console.log('[EPUBReader] Initializing ePub with source type:', typeof bookSource);
+        const book = ePub(bookSource);
+        bookRef.current = book;
+
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('Timeout attente ready')), 30000);
+          book.ready.then(() => {
+            clearTimeout(timeout);
+            resolve(undefined);
+          }).catch((err: any) => {
+            clearTimeout(timeout);
+            reject(err);
+          });
+        });
+
+        if (destroyed) return;
+        console.log('[EPUBReader] Book ready');
+
+        // Table des matières
+        try {
+          const navigation = await book.loaded.navigation;
+          if (navigation?.toc?.length) {
+            setToc(navigation.toc);
+            console.log('[EPUBReader] TOC loaded, items:', navigation.toc.length);
+          }
+        } catch (navErr) {
+          console.warn('[EPUBReader] TOC not available:', navErr);
+        }
+
+        if (!containerRef.current) throw new Error('Conteneur non disponible');
+
+        console.log('[EPUBReader] Creating rendition...');
+        const rendition = book.renderTo(containerRef.current, {
+          width: '100%',
+          height: '100%',
+          spread: isMobile ? 'none' : 'auto',
+          flow: 'paginated',
+          allowScriptedContent: false,
+        });
+        renditionRef.current = rendition;
+
+        // ✅ THÈME AVEC SURLIGNEUR ET CONTRÔLES DE TEXTE
+        const updateTheme = () => {
+          rendition.themes.register('dark', {
+            'html': {
+              'background': '#0a0a14 !important',
+            },
+            'body': {
+              'background': '#0a0a14 !important',
+              'color': '#e5e7eb !important',
+              'font-size': `${fontSize}% !important`,
+              'line-height': `${lineHeight} !important`,
+              'padding': isMobile ? '12px 16px !important' : '20px 40px !important',
+              'font-family': 'Georgia, serif !important',
+              'margin': '0 !important',
+            },
+            'a': {
+              'color': '#10B981 !important',
+              'text-decoration': 'underline !important',
+            },
+            'h1, h2, h3, h4, h5, h6': {
+              'color': '#ffffff !important',
+              'margin-top': '1em !important',
+            },
+            'p': {
+              'color': '#d1d5db !important',
+              'margin': '0.8em 0 !important',
+            },
+            'img': {
+              'max-width': '100% !important',
+              'height': 'auto !important',
+            },
+            // ✅ SURLIGNEUR
+            '.epub-highlight': {
+              'background': 'rgba(16, 185, 129, 0.4) !important',
+              'color': '#ffffff !important',
+            },
+            '::selection': {
+              'background': 'rgba(16, 185, 129, 0.6) !important',
+              'color': '#ffffff !important',
+            },
+          });
+          rendition.themes.select('dark');
+        };
+
+        updateTheme();
+
+        await rendition.display();
+        if (destroyed) return;
+
+        setIsLoading(false);
+        console.log('[EPUBReader] Successfully loaded');
+
+        // Pagination
+        book.locations.generate(1024).then(() => {
+          if (destroyed) return;
+          setTotalPages(book.locations.total || 0);
+          console.log('[EPUBReader] Total pages:', book.locations.total);
+        }).catch((err: any) => {
+          console.warn('[EPUBReader] Location generation failed:', err);
+        });
+
+        // Événements
+        rendition.on('locationChanged', (loc: any) => {
+          if (destroyed) return;
+          try {
+            if (book.locations?.total && loc?.start?.cfi) {
+              const pct = book.locations.percentageFromCfi(loc.start.cfi);
+              setCurrentPage(Math.max(1, Math.ceil(pct * book.locations.total)));
+            }
+          } catch (e) {
+            console.warn('[EPUBReader] Location change error:', e);
+          }
+        });
+
+        rendition.on('rendered', () => {
+          if (destroyed) return;
+          console.log('[EPUBReader] Page rendered');
+        });
+
+        rendition.on('displayError', (err: any) => {
+          console.error('[EPUBReader] Display error:', err);
+        });
+
+        // ✅ GESTION DU SURLIGNEUR
+        rendition.on('rendered', () => {
+          if (!highlightMode) return;
+          
+          const ifr = rendition.getContents()[0];
+          if (!ifr || !ifr.document) return;
+
+          const doc = ifr.document;
+          doc.addEventListener('mouseup', handleTextSelection);
+          doc.addEventListener('touchend', handleTextSelection);
+
+          return () => {
+            doc.removeEventListener('mouseup', handleTextSelection);
+            doc.removeEventListener('touchend', handleTextSelection);
+          };
+        });
+
+      } catch (err: any) {
+        console.error('[EPUBReader] Fatal error:', err?.message || err);
+        if (!destroyed) {
+          setError(err?.message || 'Erreur lors du chargement du livre EPUB');
+          setIsLoading(false);
+        }
+      }
+    };
+
+    initReader();
+
+    return () => {
+      destroyed = true;
+      if (renditionRef.current) {
+        try {
+          renditionRef.current.destroy();
+        } catch {}
+        renditionRef.current = null;
+      }
+      if (bookRef.current) {
+        try {
+          bookRef.current.destroy();
+        } catch {}
+        bookRef.current = null;
+      }
+    };
+  }, [url, loadEpubJs, isMobile, fontSize, lineHeight, highlightMode]);
+
+  // ✅ GESTION DE LA SÉLECTION DE TEXTE POUR SURLIGNEUR
+  const handleTextSelection = useCallback(() => {
+    if (!highlightMode) return;
+
+    const ifr = renditionRef.current?.getContents()[0];
+    if (!ifr || !ifr.document) return;
+
+    const selection = ifr.document.defaultView?.getSelection?.();
+    if (!selection || selection.toString().length === 0) return;
+
+    const range = selection.getRangeAt(0);
+    const span = ifr.document.createElement('span');
+    span.className = 'epub-highlight';
+    span.style.backgroundColor = 'rgba(16, 185, 129, 0.4)';
+    span.style.color = '#ffffff';
+
+    try {
+      range.surroundContents(span);
+      setHighlights(prev => [...prev, selection.toString()]);
+      selection.removeAllRanges();
+      
+      // Feedback visuel
+      console.log('[EPUBReader] Texte surligné:', selection.toString().substring(0, 50));
+    } catch (err) {
+      console.warn('[EPUBReader] Surligneur erreur:', err);
+    }
+  }, [highlightMode]);
+
+  // Mise à jour taille police ET hauteur de ligne
+  useEffect(() => {
+    if (!renditionRef.current) return;
+    try {
+      renditionRef.current.themes.override('font-size', `${fontSize}%`);
+      renditionRef.current.themes.override('line-height', `${lineHeight}`);
+    } catch {}
+  }, [fontSize, lineHeight]);
+
+  const goNext = useCallback(() => {
+    try {
+      renditionRef.current?.next();
+    } catch {}
+  }, []);
+
+  const goPrev = useCallback(() => {
+    try {
+      renditionRef.current?.prev();
+    } catch {}
+  }, []);
+
+  const goToTocItem = useCallback((href: string) => {
+    try {
+      renditionRef.current?.display(href);
+      setShowToc(false);
+    } catch {}
+  }, []);
+
+  // Navigation clavier
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        goNext();
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        goPrev();
+      }
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [goNext, goPrev, onClose]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[60] bg-[#0a0a14] flex flex-col"
+    >
+      {/* ✅ HEADER RESPONSIVE */}
+      <div className={`flex items-center justify-between px-3 md:px-4 border-b border-white/10 bg-[#080810] flex-shrink-0 z-10 ${isMobile ? 'h-12 gap-2' : 'h-14 gap-3'}`}>
+        <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+          <span className="flex-shrink-0 inline-flex items-center gap-0.5 md:gap-1 px-1.5 md:px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 text-[9px] md:text-[10px] font-bold border border-emerald-500/30">
+            <BookOpen size={isMobile ? 9 : 10} />
+            <span className="hidden sm:inline">EPUB</span>
+          </span>
+          <h3 className={`text-white font-bold truncate ${isMobile ? 'text-xs' : 'text-sm'}`}>{title}</h3>
+        </div>
+
+        {/* ✅ CONTRÔLES RESPONSIFS */}
+        <div className={`flex items-center gap-0.5 md:gap-1 flex-shrink-0 overflow-x-auto`}>
+          {/* Taille police */}
+          <button
+            onClick={() => setFontSize(f => Math.max(70, f - 10))}
+            className={`px-1.5 md:px-2 py-1 text-gray-400 hover:text-white text-[10px] md:text-xs font-bold transition-colors flex-shrink-0`}
+            title="Réduire"
+          >
+            A-
+          </button>
+          <span className={`text-gray-600 text-[9px] md:text-xs w-8 md:w-10 text-center flex-shrink-0`}>{fontSize}%</span>
+          <button
+            onClick={() => setFontSize(f => Math.min(160, f + 10))}
+            className={`px-1.5 md:px-2 py-1 text-gray-400 hover:text-white text-[10px] md:text-xs font-bold transition-colors flex-shrink-0`}
+            title="Agrandir"
+          >
+            A+
+          </button>
+
+          {/* Hauteur de ligne */}
+          <div className="hidden md:flex items-center gap-1 border-l border-white/10 pl-2 ml-1">
+            <button
+              onClick={() => setLineHeight(lh => Math.max(1.2, lh - 0.2))}
+              className={`px-2 py-1 text-gray-400 hover:text-white text-xs font-bold transition-colors`}
+              title="Réduire l'interligne"
+            >
+              ↕-
+            </button>
+            <span className={`text-gray-600 text-xs w-6 text-center`}>{lineHeight.toFixed(1)}</span>
+            <button
+              onClick={() => setLineHeight(lh => Math.min(2.5, lh + 0.2))}
+              className={`px-2 py-1 text-gray-400 hover:text-white text-xs font-bold transition-colors`}
+              title="Augmenter l'interligne"
+            >
+              ↕+
+            </button>
+          </div>
+
+          {/* Surligneur */}
+          <button
+            onClick={() => setHighlightMode(!highlightMode)}
+            className={`hidden md:flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-all ml-1 ${
+              highlightMode
+                ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                : 'text-gray-500 hover:text-white'
+            }`}
+            title={highlightMode ? 'Désactiver surligneur' : 'Activer surligneur'}
+          >
+            <Highlighter size={14} />
+          </button>
+
+          {/* TOC */}
+          {toc.length > 0 && (
+            <button
+              onClick={() => setShowToc(v => !v)}
+              className={`hidden md:block p-2 rounded-lg text-xs transition-colors ${
+                showToc ? 'bg-emerald-500/20 text-emerald-400' : 'text-gray-500 hover:text-white'
+              }`}
+              title={lang === 'fr' ? 'Table des matières' : 'Table of contents'}
+            >
+              <FileText size={16} />
+            </button>
+          )}
+
+          {/* Fermer */}
+          <button onClick={onClose} className={`p-1.5 md:p-2 text-gray-400 hover:text-white transition-colors flex-shrink-0`}>
+            <X size={isMobile ? 18 : 20} />
+          </button>
+        </div>
+      </div>
+
+      {/* ✅ CORPS */}
+      <div className="flex-1 overflow-hidden relative">
+
+        {/* TOC Drawer */}
+        <AnimatePresence>
+          {showToc && (
+            <motion.div
+              initial={{ x: -300, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -300, opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className={`absolute left-0 top-0 bottom-0 ${isMobile ? 'w-60' : 'w-72'} bg-[#0d0d1a] border-r border-white/10 z-20 overflow-y-auto`}
+              style={{ scrollbarWidth: 'none' }}
+            >
+              <div className={`p-3 md:p-4 border-b border-white/10`}>
+                <p className={`text-white font-bold ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                  {lang === 'fr' ? 'Table des matières' : 'Table of contents'}
+                </p>
+              </div>
+              <div className="p-2">
+                {toc.map((item, i) => (
+                  <button
+                    key={i}
+                    onClick={() => goToTocItem(item.href)}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-gray-300 hover:bg-emerald-500/10 hover:text-emerald-400 transition-colors ${isMobile ? 'text-xs' : 'text-sm'}`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Loading */}
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center z-10 bg-[#0a0a14]">
+            <div className="flex flex-col items-center gap-4">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+              >
+                <CaurisIcon className={`text-emerald-500 ${isMobile ? 'w-10 h-10' : 'w-12 h-12'}`} />
+              </motion.div>
+              <p className={`text-gray-500 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                {lang === 'fr' ? 'Chargement du livre EPUB...' : 'Loading EPUB book...'}
+              </p>
+              <p className={`text-gray-700 max-w-xs text-center ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
+                {lang === 'fr'
+                  ? 'La première ouverture peut prendre quelques secondes.'
+                  : 'First load may take a few seconds.'}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Erreur */}
+        {error && !isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center z-10 bg-[#0a0a14]">
+            <div className={`flex flex-col items-center gap-4 max-w-sm text-center px-4 md:px-6`}>
+              <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center">
+                <AlertCircle size={32} className="text-red-400" />
+              </div>
+              <h3 className="text-white font-bold">
+                {lang === 'fr' ? 'Erreur de chargement' : 'Loading error'}
+              </h3>
+              <p className={`text-gray-500 leading-relaxed ${isMobile ? 'text-xs' : 'text-sm'}`}>{error}</p>
+              <p className={`text-gray-700 ${isMobile ? 'text-[9px]' : 'text-xs'}`}>
+                {lang === 'fr'
+                  ? 'Le fichier EPUB peut être corrompu ou inaccessible.'
+                  : 'The EPUB file may be corrupted or inaccessible.'}
+              </p>
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`inline-flex items-center gap-2 bg-emerald-500/20 text-emerald-400 px-4 py-2 rounded-xl border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors ${isMobile ? 'text-xs' : 'text-sm'}`}
+              >
+                <Download size={14} />
+                {lang === 'fr' ? 'Télécharger' : 'Download'}
+              </a>
+              <button onClick={onClose} className="text-gray-600 text-sm hover:text-white transition-colors">
+                {lang === 'fr' ? 'Fermer' : 'Close'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Zone de rendu */}
+        <div
+          ref={containerRef}
+          className="w-full h-full"
+          style={{ background: '#0a0a14' }}
+        />
+
+        {/* Flèches navigation */}
+        {!isLoading && !error && !isMobile && (
+          <>
+            <button
+              onClick={goPrev}
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-black/80 transition-all"
+              aria-label="Page précédente"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <button
+              onClick={goNext}
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-black/80 transition-all"
+              aria-label="Page suivante"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </>
+        )}
+
+        {/* Zones tactiles mobile */}
+        {!isLoading && !error && isMobile && (
+          <>
+            <div
+              onClick={goPrev}
+              className="absolute left-0 top-0 bottom-0 w-1/4 z-10 cursor-pointer active:bg-white/5 transition-colors"
+              title="Précédent"
+            />
+            <div
+              onClick={goNext}
+              className="absolute right-0 top-0 bottom-0 w-1/4 z-10 cursor-pointer active:bg-white/5 transition-colors"
+              title="Suivant"
+            />
+          </>
+        )}
+      </div>
+
+      {/* ✅ FOOTER RESPONSIVE */}
+      {!isLoading && !error && (
+        <div className={`flex items-center justify-center gap-2 md:gap-4 border-t border-white/[0.06] bg-[#080810] flex-shrink-0 ${isMobile ? 'h-10 px-2' : 'h-12 px-4'}`}>
+          <span className={`text-gray-600 ${isMobile ? 'text-[8px]' : 'text-[10px]'}`}>
+            {isMobile ? (lang === 'fr' ? 'Appuyez' : 'Tap') : (lang === 'fr' ? 'Utilisez ← →' : 'Use ← →')}
+          </span>
+          {totalPages > 0 && (
+            <>
+              <span className="text-gray-800 text-xs hidden md:inline">·</span>
+              <span className={`text-gray-600 font-mono ${isMobile ? 'text-[9px]' : 'text-[10px]'}`}>
+                {currentPage} / {totalPages}
+              </span>
+            </>
+          )}
+        </div>
+      )}
+    </motion.div>
+  );
+});
+EPUBReader.displayName = 'EPUBReader';
 
 // ============================================================================
 // BORROW SCREEN
@@ -254,17 +848,14 @@ const BorrowScreen = memo(({ book, lang, olPageUrl }: {
     <div className="w-20 h-20 rounded-full bg-amber-500/10 flex items-center justify-center mb-6 border border-amber-500/20">
       <LockIcon size={36} className="text-amber-400" />
     </div>
-
     <h3 className="text-white text-xl font-serif font-bold mb-3">
       {lang === 'fr' ? 'Emprunt numérique requis' : 'Digital borrow required'}
     </h3>
-
     <p className="text-gray-400 text-sm leading-relaxed max-w-md mb-6">
       {lang === 'fr'
         ? "Ce livre est sous droit d'auteur. Open Library utilise le Prêt Numérique Contrôlé (CDL) : vous devez emprunter ce livre gratuitement sur Open Library pour le lire."
         : 'This book is under copyright. Open Library uses Controlled Digital Lending (CDL): you must borrow this book for free on Open Library to read it.'}
     </p>
-
     <div className="flex flex-col items-start gap-2 mb-8 p-4 bg-amber-500/5 border border-amber-500/10 rounded-xl max-w-md w-full">
       {(lang === 'fr'
         ? ['1. Créez un compte gratuit sur openlibrary.org', '2. Cliquez "Emprunter"', '3. Lisez dans votre navigateur']
@@ -273,7 +864,6 @@ const BorrowScreen = memo(({ book, lang, olPageUrl }: {
         <p key={i} className="text-amber-300/70 text-xs">{step}</p>
       ))}
     </div>
-
     <div className="flex flex-col sm:flex-row gap-3">
       <a href={olPageUrl} target="_blank" rel="noopener noreferrer"
         className="inline-flex items-center gap-2 bg-amber-500 text-black px-6 py-3 rounded-xl font-bold text-sm hover:bg-white transition-colors">
@@ -285,11 +875,9 @@ const BorrowScreen = memo(({ book, lang, olPageUrl }: {
         {lang === 'fr' ? 'Créer un compte' : 'Create account'}
       </a>
     </div>
-
     {book.cover_i && (
       <div className="mt-8 opacity-20">
-        <img src={`https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg`} alt=""
-          className="w-24 rounded-lg mx-auto" />
+        <img src={`https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg`} alt="" className="w-24 rounded-lg mx-auto" />
       </div>
     )}
   </div>
@@ -314,25 +902,17 @@ const OpenLibraryReader = memo(({ book, lang, userId, onClose }: OpenLibraryRead
   const [iframeLoaded, setIframeLoaded] = useState(false);
 
   useEffect(() => {
-    // Si on a déjà toutes les infos, pas besoin de fetch
     if (book.readStatus !== 'unknown' && book.embedUrl) {
       setReadStatus(book.readStatus);
       setEmbedUrl(book.embedUrl);
       return;
     }
-
-    // Sinon, cherche les éditions pour trouver l'OCAID
     setReadStatus('loading');
-
     const fetchReadUrl = async () => {
       try {
         const res = await fetch(`https://openlibrary.org${book.key}/editions.json?limit=10`);
         const data = await res.json();
-        const editions: Array<{
-          key?: string; ocaid?: string; public_scan_b?: boolean;
-        }> = data.entries || [];
-
-        // Cherche d'abord édition domaine public
+        const editions: Array<{ key?: string; ocaid?: string; public_scan_b?: boolean }> = data.entries || [];
         const publicEd = editions.find(e => e.ocaid && e.public_scan_b);
         if (publicEd?.ocaid) {
           setReadStatus('public');
@@ -340,42 +920,29 @@ const OpenLibraryReader = memo(({ book, lang, userId, onClose }: OpenLibraryRead
           setOlPageUrl(`https://openlibrary.org${publicEd.key || book.key}`);
           return;
         }
-
-        // Sinon édition avec OCAID (emprunt)
         const borrowEd = editions.find(e => e.ocaid);
         if (borrowEd?.ocaid) {
           setReadStatus('borrow');
           setOlPageUrl(`https://openlibrary.org${borrowEd.key || book.key}`);
           return;
         }
-
         setReadStatus('unknown');
       } catch {
         setReadStatus('unknown');
       }
     };
-
     fetchReadUrl();
   }, [book.key, book.readStatus, book.embedUrl]);
 
   const title = book.title;
   const author = book.author_name?.[0] || '';
-  const cover = book.cover_i
-    ? `https://covers.openlibrary.org/b/id/${book.cover_i}-L.jpg`
-    : null;
-
-  // ID stable pour les notes
+  const cover = book.cover_i ? `https://covers.openlibrary.org/b/id/${book.cover_i}-L.jpg` : null;
   const noteItemId = `ol_${book.key.replace(/\//g, '_')}`;
 
   return (
     <>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[60] bg-[#020111] flex flex-col"
-      >
-        {/* ── Header ── */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[60] bg-[#020111] flex flex-col">
         <div className="h-14 flex items-center justify-between px-4 border-b border-white/10 bg-[#0a0a14] flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             {cover && (
@@ -388,11 +955,10 @@ const OpenLibraryReader = memo(({ book, lang, userId, onClose }: OpenLibraryRead
               {author && <p className="text-gray-500 text-[10px] truncate">{author}</p>}
             </div>
           </div>
-
           <div className="flex items-center gap-3 flex-shrink-0">
             <ReadStatusBadge status={readStatus} lang={lang} />
             <a href={olPageUrl} target="_blank" rel="noopener noreferrer"
-              className="p-2 text-gray-500 hover:text-blue-400 transition-colors" title="Open Library">
+              className="p-2 text-gray-500 hover:text-blue-400 transition-colors">
               <ExternalLink size={16} />
             </a>
             <button onClick={onClose} className="p-2 text-gray-400 hover:text-white transition-colors">
@@ -400,10 +966,7 @@ const OpenLibraryReader = memo(({ book, lang, userId, onClose }: OpenLibraryRead
             </button>
           </div>
         </div>
-
-        {/* ── Contenu ── */}
         <div className="flex-1 overflow-hidden relative">
-          {/* Loading */}
           {readStatus === 'loading' && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="flex flex-col items-center gap-4">
@@ -414,12 +977,10 @@ const OpenLibraryReader = memo(({ book, lang, userId, onClose }: OpenLibraryRead
               </div>
             </div>
           )}
-
-          {/* Lecture directe — iframe Internet Archive */}
           {readStatus === 'public' && embedUrl && (
             <>
               {!iframeLoaded && (
-                <div className="absolute inset-0 flex items-center justify-center z-10 bg-[#020111] backdrop-blur-sm">
+                <div className="absolute inset-0 flex items-center justify-center z-10 bg-[#020111]">
                   <div className="flex flex-col items-center gap-4">
                     <Loader2 size={28} className="animate-spin text-emerald-500" />
                     <p className="text-gray-500 text-xs">
@@ -428,44 +989,26 @@ const OpenLibraryReader = memo(({ book, lang, userId, onClose }: OpenLibraryRead
                   </div>
                 </div>
               )}
-              <iframe
-                src={embedUrl}
-                className="w-full h-full border-0"
-                title={title}
-                loading="lazy"
-                allow="fullscreen"
+              <iframe src={embedUrl} className="w-full h-full border-0" title={title}
+                loading="lazy" allow="fullscreen"
                 onLoad={() => setIframeLoaded(true)}
-                onError={() => {
-                  setIframeLoaded(false);
-                  setReadStatus('unknown');
-                }}
-                style={{ background: '#1a1a2e' }}
-              />
+                onError={() => { setIframeLoaded(false); setReadStatus('unknown'); }}
+                style={{ background: '#1a1a2e' }} />
             </>
           )}
-
-          {/* Emprunt requis ou inconnu */}
           {(readStatus === 'borrow' || readStatus === 'unknown') && (
             <BorrowScreen book={book} lang={lang} olPageUrl={olPageUrl} />
           )}
         </div>
-
-        {/* ── Footer domaine public ── */}
         {readStatus === 'public' && (
           <div className="h-10 flex items-center justify-center gap-4 border-t border-white/[0.06] bg-[#0a0a14] flex-shrink-0">
             <Globe size={12} className="text-emerald-500/60" />
             <span className="text-[10px] text-gray-600">
-              {lang === 'fr'
-                ? 'Livre du domaine public via Internet Archive & Open Library'
-                : 'Public domain book via Internet Archive & Open Library'}
+              {lang === 'fr' ? 'Livre du domaine public via Internet Archive & Open Library' : 'Public domain book via Internet Archive & Open Library'}
             </span>
             {embedUrl && (
-              <a
-                href={embedUrl.replace('embed/', '').split('?')[0]}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[10px] text-blue-400/60 hover:text-blue-400 transition-colors flex items-center gap-1"
-              >
+              <a href={embedUrl.replace('embed/', '').split('?')[0]} target="_blank" rel="noopener noreferrer"
+                className="text-[10px] text-blue-400/60 hover:text-blue-400 transition-colors flex items-center gap-1">
                 <ExternalLink size={10} />
                 {lang === 'fr' ? 'Ouvrir dans Archive.org' : 'Open in Archive.org'}
               </a>
@@ -473,17 +1016,8 @@ const OpenLibraryReader = memo(({ book, lang, userId, onClose }: OpenLibraryRead
           </div>
         )}
       </motion.div>
-
-      {/* ── Panel Notes — flotte indépendamment ── */}
       {userId && (
-        <NotesplitContainer
-          itemId={noteItemId}
-          itemType="book"
-          userId={userId}
-          catColor="#3B82F6"
-          lang={lang}
-
-        >
+        <NotesplitContainer itemId={noteItemId} itemType="book" userId={userId} catColor="#3B82F6" lang={lang}>
           <div />
         </NotesplitContainer>
       )}
@@ -662,9 +1196,7 @@ const AddBookModal = memo(({ isOpen, onClose, lang, user }: {
                 <ChevronRight size={16} className="rotate-180" />{lang === 'fr' ? 'Retour' : 'Back'}
               </button>
               <div className="flex items-center gap-3 mb-6">
-                <div className="p-3 bg-white/[0.05] rounded-2xl">
-                  {submissionType && typeConfig[submissionType].icon}
-                </div>
+                <div className="p-3 bg-white/[0.05] rounded-2xl">{submissionType && typeConfig[submissionType].icon}</div>
                 <div>
                   <h2 className="text-xl font-serif text-white">{submissionType && typeConfig[submissionType].label}</h2>
                   <p className="text-gray-600 text-[10px] tracking-wider uppercase">{lang === 'fr' ? 'En attente de validation admin' : 'Pending admin validation'}</p>
@@ -853,7 +1385,6 @@ AudioPlayer.displayName = 'AudioPlayer';
 const BookDetailModal = memo(({ book, lang, user, onClose }: {
   book: Book; lang: 'fr' | 'en'; user: User | null; onClose: () => void;
 }) => {
-
   const [userRating, setUserRating] = useState(0);
   const [avgRating, setAvgRating] = useState(0);
   const [likeCount, setLikeCount] = useState(0);
@@ -861,105 +1392,62 @@ const BookDetailModal = memo(({ book, lang, user, onClose }: {
   const [comments, setComments] = useState<BookComment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
-  // ✅ Auto-ouvrir si c'est un livre Lukeni avec PDF
   const [showReader, setShowReader] = useState(false);
-  const [readerMode, setReaderMode] = useState<'pdf' | 'audio'>(book.file_url ? 'pdf' : 'audio');
+  const [readerMode, setReaderMode] = useState<'pdf' | 'epub' | 'audio'>(
+    // ✅ Détecter le bon mode dès l'ouverture
+    book.file_url
+      ? (getFileType(book.file_url) === 'epub' ? 'epub' : 'pdf')
+      : 'audio'
+  );
 
-  useEffect(() => {
-    setShowReader(false);
-    setReaderMode(book.file_url ? 'pdf' : 'audio');
-  }, [book.id, book.file_url]);
-
-
-  const [iframeLoadError, setIframeLoadError] = useState(false);
-  const [isIframeLoading, setIsIframeLoading] = useState(true);
+  // ✅ Détecter le type de fichier
+  const fileType = useMemo(() => getFileType(book.file_url), [book.file_url]);
 
   const title = lang === 'fr' ? book.title_fr : book.title_en;
   const author = lang === 'fr' ? book.author_fr : book.author_en;
   const desc = lang === 'fr' ? book.description_fr : book.description_en;
   const catColor = book.categories?.color || '#10B981';
 
-  // ✅ Valider l'URL du PDF
-  const isValidPdfUrl = useCallback((url: string) => {
-    if (!url) return false;
-    try {
-      const urlObj = new URL(url);
-      // Vérifier que c'est un PDF ou une URL valide
-      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
-    } catch {
-      return false;
+  useEffect(() => {
+    setShowReader(false);
+    // ✅ Recalcule le mode correct à chaque changement de livre
+    if (book.file_url) {
+      setReaderMode(getFileType(book.file_url) === 'epub' ? 'epub' : 'pdf');
+    } else {
+      setReaderMode('audio');
     }
-  }, []);
-
-
-  // ✅ NOUVEAU — à placer juste après isValidPdfUrl
-  const getPdfDisplayUrl = useCallback((originalUrl: string) => {
-    if (!originalUrl) return '';
-    const isCloudinary = originalUrl.includes('cloudinary.com');
-    if (isCloudinary) {
-      return `/api/pdf-proxy?url=${encodeURIComponent(originalUrl)}`;
-    }
-    return originalUrl;
-  }, []);
+  }, [book.id, book.file_url]);
 
   useEffect(() => {
     loadBookData();
-
-    // ✅ Vérifier si le PDF est accessible
-    if (book.file_url && !isValidPdfUrl(book.file_url)) {
-      setIframeLoadError(true);
-      setIsIframeLoading(false);
-    }
-
     (async () => {
       try {
         const { error } = await supabase.rpc('increment_book_views', { book_id: book.id });
         if (error) console.warn('View count:', error.message);
       } catch (err) { console.warn('View count error:', err); }
     })();
-  }, [book.id, user?.id, isValidPdfUrl, book.file_url]);
+  }, [book.id, user?.id]);
 
   const loadBookData = useCallback(async () => {
     try {
       const [ratingsRes, commentsRes] = await Promise.all([
-        supabase
-          .from('book_ratings')
-          .select('rating, user_id')
-          .eq('book_id', book.id),
-        supabase
-          .from('book_comments')
-          .select('*')
-          .eq('book_id', book.id)
-          .order('created_at', { ascending: false })
-          .limit(50),
+        supabase.from('book_ratings').select('rating, user_id').eq('book_id', book.id),
+        supabase.from('book_comments').select('*').eq('book_id', book.id).order('created_at', { ascending: false }).limit(50),
       ]);
-
       if (ratingsRes.data) {
-        const ratings = ratingsRes.data.map((r) => r.rating);
-        setAvgRating(
-          ratings.length
-            ? ratings.reduce((a, b) => a + b, 0) / ratings.length
-            : 0
-        );
+        const ratings = ratingsRes.data.map(r => r.rating);
+        setAvgRating(ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0);
         setRatingCount(ratings.length);
         if (user) {
-          const userRatingData = ratingsRes.data.find(
-            (r) => r.user_id === user.id
-          );
+          const userRatingData = ratingsRes.data.find(r => r.user_id === user.id);
           setUserRating(userRatingData?.rating ?? 0);
         }
       }
-
       if (commentsRes.data) setComments(commentsRes.data);
-    } catch (err) {
-      console.error('loadBookData error:', err);
-    }
+    } catch (err) { console.error('loadBookData error:', err); }
   }, [book.id, user]);
 
-  // ✅ Callback synchronisé avec FavoriteButton
-  const handleLikeChange = useCallback((newCount: number) => {
-    setLikeCount(newCount);
-  }, []);
+  const handleLikeChange = useCallback((newCount: number) => { setLikeCount(newCount); }, []);
 
   async function handleRate(rating: number) {
     if (!user) return;
@@ -975,15 +1463,10 @@ const BookDetailModal = memo(({ book, lang, user, onClose }: {
     if (!user || !newComment.trim()) return;
     setIsSubmittingComment(true);
     const { error } = await supabase.from('book_comments').insert({
-      user_id: user.id,
-      book_id: book.id,
-      user_email: user.email,
-      content: newComment.trim(),
+      user_id: user.id, book_id: book.id,
+      user_email: user.email, content: newComment.trim(),
     });
-    if (!error) {
-      setNewComment('');
-      loadBookData();
-    }
+    if (!error) { setNewComment(''); loadBookData(); }
     setIsSubmittingComment(false);
   }
 
@@ -998,41 +1481,52 @@ const BookDetailModal = memo(({ book, lang, user, onClose }: {
     document.body.removeChild(link);
     (async () => {
       try {
-        const { error } = await supabase.rpc('increment_book_downloads', {
-          book_id: book.id,
-        });
-        if (error) console.warn('Download count:', error.message);
-      } catch (err) {
-        console.warn('Download count error:', err);
-      }
+        await supabase.rpc('increment_book_downloads', { book_id: book.id });
+      } catch {}
     })();
   }, [book.file_url, book.id]);
 
+  // ── Reader plein écran ──────────────────────────────────────────────────────
   if (showReader) {
     return (
       <>
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="fixed inset-0 z-[60] bg-[#020111] flex flex-col"
-        >
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          className="fixed inset-0 z-[60] bg-[#020111] flex flex-col">
+
+          {/* Header du reader */}
           <div className="h-14 flex items-center justify-between px-4 border-b border-white/10 bg-[#0a0a14]">
             <div className="flex items-center gap-3 min-w-0">
               <CaurisIcon className="w-5 h-5 text-emerald-500 flex-shrink-0" />
               <h3 className="text-white text-sm font-bold truncate">{title}</h3>
+              {/* Badge type de fichier */}
+              <span className={`flex-shrink-0 px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                fileType === 'epub'
+                  ? 'bg-purple-500/20 text-purple-400 border-purple-500/30'
+                  : 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+              }`}>
+                {fileType === 'epub' ? 'EPUB' : 'PDF'}
+              </span>
             </div>
             <div className="flex items-center gap-3">
               <StarRating rating={userRating} onRate={handleRate} size={14} />
-              <button
-                onClick={() => setShowReader(false)}
-                className="p-2 text-gray-400 hover:text-white transition-colors"
-              >
+              <button onClick={() => setShowReader(false)} className="p-2 text-gray-400 hover:text-white transition-colors">
                 <X size={20} />
               </button>
             </div>
           </div>
+
+          {/* Contenu du reader */}
           <div className="flex-1 overflow-hidden">
-            {readerMode === 'pdf' && book.file_url ? (
+            {/* ✅ EPUB → EPUBReader */}
+            {readerMode === 'epub' && book.file_url ? (
+              <EPUBReader
+                url={book.file_url}
+                title={title}
+                lang={lang}
+                onClose={() => setShowReader(false)}
+              />
+            ) : readerMode === 'pdf' && book.file_url ? (
+              /* ✅ PDF → CloudinaryPDFReader */
               <CloudinaryPDFReader
                 url={book.file_url}
                 title={title}
@@ -1042,27 +1536,32 @@ const BookDetailModal = memo(({ book, lang, user, onClose }: {
                 onClose={() => setShowReader(false)}
               />
             ) : readerMode === 'audio' && book.audio_url ? (
+              /* ✅ Audio → AudioPlayer */
               <AudioPlayer url={book.audio_url} title={title} cover={book.cover_url} />
             ) : null}
           </div>
+
+          {/* Barre de mode (si audio disponible aussi) */}
           {book.has_audio && book.file_url && (
             <div className="h-12 flex items-center justify-center gap-4 border-t border-white/10 bg-[#0a0a14]">
               <button
-                onClick={() => setReaderMode('pdf')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${readerMode === 'pdf'
-                  ? 'bg-emerald-500/20 text-emerald-400'
-                  : 'text-gray-500 hover:text-white'
-                  }`}
+                onClick={() => setReaderMode(fileType === 'epub' ? 'epub' : 'pdf')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                  readerMode !== 'audio'
+                    ? 'bg-emerald-500/20 text-emerald-400'
+                    : 'text-gray-500 hover:text-white'
+                }`}
               >
                 <BookOpen size={14} />
-                {lang === 'fr' ? 'Document' : 'Document'}
+                {fileType === 'epub' ? 'EPUB' : (lang === 'fr' ? 'Document' : 'Document')}
               </button>
               <button
                 onClick={() => setReaderMode('audio')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${readerMode === 'audio'
-                  ? 'bg-purple-500/20 text-purple-400'
-                  : 'text-gray-500 hover:text-white'
-                  }`}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                  readerMode === 'audio'
+                    ? 'bg-purple-500/20 text-purple-400'
+                    : 'text-gray-500 hover:text-white'
+                }`}
               >
                 <Headphones size={14} />
                 {lang === 'fr' ? 'Audio' : 'Audio'}
@@ -1070,218 +1569,160 @@ const BookDetailModal = memo(({ book, lang, user, onClose }: {
             </div>
           )}
         </motion.div>
+
         <NotesplitContainer
-          itemId={book.id}
-          itemType="book"
-          userId={user?.id}
-          catColor="#10B981"
-          lang={lang}
-        >
+          itemId={book.id} itemType="book"
+          userId={user?.id} catColor="#10B981" lang={lang}>
           <div />
         </NotesplitContainer>
       </>
     );
   }
 
+  // ── Modal détail ────────────────────────────────────────────────────────────
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.92, y: 20 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.92, y: 20 }}
-        transition={{ duration: 0.25 }}
-        onClick={(e) => e.stopPropagation()}
-        className="relative bg-gradient-to-br from-[#0d0d1a] to-[#080810] border border-white/10 rounded-3xl w-full max-w-3xl max-h-[90vh] overflow-y-auto scrollbar-hide shadow-[0_0_80px_rgba(16,185,129,0.08)]"
-      >
+      onClick={onClose}>
+      <motion.div initial={{ scale: 0.92, y: 20 }} animate={{ scale: 1, y: 0 }}
+        exit={{ scale: 0.92, y: 20 }} transition={{ duration: 0.25 }}
+        onClick={e => e.stopPropagation()}
+        className="relative bg-gradient-to-br from-[#0d0d1a] to-[#080810] border border-white/10 rounded-3xl w-full max-w-3xl max-h-[90vh] overflow-y-auto scrollbar-hide shadow-[0_0_80px_rgba(16,185,129,0.08)]">
         <div className="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-emerald-500/40 to-transparent" />
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 z-20 p-2 text-gray-600 hover:text-white transition-colors"
-        >
+        <button onClick={onClose} className="absolute top-4 right-4 z-20 p-2 text-gray-600 hover:text-white transition-colors">
           <X size={20} />
         </button>
         <div className="p-6 md:p-8">
+          {/* Couverture + infos */}
           <div className="flex flex-col md:flex-row gap-6 mb-6">
             <div className="flex-shrink-0 mx-auto md:mx-0">
               <div className="relative w-40 md:w-48 aspect-[3/4] rounded-xl overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.6)]">
-                <div
-                  className="absolute left-0 top-0 bottom-0 w-2 z-10"
-                  style={{
-                    background: `linear-gradient(to right, ${catColor}80, transparent)`,
-                  }}
-                />
-                <img
-                  src={book.cover_url || FALLBACK_COVER}
-                  alt=""
-                  className="w-full h-full object-cover"
-                />
+                <div className="absolute left-0 top-0 bottom-0 w-2 z-10"
+                  style={{ background: `linear-gradient(to right, ${catColor}80, transparent)` }} />
+                <img src={book.cover_url || FALLBACK_COVER} alt="" className="w-full h-full object-cover" />
               </div>
+              {/* ✅ Badge type de fichier sous la couverture */}
+              {book.file_url && (
+                <div className="mt-2 flex justify-center">
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                    fileType === 'epub'
+                      ? 'bg-purple-500/20 text-purple-400 border-purple-500/30'
+                      : 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                  }`}>
+                    <FileText size={10} />
+                    {fileType === 'epub' ? 'EPUB' : 'PDF'}
+                  </span>
+                </div>
+              )}
             </div>
             <div className="flex-1 min-w-0 text-center md:text-left">
               {book.categories && (
-                <span
-                  className="inline-block px-3 py-1 rounded-full text-[10px] font-bold tracking-wider mb-3"
-                  style={{
-                    backgroundColor: `${catColor}20`,
-                    color: catColor,
-                  }}
-                >
-                  {lang === 'fr'
-                    ? book.categories.name_fr
-                    : book.categories.name_en}
+                <span className="inline-block px-3 py-1 rounded-full text-[10px] font-bold tracking-wider mb-3"
+                  style={{ backgroundColor: `${catColor}20`, color: catColor }}>
+                  {lang === 'fr' ? book.categories.name_fr : book.categories.name_en}
                 </span>
               )}
-              <h2 className="text-2xl md:text-3xl font-serif text-white mb-2 leading-tight">
-                {title}
-              </h2>
+              <h2 className="text-2xl md:text-3xl font-serif text-white mb-2 leading-tight">{title}</h2>
               <p className="text-gray-400 text-sm mb-4">{author}</p>
               <div className="flex items-center gap-3 justify-center md:justify-start mb-4">
                 <StarRating rating={userRating} onRate={handleRate} size={20} />
                 <span className="text-sm text-gray-400">
-                  {avgRating.toFixed(1)}{' '}
-                  <span className="text-gray-600">({ratingCount})</span>
+                  {avgRating.toFixed(1)} <span className="text-gray-600">({ratingCount})</span>
                 </span>
               </div>
               <div className="flex items-center gap-2 justify-center md:justify-start">
-                {/* ✅ Passer le callback onLikeChange */}
-                <FavoriteButton
-                  itemType="book"
-                  itemId={book.id}
-                  size={16}
-                  onLikeChange={handleLikeChange}
-                />
+                <FavoriteButton itemType="book" itemId={book.id} size={16} onLikeChange={handleLikeChange} />
                 <span className="text-sm font-bold text-gray-400">
-                  {likeCount} {lang === 'fr' ? 'Favori' : 'Favorite'}
-                  {likeCount > 1 ? 's' : ''}
+                  {likeCount} {lang === 'fr' ? 'Favori' : 'Favorite'}{likeCount > 1 ? 's' : ''}
                 </span>
               </div>
             </div>
           </div>
+
           {desc && (
             <div className="mb-6 p-4 bg-white/[0.03] rounded-xl border border-white/[0.06]">
               <p className="text-gray-300 text-sm leading-relaxed">{desc}</p>
             </div>
           )}
+
+          {/* Boutons d'action */}
           <div className="flex flex-wrap gap-3 mb-8">
             {book.file_url && (
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
+              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                 onClick={() => {
                   setShowReader(true);
-                  setReaderMode('pdf');
+                  setReaderMode(fileType === 'epub' ? 'epub' : 'pdf');
                 }}
-                className="flex items-center gap-2 bg-emerald-500 text-black px-6 py-3 rounded-xl font-bold text-sm hover:bg-white transition-colors shadow-[0_0_20px_rgba(16,185,129,0.3)]"
-              >
+                className="flex items-center gap-2 bg-emerald-500 text-black px-6 py-3 rounded-xl font-bold text-sm hover:bg-white transition-colors shadow-[0_0_20px_rgba(16,185,129,0.3)]">
                 <BookOpen size={18} />
-                {lang === 'fr' ? 'Lire' : 'Read'}
+                {/* ✅ Label dynamique selon le type */}
+                {lang === 'fr'
+                  ? (fileType === 'epub' ? 'Lire (EPUB)' : 'Lire (PDF)')
+                  : (fileType === 'epub' ? 'Read (EPUB)' : 'Read (PDF)')}
               </motion.button>
             )}
             {book.has_audio && (
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={() => {
-                  setShowReader(true);
-                  setReaderMode('audio');
-                }}
-                className="flex items-center gap-2 bg-purple-500/20 text-purple-400 px-6 py-3 rounded-xl font-bold text-sm border border-purple-500/30 hover:bg-purple-500/30 transition-colors"
-              >
+              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                onClick={() => { setShowReader(true); setReaderMode('audio'); }}
+                className="flex items-center gap-2 bg-purple-500/20 text-purple-400 px-6 py-3 rounded-xl font-bold text-sm border border-purple-500/30 hover:bg-purple-500/30 transition-colors">
                 <Headphones size={18} />
                 {lang === 'fr' ? 'Écouter' : 'Listen'}
               </motion.button>
             )}
             {book.access_type === 'read_and_download' && book.file_url && (
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
+              <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                 onClick={handleDownload}
-                className="flex items-center gap-2 bg-blue-500/20 text-blue-400 px-6 py-3 rounded-xl font-bold text-sm border border-blue-500/30 hover:bg-blue-500/30 transition-colors"
-              >
+                className="flex items-center gap-2 bg-blue-500/20 text-blue-400 px-6 py-3 rounded-xl font-bold text-sm border border-blue-500/30 hover:bg-blue-500/30 transition-colors">
                 <Download size={18} />
                 {lang === 'fr' ? 'Télécharger' : 'Download'}
               </motion.button>
             )}
           </div>
+
+          {/* Commentaires */}
           <div className="border-t border-white/[0.06] pt-6">
             <h3 className="flex items-center gap-2 text-white font-bold text-sm mb-4">
               <MessageCircle size={16} className="text-emerald-500" />
               {lang === 'fr' ? 'Commentaires' : 'Comments'}{' '}
-              <span className="text-gray-600 font-normal">
-                ({comments.length})
-              </span>
+              <span className="text-gray-600 font-normal">({comments.length})</span>
             </h3>
             <div className="space-y-4 mb-6 max-h-64 overflow-y-auto scrollbar-hide">
               {comments.length === 0 && (
                 <p className="text-gray-600 text-sm text-center py-4">
-                  {lang === 'fr'
-                    ? 'Aucun commentaire. Soyez le premier !'
-                    : 'No comments yet. Be the first!'}
+                  {lang === 'fr' ? 'Aucun commentaire. Soyez le premier !' : 'No comments yet. Be the first!'}
                 </p>
               )}
-              {comments.map((c) => (
+              {comments.map(c => (
                 <div key={c.id} className="flex gap-3">
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-xs font-bold">
                     {(c.user_email || '?')[0].toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-white text-xs font-bold">
-                        {c.user_email?.split('@')[0]}
-                      </span>
-                      <span className="text-gray-600 text-[10px]">
-                        {timeAgo(c.created_at, lang)}
-                      </span>
+                      <span className="text-white text-xs font-bold">{c.user_email?.split('@')[0]}</span>
+                      <span className="text-gray-600 text-[10px]">{timeAgo(c.created_at, lang)}</span>
                     </div>
-                    <p className="text-gray-300 text-sm leading-relaxed">
-                      {c.content}
-                    </p>
+                    <p className="text-gray-300 text-sm leading-relaxed">{c.content}</p>
                   </div>
                 </div>
               ))}
             </div>
             {user ? (
               <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleComment()}
-                  placeholder={
-                    lang === 'fr'
-                      ? 'Écrire un commentaire...'
-                      : 'Write a comment...'
-                  }
-                  className="flex-1 bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-emerald-500/40 transition-colors placeholder:text-gray-600"
-                />
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleComment}
-                  disabled={!newComment.trim() || isSubmittingComment}
-                  className="p-3 bg-emerald-500 text-black rounded-xl hover:bg-white transition-colors disabled:opacity-30"
-                >
-                  {isSubmittingComment ? (
-                    <Loader2 size={18} className="animate-spin" />
-                  ) : (
-                    <Send size={18} />
-                  )}
+                <input type="text" value={newComment} onChange={e => setNewComment(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleComment()}
+                  placeholder={lang === 'fr' ? 'Écrire un commentaire...' : 'Write a comment...'}
+                  className="flex-1 bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-emerald-500/40 transition-colors placeholder:text-gray-600" />
+                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                  onClick={handleComment} disabled={!newComment.trim() || isSubmittingComment}
+                  className="p-3 bg-emerald-500 text-black rounded-xl hover:bg-white transition-colors disabled:opacity-30">
+                  {isSubmittingComment ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
                 </motion.button>
               </div>
             ) : (
-              <Link
-                href="/auth"
-                className="block text-center py-3 bg-white/[0.03] border border-white/10 rounded-xl text-gray-400 text-sm hover:text-emerald-400 hover:border-emerald-500/30 transition-colors"
-              >
-                {lang === 'fr'
-                  ? 'Connectez-vous pour commenter'
-                  : 'Sign in to comment'}
+              <Link href="/auth"
+                className="block text-center py-3 bg-white/[0.03] border border-white/10 rounded-xl text-gray-400 text-sm hover:text-emerald-400 hover:border-emerald-500/30 transition-colors">
+                {lang === 'fr' ? 'Connectez-vous pour commenter' : 'Sign in to comment'}
               </Link>
             )}
           </div>
@@ -1351,21 +1792,12 @@ HeroSection.displayName = 'HeroSection';
 // ============================================================================
 
 interface LibrarySearchDropdownProps {
-  searchTerm: string;
-  lang: 'fr' | 'en';
-  lukeniBooks: Book[];
-  onSelectBook: (book: Book) => void;
-  onSelectOLBook: (book: EnrichedOLBook) => void;
-  onClose: () => void;
+  searchTerm: string; lang: 'fr' | 'en'; lukeniBooks: Book[];
+  onSelectBook: (book: Book) => void; onSelectOLBook: (book: EnrichedOLBook) => void; onClose: () => void;
 }
 
 const LibrarySearchDropdown = memo(({
-  searchTerm,
-  lang,
-  lukeniBooks,
-  onSelectBook,
-  onSelectOLBook,
-  onClose,
+  searchTerm, lang, lukeniBooks, onSelectBook, onSelectOLBook, onClose,
 }: LibrarySearchDropdownProps) => {
   const showExternal = searchTerm.length >= 3;
   const { books: openLibBooks, isLoading: openLibLoading } = useOpenLibrary(searchTerm, showExternal);
@@ -1374,23 +1806,16 @@ const LibrarySearchDropdown = memo(({
   const hasLukeni = lukeniBooks.length > 0;
   const hasOpenLib = openLibBooks.length > 0;
   const hasLibGen = libGenBooks.length > 0;
-
-  const isVisible =
-    searchTerm.length >= 2 &&
-    (hasLukeni || hasOpenLib || hasLibGen || openLibLoading || libGenLoading);
+  const isVisible = searchTerm.length >= 2 && (hasLukeni || hasOpenLib || hasLibGen || openLibLoading || libGenLoading);
 
   if (!isVisible) return null;
 
   return (
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -8 }}
+      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
         className="absolute top-full mt-2 left-0 right-0 bg-[#0d0d1a]/95 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden z-50 max-h-[70vh] overflow-y-auto shadow-[0_20px_60px_rgba(0,0,0,0.8)]"
-        style={{ scrollbarWidth: 'none' }}
-      >
-        {/* ── LUKENI (priorité) ── */}
+        style={{ scrollbarWidth: 'none' }}>
+
         {hasLukeni && (
           <>
             <div className="px-4 py-2.5 bg-emerald-500/10 border-b border-white/5 flex items-center gap-2 sticky top-0 z-10">
@@ -1403,8 +1828,7 @@ const LibrarySearchDropdown = memo(({
               </span>
             </div>
             {lukeniBooks.slice(0, 4).map(book => (
-              <div key={book.id}
-                onClick={() => { onSelectBook(book); onClose(); }}
+              <div key={book.id} onClick={() => { onSelectBook(book); onClose(); }}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-emerald-500/10 transition-colors group border-b border-white/[0.03] cursor-pointer">
                 <div className="w-10 h-14 rounded-lg overflow-hidden bg-white/5 flex-shrink-0">
                   <img src={book.cover_url || FALLBACK_COVER} alt="" className="w-full h-full object-cover" />
@@ -1413,9 +1837,13 @@ const LibrarySearchDropdown = memo(({
                   <p className="text-white text-sm font-bold truncate group-hover:text-emerald-400 transition-colors">
                     {lang === 'fr' ? book.title_fr : book.title_en}
                   </p>
-                  <p className="text-gray-500 text-xs truncate">
-                    {lang === 'fr' ? book.author_fr : book.author_en}
-                  </p>
+                  <p className="text-gray-500 text-xs truncate">{lang === 'fr' ? book.author_fr : book.author_en}</p>
+                  {/* ✅ Badge type de fichier dans les résultats */}
+                  {book.file_url && (
+                    <span className={`text-[9px] font-bold ${getFileType(book.file_url) === 'epub' ? 'text-purple-400' : 'text-blue-400'}`}>
+                      {getFileType(book.file_url).toUpperCase()}
+                    </span>
+                  )}
                 </div>
                 <ChevronRight size={14} className="text-gray-700 group-hover:text-emerald-400 flex-shrink-0" />
               </div>
@@ -1423,7 +1851,6 @@ const LibrarySearchDropdown = memo(({
           </>
         )}
 
-        {/* ── OPEN LIBRARY ── */}
         {(hasOpenLib || openLibLoading) && (
           <>
             <div className="px-4 py-2.5 bg-white/[0.02] border-b border-white/[0.06] border-t border-white/[0.06] flex items-center gap-2 sticky top-0 z-10">
@@ -1432,35 +1859,21 @@ const LibrarySearchDropdown = memo(({
               {openLibLoading && <Loader2 size={10} className="animate-spin text-gray-600 ml-auto" />}
             </div>
             {openLibBooks.slice(0, 4).map(book => {
-              const cover = book.cover_i
-                ? `https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg`
-                : FALLBACK_COVER;
+              const cover = book.cover_i ? `https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg` : FALLBACK_COVER;
               return (
-                <div key={book.key}
-                  onClick={() => { onSelectOLBook(book); onClose(); }}
+                <div key={book.key} onClick={() => { onSelectOLBook(book); onClose(); }}
                   className="flex items-center gap-3 px-4 py-3 hover:bg-blue-500/10 transition-colors group border-b border-white/[0.03] cursor-pointer">
                   <div className="w-10 h-14 rounded-lg overflow-hidden bg-white/5 flex-shrink-0">
                     <img src={cover} alt="" loading="lazy" className="w-full h-full object-cover" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-white/80 text-sm font-medium truncate group-hover:text-white transition-colors">
-                      {book.title}
-                    </p>
-                    <p className="text-gray-600 text-xs truncate">
-                      {book.author_name?.[0] || 'Unknown'}
-                    </p>
-                    {/* Badge statut lisibilité */}
+                    <p className="text-white/80 text-sm font-medium truncate group-hover:text-white transition-colors">{book.title}</p>
+                    <p className="text-gray-600 text-xs truncate">{book.author_name?.[0] || 'Unknown'}</p>
                     <div className="flex items-center gap-1 mt-0.5">
                       {book.readStatus === 'public' ? (
-                        <span className="text-[9px] text-emerald-500 flex items-center gap-0.5">
-                          <Globe size={8} />
-                          {lang === 'fr' ? 'Lecture directe' : 'Direct reading'}
-                        </span>
+                        <span className="text-[9px] text-emerald-500 flex items-center gap-0.5"><Globe size={8} />{lang === 'fr' ? 'Lecture directe' : 'Direct reading'}</span>
                       ) : book.readStatus === 'borrow' ? (
-                        <span className="text-[9px] text-amber-400 flex items-center gap-0.5">
-                          <LockIcon size={8} />
-                          {lang === 'fr' ? 'Emprunt requis' : 'Borrow required'}
-                        </span>
+                        <span className="text-[9px] text-amber-400 flex items-center gap-0.5"><LockIcon size={8} />{lang === 'fr' ? 'Emprunt requis' : 'Borrow required'}</span>
                       ) : book.first_publish_year ? (
                         <span className="text-[9px] text-gray-600">{book.first_publish_year}</span>
                       ) : null}
@@ -1473,7 +1886,6 @@ const LibrarySearchDropdown = memo(({
           </>
         )}
 
-        {/* ── LIBGEN ── */}
         {(hasLibGen || libGenLoading) && (
           <>
             <div className="px-4 py-2.5 bg-white/[0.02] border-b border-white/[0.06] border-t border-white/[0.06] flex items-center gap-2 sticky top-0 z-10">
@@ -1482,14 +1894,11 @@ const LibrarySearchDropdown = memo(({
               {libGenLoading && <Loader2 size={10} className="animate-spin text-gray-600 ml-auto" />}
             </div>
             {libGenBooks.slice(0, 4).map(book => (
-              <a key={book.md5}
-                href={`https://libgen.is/book/index.php?md5=${book.md5}`}
+              <a key={book.md5} href={`https://libgen.is/book/index.php?md5=${book.md5}`}
                 target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-3 px-4 py-3 hover:bg-purple-500/10 transition-colors group border-b border-white/[0.03]">
                 <div className="w-10 h-14 rounded-lg overflow-hidden bg-white/5 flex-shrink-0 flex items-center justify-center">
-                  {book.coverurl
-                    ? <img src={book.coverurl} alt="" loading="lazy" className="w-full h-full object-cover" />
-                    : <FileText size={18} className="text-gray-600" />}
+                  {book.coverurl ? <img src={book.coverurl} alt="" loading="lazy" className="w-full h-full object-cover" /> : <FileText size={18} className="text-gray-600" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-white/80 text-sm font-medium truncate group-hover:text-white transition-colors">{book.title}</p>
@@ -1502,7 +1911,6 @@ const LibrarySearchDropdown = memo(({
           </>
         )}
 
-        {/* Footer */}
         <div className="px-4 py-2 border-t border-white/[0.05] bg-[#0d0d1a] sticky bottom-0">
           <p className="text-[9px] text-gray-700 text-center">
             {lang === 'fr' ? '✨ Les livres Lukeni apparaissent en premier' : '✨ Lukeni books appear first'}
@@ -1519,7 +1927,6 @@ LibrarySearchDropdown.displayName = 'LibrarySearchDropdown';
 // ============================================================================
 
 export default function BibliothequePage() {
-
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
@@ -1532,13 +1939,10 @@ export default function BibliothequePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
-  // ── Nouveau state pour Open Library Reader ──
   const [selectedOLBook, setSelectedOLBook] = useState<EnrichedOLBook | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
-
   const [circles, setCircles] = useState<any[]>([]);
   const [searchMode, setSearchMode] = useState<'books' | 'circles'>('books');
-
 
   useEffect(() => {
     setMounted(true);
@@ -1546,16 +1950,9 @@ export default function BibliothequePage() {
     if (savedLang) setLang(savedLang);
   }, []);
 
-
   useEffect(() => {
     const loadCircles = async () => {
-      const { data } = await supabase
-        .from('reading_circles')
-        .select('*')
-        .eq('is_public', true)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
+      const { data } = await supabase.from('reading_circles').select('*').eq('is_public', true).order('created_at', { ascending: false }).limit(50);
       if (data) setCircles(data);
     };
     loadCircles();
@@ -1612,7 +2009,6 @@ export default function BibliothequePage() {
   return (
     <div className="min-h-screen bg-[#020111] text-white overflow-x-hidden">
       <AnimatePresence>{isLoading && <LoadingScreen lang={lang} />}</AnimatePresence>
-
       <CollageBackground slots={collageSlots} settings={collageSettings} />
 
       <div className="relative z-40">
@@ -1634,8 +2030,7 @@ export default function BibliothequePage() {
         <span className="hidden sm:inline">{lang === 'fr' ? 'Contribuer' : 'Contribute'}</span>
       </motion.button>
 
-
-      {/* 🆕 FAB Créer cercle - NOUVEAU */}
+      {/* FAB Cercle */}
       <motion.button onClick={() => router.push('/bibliotheque/circles/create')}
         className="fixed bottom-24 right-6 z-30 flex items-center gap-2 bg-purple-500 text-white px-5 py-3.5 rounded-full font-bold text-sm shadow-[0_0_30px_rgba(168,85,247,0.5)] hover:bg-purple-600 transition-colors"
         whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.95 }}
@@ -1647,42 +2042,28 @@ export default function BibliothequePage() {
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6">
         <HeroSection lang={lang} bookCount={books.length} />
 
-        {/* Search avec tab pour cercles */}
+        {/* Search */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 2 }}
           className="relative max-w-2xl mx-auto mb-8">
-          {/* Tabs : Livres / Cercles */}
+          {/* Tabs */}
           <div className="flex gap-2 mb-3">
-            <button
-              onClick={() => { setSearchMode('books'); setSearchTerm(''); }}
-              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${searchMode === 'books'
-                ? 'bg-emerald-500 text-black'
-                : 'bg-white/5 text-gray-400 hover:text-white'
-                }`}
-            >
+            <button onClick={() => { setSearchMode('books'); setSearchTerm(''); }}
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${searchMode === 'books' ? 'bg-emerald-500 text-black' : 'bg-white/5 text-gray-400 hover:text-white'}`}>
               📚 {lang === 'fr' ? 'Livres' : 'Books'}
             </button>
-            <button
-              onClick={() => { setSearchMode('circles'); setSearchTerm(''); }}
-              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${searchMode === 'circles'
-                ? 'bg-purple-500 text-black'
-                : 'bg-white/5 text-gray-400 hover:text-white'
-                }`}
-            >
+            <button onClick={() => { setSearchMode('circles'); setSearchTerm(''); }}
+              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${searchMode === 'circles' ? 'bg-purple-500 text-black' : 'bg-white/5 text-gray-400 hover:text-white'}`}>
               👥 {lang === 'fr' ? 'Cercles' : 'Circles'}
             </button>
           </div>
 
           <div className="relative group">
             <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-emerald-500 transition-colors pointer-events-none" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
+            <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
               placeholder={searchMode === 'books'
                 ? (lang === 'fr' ? 'Rechercher un livre, un auteur...' : 'Search a book, an author...')
                 : (lang === 'fr' ? 'Rechercher un cercle...' : 'Search a circle...')}
-              className="w-full bg-black/50 backdrop-blur-md border border-white/10 rounded-2xl pl-12 pr-12 py-4 text-white text-base outline-none focus:border-emerald-500/40 focus:bg-black/70 transition-all placeholder:text-gray-700"
-            />
+              className="w-full bg-black/50 backdrop-blur-md border border-white/10 rounded-2xl pl-12 pr-12 py-4 text-white text-base outline-none focus:border-emerald-500/40 focus:bg-black/70 transition-all placeholder:text-gray-700" />
             {searchTerm && (
               <button onClick={() => setSearchTerm('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white transition-colors">
                 <X size={16} />
@@ -1690,121 +2071,104 @@ export default function BibliothequePage() {
             )}
           </div>
 
-          {/* Résultats Livres */}
+          {/* Dropdown livres */}
           {searchMode === 'books' && (
             <LibrarySearchDropdown
-              searchTerm={searchTerm}
-              lang={lang}
-              lukeniBooks={filtered}
+              searchTerm={searchTerm} lang={lang} lukeniBooks={filtered}
               onSelectBook={book => setSelectedBook(book)}
               onSelectOLBook={book => setSelectedOLBook(book)}
               onClose={() => setSearchTerm('')}
             />
           )}
 
-                  {/* Résultats Cercles */}
-            {searchMode === 'circles' && searchTerm.length >= 2 && (
-              <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-                className="absolute top-full mt-2 left-0 right-0 bg-[#0d0d1a]/95 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden z-50 max-h-80 overflow-y-auto">
-                {circles.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 ? (
-                  <div className="p-4 text-center text-gray-500 text-sm">
-                    {lang === 'fr' ? 'Aucun cercle trouvé' : 'No circles found'}
-                  </div>
-                ) : (
-                  circles
-                    .filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()))
-                    .map(circle => {
-                      const circleBook = books.find(b => b.id === circle.book_id);
-
-                      return (
-                        <Link key={circle.id} href={`/bibliotheque/circles/${circle.id}`}
-                          className="flex items-center gap-3 px-4 py-3 hover:bg-purple-500/10 transition-colors border-b border-white/[0.03] last:border-b-0 cursor-pointer">
-
-                          {circleBook?.cover_url ? (
-                            <div className="w-10 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-purple-500/10">
-                              <img src={circleBook.cover_url} alt="" className="w-full h-full object-cover" />
-                            </div>
-                          ) : (
-                            <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 font-bold text-sm flex-shrink-0">
-                              👥
-                            </div>
-                          )}
-
-                          <div className="flex-1 min-w-0">
-                            <p className="text-white text-sm font-bold truncate">{circle.name}</p>
-
-                            {circleBook && (
-                              <p className="text-gray-500 text-xs truncate">
-                                📖 {lang === 'fr' ? circleBook.title_fr : circleBook.title_en}
-                              </p>
-                            )}
-
-                            <p className="text-gray-600 text-xs truncate mt-0.5">
-                              {circle.max_members} {lang === 'fr' ? 'places' : 'spots'}
-                            </p>
-                          </div>
-
-                          <ChevronRight size={14} className="text-gray-700" />
-                        </Link>
-                      );
-                    })
-                )}
-              </motion.div>
-            )}
-
-          </motion.div>
-
-          {/* Categories */}
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.2 }}
-            className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2 mb-8">
-            <button onClick={() => setActiveCategory('all')}
-              className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 border ${activeCategory === 'all' ? 'bg-emerald-500 text-black border-emerald-500' : 'bg-black/40 backdrop-blur-sm text-gray-500 border-white/[0.08] hover:border-white/20 hover:text-gray-300'}`}>
-              <Globe size={12} />{lang === 'fr' ? 'Tout' : 'All'}
-            </button>
-            {categories.map(cat => (
-              <motion.button key={cat.id} onClick={() => setActiveCategory(cat.id)}
-                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                className={`flex-shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 border whitespace-nowrap ${activeCategory === cat.id ? 'text-black border-transparent' : 'bg-black/40 backdrop-blur-sm text-gray-500 border-white/[0.08] hover:border-white/20 hover:text-gray-300'}`}
-                style={activeCategory === cat.id ? { backgroundColor: cat.color, boxShadow: `0 0 15px ${cat.color}50` } : {}}>
-                {lang === 'fr' ? cat.name_fr : cat.name_en}
-              </motion.button>
-            ))}
-          </motion.div>
-
-          {/* Grid livres */}
-          {filtered.length === 0 && !isLoading ? (
-            <div className="text-center py-24">
-              <motion.div animate={{ opacity: [0.4, 0.8, 0.4] }} transition={{ duration: 3, repeat: Infinity }}>
-                <Library size={56} className="mx-auto text-gray-800 mb-4" />
-              </motion.div>
-              <p className="text-gray-600 text-sm tracking-wider">{lang === 'fr' ? 'La bibliothèque se remplit...' : 'The library is filling up...'}</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-              {filtered.map((book, i) => (
-                <BookCard key={book.id} book={book} index={i} lang={lang} onClick={() => setSelectedBook(book)} />
-              ))}
-            </div>
+          {/* Dropdown cercles */}
+          {searchMode === 'circles' && searchTerm.length >= 2 && (
+            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+              className="absolute top-full mt-2 left-0 right-0 bg-[#0d0d1a]/95 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden z-50 max-h-80 overflow-y-auto">
+              {circles.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 ? (
+                <div className="p-4 text-center text-gray-500 text-sm">
+                  {lang === 'fr' ? 'Aucun cercle trouvé' : 'No circles found'}
+                </div>
+              ) : (
+                circles.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase())).map(circle => {
+                  const circleBook = books.find(b => b.id === circle.book_id);
+                  return (
+                    <Link key={circle.id} href={`/bibliotheque/circles/${circle.id}`}
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-purple-500/10 transition-colors border-b border-white/[0.03] last:border-b-0 cursor-pointer">
+                      {circleBook?.cover_url ? (
+                        <div className="w-10 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-purple-500/10">
+                          <img src={circleBook.cover_url} alt="" className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 font-bold text-sm flex-shrink-0">👥</div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white text-sm font-bold truncate">{circle.name}</p>
+                        {circleBook && (
+                          <p className="text-gray-500 text-xs truncate">
+                            📖 {lang === 'fr' ? circleBook.title_fr : circleBook.title_en}
+                          </p>
+                        )}
+                        <p className="text-gray-600 text-xs truncate mt-0.5">
+                          {circle.max_members} {lang === 'fr' ? 'places' : 'spots'}
+                        </p>
+                      </div>
+                      <ChevronRight size={14} className="text-gray-700" />
+                    </Link>
+                  );
+                })
+              )}
+            </motion.div>
           )}
-          <div className="h-24" />
+        </motion.div>
+
+        {/* Catégories */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.2 }}
+          className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2 mb-8">
+          <button onClick={() => setActiveCategory('all')}
+            className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 border ${activeCategory === 'all' ? 'bg-emerald-500 text-black border-emerald-500' : 'bg-black/40 backdrop-blur-sm text-gray-500 border-white/[0.08] hover:border-white/20 hover:text-gray-300'}`}>
+            <Globe size={12} />{lang === 'fr' ? 'Tout' : 'All'}
+          </button>
+          {categories.map(cat => (
+            <motion.button key={cat.id} onClick={() => setActiveCategory(cat.id)}
+              whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+              className={`flex-shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 border whitespace-nowrap ${activeCategory === cat.id ? 'text-black border-transparent' : 'bg-black/40 backdrop-blur-sm text-gray-500 border-white/[0.08] hover:border-white/20 hover:text-gray-300'}`}
+              style={activeCategory === cat.id ? { backgroundColor: cat.color, boxShadow: `0 0 15px ${cat.color}50` } : {}}>
+              {lang === 'fr' ? cat.name_fr : cat.name_en}
+            </motion.button>
+          ))}
+        </motion.div>
+
+        {/* Grille livres */}
+        {filtered.length === 0 && !isLoading ? (
+          <div className="text-center py-24">
+            <motion.div animate={{ opacity: [0.4, 0.8, 0.4] }} transition={{ duration: 3, repeat: Infinity }}>
+              <Library size={56} className="mx-auto text-gray-800 mb-4" />
+            </motion.div>
+            <p className="text-gray-600 text-sm tracking-wider">
+              {lang === 'fr' ? 'La bibliothèque se remplit...' : 'The library is filling up...'}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+            {filtered.map((book, i) => (
+              <BookCard key={book.id} book={book} index={i} lang={lang} onClick={() => setSelectedBook(book)} />
+            ))}
+          </div>
+        )}
+        <div className="h-24" />
       </div>
 
-      {/* ── Modals ── */}
+      {/* Modals */}
       <AnimatePresence>
         {selectedBook && (
           <BookDetailModal book={selectedBook} lang={lang} user={user} onClose={() => setSelectedBook(null)} />
         )}
       </AnimatePresence>
 
-      {/* ── Open Library Reader ── */}
       <AnimatePresence>
         {selectedOLBook && (
-          <OpenLibraryReader
-            book={selectedOLBook}
-            lang={lang}
-            userId={user?.id}
-            onClose={() => setSelectedOLBook(null)}
-          />
+          <OpenLibraryReader book={selectedOLBook} lang={lang} userId={user?.id} onClose={() => setSelectedOLBook(null)} />
         )}
       </AnimatePresence>
 

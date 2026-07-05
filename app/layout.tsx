@@ -49,7 +49,7 @@ export const metadata: Metadata = {
     locale: "fr_FR",
     url: "https://lukeni.app",
     siteName: "Lukeni",
-     title: "Lukeni — Peuple, Mémoire, Mission",
+    title: "Lukeni — Peuple, Mémoire, Mission",
     description: "Plateforme de musique africaine et de patrimoine culturel",
     images: [
       {
@@ -128,6 +128,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        {/* ✅ META TAGS */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Lukeni" />
@@ -143,6 +144,16 @@ export default function RootLayout({
         <link rel="mask-icon" href="/icon-192x192.png" color="#D4AF37" />
         <link rel="alternate" hrefLang="fr" href="https://lukeni.app" />
         <meta name="google-site-verification" content="" />
+
+        {/* ✅ JSZIP ET EPUB.JS POUR LA LECTURE EPUB */}
+        <script
+          src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"
+          async
+        ></script>
+        <script
+          src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"
+          async
+        ></script>
       </head>
       
       <body className="min-h-full flex flex-col bg-[#020111] text-white">
