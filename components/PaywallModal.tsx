@@ -1,8 +1,9 @@
-// components/PaywallModal.tsx
+"use client";
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Loader2, X, Lock } from 'lucide-react';
+import { supabase } from '@/lib/supabase-browser'; // ✅ AJOUT DE SUPABASE
 
 interface PaywallModalProps {
   isOpen: boolean;
@@ -41,6 +42,7 @@ const translations = {
     processing: 'Traitement...',
   },
   en: {
+    // ... tes traductions
     unlockAccess: 'Unlock Access',
     amountXOF: 'CFA Amount',
     amountEUR: 'EUR Amount',
@@ -104,10 +106,24 @@ export default function PaywallModal({
     ? `${amount.toLocaleString()} CFA`
     : `${amount.toFixed(2)} EUR`;
 
+  // ✅ CORRECTION ICI : LA FONCTION HANDLE PAYMENT
   const handlePayment = async () => {
     setIsProcessing(true);
 
     try {
+      // 1️⃣ On récupère la session utilisateur pour avoir son ID
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.user) {
+        alert(lang === 'fr' ? 'Vous devez être connecté pour payer.' : 'You must be logged in to pay.');
+        setIsProcessing(false);
+        return;
+      }
+
+      const userId = session.user.id;
+      const userEmail = session.user.email;
+
+      // 2️⃣ On envoie LA TOTALITÉ des informations au serveur !
       const response = await fetch('/api/payments/create-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -115,13 +131,26 @@ export default function PaywallModal({
           productType,
           productId,
           currency,
+          userId,        // L'info qui manquait et causait l'erreur 400 !
+          userEmail      // L'info qui manquait !
         }),
       });
 
       const data = await response.json();
 
-      if (data.success && data.paymentUrl) {
-        window.location.href = data.paymentUrl;
+      if (data.success) {
+        // Redirection vers FedaPay (selon la réponse de ton backend)
+        if (data.paymentUrl) {
+          window.location.href = data.paymentUrl;
+        } else if (data.transactionToken) {
+          // Si FedaPay nous donne un token, on redirige vers leur page de paiement sécurisée
+          const isLive = process.env.NEXT_PUBLIC_FEDAPAY_PUBLIC_KEY?.includes('sandbox') ? false : true;
+          const checkoutBaseUrl = isLive 
+            ? 'https://checkout.fedapay.com/pay/' 
+            : 'https://sandbox-checkout.fedapay.com/pay/';
+            
+          window.location.href = checkoutBaseUrl + data.transactionToken;
+        }
       } else {
         alert(`${lang === 'fr' ? 'Erreur' : 'Error'}: ${data.error}`);
         setIsProcessing(false);
@@ -147,7 +176,7 @@ export default function PaywallModal({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <motion.div
@@ -296,7 +325,7 @@ export default function PaywallModal({
         {/* Sécurité */}
         <div className="mt-6 pt-6 border-t border-white/10">
           <p className="text-[10px] text-gray-600 text-center">
-            🔒 {t.securedBy} <strong className="text-gray-400">Fedapay</strong>
+            🔒 {t.securedBy} <strong className="text-[#D4AF37]">FedaPay</strong>
             <br />
             {t.bankDataProtected}
           </p>
