@@ -8,7 +8,7 @@ export async function POST(req: Request) {
 
     // 1️⃣ Vérification des paramètres
     if (!productType || !productId || !currency || !userId) {
-      return NextResponse.json({ error: 'Missing parameters (Frontend did not send all data)' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
     }
 
     // 2️⃣ Vérification du produit
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     // 4️⃣ Configuration FedaPay (Live / Sandbox)
     const secretKey = process.env.FEDAPAY_SECRET_KEY || '';
     if (!secretKey) {
-       return NextResponse.json({ error: 'FEDAPAY_SECRET_KEY is missing on Vercel' }, { status: 500 });
+       return NextResponse.json({ error: 'FEDAPAY_SECRET_KEY is missing' }, { status: 500 });
     }
 
     const isLive = secretKey.startsWith('sk_live');
@@ -42,23 +42,18 @@ export async function POST(req: Request) {
       ? 'https://api.fedapay.com/v1/transactions' 
       : 'https://sandbox-api.fedapay.com/v1/transactions';
 
-    // Sécurité URL (Utilise l'URL Vercel auto-générée si ton .env n'est pas défini)
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}` || 'https://lukeni.vercel.app';
     const callbackUrl = `${appUrl}/api/webhooks/fedapay`;
 
     const fedapayPayload = {
-      description: description,
-      amount: amount,
-      currency: currency,
-      customer: { 
-        email: userEmail || 'joueur@lukeni.com' 
-      },
+      description,
+      amount,
+      currency,
+      customer: { email: userEmail || 'joueur@lukeni.com' },
       payment_methods: paymentMethods,
       callback_url: callbackUrl,
       metadata: { userId, productType, productId }
     };
-
-    console.log("Envoi à FedaPay :", fedapayPayload); // Visible dans les logs Vercel
 
     // 5️⃣ Appel API FedaPay
     const fedapayResponse = await fetch(fedapayApiUrl, {
@@ -74,8 +69,7 @@ export async function POST(req: Request) {
 
     if (!fedapayResponse.ok) {
       console.error('Erreur FedaPay:', fedapayData);
-      // FedaPay renvoie parfois les erreurs dans `errors` ou `message`
-      const errorMessage = fedapayData.message || (fedapayData.errors ? JSON.stringify(fedapayData.errors) : 'Payment creation failed');
+      const errorMessage = fedapayData.message || (fedapayData.errors ? JSON.stringify(fedapayData.errors) : 'Payment failed');
       return NextResponse.json({ error: `FedaPay rejected: ${errorMessage}` }, { status: 400 });
     }
 
