@@ -6,10 +6,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Loader2, ShieldCheck, UserPlus, Trash2, Check, X,
   Mail, Lock, User, Search, AlertCircle, CheckCircle,
-  Edit2, Key, Shield, Users, Crown, Pencil
+  Edit2, Key, Shield, Crown, Pencil
 } from 'lucide-react';
 
 const ALL_TABS = [
+  { id: 'payments', label: 'Paiements', icon: '💳' }, // 👈 AJOUT ICI
   { id: 'hero', label: 'Background', icon: '🖼️' },
   { id: 'suggestions', label: 'Recherche', icon: '🔍' },
   { id: 'constellation', label: 'Constellation', icon: '⭐' },
@@ -449,7 +450,7 @@ export default function AdminsTab({ showMsg }: { showMsg: (type: 'success' | 'er
         )}
       </AnimatePresence>
 
-      {/* ✏️ MODAL ÉDITION INFO (Email/Password) */}
+      {/* ✏️ MODAL ÉDITION INFO */}
       <AnimatePresence>
         {showEditModal && editingAdmin && (
           <motion.div

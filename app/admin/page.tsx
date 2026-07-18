@@ -1,4 +1,3 @@
-// app/admin/page.tsx
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -9,11 +8,11 @@ import {
   ArrowLeft, ImagePlus, MessageSquareText, Star, CheckCircle,
   Tag, Lightbulb, FileText, CalendarDays, Music, FileAudio,
   Newspaper, Library, ShieldCheck, X, Loader2, AlertTriangle,
-  Crown, LayoutDashboard, Inbox, Clock, Globe,Link2,Eye,Bell, BookOpen, Users,Search, Map, LucideIcon,BarChart3
+  Crown, LayoutDashboard, Inbox, Clock, Globe,Link2,Eye,Bell, 
+  BookOpen, Users,Search, Map, LucideIcon,BarChart3, CreditCard // 👈 AJOUT DE CreditCard
 } from "lucide-react";
 import { autoTranslate } from "@/lib/lingua";
 import type { User } from "@supabase/supabase-js";
-
 
 // Tabs locales
 import HeroTab         from "./tabs/HeroTab";
@@ -39,12 +38,14 @@ import AdsTab from '@/components/AdsTab';
 import VisitorsTab from '@/components/VisitorsTab';
 import NotificationsTab    from "@/components/NotificationsTab";  
 import AboutTab from '@/components/AboutTab';
-import ReadingCirclesAdminTab from "@/components/ReadingCirclesAdminTab"; // ← AJOUTER ICI
-
-import { useActivityTimeout } from '@/lib/hooks/useActivityTimeout';
+import ReadingCirclesAdminTab from "@/components/ReadingCirclesAdminTab";
 import InvestigationsTab from "@/components/InvestigationsTab";
 import InvestigationBoardAdminTab from "@/components/InvestigationBoardAdminTab";
 import InvestigationAnalyticsTab from "@/components/admin/InvestigationAnalyticsTab";
+
+// 👈 AJOUT DE L'IMPORT DU TAB PAIEMENT
+import PaymentManagementTab from "@/components/admin/PaymentManagementTab"; 
+import { useActivityTimeout } from '@/lib/hooks/useActivityTimeout';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -67,16 +68,18 @@ type TabType =
   | "press"
   | "notifications"  
   | "library"
-  | "reading_circles" // ← AJOUTER ICI
+  | "reading_circles"
   | "investigations"
   | "investigation_board"
   | "admins"
   | "ads"  
   | "visitors"
-  | "investigation_analytics";
+  | "investigation_analytics"
+  | "payments"; // 👈 AJOUT ICI
 
 const ALL_TABS: { id: TabType; label: string; icon: LucideIcon }[] =  [
   { id: "dashboard",         label: "Dashboard",       icon: LayoutDashboard  },
+  { id: "payments",          label: "Paiements 💳",     icon: CreditCard       }, // 👈 AJOUT ICI
   { id: "contributions",     label: "Contributions",   icon: Inbox            },
   { id: "hero",              label: "Background",      icon: ImagePlus        },
   { id: "suggestions",       label: "Recherche",       icon: MessageSquareText},
@@ -94,7 +97,7 @@ const ALL_TABS: { id: TabType; label: string; icon: LucideIcon }[] =  [
   { id: "notifications",     label: "Notifications 🔔", icon: Bell            }, 
   { id: "ads",               label: "Publicités 📣",    icon: Star },
   { id: "library",           label: "Bibliothèque 📚", icon: Library          },
-  { id: "reading_circles",   label: "Clubs Lecture 👥",icon: Users            }, // ← AJOUTER ICI
+  { id: "reading_circles",   label: "Clubs Lecture 👥",icon: Users            },
   { id: "investigations",    label: "Enquêtes 🕵️",      icon: Search           },
   { id: "investigation_board", label: "Mur Enquêtes 🗺️",icon: Map              },
   { id: "investigation_analytics", label: "Stats Enquêtes 📊", icon: BarChart3 },
@@ -190,7 +193,6 @@ export default function AdminDashboard() {
     );
 
     return () => subscription.unsubscribe();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   const showMsg = (type: "success" | "error", text: string) => {
@@ -208,7 +210,6 @@ export default function AdminDashboard() {
     router.push("/admin/auth");
   };
 
-  // ── Splash ────────────────────────────────────────────────────────────────
   if (!mounted || isLoading) {
     return (
       <div className="min-h-screen bg-[#050505] flex items-center justify-center">
@@ -228,6 +229,7 @@ export default function AdminDashboard() {
 
     switch (activeTab) {
       case "dashboard":         return <DashboardTab showMsg={showMsg} />;
+      case "payments":          return <PaymentManagementTab showMsg={showMsg} />; // 👈 AJOUT ICI
       case "contributions":     return <ContributionsTab showMsg={showMsg} />;
       case "hero":              return <HeroTab showMsg={showMsg} />;
       case "suggestions":       return <SuggestionsTab showMsg={showMsg} translateText={translateText} />;
@@ -246,7 +248,7 @@ export default function AdminDashboard() {
       case "notifications":     return <NotificationsTab showMsg={showMsg} />;
       case "ads":               return <AdsTab showMsg={showMsg} />;  
       case "library":           return <LibraryTab showMsg={showMsg} />;
-      case "reading_circles":   return <ReadingCirclesAdminTab showMsg={showMsg} />; // ← AJOUTER ICI
+      case "reading_circles":   return <ReadingCirclesAdminTab showMsg={showMsg} />;
       case "investigations":    return <InvestigationsTab showMsg={showMsg} />;
       case "investigation_board": return <InvestigationBoardAdminTab showMsg={showMsg} />;  
       case "visitors":          return <VisitorsTab showMsg={showMsg} />;
@@ -399,22 +401,6 @@ export default function AdminDashboard() {
                 className="px-6 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-500 transition-all"
               >
                 Retour à l'accueil
-              </button>
-            </div>
-          )}
-
-          {availableTabs.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-20 text-center">
-              <AlertTriangle size={64} className="text-red-500 mb-4" />
-              <h3 className="text-2xl font-bold text-white mb-2">Aucun accès</h3>
-              <p className="text-gray-400 text-sm mb-4">
-                Vous n'avez aucune permission pour accéder aux onglets.
-              </p>
-              <button
-                onClick={handleLogout}
-                className="px-6 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-500 transition-all"
-              >
-                Se déconnecter
               </button>
             </div>
           )}
