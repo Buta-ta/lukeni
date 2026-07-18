@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, X, Lock, ShieldCheck, Clock } from 'lucide-react';
+import { Loader2, X, Lock, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/lib/supabase-browser';
 
 interface PaywallModalProps {
@@ -19,37 +19,20 @@ interface PaywallModalProps {
   onTrialStart?: () => void;
 }
 
-// ⚠️ Pour TypeScript : On déclare que window.FedaPay va exister
-declare global {
-  interface Window {
-    FedaPay: any;
-  }
-}
-
 const translations = {
   fr: {
-    unlockAccess: 'Déverrouiller l\'accès',
-    amountXOF: 'Prix en CFA',
-    amountEUR: 'Prix en EUR',
-    basedOnLocation: 'Basé sur votre zone :',
-    paySecurely: 'Payer de manière sécurisée',
-    or: 'OU',
-    freeTrial: 'Essai gratuit (30 min)',
-    retryIn24h: 'L\'essai se renouvelle 24h après expiration',
-    securedBy: 'Paiement crypté et sécurisé par FedaPay',
-    processing: 'Création de la transaction...',
+    unlock: 'ACCÈS PREMIUM',
+    pay: 'Payer l\'accès',
+    trial: 'Commencer l\'essai gratuit (30 min)',
+    processing: 'Sécurisation...',
+    location: 'Zone détectée :',
   },
   en: {
-    unlockAccess: 'Unlock Access',
-    amountXOF: 'Price in CFA',
-    amountEUR: 'Price in EUR',
-    basedOnLocation: 'Based on your region:',
-    paySecurely: 'Pay securely',
-    or: 'OR',
-    freeTrial: 'Free Trial (30 min)',
-    retryIn24h: 'Trial renews 24h after expiration',
-    securedBy: 'Encrypted and secured by FedaPay',
-    processing: 'Creating transaction...',
+    unlock: 'PREMIUM ACCESS',
+    pay: 'Pay for access',
+    trial: 'Start free trial (30 min)',
+    processing: 'Securing...',
+    location: 'Detected zone :',
   },
 };
 
@@ -68,18 +51,7 @@ export default function PaywallModal({
   const [isProcessing, setIsProcessing] = useState(false);
   const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
 
-  // 1️⃣ Charger le script officiel de FedaPay discrètement en arrière-plan
-  useEffect(() => {
-    if (isOpen && !document.getElementById('fedapay-script')) {
-      const script = document.createElement('script');
-      script.id = 'fedapay-script';
-      script.src = 'https://checkout.fedapay.com/js/checkout.js';
-      script.async = true;
-      document.body.appendChild(script);
-    }
-  }, [isOpen]);
-
-  // 2️⃣ Détecter la devise selon le pays
+  // 1️⃣ Détection de la devise selon le pays
   useEffect(() => {
     if (!isOpen) return;
     const detectCurrency = async () => {
@@ -102,7 +74,7 @@ export default function PaywallModal({
     ? `${amount.toLocaleString()} CFA`
     : `${amount.toFixed(2)} €`;
 
-  // 3️⃣ Fonction pour déclencher le paiement
+  // 2️⃣ Lancement du paiement
   const handlePayment = async () => {
     setIsProcessing(true);
 
@@ -110,24 +82,21 @@ export default function PaywallModal({
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.user) {
-        alert(lang === 'fr' ? 'Vous devez être connecté pour payer.' : 'You must be logged in to pay.');
+        alert(lang === 'fr' ? 'Connectez-vous pour payer.' : 'Log in to pay.');
         setIsProcessing(false);
         return;
       }
 
-      const userId = session.user.id;
-      const userEmail = session.user.email;
-      const publicKey = process.env.NEXT_PUBLIC_FEDAPAY_PUBLIC_KEY;
-
-      if (!publicKey) {
-        console.error("Clé publique FedaPay introuvable dans Vercel (NEXT_PUBLIC_FEDAPAY_PUBLIC_KEY)");
-      }
-
-      // On demande le token à notre serveur
       const response = await fetch('/api/payments/create-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productType, productId, currency, userId, userEmail }),
+        body: JSON.stringify({ 
+          productType, 
+          productId, 
+          currency, 
+          userId: session.user.id, 
+          userEmail: session.user.email 
+        }),
       });
 
       const data = await response.json();
@@ -138,44 +107,20 @@ export default function PaywallModal({
         return;
       }
 
-      // Si le serveur a répondu avec succès
-      setIsProcessing(false);
-
-      // On ferme NOTRE modal pour ne pas cacher celui de FedaPay
-      onClose();
-
-      // On ouvre le VRAI modal sécurisé de FedaPay
-      if (window.FedaPay && publicKey) {
-        const widget = window.FedaPay.init({
-          public_key: publicKey,
-          transaction: {
-            token: data.transactionToken
-          },
-          onComplete: () => {
-            // Optionnel : tu pourrais rediriger vers la page /success ici si tu le souhaites
-            // window.location.href = `/pages/payments/success?transaction_id=${data.transactionToken}`;
-          }
-        });
-        widget.open();
-      } else {
-        // Mode secours (si le script JS n'est pas chargé) : on redirige vers leur page web
-        const isLive = !publicKey?.includes('sandbox');
-        const checkoutBaseUrl = isLive 
-          ? 'https://checkout.fedapay.com/pay/' 
-          : 'https://sandbox-checkout.fedapay.com/pay/';
-        window.location.assign(checkoutBaseUrl + data.transactionToken);
-      }
+      // ✅ REDIRECTION VERS LA PAGE SÉCURISÉE DE FEDAPAY (Zéro bug de widget)
+      const publicKey = process.env.NEXT_PUBLIC_FEDAPAY_PUBLIC_KEY || '';
+      const isLive = !publicKey.includes('sandbox');
+      const checkoutBaseUrl = isLive 
+        ? 'https://checkout.fedapay.com/pay/' 
+        : 'https://sandbox-checkout.fedapay.com/pay/';
+      
+      window.location.href = checkoutBaseUrl + data.transactionToken;
 
     } catch (err) {
       console.error('Payment error:', err);
-      alert(lang === 'fr' ? 'Erreur de connexion' : 'Connection error');
+      alert(lang === 'fr' ? 'Erreur réseau.' : 'Network error.');
       setIsProcessing(false);
     }
-  };
-
-  const handleTrial = () => {
-    if (onTrialStart) onTrialStart();
-    onClose();
   };
 
   if (!isOpen) return null;
@@ -194,105 +139,79 @@ export default function PaywallModal({
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.95, opacity: 0, y: 10 }}
           onClick={(e) => e.stopPropagation()}
-          className="bg-[#0A0A0F] border border-[#D4AF37]/30 rounded-2xl p-6 md:p-8 max-w-sm w-full shadow-2xl flex flex-col relative max-h-[90vh] overflow-y-auto"
+          // Design ultra compact : largeur max réduite, padding ajusté
+          className="bg-[#0A0A0F] border border-[#D4AF37]/40 rounded-3xl p-5 max-w-[320px] w-full shadow-2xl flex flex-col relative"
         >
-          {/* Header Compact */}
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-3 text-[#D4AF37]">
-              <div className="p-2 bg-[#D4AF37]/10 rounded-lg">
-                <Lock size={20} />
-              </div>
-              <h2 className="text-xl font-bold text-white font-serif leading-tight">
-                {t.unlockAccess}
-              </h2>
+          {/* HEADER COMPACT */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2 text-[#D4AF37]">
+              <Lock size={16} />
+              <h2 className="text-xs font-black tracking-widest uppercase">{t.unlock}</h2>
             </div>
-            <button onClick={onClose} className="p-1 text-gray-500 hover:text-white transition-colors bg-white/5 rounded-full">
-              <X size={16} />
+            <button onClick={onClose} className="p-1.5 text-gray-500 hover:text-white bg-white/5 rounded-full transition-colors">
+              <X size={14} />
             </button>
           </div>
 
-          <p className="text-gray-400 text-sm mb-6 font-serif italic border-l-2 border-[#D4AF37]/50 pl-3">
+          <p className="text-white text-sm font-bold text-center mb-4 line-clamp-1 truncate">
             {productTitle}
           </p>
 
-          {/* Switch EUR / CFA */}
-          <div className="flex gap-2 mb-5 bg-black/40 p-1 rounded-xl border border-white/5">
+          {/* SWITCH DEVISE COMPACT */}
+          <div className="flex bg-black p-1 rounded-lg border border-white/10 mb-4">
             <button
               onClick={() => setCurrency('XOF')}
-              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
-                currency === 'XOF' ? 'bg-[#D4AF37] text-black shadow-md' : 'text-gray-400 hover:text-white'
+              className={`flex-1 py-1.5 rounded text-[11px] font-bold transition-all ${
+                currency === 'XOF' ? 'bg-[#D4AF37] text-black' : 'text-gray-400'
               }`}
             >
-              Mobile Money (CFA)
+              CFA
             </button>
             <button
               onClick={() => setCurrency('EUR')}
-              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
-                currency === 'EUR' ? 'bg-[#D4AF37] text-black shadow-md' : 'text-gray-400 hover:text-white'
+              className={`flex-1 py-1.5 rounded text-[11px] font-bold transition-all ${
+                currency === 'EUR' ? 'bg-[#D4AF37] text-black' : 'text-gray-400'
               }`}
             >
-              Carte (EUR)
+              EUR
             </button>
           </div>
 
-          {/* Box Prix */}
-          <div className="bg-gradient-to-br from-white/5 to-transparent p-5 rounded-xl mb-6 text-center border border-white/10 relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-2 opacity-10">
-              <ShieldCheck size={64} />
-            </div>
-            <p className="text-gray-400 text-[10px] uppercase tracking-widest mb-1 relative z-10">
-              {currency === 'XOF' ? t.amountXOF : t.amountEUR}
-            </p>
-            <p className="text-3xl font-black text-white relative z-10 tracking-tight">
+          {/* GROS BLOC PRIX (Très visible) */}
+          <div className="text-center mb-6">
+            <h3 className="text-4xl font-black text-[#D4AF37] drop-shadow-[0_0_15px_rgba(212,175,55,0.4)] tracking-tighter">
               {displayAmount}
-            </p>
+            </h3>
             {detectedCountry && (
-              <p className="text-[9px] text-gray-500 mt-2 relative z-10">
-                {t.basedOnLocation} <span className="text-gray-300">{detectedCountry}</span>
+              <p className="text-[10px] text-gray-500 mt-1 uppercase font-mono">
+                {t.location} {detectedCountry}
               </p>
             )}
           </div>
 
-          {/* Bouton Payer */}
+          {/* BOUTON PAYER */}
           <button
             onClick={handlePayment}
             disabled={isProcessing}
-            className="w-full py-4 bg-[#D4AF37] hover:bg-yellow-400 text-black rounded-xl font-black transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(212,175,55,0.2)]"
+            className="w-full py-3.5 bg-[#D4AF37] hover:bg-yellow-400 text-black rounded-xl font-black text-sm uppercase tracking-wide transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(212,175,55,0.3)] mb-4"
           >
             {isProcessing ? (
-              <><Loader2 size={18} className="animate-spin" /> {t.processing}</>
+              <><Loader2 size={16} className="animate-spin" /> {t.processing}</>
             ) : (
-              <>🔒 {t.paySecurely}</>
+              <><ShieldCheck size={16} /> {t.pay}</>
             )}
           </button>
 
-          {/* Diviseur */}
-          <div className="relative my-5">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-white/10"></div>
-            </div>
-            <div className="relative flex justify-center text-[10px] font-bold">
-              <span className="px-3 bg-[#0A0A0F] text-gray-600 tracking-widest">{t.or}</span>
-            </div>
-          </div>
-
-          {/* Bouton Essai */}
+          {/* LIEN ESSAI GRATUIT DISCRET */}
           <button
-            onClick={handleTrial}
-            className="w-full py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl text-sm font-bold transition-all border border-white/10 flex items-center justify-center gap-2"
+            onClick={() => {
+              if (onTrialStart) onTrialStart();
+              onClose();
+            }}
+            className="text-xs text-gray-400 hover:text-white underline decoration-white/30 underline-offset-4 transition-colors text-center"
           >
-            <Clock size={16} className="text-gray-400" /> {t.freeTrial}
+            {t.trial}
           </button>
-
-          <p className="text-[9px] text-gray-600 text-center mt-3 mb-4">
-            {t.retryIn24h}
-          </p>
-
-          {/* Sécurité Footer */}
-          <div className="mt-auto pt-4 border-t border-white/5 flex items-center justify-center gap-2 text-gray-600">
-            <ShieldCheck size={12} />
-            <p className="text-[9px] uppercase tracking-wider">{t.securedBy}</p>
-          </div>
 
         </motion.div>
       </motion.div>
