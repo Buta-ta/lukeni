@@ -1,18 +1,23 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+
+// 1️⃣ Création d'un client Supabase ADMIN (contourne les sécurités RLS)
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY! // Clé secrète de Supabase
+);
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { productType, productId, currency, userId, userEmail } = body; 
 
-    // 1️⃣ Vérification des paramètres
     if (!productType || !productId || !currency || !userId) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
     }
 
-    // 2️⃣ Vérification du produit
-    const { data: pricing, error: pricingError } = await supabase
+    // 2️⃣ Utilisation de supabaseAdmin au lieu de supabase
+    const { data: pricing, error: pricingError } = await supabaseAdmin
       .from('product_pricing')
       .select('*')
       .eq('product_type', productType)
@@ -20,10 +25,10 @@ export async function POST(req: Request) {
       .single();
 
     if (pricingError || !pricing) {
+      console.error("Erreur Supabase:", pricingError);
       return NextResponse.json({ error: 'Product not found in DB' }, { status: 404 });
     }
 
-    // 3️⃣ Configuration du montant
     let amount = currency === 'EUR' ? Math.round(pricing.price_eur * 100) : pricing.price_xof_cfa;
     const paymentMethods = currency === 'EUR'
       ? ['card'] 
@@ -31,12 +36,7 @@ export async function POST(req: Request) {
 
     const description = productType === 'investigation' ? `Investigation - ${productId}` : `Livre - ${productId}`;
 
-    // 4️⃣ Configuration FedaPay (Live / Sandbox)
     const secretKey = process.env.FEDAPAY_SECRET_KEY || '';
-    if (!secretKey) {
-       return NextResponse.json({ error: 'FEDAPAY_SECRET_KEY is missing' }, { status: 500 });
-    }
-
     const isLive = secretKey.startsWith('sk_live');
     const fedapayApiUrl = isLive 
       ? 'https://api.fedapay.com/v1/transactions' 
@@ -55,7 +55,6 @@ export async function POST(req: Request) {
       metadata: { userId, productType, productId }
     };
 
-    // 5️⃣ Appel API FedaPay
     const fedapayResponse = await fetch(fedapayApiUrl, {
       method: 'POST',
       headers: {
@@ -68,15 +67,14 @@ export async function POST(req: Request) {
     const fedapayData = await fedapayResponse.json();
 
     if (!fedapayResponse.ok) {
-      console.error('Erreur FedaPay:', fedapayData);
       const errorMessage = fedapayData.message || (fedapayData.errors ? JSON.stringify(fedapayData.errors) : 'Payment failed');
       return NextResponse.json({ error: `FedaPay rejected: ${errorMessage}` }, { status: 400 });
     }
 
     const transactionId = fedapayData.v1?.transaction?.id || fedapayData.transaction?.id || fedapayData.id;
 
-    // 6️⃣ Sauvegarde en BDD
-    await supabase.from('fedapay_transactions').insert({
+    // 3️⃣ Utilisation de supabaseAdmin pour forcer l'insertion dans la BDD
+    await supabaseAdmin.from('fedapay_transactions').insert({
       user_id: userId,
       fedapay_transaction_id: transactionId,
       currency,
@@ -87,7 +85,6 @@ export async function POST(req: Request) {
       description,
     });
 
-    // 7️⃣ Renvoie du Token
     return NextResponse.json({
       success: true,
       transactionToken: transactionId,
