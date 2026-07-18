@@ -108,22 +108,19 @@ export default function PaywallModal({
 
   // ✅ CORRECTION ICI : LA FONCTION HANDLE PAYMENT
   const handlePayment = async () => {
-    setIsProcessing(true);
+    setIsProcessing(true); // 🔄 Le bouton commence à tourner
 
     try {
-      // 1️⃣ On récupère la session utilisateur pour avoir son ID
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.user) {
         alert(lang === 'fr' ? 'Vous devez être connecté pour payer.' : 'You must be logged in to pay.');
-        setIsProcessing(false);
-        return;
+        return; // Le bloc finally enlèvera le isProcessing
       }
 
       const userId = session.user.id;
       const userEmail = session.user.email;
 
-      // 2️⃣ On envoie LA TOTALITÉ des informations au serveur !
       const response = await fetch('/api/payments/create-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -131,19 +128,18 @@ export default function PaywallModal({
           productType,
           productId,
           currency,
-          userId,        // L'info qui manquait et causait l'erreur 400 !
-          userEmail      // L'info qui manquait !
+          userId,        
+          userEmail      
         }),
       });
 
       const data = await response.json();
 
       if (data.success) {
-        // Redirection vers FedaPay (selon la réponse de ton backend)
+        // Redirection vers FedaPay
         if (data.paymentUrl) {
           window.location.href = data.paymentUrl;
         } else if (data.transactionToken) {
-          // Si FedaPay nous donne un token, on redirige vers leur page de paiement sécurisée
           const isLive = process.env.NEXT_PUBLIC_FEDAPAY_PUBLIC_KEY?.includes('sandbox') ? false : true;
           const checkoutBaseUrl = isLive 
             ? 'https://checkout.fedapay.com/pay/' 
@@ -153,12 +149,13 @@ export default function PaywallModal({
         }
       } else {
         alert(`${lang === 'fr' ? 'Erreur' : 'Error'}: ${data.error}`);
-        setIsProcessing(false);
       }
     } catch (err) {
       console.error('Payment error:', err);
-      alert(lang === 'fr' ? 'Erreur lors du paiement' : 'Payment error');
-      setIsProcessing(false);
+      alert(lang === 'fr' ? 'Erreur de connexion au serveur de paiement' : 'Payment server connection error');
+    } finally {
+      // ✅ C'EST ÇA QUI EMPÊCHE LE BOUTON DE FIGER
+      setIsProcessing(false); 
     }
   };
 

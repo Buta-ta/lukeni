@@ -47,11 +47,11 @@ export async function POST(req: Request) {
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}` || 'https://lukeni.vercel.app';
     
-    // 4️⃣ Formatage strict pour FedaPay
+       // 4️⃣ Formatage pour FedaPay (On lui donne la version qui marche)
     const fedapayPayload = {
       description,
       amount,
-      currency: { iso: currency }, // FedaPay préfère ce format strict
+      currency,  // <-- Juste ça ! PAS d'objet { iso: currency }
       customer: { email: userEmail || 'joueur@lukeni.com' },
       callback_url: `${appUrl}/api/webhooks/fedapay`,
       metadata: { userId, productType, productId }
