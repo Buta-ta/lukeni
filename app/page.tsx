@@ -625,6 +625,17 @@ const FeaturedEventsBar = ({
 
 export default function LandingPage() {
   const [lang, setLang] = useLang();
+
+
+  // ✅ Appliquer l'attribut data-landing-page au HTML
+  useEffect(() => {
+    document.documentElement.setAttribute('data-landing-page', 'true');
+    return () => {
+      document.documentElement.setAttribute('data-landing-page', 'false');
+    };
+  }, []);
+
+
   const router = useRouter();
   const [isOrganic, setIsOrganic] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -1008,10 +1019,10 @@ export default function LandingPage() {
 
       {/* ── LOGO + SLOGAN ── */}
       <motion.div
-        initial={{ opacity: 0, y: -30 }} 
+        initial={{ opacity: 0, y: -30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 1, delay: 0.3 }}
-        className="absolute text-center z-10 flex flex-col items-center gap-2 md:gap-3
+        className="absolute text-center z-50 flex flex-col items-center gap-2 md:gap-3
           top-16 md:top-20
           mb-0 md:mb-0"
       >
@@ -1021,7 +1032,7 @@ export default function LandingPage() {
         <h1 className="text-2xl md:text-4xl font-serif tracking-[0.4em] md:tracking-[0.5em] text-[#D4AF37] drop-shadow-[0_0_20px_rgba(212,175,55,0.6)]">
           LUKENI
         </h1>
-        <p className="text-white/40 text-[9px] md:text-[10px] tracking-[0.2em] md:tracking-[0.3em] uppercase">
+        <p className="text-white/40 text-[9px] md:text-[10px] tracking-[0.2em] md:tracking-[0.3em] uppercase relative z-20">
           {lang === 'fr' ? 'Peuple • Mémoire • Mission' : 'People • Memory • Mission'}
         </p>
       </motion.div>
@@ -1113,27 +1124,27 @@ export default function LandingPage() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
             onClick={() => setActiveStar(null)}>
-            
+
             <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
               className="bg-[#1A1A1A] border border-[#D4AF37]/50 rounded-2xl shadow-2xl w-full max-w-md relative flex flex-col overflow-hidden max-h-[85vh]"
               style={{ borderColor: activeStar.card_color || '#D4AF37' }}
               onClick={e => e.stopPropagation()}>
-              
+
               {/* HEADER: IMAGE (Utilisation d'un background pour garantir qu'elle ne déborde pas) */}
               <div className="relative w-full h-40 md:h-52 flex-shrink-0 bg-black">
-                <div 
+                <div
                   className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-60"
-                  style={{ 
-                    backgroundImage: `url(${activeStar.image_url || 'https://images.unsplash.com/photo-1501854140801-50d01674aa3e?q=80&w=600&h=400&auto=format&fit=crop'})` 
+                  style={{
+                    backgroundImage: `url(${activeStar.image_url || 'https://images.unsplash.com/photo-1501854140801-50d01674aa3e?q=80&w=600&h=400&auto=format&fit=crop'})`
                   }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#1A1A1A] via-transparent to-transparent" />
-                
+
                 <button onClick={() => setActiveStar(null)}
                   className="absolute top-3 right-3 p-2 bg-black/50 backdrop-blur-md rounded-full text-white hover:bg-[#D4AF37] hover:text-black transition-all z-20">
                   <X size={16} />
                 </button>
-                
+
                 {activeStar.birth_year && (
                   <div className="absolute bottom-3 left-5 flex items-center gap-2 text-white text-xs font-bold z-20 drop-shadow-md">
                     <Clock size={12} />
@@ -1141,7 +1152,7 @@ export default function LandingPage() {
                   </div>
                 )}
               </div>
-              
+
               {/* BODY: TEXTE & INFOS */}
               <div className="px-5 py-5 md:px-6 flex-1 overflow-y-auto bg-[#1A1A1A] relative z-10">
                 <div className="flex items-start justify-between mb-4">
@@ -1153,7 +1164,7 @@ export default function LandingPage() {
                   </div>
                   <Zap size={18} className="text-[#D4AF37]/50 flex-shrink-0 mt-1" />
                 </div>
-                
+
                 <p className="text-gray-300 text-sm font-light leading-relaxed">
                   {lang === 'fr' ? activeStar.short_bio_fr : activeStar.short_bio_en}
                 </p>
@@ -1179,7 +1190,7 @@ export default function LandingPage() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
             onClick={() => setActiveFeaturedEvent(null)}>
-            
+
             <motion.div initial={{ opacity: 0, y: 30, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 30, scale: 0.95 }}
               className="bg-[#0A0A1A] border border-[#D4AF37]/30 w-full max-w-md rounded-3xl p-6 md:p-8 shadow-2xl relative flex flex-col max-h-[85vh] overflow-y-auto"
               onClick={e => e.stopPropagation()}>
@@ -1187,7 +1198,7 @@ export default function LandingPage() {
                 className="absolute top-4 right-4 p-2 text-gray-500 hover:text-white transition-colors bg-white/5 rounded-full">
                 <X size={16} />
               </button>
-              
+
               <div className="flex items-center gap-4 mb-5">
                 <span className="text-4xl md:text-5xl">{activeFeaturedEvent.country}</span>
                 <div>
@@ -1203,7 +1214,7 @@ export default function LandingPage() {
               <p className="text-gray-300 text-sm font-light leading-relaxed mb-6 md:mb-8">
                 {lang === 'fr' ? activeFeaturedEvent.description_fr : activeFeaturedEvent.description_en}
               </p>
-              
+
               <Link href={`/evenements/${activeFeaturedEvent.slug}`}
                 className="w-full flex items-center justify-center gap-3 px-6 py-3.5 bg-gradient-to-r from-[#D4AF37] to-[#E5C158] text-black rounded-xl font-bold hover:shadow-[0_0_15px_rgba(212,175,55,0.4)] transition-all text-sm group mt-auto">
                 <span>{lang === 'fr' ? 'Lire l\'histoire complète' : 'Read full story'}</span>

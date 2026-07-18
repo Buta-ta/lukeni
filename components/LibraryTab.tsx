@@ -228,7 +228,7 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
         if (result.event === 'success') {
           const url = result.info.secure_url;
           const slot = slots.find(s => s.slot_index === slotIndex);
-          
+
           if (slot) {
             const { error: updateError } = await supabase
               .from('library_collage')
@@ -425,7 +425,7 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
                   ) : isBroken ? (
                     <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-red-950/30">
                       <AlertCircle size={24} className="text-red-400" />
-                      <span className="text-[10px] text-red-400 font-bold text-center px-2">Image supprimée<br/>Veuillez la vider</span>
+                      <span className="text-[10px] text-red-400 font-bold text-center px-2">Image supprimée<br />Veuillez la vider</span>
                     </div>
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center gap-2">
@@ -450,8 +450,8 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
                 </div>
 
                 <div className="p-2 bg-[#0f0f0f] flex items-center gap-1.5 z-20 relative">
-                  <button 
-                    onClick={() => handleUploadSlot(idx)} 
+                  <button
+                    onClick={() => handleUploadSlot(idx)}
                     disabled={isUploading}
                     className="flex-1 flex items-center justify-center gap-1.5 py-1.5 bg-white/5 text-gray-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg text-[10px] font-bold transition-all disabled:opacity-50"
                   >
@@ -461,7 +461,7 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
 
                   {hasImage && (
                     <>
-                      <button 
+                      <button
                         onClick={() => slot && handleToggleSlot(slot)}
                         className={`p-1.5 rounded-lg text-[10px] transition-all ${isActive ? 'bg-emerald-500/10 text-emerald-400 hover:bg-red-500/10 hover:text-red-400' : 'bg-white/5 text-gray-600 hover:text-emerald-400 hover:bg-emerald-500/10'}`}
                         title={isActive ? 'Masquer' : 'Afficher'}
@@ -469,7 +469,7 @@ function CollageTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: st
                         <Eye size={12} />
                       </button>
 
-                      <button 
+                      <button
                         onClick={() => slot && handleClearSlot(slot.id, idx)}
                         className="p-1.5 rounded-lg bg-white/5 text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-all"
                         title="Vider cette zone"
@@ -747,6 +747,7 @@ function SuggestionCard({ suggestion, onAccept, onReject, onConvertToBook, onDel
 function LibraryTeaserTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: string) => void }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+
   const [isUploading, setIsUploading] = useState(false);
   const [autoTranslating, setAutoTranslating] = useState<'fr' | 'en' | null>(null);
 
@@ -1044,6 +1045,12 @@ export default function LibraryTab({ showMsg }: { showMsg: (type: 'success' | 'e
   const [accessType, setAccessType] = useState<'read_only' | 'read_and_download'>('read_only');
   const [categoryId, setCategoryId] = useState('');
   const [status, setStatus] = useState('pending');
+
+  const [isPaid, setIsPaid] = useState(false);
+  const [priceCFA, setPriceCFA] = useState(0);
+  const [priceEUR, setPriceEUR] = useState(0);
+
+
   const [isSaving, setIsSaving] = useState(false);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
@@ -1087,13 +1094,32 @@ export default function LibraryTab({ showMsg }: { showMsg: (type: 'success' | 'e
     setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 50);
   }, [resetForm]);
 
-  const handleEdit = useCallback((b: Book) => {
+  const handleEdit = useCallback(async (b: Book) => {
     setEditingId(b.id); setTitleFr(b.title_fr || ''); setTitleEn(b.title_en || '');
     setAuthorFr(b.author_fr || ''); setAuthorEn(b.author_en || '');
     setDescFr(b.description_fr || ''); setDescEn(b.description_en || '');
     setCoverUrl(b.cover_url || ''); setFileUrl(b.file_url || ''); setAudioUrl(b.audio_url || '');
     setAccessType((b.access_type as any) || 'read_only'); setCategoryId(b.category_id || '');
-    setStatus(b.status || 'pending'); setShowForm(true);
+    setStatus(b.status || 'pending'); 
+    
+     // Charger les prix du produit
+  const { data: pricing } = await supabase
+    .from('product_pricing')
+    .select('*')
+    .eq('product_type', 'book')
+    .eq('product_id', b.id)
+    .maybeSingle();
+
+  if (pricing) {
+    setIsPaid(true);
+    setPriceCFA(pricing.price_xof_cfa);
+    setPriceEUR(pricing.price_eur);
+  } else {
+    setIsPaid(false);
+    setPriceCFA(0);
+    setPriceEUR(0);
+  }
+    setShowForm(true);
     setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 50);
   }, []);
 
@@ -1171,41 +1197,41 @@ export default function LibraryTab({ showMsg }: { showMsg: (type: 'success' | 'e
   }, [titleFr, titleEn, authorFr, authorEn, descFr, descEn, showMsg]);
 
   // Dans LibraryTab → createWidget()
-// Remplace la fonction createWidget existante par :
+  // Remplace la fonction createWidget existante par :
 
-const createWidget = useCallback((fieldName: string, resourceType: string) => {
-  // ✅ Pour les EPUB/PDF : forcer 'raw' si c'est le champ fichier
-  // Cloudinary classe les EPUB comme ressources "raw" (non image/vidéo)
-  const effectiveResourceType = fieldName === 'file' ? 'raw' : resourceType;
+  const createWidget = useCallback((fieldName: string, resourceType: string) => {
+    // ✅ Pour les EPUB/PDF : forcer 'raw' si c'est le champ fichier
+    // Cloudinary classe les EPUB comme ressources "raw" (non image/vidéo)
+    const effectiveResourceType = fieldName === 'file' ? 'raw' : resourceType;
 
-  // @ts-ignore
-  const widget = window.cloudinary.createUploadWidget({
-    cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-    uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET,
-    sources: ['local', 'url'],
-    resourceType: effectiveResourceType,
-    multiple: false,
-    maxFileSize: 100_000_000,
-    folder: 'lukeni/library',
-    // ✅ Autorise explicitement les formats EPUB et PDF
-    clientAllowedFormats: fieldName === 'file'
-      ? ['pdf', 'epub']
-      : fieldName === 'audio'
-      ? ['mp3', 'wav', 'ogg', 'm4a', 'aac']
-      : ['jpg', 'jpeg', 'png', 'webp'],
-  }, (error: any, result: any) => {
-    setUploadingField(null);
-    if (error) { showMsg('error', 'Erreur upload'); return; }
-    if (result.event === 'success') {
-      const url = result.info.secure_url;
-      if (fieldName === 'cover') setCoverUrl(url);
-      else if (fieldName === 'file') setFileUrl(url);
-      else if (fieldName === 'audio') setAudioUrl(url);
-      showMsg('success', `Fichier uploadé ! (${result.info.format?.toUpperCase() || 'OK'})`);
-    }
-  });
-  widget.open();
-}, [showMsg]);
+    // @ts-ignore
+    const widget = window.cloudinary.createUploadWidget({
+      cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+      uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET,
+      sources: ['local', 'url'],
+      resourceType: effectiveResourceType,
+      multiple: false,
+      maxFileSize: 100_000_000,
+      folder: 'lukeni/library',
+      // ✅ Autorise explicitement les formats EPUB et PDF
+      clientAllowedFormats: fieldName === 'file'
+        ? ['pdf', 'epub']
+        : fieldName === 'audio'
+          ? ['mp3', 'wav', 'ogg', 'm4a', 'aac']
+          : ['jpg', 'jpeg', 'png', 'webp'],
+    }, (error: any, result: any) => {
+      setUploadingField(null);
+      if (error) { showMsg('error', 'Erreur upload'); return; }
+      if (result.event === 'success') {
+        const url = result.info.secure_url;
+        if (fieldName === 'cover') setCoverUrl(url);
+        else if (fieldName === 'file') setFileUrl(url);
+        else if (fieldName === 'audio') setAudioUrl(url);
+        showMsg('success', `Fichier uploadé ! (${result.info.format?.toUpperCase() || 'OK'})`);
+      }
+    });
+    widget.open();
+  }, [showMsg]);
 
   const openCloudinary = useCallback((fieldName: string, resourceType = 'auto') => {
     setUploadingField(fieldName);
@@ -1219,27 +1245,86 @@ const createWidget = useCallback((fieldName: string, resourceType: string) => {
     } else { createWidget(fieldName, resourceType); }
   }, [createWidget, showMsg]);
 
-  const handleSave = useCallback(async () => {
-    if (!titleFr.trim()) return showMsg('error', 'Le titre français est requis.');
-    if (!categoryId) return showMsg('error', 'Veuillez sélectionner une catégorie.');
-    setIsSaving(true);
-    const payload = {
-      title_fr: titleFr.trim(), title_en: titleEn.trim() || null,
-      author_fr: authorFr.trim() || null, author_en: authorEn.trim() || null,
-      description_fr: descFr.trim() || null, description_en: descEn.trim() || null,
-      cover_url: coverUrl || null, file_url: fileUrl || null, audio_url: audioUrl || null,
-      has_audio: !!audioUrl, access_type: accessType, category_id: categoryId || null, status,
-    };
-    try {
-      let error;
-      if (editingId) ({ error } = await supabase.from('library_books').update(payload).eq('id', editingId));
-      else ({ error } = await supabase.from('library_books').insert(payload));
-      if (error) throw error;
-      showMsg('success', editingId ? 'Livre mis à jour !' : 'Livre créé !');
-      resetForm(); fetchData();
-    } catch (err: any) { showMsg('error', err.message || 'Erreur sauvegarde'); }
-    setIsSaving(false);
-  }, [titleFr, titleEn, authorFr, authorEn, descFr, descEn, coverUrl, fileUrl, audioUrl, accessType, categoryId, status, editingId, resetForm, fetchData, showMsg]);
+const handleSave = useCallback(async () => {
+  if (!titleFr.trim()) return showMsg("error", "Le titre français est requis.");
+  if (!categoryId) return showMsg("error", "Veuillez sélectionner une catégorie.");
+  setIsSaving(true);
+  const payload = {
+    title_fr: titleFr.trim(),
+    title_en: titleEn.trim() || null,
+    author_fr: authorFr.trim() || null,
+    author_en: authorEn.trim() || null,
+    description_fr: descFr.trim() || null,
+    description_en: descEn.trim() || null,
+    cover_url: coverUrl || null,
+    file_url: fileUrl || null,
+    audio_url: audioUrl || null,
+    has_audio: !!audioUrl,
+    access_type: accessType,
+    category_id: categoryId || null,
+    status,
+  };
+
+  try {
+    let bookId = editingId;
+    let error;
+
+    if (editingId) {
+      ({ error } = await supabase.from('library_books').update(payload).eq('id', editingId));
+    } else {
+      const { data, error: insertError } = await supabase
+        .from('library_books')
+        .insert(payload)
+        .select()
+        .single();
+      error = insertError;
+      bookId = data?.id;
+    }
+
+    if (error) throw error;
+
+    // ✅ NOUVEAU : Gérer les prix si payant
+    if (isPaid && bookId) {
+      const { data: existingPrice } = await supabase
+        .from('product_pricing')
+        .select('id')
+        .eq('product_type', 'book')
+        .eq('product_id', bookId)
+        .maybeSingle();
+
+      const pricePayload = {
+        product_type: 'book',
+        product_id: bookId,
+        price_xof_cfa: priceCFA,
+        price_eur: priceEUR,
+        is_active: true,
+      };
+
+      if (existingPrice) {
+        await supabase
+          .from('product_pricing')
+          .update(pricePayload)
+          .eq('product_id', bookId);
+      } else {
+        await supabase.from('product_pricing').insert(pricePayload);
+      }
+    } else if (!isPaid && bookId) {
+      // Supprimer la tarification si devenu gratuit
+      await supabase
+        .from('product_pricing')
+        .delete()
+        .eq('product_type', 'book')
+        .eq('product_id', bookId);
+    }
+
+    showMsg("success", editingId ? "Livre mis à jour !" : "Livre créé !");
+    resetForm();
+    fetchData();
+  } catch (err: any) {
+    showMsg("error", err.message || "Erreur sauvegarde");
+  }
+  setIsSaving(false);
+}, [titleFr, titleEn, authorFr, authorEn, descFr, descEn, coverUrl, fileUrl, audioUrl, accessType, categoryId, status, isPaid, priceCFA, priceEUR, editingId, resetForm, fetchData, showMsg]);
 
   const handleConfirmDelete = useCallback(async () => {
     if (!deleteTarget) return;
@@ -1377,6 +1462,74 @@ const createWidget = useCallback((fieldName: string, resourceType: string) => {
                   <UploadField field="file" label="📄 PDF/EPUB" url={fileUrl} resourceType="auto" uploadingField={uploadingField} onUpload={openCloudinary} onClear={(f) => { if (f === 'file') setFileUrl(''); }} />
                   <UploadField field="audio" label="🎧 Audio" url={audioUrl} resourceType="video" uploadingField={uploadingField} onUpload={openCloudinary} onClear={(f) => { if (f === 'audio') setAudioUrl(''); }} />
                 </div>
+              </div>
+
+
+
+                            <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl space-y-4">
+                <h4 className="text-white font-bold text-sm flex items-center gap-2">
+                  💳 Paiement
+                </h4>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={isPaid} 
+                    onChange={(e) => {
+                      setIsPaid(e.target.checked);
+                      if (!e.target.checked) {
+                        setPriceCFA(0);
+                        setPriceEUR(0);
+                      }
+                    }} 
+                    className="w-5 h-5 accent-emerald-500" 
+                  />
+                  <span className="text-sm text-gray-300">Ce livre est payant</span>
+                </label>
+
+                {isPaid && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-1 font-mono">
+                          💰 Prix CFA
+                        </label>
+                        <input
+                          type="number"
+                          value={priceCFA}
+                          onChange={(e) => {
+                            const cfa = Number(e.target.value);
+                            setPriceCFA(cfa);
+                            // Auto-conversion EUR
+                            setPriceEUR(parseFloat((cfa / 655).toFixed(2)));
+                          }}
+                          placeholder="5000"
+                          className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-1 font-mono">
+                          💶 Prix EUR (Auto)
+                        </label>
+                        <input
+                          type="number"
+                          value={priceEUR}
+                          onChange={(e) => {
+                            const eur = Number(e.target.value);
+                            setPriceEUR(eur);
+                            // Auto-conversion CFA
+                            setPriceCFA(Math.round(eur * 655));
+                          }}
+                          placeholder="7.63"
+                          step="0.01"
+                          className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-emerald-500"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-gray-600">
+                      💡 Le taux utilisé : 1 EUR = 655 XOF (mis à jour quotidiennement)
+                    </p>
+                  </div>
+                )}
               </div>
 
               <label className="flex items-center gap-3 p-3 bg-white/5 rounded-lg cursor-pointer hover:bg-white/10 transition-colors">

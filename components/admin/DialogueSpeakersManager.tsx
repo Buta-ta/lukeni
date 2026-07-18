@@ -14,6 +14,7 @@ import {
   X,
   ChevronDown,
   ChevronUp,
+  User,
 } from "lucide-react";
 import { autoTranslate } from "@/lib/lingua";
 
@@ -25,6 +26,8 @@ interface DialogueSpeaker {
   role_fr: string;
   role_en: string;
   avatar_url?: string;
+  description_fr?: string;
+  description_en?: string;
   created_at?: string;
 }
 
@@ -51,6 +54,8 @@ export default function DialogueSpeakersManager({
     role_fr: "",
     role_en: "",
     avatar_url: "",
+    description_fr: "",
+    description_en: "",
   });
 
   // ── CHARGER LES SPEAKERS ──
@@ -84,6 +89,8 @@ export default function DialogueSpeakersManager({
       role_fr: "",
       role_en: "",
       avatar_url: "",
+      description_fr: "",
+      description_en: "",
     });
   };
 
@@ -103,7 +110,6 @@ export default function DialogueSpeakersManager({
     setIsSaving(true);
     try {
       if (editingId) {
-        // UPDATE
         const { error } = await supabase
           .from("investigation_dialogue_speakers")
           .update({
@@ -112,6 +118,8 @@ export default function DialogueSpeakersManager({
             role_fr: formData.role_fr,
             role_en: formData.role_en,
             avatar_url: formData.avatar_url,
+            description_fr: formData.description_fr,
+            description_en: formData.description_en,
           })
           .eq("id", editingId);
 
@@ -123,7 +131,6 @@ export default function DialogueSpeakersManager({
         );
         showMsg("success", "Speaker modifié !");
       } else {
-        // INSERT
         const newSpeaker: DialogueSpeaker = {
           id: uuidv4(),
           investigation_id: investigationId,
@@ -132,6 +139,8 @@ export default function DialogueSpeakersManager({
           role_fr: formData.role_fr || "",
           role_en: formData.role_en || "",
           avatar_url: formData.avatar_url,
+          description_fr: formData.description_fr || "",
+          description_en: formData.description_en || "",
         };
 
         const { error } = await supabase
@@ -150,6 +159,8 @@ export default function DialogueSpeakersManager({
         role_fr: "",
         role_en: "",
         avatar_url: "",
+        description_fr: "",
+        description_en: "",
       });
     } catch (err: any) {
       showMsg("error", `Erreur: ${err.message}`);
@@ -175,7 +186,10 @@ export default function DialogueSpeakersManager({
   };
 
   // ── TRADUCTEUR AUTO ──
-  const handleTranslate = async (frText: string, field: keyof DialogueSpeaker) => {
+  const handleTranslate = async (
+    frText: string,
+    field: keyof DialogueSpeaker
+  ) => {
     if (!frText.trim()) return;
     setIsTranslating(true);
     try {
@@ -218,7 +232,8 @@ export default function DialogueSpeakersManager({
     // @ts-ignore
     if (!window.cloudinary) {
       const script = document.createElement("script");
-      script.src = "https://upload-widget.cloudinary.com/global/all.js";
+      script.src =
+        "https://upload-widget.cloudinary.com/global/all.js";
       script.onload = createWidget;
       document.body.appendChild(script);
     } else {
@@ -234,7 +249,10 @@ export default function DialogueSpeakersManager({
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
-        <Loader2 className="animate-spin text-purple-500" size={24} />
+        <Loader2
+          className="animate-spin text-purple-500"
+          size={24}
+        />
       </div>
     );
   }
@@ -244,9 +262,9 @@ export default function DialogueSpeakersManager({
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-2xl">💬</span>
+          <span className="text-2xl">🎭</span>
           <span className="text-sm font-bold text-purple-400">
-            Dialogue Speakers (Avatars de bulles)
+            PNJ du Jeu
           </span>
           <span className="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full">
             {speakers.length}
@@ -257,7 +275,7 @@ export default function DialogueSpeakersManager({
             onClick={addSpeaker}
             className="flex items-center gap-2 px-3 py-1.5 bg-purple-600/20 text-purple-400 border border-purple-500/30 rounded-lg text-xs font-bold hover:bg-purple-600/40"
           >
-            <Plus size={14} /> Nouveau Speaker
+            <Plus size={14} /> Nouveau PNJ
           </button>
         )}
       </div>
@@ -267,7 +285,7 @@ export default function DialogueSpeakersManager({
         <div className="bg-purple-950/20 p-4 rounded-xl border border-purple-500/30 space-y-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-bold text-purple-400">
-              {editingId ? "Modifier le Speaker" : "Créer un Speaker"}
+              {editingId ? "Modifier le PNJ" : "Créer un PNJ"}
             </h3>
             <button
               onClick={() => {
@@ -290,9 +308,12 @@ export default function DialogueSpeakersManager({
                 type="text"
                 value={formData.name_fr || ""}
                 onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, name_fr: e.target.value }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    name_fr: e.target.value,
+                  }))
                 }
-                placeholder="Ex: Patrice Lumumba"
+                placeholder="Ex: Le Roi Kanyok"
                 className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-purple-500"
               />
             </div>
@@ -307,9 +328,12 @@ export default function DialogueSpeakersManager({
                   type="text"
                   value={formData.name_en || ""}
                   onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, name_en: e.target.value }))
+                    setFormData((prev) => ({
+                      ...prev,
+                      name_en: e.target.value,
+                    }))
                   }
-                  placeholder="Ex: Patrice Lumumba"
+                  placeholder="Ex: King Kanyok"
                   className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-purple-500"
                 />
                 <button
@@ -319,7 +343,10 @@ export default function DialogueSpeakersManager({
                   className="p-2 bg-white/5 rounded hover:bg-white/10"
                 >
                   {isTranslating ? (
-                    <Loader2 size={14} className="animate-spin text-purple-500" />
+                    <Loader2
+                      size={14}
+                      className="animate-spin text-purple-500"
+                    />
                   ) : (
                     <Languages size={14} className="text-gray-400" />
                   )}
@@ -336,9 +363,12 @@ export default function DialogueSpeakersManager({
                 type="text"
                 value={formData.role_fr || ""}
                 onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, role_fr: e.target.value }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    role_fr: e.target.value,
+                  }))
                 }
-                placeholder="Ex: Premier Ministre"
+                placeholder="Ex: Souverain du Royaume"
                 className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-purple-500"
               />
             </div>
@@ -353,17 +383,80 @@ export default function DialogueSpeakersManager({
                   type="text"
                   value={formData.role_en || ""}
                   onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, role_en: e.target.value }))
+                    setFormData((prev) => ({
+                      ...prev,
+                      role_en: e.target.value,
+                    }))
                   }
-                  placeholder="Ex: Prime Minister"
+                  placeholder="Ex: Sovereign of the Kingdom"
                   className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-purple-500"
                 />
                 <button
-                  onClick={() => handleTranslate(formData.role_fr || "", "role_en")}
+                  onClick={() =>
+                    handleTranslate(formData.role_fr || "", "role_en")
+                  }
                   className="p-2 bg-white/5 rounded hover:bg-white/10"
                 >
                   {isTranslating ? (
-                    <Loader2 size={14} className="animate-spin text-purple-500" />
+                    <Loader2
+                      size={14}
+                      className="animate-spin text-purple-500"
+                    />
+                  ) : (
+                    <Languages size={14} className="text-gray-400" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Description FR */}
+            <div className="md:col-span-2">
+              <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">
+                Description (FR)
+              </label>
+              <textarea
+                rows={2}
+                value={formData.description_fr || ""}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    description_fr: e.target.value,
+                  }))
+                }
+                placeholder="Ex: Un roi respecté pour sa sagesse..."
+                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white resize-none outline-none focus:border-purple-500"
+              />
+            </div>
+
+            {/* Description EN */}
+            <div className="md:col-span-2">
+              <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">
+                Description (EN)
+              </label>
+              <div className="flex gap-2">
+                <textarea
+                  rows={2}
+                  value={formData.description_en || ""}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      description_en: e.target.value,
+                    }))
+                  }
+                  placeholder="Ex: A king respected for his wisdom..."
+                  className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white resize-none outline-none focus:border-purple-500"
+                />
+                <button
+                  onClick={() =>
+                    handleTranslate(formData.description_fr || "", "description_en")
+                  }
+                  className="p-2 bg-white/5 rounded hover:bg-white/10 h-fit"
+                >
+                  {isTranslating ? (
+                    <Loader2
+                      size={14}
+                      className="animate-spin text-purple-500"
+                    />
                   ) : (
                     <Languages size={14} className="text-gray-400" />
                   )}
@@ -375,7 +468,7 @@ export default function DialogueSpeakersManager({
           {/* Avatar */}
           <div>
             <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
-              Avatar (Optionnel)
+              Avatar du PNJ
             </label>
             <button
               onClick={uploadAvatar}
@@ -386,23 +479,30 @@ export default function DialogueSpeakersManager({
               ) : (
                 <Upload size={14} />
               )}
-              {formData.avatar_url ? "Changer l'avatar" : "Uploader un avatar"}
+              {formData.avatar_url
+                ? "Changer l'avatar"
+                : "Uploader un avatar"}
             </button>
             {formData.avatar_url && (
-              <div className="mt-2 relative w-20 h-20 rounded-lg overflow-hidden border border-white/10">
-                <img
-                  src={formData.avatar_url}
-                  alt="Avatar"
-                  className="w-full h-full object-cover"
-                />
-                <button
-                  onClick={() =>
-                    setFormData((prev) => ({ ...prev, avatar_url: "" }))
-                  }
-                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1"
-                >
-                  <X size={12} />
-                </button>
+              <div className="mt-2 flex items-center gap-3">
+                <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-white/10">
+                  <img
+                    src={formData.avatar_url}
+                    alt="Avatar"
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    onClick={() =>
+                      setFormData((prev) => ({ ...prev, avatar_url: "" }))
+                    }
+                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1"
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
+                <p className="text-[10px] text-gray-500">
+                  Cet avatar sera affiché dans les dialogues du jeu
+                </p>
               </div>
             )}
           </div>
@@ -438,13 +538,13 @@ export default function DialogueSpeakersManager({
       <div className="space-y-2">
         {speakers.length === 0 && !editingId ? (
           <div className="text-center py-8 border border-dashed border-purple-500/20 rounded-xl">
-            <span className="text-2xl mb-2">💬</span>
-            <p className="text-gray-500 text-sm">Aucun speaker créé</p>
+            <span className="text-2xl mb-2">🎭</span>
+            <p className="text-gray-500 text-sm">Aucun PNJ créé</p>
             <button
               onClick={addSpeaker}
               className="mt-3 px-4 py-2 bg-purple-600/20 text-purple-400 border border-purple-500/30 rounded-lg text-sm font-bold hover:bg-purple-600/40"
             >
-              <Plus size={14} className="inline mr-1" /> Créer un speaker
+              <Plus size={14} className="inline mr-1" /> Créer un PNJ
             </button>
           </div>
         ) : (
@@ -459,12 +559,16 @@ export default function DialogueSpeakersManager({
                 onClick={() => toggleExpanded(speaker.id)}
               >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                  {speaker.avatar_url && (
+                  {speaker.avatar_url ? (
                     <img
                       src={speaker.avatar_url}
                       alt=""
                       className="w-10 h-10 rounded-full object-cover flex-shrink-0"
                     />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                      <User size={16} className="text-purple-400" />
+                    </div>
                   )}
                   <div className="min-w-0">
                     <p className="font-bold text-white truncate">
@@ -507,12 +611,24 @@ export default function DialogueSpeakersManager({
                 <div className="px-4 py-3 bg-white/[0.02] border-t border-white/5 space-y-2 text-xs">
                   <div>
                     <p className="text-gray-500 font-bold">Nom EN</p>
-                    <p className="text-gray-300">{speaker.name_en}</p>
+                    <p className="text-gray-300">{speaker.name_en || "-"}</p>
                   </div>
                   <div>
                     <p className="text-gray-500 font-bold">Rôle EN</p>
                     <p className="text-gray-300">{speaker.role_en || "-"}</p>
                   </div>
+                  {speaker.description_fr && (
+                    <div>
+                      <p className="text-gray-500 font-bold">Description FR</p>
+                      <p className="text-gray-400">{speaker.description_fr}</p>
+                    </div>
+                  )}
+                  {speaker.description_en && (
+                    <div>
+                      <p className="text-gray-500 font-bold">Description EN</p>
+                      <p className="text-gray-400">{speaker.description_en}</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

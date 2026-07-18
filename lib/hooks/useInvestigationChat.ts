@@ -2,6 +2,26 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
+
+
+
+// ✅ Helper pour extraire les vraies infos d'erreur Supabase/JS
+const getErrorDetails = (err: any): string => {
+  if (!err) return 'Erreur inconnue';
+  const parts: string[] = [];
+  if (err.message) parts.push(`message: ${err.message}`);
+  if (err.code) parts.push(`code: ${err.code}`);
+  if (err.details) parts.push(`details: ${err.details}`);
+  if (err.hint) parts.push(`hint: ${err.hint}`);
+  if (parts.length === 0) {
+    try {
+      return JSON.stringify(err, Object.getOwnPropertyNames(err));
+    } catch {
+      return String(err);
+    }
+  }
+  return parts.join(' | ');
+};
 export interface InvestigationChatMessage {
   id: string;
   investigation_id: string;
@@ -105,8 +125,9 @@ export function useInvestigationChat(
         setMessages(enriched);
         setError(null);
       } catch (err: any) {
-        setError(err.message);
-        console.error('Load messages error:', err);
+        const details = getErrorDetails(err);
+        setError(details);
+        console.error('Load messages error:', details, err);
       } finally {
         setIsLoading(false);
       }
@@ -165,9 +186,9 @@ export function useInvestigationChat(
             .in('id', userIds),
           characterIds.length > 0
             ? supabase
-                .from('investigation_characters')
-                .select('id, name_fr, name_en, avatar_url, role, role_en')
-                .in('id', characterIds)
+              .from('investigation_characters')
+              .select('id, name_fr, name_en, avatar_url, role, role_en')
+              .in('id', characterIds)
             : Promise.resolve({ data: null }),
         ]);
 
@@ -236,7 +257,7 @@ export function useInvestigationChat(
             .eq('id', payload.new.user_id)
             .single();
           profile = data;
-        } catch {}
+        } catch { }
 
         if (payload.new.character_id) {
           try {
@@ -246,7 +267,7 @@ export function useInvestigationChat(
               .eq('id', payload.new.character_id)
               .single();
             character = data;
-          } catch {}
+          } catch { }
         }
 
         // Charger le message cité si présent
@@ -258,7 +279,7 @@ export function useInvestigationChat(
               .eq('id', payload.new.replied_to_message_id)
               .single();
             repliedToMessage = data;
-          } catch {}
+          } catch { }
         }
 
         const newMessage: InvestigationChatMessage = {
@@ -323,7 +344,7 @@ export function useInvestigationChat(
   }, [investigationId, groupId]);
 
   // ✅ Envoyer un message
-   // ✅ Envoyer un message (CORRIGÉ)
+  // ✅ Envoyer un message (CORRIGÉ)
   const sendMessage = useCallback(
     async (
       content: string,
@@ -341,7 +362,7 @@ export function useInvestigationChat(
           .insert({
             // On s'assure de forcer 'null' au lieu de 'undefined'
             investigation_id: investigationId,
-            group_id: groupId || null, 
+            group_id: groupId || null,
             user_id: userId,
             character_id: characterId || null,
             content: content.trim(),

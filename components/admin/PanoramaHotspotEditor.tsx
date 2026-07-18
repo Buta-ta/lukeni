@@ -21,7 +21,7 @@ const MiniPanoramaViewer = dynamic(
   { ssr: false, loading: () => <div className="w-full h-[500px] bg-black flex items-center justify-center"><Loader2 className="animate-spin text-red-500" /></div> }
 );
 
-const HOTSPOT_TYPES: HotspotType[] = ['evidence', 'audio', 'document', 'enigma', 'image', 'info', 'transition', 'locked', 'character', 'ending', 'dialogue_bubble'];
+const HOTSPOT_TYPES: HotspotType[] = ['evidence', 'audio', 'document', 'enigma', 'image', 'info', 'transition', 'locked', 'character', 'ending', 'dialogue_bubble','dialogue'];
 
 interface Props {
   investigationId: string;
@@ -125,7 +125,7 @@ function ColorPicker({ currentColor, onSelect }: any) {
 // FORMULAIRE DE CONTENU
 // ────────────────────────────────────────────────────────────
 function HotspotContentForm({
-  hotspot, evidences, scenes, chapters, characters, allEnigmas, dialogueSpeakers, wordSearches, updateHotspot, isTranslating, setIsTranslating, lang
+  hotspot, evidences, scenes, chapters, characters, allEnigmas, dialogueSpeakers,dialoguesList, wordSearches, updateHotspot, isTranslating, setIsTranslating, lang
 }: any) {
 
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
@@ -279,6 +279,42 @@ function HotspotContentForm({
         </div>
       );
     }
+
+
+    // ── ARBRE DE DIALOGUE INTERACTIF ──
+if (hotspot.type === 'dialogue') {
+  return (
+    <div className="space-y-3 bg-fuchsia-900/10 p-4 rounded-xl border border-fuchsia-500/20">
+      <h4 className="text-sm font-bold text-fuchsia-400 flex items-center gap-2">
+        🗨️ Arbre de Dialogue Interactif
+      </h4>
+      <div>
+        <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">
+          Quel dialogue lancer au clic ?
+        </label>
+        <select
+          value={hotspot.dialogue_id || ''}
+          onChange={e => updateHotspot(hotspot.id, { dialogue_id: e.target.value || undefined })}
+          className="w-full bg-[#1a1a1a] border border-fuchsia-500/30 rounded px-3 py-2 text-sm text-white outline-none focus:border-fuchsia-500"
+        >
+          <option value="">— Choisir un dialogue —</option>
+          {(dialoguesList || []).map((d: any) => (
+            <option key={d.id} value={d.id}>{d.name}</option>
+          ))}
+        </select>
+        {(!dialoguesList || dialoguesList.length === 0) && (
+          <p className="text-[10px] text-gray-500 mt-1">
+            Aucun dialogue trouvé. Créez-en un dans l'onglet "Dialogues" de l'investigation.
+          </p>
+        )}
+        <p className="text-[10px] text-gray-600 mt-2">
+          💡 Le dialogue démarrera avec le personnage OU le joueur défini comme
+          "Point d'entrée" dans l'éditeur de dialogue.
+        </p>
+      </div>
+    </div>
+  );
+}
 
     // ── DIALOGUE BUBBLE ──
     if (hotspot.type === 'dialogue_bubble') {
@@ -492,6 +528,8 @@ export default function PanoramaHotspotEditor({
   }, [investigationId]);
 
 
+  const [dialoguesList, setDialoguesList] = useState<any[]>([]);
+
   // ✅ Charger les dialogue speakers
   useEffect(() => {
     if (!investigationId) return;
@@ -502,6 +540,21 @@ export default function PanoramaHotspotEditor({
       .then(({ data }) => setDialogueSpeakers(data || []));
   }, [investigationId]);
 
+
+  useEffect(() => {
+  console.log("🔍 investigationId:", investigationId); // ← AJOUT
+  if (!investigationId) return;
+  
+  supabase
+    .from('investigation_dialogues')
+    .select('id, name')
+    .eq('investigation_id', investigationId)
+    .then(({ data, error }) => {
+      console.log("🔍 Dialogues chargés:", data); // ← AJOUT
+      console.log("🔍 Erreur éventuelle:", error); // ← AJOUT
+      setDialoguesList(data || []);
+    });
+}, [investigationId]);
 
 
   // ✅ Charger les mots mêlés
@@ -1243,7 +1296,7 @@ export default function PanoramaHotspotEditor({
                     </div>
                   </div>
 
-                  <HotspotContentForm hotspot={selectedHotspot} evidences={evidences} scenes={scenes} chapters={chapters} characters={characters} dialogueSpeakers={dialogueSpeakers} wordSearches={wordSearchesState} allEnigmas={allEnigmas} updateHotspot={updateHotspot} isTranslating={isTranslating} setIsTranslating={setIsTranslating} lang={lang} />
+                  <HotspotContentForm hotspot={selectedHotspot} evidences={evidences} scenes={scenes} chapters={chapters} characters={characters} dialogueSpeakers={dialogueSpeakers} dialoguesList={dialoguesList} wordSearches={wordSearchesState} allEnigmas={allEnigmas} updateHotspot={updateHotspot} isTranslating={isTranslating} setIsTranslating={setIsTranslating} lang={lang} />
 
 
                   {/* ✅ INSTRUCTION DU HOTSPOT */}

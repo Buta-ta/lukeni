@@ -46,6 +46,9 @@ import InvestigationIntro from "@/components/game/InvestigationIntro";
 import InvestigationOutro from "@/components/game/InvestigationOutro";
 import { motion, AnimatePresence } from "framer-motion";
 import WordSearchAdmin from "@/components/admin/WordSearchAdmin";
+import DialogueEditor from "@/components/admin/DialogueEditor";
+import MiniGameListAdmin from "@/components/admin/MiniGameListAdmin";
+
 
 export default function InvestigationsTab({
   showMsg,
@@ -73,9 +76,55 @@ export default function InvestigationsTab({
   const [evidences, setEvidences] = useState<any[]>([]);
   const [expandedChapters, setExpandedChapters] = useState<Record<string, boolean>>({});
   const [expandedEnigmas, setExpandedEnigmas] = useState<Record<string, boolean>>({});
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    dossier: true,
+    characters: false,
+    dialogues: false,
+    wordsearch: false,
+    minigames: false,
+    instructions: false,
+    intro: false,
+    outro: false,
+    chapters: false,
+  });
 
-  const toggleEnigma = (enigmaId: string) =>
-    setExpandedEnigmas((prev) => ({ ...prev, [enigmaId]: !prev[enigmaId] }));
+  const toggleEnigma = (enigmaId: string) => {
+    setExpandedEnigmas((prev) => {
+      const next = { ...prev, [enigmaId]: !prev[enigmaId] };
+      if (editingId) {
+        const stored = JSON.parse(localStorage.getItem(`inv_enigmas_${editingId}`) || "{}");
+        stored[enigmaId] = next[enigmaId];
+        localStorage.setItem(`inv_enigmas_${editingId}`, JSON.stringify(stored));
+      }
+      return next;
+    });
+  };
+
+  const toggleSection = (key: string) => {
+    setExpandedSections((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      if (editingId) {
+        const stored = JSON.parse(localStorage.getItem(`inv_sections_${editingId}`) || "{}");
+        stored[key] = next[key];
+        localStorage.setItem(`inv_sections_${editingId}`, JSON.stringify(stored));
+      }
+      return next;
+    });
+  };
+
+  const toggleChapterStored = (chapId: string) => {
+    setExpandedChapters((prev) => {
+      const next = { ...prev, [chapId]: !prev[chapId] };
+      if (editingId) {
+        const stored = JSON.parse(localStorage.getItem(`inv_chapters_${editingId}`) || "{}");
+        stored[chapId] = next[chapId];
+        localStorage.setItem(`inv_chapters_${editingId}`, JSON.stringify(stored));
+      }
+      return next;
+    });
+  };
+
+  const toggleChapter = toggleChapterStored;
 
   const [introConfig, setIntroConfig] = useState<{
     background_image_url: string | null;
@@ -102,12 +151,12 @@ export default function InvestigationsTab({
   const [outroConfig, setOutroConfig] = useState<any | null>(null);
   const [showOutroPreview, setShowOutroPreview] = useState<
     | {
-        isTimeout: boolean;
-        title: string;
-        message: string;
-        color?: string;
-        score?: number;
-      }
+      isTimeout: boolean;
+      title: string;
+      message: string;
+      color?: string;
+      score?: number;
+    }
     | false
   >(false);
   const [previewMilestone, setPreviewMilestone] = useState<{
@@ -127,9 +176,15 @@ export default function InvestigationsTab({
   const [isTranslatingOutro, setIsTranslatingOutro] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
+
+  const [isPaid, setIsPaid] = useState(false);
+  const [priceCFA, setPriceCFA] = useState(0);
+  const [priceEUR, setPriceEUR] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   const [isTranslatingEvidence, setIsTranslatingEvidence] = useState<string | null>(null);
+
+  const [dialogueSpeakers, setDialogueSpeakers] = useState<any[]>([]);
 
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{
@@ -193,6 +248,17 @@ export default function InvestigationsTab({
       reward: 50,
       starting_cauris: 50,
       status: "draft",
+    });
+    setExpandedSections({
+      dossier: true,
+      characters: false,
+      dialogues: false,
+      wordsearch: false,
+      minigames: false,
+      instructions: false,
+      intro: false,
+      outro: false,
+      chapters: false,
     });
   };
 
@@ -300,11 +366,61 @@ export default function InvestigationsTab({
     } catch (err) {
       console.error("Load outro config error:", err);
     }
+
+    const { data: dSpeakers } = await supabase
+      .from("investigation_dialogue_speakers")
+      .select("*")
+      .eq("investigation_id", inv.id);
+    if (dSpeakers) {
+      setDialogueSpeakers(dSpeakers);
+    }
+
+
+    // Charger les prix
+    const { data: pricingData } = await supabase
+      .from('product_pricing')
+      .select('*')
+      .eq('product_type', 'investigation')
+      .eq('product_id', inv.id)
+      .maybeSingle();
+
+    if (pricingData) {
+      setIsPaid(true);
+      setPriceCFA(pricingData.price_xof_cfa);
+      setPriceEUR(pricingData.price_eur);
+    } else {
+      setIsPaid(false);
+      setPriceCFA(0);
+      setPriceEUR(0);
+    }
+
+    // Restaurer états pliés depuis localStorage
+    const storedSections = JSON.parse(localStorage.getItem(`inv_sections_${inv.id}`) || "{}");
+    setExpandedSections({
+      dossier: storedSections.dossier ?? true,
+      characters: storedSections.characters ?? false,
+      dialogues: storedSections.dialogues ?? false,
+      wordsearch: storedSections.wordsearch ?? false,
+      minigames: storedSections.minigames ?? false,
+      instructions: storedSections.instructions ?? false,
+      intro: storedSections.intro ?? false,
+      outro: storedSections.outro ?? false,
+      chapters: storedSections.chapters ?? false,
+    });
+
+    const storedChapters = JSON.parse(localStorage.getItem(`inv_chapters_${inv.id}`) || "{}");
+    setExpandedChapters(storedChapters);
+
+    const storedEnigmas = JSON.parse(localStorage.getItem(`inv_enigmas_${inv.id}`) || "{}");
+    setExpandedEnigmas(storedEnigmas);
   };
 
   const handleSaveDossier = async () => {
     if (!invData.title_fr.trim()) return showMsg("error", "Titre FR requis.");
     setIsSaving(true);
+
+    let currentInvId = editingId; // ✅ Pour capturer le nouvel ID si création
+
     const payload = {
       title_fr: invData.title_fr,
       title_en: invData.title_en,
@@ -316,6 +432,7 @@ export default function InvestigationsTab({
       starting_cauris: invData.starting_cauris,
       status: invData.status,
     };
+
     if (editingId) {
       await supabase.from("investigations").update(payload).eq("id", editingId);
       showMsg("success", "Dossier mis à jour !");
@@ -325,15 +442,27 @@ export default function InvestigationsTab({
         .insert(payload)
         .select()
         .single();
+      currentInvId = data.id; // ✅ Capturer l'ID
       handleEdit(data);
       showMsg("success", "Dossier créé ! Vous pouvez scénariser.");
     }
+
+    // ✅ Gérer les prix si payant
+    if (isPaid && currentInvId) {
+      await supabase.from('product_pricing').upsert({
+        product_type: 'investigation',
+        product_id: currentInvId,
+        price_xof_cfa: priceCFA,
+        price_eur: priceEUR,
+        is_active: true,
+      }, { onConflict: 'product_type,product_id' });
+    } else if (!isPaid && currentInvId) {
+      await supabase.from('product_pricing').delete().eq('product_type', 'investigation').eq('product_id', currentInvId);
+    }
+
     fetchInvestigations();
     setIsSaving(false);
   };
-
-  const toggleChapter = (chapId: string) =>
-    setExpandedChapters((prev) => ({ ...prev, [chapId]: !prev[chapId] }));
 
   const addChapter = async () => {
     const { data } = await supabase
@@ -346,7 +475,17 @@ export default function InvestigationsTab({
       })
       .select()
       .single();
-    if (data) setExpandedChapters((prev) => ({ ...prev, [data.id]: true }));
+    if (data) {
+      setExpandedChapters((prev) => {
+        const next = { ...prev, [data.id]: true };
+        if (editingId) {
+          const stored = JSON.parse(localStorage.getItem(`inv_chapters_${editingId}`) || "{}");
+          stored[data.id] = true;
+          localStorage.setItem(`inv_chapters_${editingId}`, JSON.stringify(stored));
+        }
+        return next;
+      });
+    }
     fetchFullScenario(editingId!);
   };
 
@@ -379,11 +518,11 @@ export default function InvestigationsTab({
       prev.map((c) =>
         c.id === cId
           ? {
-              ...c,
-              enigmas: c.enigmas.map((e: any) =>
-                e.id === eId ? { ...e, [field]: val } : e,
-              ),
-            }
+            ...c,
+            enigmas: c.enigmas.map((e: any) =>
+              e.id === eId ? { ...e, [field]: val } : e,
+            ),
+          }
           : c,
       ),
     );
@@ -399,18 +538,18 @@ export default function InvestigationsTab({
       prev.map((c) =>
         c.id === cId
           ? {
-              ...c,
-              enigmas: c.enigmas.map((e: any) =>
-                e.id === eId
-                  ? {
-                      ...e,
-                      clues: e.clues.map((cl: any) =>
-                        cl.id === clId ? { ...cl, [field]: val } : cl,
-                      ),
-                    }
-                  : e,
-              ),
-            }
+            ...c,
+            enigmas: c.enigmas.map((e: any) =>
+              e.id === eId
+                ? {
+                  ...e,
+                  clues: e.clues.map((cl: any) =>
+                    cl.id === clId ? { ...cl, [field]: val } : cl,
+                  ),
+                }
+                : e,
+            ),
+          }
           : c,
       ),
     );
@@ -1052,21 +1191,19 @@ export default function InvestigationsTab({
         <div className="flex gap-1 bg-black/40 p-1 rounded-lg border border-white/10">
           <button
             onClick={() => setDeductionTab("timeline")}
-            className={`flex-1 py-2 rounded text-xs font-bold transition-colors flex items-center justify-center gap-2 ${
-              deductionTab === "timeline"
+            className={`flex-1 py-2 rounded text-xs font-bold transition-colors flex items-center justify-center gap-2 ${deductionTab === "timeline"
                 ? "bg-amber-600/30 text-amber-300 border border-amber-500/30"
                 : "text-gray-500 hover:text-white"
-            }`}
+              }`}
           >
             🗓️ Timeline Chronologique
           </button>
           <button
             onClick={() => setDeductionTab("board")}
-            className={`flex-1 py-2 rounded text-xs font-bold transition-colors flex items-center justify-center gap-2 ${
-              deductionTab === "board"
+            className={`flex-1 py-2 rounded text-xs font-bold transition-colors flex items-center justify-center gap-2 ${deductionTab === "board"
                 ? "bg-purple-600/30 text-purple-300 border border-purple-500/30"
                 : "text-gray-500 hover:text-white"
-            }`}
+              }`}
           >
             🕸️ Tableau de Connexions
           </button>
@@ -1150,9 +1287,14 @@ export default function InvestigationsTab({
         <h2 className="text-xl md:text-2xl font-serif">Enquêtes Historiques</h2>
       </div>
 
+      {/* ============================================================ */}
       {/* NIVEAU 1 : DOSSIER */}
-      <div className="bg-[#0f0f0f] p-4 sm:p-6 rounded-xl border border-white/5 space-y-4">
-        <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
+      {/* ============================================================ */}
+      <div className="bg-[#0f0f0f] rounded-xl border border-white/5">
+        <div
+          className="flex items-center justify-between p-4 sm:p-6 cursor-pointer hover:bg-white/[0.02] transition-colors"
+          onClick={() => toggleSection("dossier")}
+        >
           <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
             {editingId ? (
               <Edit2 size={18} className="text-red-500" />
@@ -1161,748 +1303,962 @@ export default function InvestigationsTab({
             )}
             {editingId ? "Éditer le Dossier" : "Nouveau Dossier d'Enquête"}
           </h3>
-          {editingId && (
-            <button
-              onClick={resetForm}
-              className="text-xs text-gray-400 hover:text-white flex items-center gap-1"
-            >
-              <X size={14} /> Fermer
-            </button>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pb-4 border-b border-white/5">
-          <div>
-            <label className="text-xs text-gray-400 mb-1 block">
-              Statut de publication
-            </label>
-            <select
-              value={invData.status}
-              onChange={(e) =>
-                setInvData({ ...invData, status: e.target.value })
-              }
-              className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-red-500"
-            >
-              <option value="draft">📝 Brouillon</option>
-              <option value="published">✅ Publié</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-gray-400 mb-1 block">
-              Difficulté
-            </label>
-            <select
-              value={invData.difficulty}
-              onChange={(e) =>
-                setInvData({ ...invData, difficulty: e.target.value })
-              }
-              className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-red-500"
-            >
-              <option value="facile">🟢 Facile</option>
-              <option value="intermediaire">🟠 Intermédiaire</option>
-              <option value="expert">🔴 Expert</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-gray-400 mb-1 flex items-center gap-1">
-              <Star size={10} /> Récompense (Cauris)
-            </label>
-            <input
-              type="number"
-              value={invData.reward}
-              onChange={(e) =>
-                setInvData({ ...invData, reward: Number(e.target.value) })
-              }
-              min={0}
-              className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-red-500"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-400 mb-1 flex items-center gap-1">
-              <Star size={10} /> Budget de départ (Cauris)
-            </label>
-            <input
-              type="number"
-              value={invData.starting_cauris}
-              onChange={(e) =>
-                setInvData({
-                  ...invData,
-                  starting_cauris: Number(e.target.value),
-                })
-              }
-              min={1}
-              className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-red-500"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs text-gray-400 mb-1 block">
-              Titre (FR)
-            </label>
-            <input
-              type="text"
-              value={invData.title_fr}
-              onChange={(e) =>
-                setInvData({ ...invData, title_fr: e.target.value })
-              }
-              placeholder="Ex: L'assassinat de Lumumba"
-              className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-red-500"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-400 mb-1 block">
-              Titre (EN)
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={invData.title_en}
-                onChange={(e) =>
-                  setInvData({ ...invData, title_en: e.target.value })
-                }
-                placeholder="Ex: The assassination of Lumumba"
-                className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-red-500"
-              />
+          <div className="flex items-center gap-2">
+            {editingId && (
               <button
-                onClick={() =>
-                  handleTranslateDossier(invData.title_fr, "title_en")
-                }
-                className="p-2 bg-white/5 rounded text-gray-400 hover:text-white flex-shrink-0"
+                onClick={(e) => { e.stopPropagation(); resetForm(); }}
+                className="text-xs text-gray-400 hover:text-white flex items-center gap-1"
               >
-                {isProcessing === "title_en" ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <Languages size={14} />
-                )}
+                <X size={14} /> Fermer
               </button>
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-gray-400 mb-1 block">
-              Synopsis (FR)
-            </label>
-            <textarea
-              rows={3}
-              value={invData.desc_fr}
-              onChange={(e) =>
-                setInvData({ ...invData, desc_fr: e.target.value })
-              }
-              placeholder="Ex: Rouvrez les archives secrètes de 1961..."
-              className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white resize-none outline-none focus:border-red-500"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-400 mb-1 block">
-              Synopsis (EN)
-            </label>
-            <div className="flex gap-2 items-start">
-              <textarea
-                rows={3}
-                value={invData.desc_en}
-                onChange={(e) =>
-                  setInvData({ ...invData, desc_en: e.target.value })
-                }
-                placeholder="Ex: Reopen the secret archives from 1961..."
-                className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white resize-none outline-none focus:border-red-500"
-              />
-              <button
-                onClick={() =>
-                  handleTranslateDossier(invData.desc_fr, "desc_en")
-                }
-                className="p-2 bg-white/5 rounded text-gray-400 hover:text-white mt-1 flex-shrink-0"
-              >
-                {isProcessing === "desc_en" ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <Languages size={14} />
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-white/5 pt-4 space-y-4">
-          <div>
-            <button
-              onClick={() =>
-                openCloudinaryWidget(editingId || "new", "investigation")
-              }
-              className="text-xs bg-white/5 px-4 py-2 rounded flex items-center gap-2 border border-white/10 hover:bg-white/10 w-full sm:w-auto justify-center"
-            >
-              <ImagePlus size={14} />
-              {invData.cover_url
-                ? "Cover ajoutée (modifier)"
-                : "Uploader Image de Couverture"}
-            </button>
-          </div>
-          {invData.cover_url && (
-            <div className="relative rounded-lg overflow-hidden border border-white/10 h-40 sm:h-48 w-full sm:w-64">
-              <img
-                src={invData.cover_url}
-                alt="Aperçu couverture"
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-3">
-                <p className="text-white text-xs font-bold truncate">
-                  {invData.title_fr || "Sans titre"}
-                </p>
-              </div>
-            </div>
-          )}
-          <button
-            onClick={handleSaveDossier}
-            disabled={isSaving}
-            className="bg-red-600 text-white px-6 py-2.5 rounded-lg font-bold text-sm hover:bg-red-500 flex items-center gap-2 w-full sm:w-auto justify-center disabled:opacity-50"
-          >
-            {isSaving ? (
-              <Loader2 size={16} className="animate-spin" />
+            )}
+            {expandedSections.dossier ? (
+              <ChevronUp size={16} className="text-gray-500" />
             ) : (
-              <Save size={16} />
-            )}{" "}
-            Sauvegarder le Dossier
-          </button>
+              <ChevronDown size={16} className="text-gray-500" />
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* PERSONNAGES */}
-      {editingId && (
-        <InvestigationCharacters
-          investigationId={editingId}
-          evidences={evidences}
-          showMsg={showMsg}
-        />
-      )}
-
-      {/* DIALOGUE SPEAKERS */}
-      {editingId && (
-        <div className="bg-purple-950/10 p-4 sm:p-6 rounded-xl border border-purple-500/20 space-y-4">
-          <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-            <span className="text-2xl">💬</span> Bulles de Dialogue
-          </h3>
-          <DialogueSpeakersManager
-            investigationId={editingId}
-            showMsg={showMsg}
-          />
-        </div>
-      )}
-
-      {/* MOTS MÊLÉS */}
-      {editingId && (
-        <div className="bg-pink-950/10 p-4 sm:p-6 rounded-xl border border-pink-500/20 space-y-4">
-          <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-            <span className="text-2xl">🧩</span> Mots Mêlés
-          </h3>
-          <WordSearchAdmin
-            investigationId={editingId}
-            chapters={chapters}
-            outroConfig={outroConfig}
-            allInstructions={allInstructions}
-            showMsg={showMsg}
-          />
-        </div>
-      )}
-
-      {/* INSTRUCTIONS */}
-      {editingId && (
-        <div className="bg-blue-950/10 p-4 sm:p-6 rounded-xl border border-blue-500/20 space-y-4">
-          <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-            <Lightbulb size={18} className="text-blue-400" />
-            Bibliothèque d'Instructions
-          </h3>
-          <InstructionsLibrary investigationId={editingId} showMsg={showMsg} />
-        </div>
-      )}
-
-      {/* INTRO */}
-      {editingId && introConfig && (
-        <div className="bg-indigo-950/10 p-4 sm:p-6 rounded-xl border border-indigo-500/20 space-y-4">
-          <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-            <FileText size={18} className="text-indigo-400" />
-            Écran d'Introduction
-          </h3>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
-                Image de fond
-              </label>
-              <button
-                onClick={openCloudinaryForIntroImage}
-                className="w-full py-2 bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 rounded-lg text-xs font-bold hover:bg-indigo-600/40 flex items-center justify-center gap-2"
-              >
-                <ImagePlus size={14} />
-                {introConfig.background_image_url
-                  ? "Changer l'image"
-                  : "Uploader une image"}
-              </button>
-              {introConfig.background_image_url && (
-                <img
-                  src={introConfig.background_image_url}
-                  alt="Intro background"
-                  className="w-full h-32 object-cover rounded-lg mt-2 border border-white/10"
-                />
-              )}
-            </div>
-
-            {introConfig.text_effect === "typewriter" && (
+        {expandedSections.dossier && (
+          <div className="p-4 sm:p-6 pt-0 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pb-4 border-b border-white/5">
               <div>
-                <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
-                  ⌨️ Vitesse de frappe (ms)
+                <label className="text-xs text-gray-400 mb-1 block">
+                  Statut de publication
+                </label>
+                <select
+                  value={invData.status}
+                  onChange={(e) =>
+                    setInvData({ ...invData, status: e.target.value })
+                  }
+                  className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-red-500"
+                >
+                  <option value="draft">📝 Brouillon</option>
+                  <option value="published">✅ Publié</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">
+                  Difficulté
+                </label>
+                <select
+                  value={invData.difficulty}
+                  onChange={(e) =>
+                    setInvData({ ...invData, difficulty: e.target.value })
+                  }
+                  className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-red-500"
+                >
+                  <option value="facile">🟢 Facile</option>
+                  <option value="intermediaire">🟠 Intermédiaire</option>
+                  <option value="expert">🔴 Expert</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1 flex items-center gap-1">
+                  <Star size={10} /> Récompense (Cauris)
                 </label>
                 <input
                   type="number"
-                  value={introConfig.typewriter_speed || 30}
+                  value={invData.reward}
                   onChange={(e) =>
-                    setIntroConfig({
-                      ...introConfig,
-                      typewriter_speed: Number(e.target.value),
-                    })
+                    setInvData({ ...invData, reward: Number(e.target.value) })
                   }
-                  min="10"
-                  max="200"
-                  className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                  min={0}
+                  className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-red-500"
                 />
-                <p className="text-[10px] text-gray-600 mt-1">
-                  20 = Très rapide, 100 = Lent
-                </p>
               </div>
-            )}
-
-            <div>
-              <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
-                🎨 Couleur du texte
-              </label>
-              <div className="flex gap-2 items-center">
+              <div>
+                <label className="text-xs text-gray-400 mb-1 flex items-center gap-1">
+                  <Star size={10} /> Budget de départ (Cauris)
+                </label>
                 <input
-                  type="color"
-                  value={introConfig.text_color || "#FFFFFF"}
+                  type="number"
+                  value={invData.starting_cauris}
                   onChange={(e) =>
-                    setIntroConfig({
-                      ...introConfig,
-                      text_color: e.target.value,
+                    setInvData({
+                      ...invData,
+                      starting_cauris: Number(e.target.value),
                     })
                   }
-                  className="w-10 h-10 rounded cursor-pointer border-0 bg-transparent"
+                  min={1}
+                  className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-red-500"
                 />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">
+                  Titre (FR)
+                </label>
                 <input
                   type="text"
-                  value={introConfig.text_color || "#FFFFFF"}
+                  value={invData.title_fr}
                   onChange={(e) =>
-                    setIntroConfig({
-                      ...introConfig,
-                      text_color: e.target.value,
-                    })
+                    setInvData({ ...invData, title_fr: e.target.value })
                   }
-                  className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 font-mono"
+                  placeholder="Ex: L'assassinat de Lumumba"
+                  className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-red-500"
                 />
               </div>
-            </div>
-
-            <div>
-              <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
-                ✏️ Police du texte
-              </label>
-              <select
-                value={introConfig.text_font || "serif"}
-                onChange={(e) =>
-                  setIntroConfig({
-                    ...introConfig,
-                    text_font: e.target.value,
-                  })
-                }
-                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
-              >
-                <option value="serif">Serif (Classique)</option>
-                <option value="sans-serif">Sans-Serif (Moderne)</option>
-                <option value="monospace">Monospace (Machine)</option>
-                <option value="'Courier New', Courier">Courier (Télétype)</option>
-                <option value="'Georgia', serif">Georgia (Élégant)</option>
-                <option value="'Times New Roman', serif">Times (Journal)</option>
-                <option value="'Brush Script MT', cursive">Cursive (Manuscrit)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
-                Audio narratif
-              </label>
-              <button
-                onClick={openCloudinaryForIntroAudio}
-                className="w-full py-2 bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 rounded-lg text-xs font-bold hover:bg-indigo-600/40 flex items-center justify-center gap-2"
-              >
-                <Music size={14} />
-                {introConfig.audio_url
-                  ? "Changer l'audio"
-                  : "Uploader un audio"}
-              </button>
-              {introConfig.audio_url && (
-                <audio
-                  src={introConfig.audio_url}
-                  controls
-                  className="w-full mt-2 h-8"
-                />
-              )}
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs text-gray-400 mb-2 block font-bold uppercase">
-              Textes défilants (FR)
-            </label>
-            <div className="space-y-2">
-              {introConfig.scroll_texts_fr.map((text, idx) => (
-                <div key={idx} className="flex gap-2">
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">
+                  Titre (EN)
+                </label>
+                <div className="flex gap-2">
                   <input
                     type="text"
-                    value={text}
-                    onChange={(e) => {
-                      const newTexts = [...introConfig.scroll_texts_fr];
-                      newTexts[idx] = e.target.value;
-                      setIntroConfig({
-                        ...introConfig,
-                        scroll_texts_fr: newTexts,
-                      });
-                    }}
-                    placeholder="Ex: En l'an 1960, l'ombre d'un complot..."
-                    className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                    value={invData.title_en}
+                    onChange={(e) =>
+                      setInvData({ ...invData, title_en: e.target.value })
+                    }
+                    placeholder="Ex: The assassination of Lumumba"
+                    className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-red-500"
                   />
                   <button
-                    onClick={() => {
-                      const newTexts = introConfig.scroll_texts_fr.filter(
-                        (_, i) => i !== idx,
-                      );
-                      setIntroConfig({
-                        ...introConfig,
-                        scroll_texts_fr: newTexts,
-                      });
-                    }}
-                    className="p-2 text-red-500 hover:bg-red-500/10 rounded"
+                    onClick={() =>
+                      handleTranslateDossier(invData.title_fr, "title_en")
+                    }
+                    className="p-2 bg-white/5 rounded text-gray-400 hover:text-white flex-shrink-0"
                   >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
-              <button
-                onClick={() => {
-                  setIntroConfig({
-                    ...introConfig,
-                    scroll_texts_fr: [...introConfig.scroll_texts_fr, ""],
-                  });
-                }}
-                className="w-full py-2 border border-dashed border-indigo-500/30 text-indigo-400 rounded text-xs font-bold hover:bg-indigo-500/10"
-              >
-                + Ajouter un texte FR
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs text-gray-400 mb-2 block font-bold uppercase flex items-center gap-2">
-              Textes défilants (EN)
-              <Languages size={12} className="text-gray-500" />
-            </label>
-            <div className="space-y-2">
-              {introConfig.scroll_texts_en.map((text, idx) => (
-                <div key={idx} className="flex gap-2">
-                  <input
-                    type="text"
-                    value={text}
-                    onChange={(e) => {
-                      const newTexts = [...introConfig.scroll_texts_en];
-                      newTexts[idx] = e.target.value;
-                      setIntroConfig({
-                        ...introConfig,
-                        scroll_texts_en: newTexts,
-                      });
-                    }}
-                    placeholder="Ex: In 1960, the shadow of a plot..."
-                    className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
-                  />
-                  <button
-                    onClick={async () => {
-                      if (!introConfig.scroll_texts_fr[idx]?.trim()) return;
-                      setIsTranslatingIntro(true);
-                      try {
-                        const translated = await autoTranslate(
-                          introConfig.scroll_texts_fr[idx],
-                          "fr",
-                        );
-                        const newTexts = [...introConfig.scroll_texts_en];
-                        newTexts[idx] = translated;
-                        setIntroConfig({
-                          ...introConfig,
-                          scroll_texts_en: newTexts,
-                        });
-                      } catch (err) {
-                        console.error("Translation error:", err);
-                      }
-                      setIsTranslatingIntro(false);
-                    }}
-                    className="p-2 bg-white/5 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-colors"
-                    disabled={isTranslatingIntro}
-                  >
-                    {isTranslatingIntro ? (
+                    {isProcessing === "title_en" ? (
                       <Loader2 size={14} className="animate-spin" />
                     ) : (
                       <Languages size={14} />
                     )}
                   </button>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">
+                  Synopsis (FR)
+                </label>
+                <textarea
+                  rows={3}
+                  value={invData.desc_fr}
+                  onChange={(e) =>
+                    setInvData({ ...invData, desc_fr: e.target.value })
+                  }
+                  placeholder="Ex: Rouvrez les archives secrètes de 1961..."
+                  className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white resize-none outline-none focus:border-red-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">
+                  Synopsis (EN)
+                </label>
+                <div className="flex gap-2 items-start">
+                  <textarea
+                    rows={3}
+                    value={invData.desc_en}
+                    onChange={(e) =>
+                      setInvData({ ...invData, desc_en: e.target.value })
+                    }
+                    placeholder="Ex: Reopen the secret archives from 1961..."
+                    className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white resize-none outline-none focus:border-red-500"
+                  />
                   <button
-                    onClick={() => {
-                      const newTexts = introConfig.scroll_texts_en.filter(
-                        (_, i) => i !== idx,
-                      );
-                      setIntroConfig({
-                        ...introConfig,
-                        scroll_texts_en: newTexts,
-                      });
-                    }}
-                    className="p-2 text-red-500 hover:bg-red-500/10 rounded"
+                    onClick={() =>
+                      handleTranslateDossier(invData.desc_fr, "desc_en")
+                    }
+                    className="p-2 bg-white/5 rounded text-gray-400 hover:text-white mt-1 flex-shrink-0"
                   >
-                    <Trash2 size={14} />
+                    {isProcessing === "desc_en" ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Languages size={14} />
+                    )}
                   </button>
                 </div>
-              ))}
+              </div>
+            </div>
+
+            <div className="border-t border-white/5 pt-4 space-y-4">
+              <div>
+                <button
+                  onClick={() =>
+                    openCloudinaryWidget(editingId || "new", "investigation")
+                  }
+                  className="text-xs bg-white/5 px-4 py-2 rounded flex items-center gap-2 border border-white/10 hover:bg-white/10 w-full sm:w-auto justify-center"
+                >
+                  <ImagePlus size={14} />
+                  {invData.cover_url
+                    ? "Cover ajoutée (modifier)"
+                    : "Uploader Image de Couverture"}
+                </button>
+              </div>
+              {invData.cover_url && (
+                <div className="relative rounded-lg overflow-hidden border border-white/10 h-40 sm:h-48 w-full sm:w-64">
+                  <img
+                    src={invData.cover_url}
+                    alt="Aperçu couverture"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-3">
+                    <p className="text-white text-xs font-bold truncate">
+                      {invData.title_fr || "Sans titre"}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+
+              {/* 💳 SECTION PAIEMENT */}
+              <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl space-y-4 mt-4">
+                <h4 className="text-white font-bold text-sm flex items-center gap-2">
+                  💳 Paiement
+                </h4>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isPaid}
+                    onChange={(e) => {
+                      setIsPaid(e.target.checked);
+                      if (!e.target.checked) {
+                        setPriceCFA(0);
+                        setPriceEUR(0);
+                      }
+                    }}
+                    className="w-5 h-5 accent-emerald-500"
+                  />
+                  <span className="text-sm text-gray-300">Cette enquête est payante</span>
+                </label>
+
+                {isPaid && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-1 font-mono">💰 Prix CFA</label>
+                        <input
+                          type="number"
+                          value={priceCFA}
+                          onChange={(e) => {
+                            const cfa = Number(e.target.value);
+                            setPriceCFA(cfa);
+                            setPriceEUR(parseFloat((cfa / 655).toFixed(2)));
+                          }}
+                          placeholder="5000"
+                          className="w-full bg-[#1a1a1a] border border-white/20 rounded px-3 py-2 text-white text-sm outline-none focus:border-emerald-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-1 font-mono">💶 Prix EUR (Auto)</label>
+                        <input
+                          type="number"
+                          value={priceEUR}
+                          onChange={(e) => {
+                            const eur = Number(e.target.value);
+                            setPriceEUR(eur);
+                            setPriceCFA(Math.round(eur * 655));
+                          }}
+                          placeholder="7.63"
+                          step="0.01"
+                          className="w-full bg-[#1a1a1a] border border-white/20 rounded px-3 py-2 text-white text-sm outline-none focus:border-emerald-500"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-gray-600">💡 1 EUR = 655 XOF (mis à jour quotidiennement)</p>
+                  </div>
+                )}
+              </div>
+
+
               <button
-                onClick={() => {
-                  setIntroConfig({
-                    ...introConfig,
-                    scroll_texts_en: [...introConfig.scroll_texts_en, ""],
-                  });
-                }}
-                className="w-full py-2 border border-dashed border-indigo-500/30 text-indigo-400 rounded text-xs font-bold hover:bg-indigo-500/10"
+                onClick={handleSaveDossier}
+                disabled={isSaving}
+                className="bg-red-600 text-white px-6 py-2.5 rounded-lg font-bold text-sm hover:bg-red-500 flex items-center gap-2 w-full sm:w-auto justify-center disabled:opacity-50"
               >
-                + Add text EN
+                {isSaving ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Save size={16} />
+                )}{" "}
+                Sauvegarder le Dossier
               </button>
             </div>
           </div>
+        )}
+      </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-white/10 pt-4">
-            <div>
-              <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
-                Icône Finale
-              </label>
-              <input
-                type="text"
-                value={introConfig.final_message_icon}
-                onChange={(e) =>
-                  setIntroConfig({
-                    ...introConfig,
-                    final_message_icon: e.target.value,
-                  })
-                }
-                placeholder="Ex: ✦ ou 🔍"
-                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 text-center"
+      {/* ============================================================ */}
+      {/* PERSONNAGES */}
+      {/* ============================================================ */}
+      {editingId && (
+        <div className="bg-[#0f0f0f] rounded-xl border border-white/5">
+          <div
+            className="flex items-center justify-between p-4 sm:p-6 cursor-pointer hover:bg-white/[0.02] transition-colors"
+            onClick={() => toggleSection("characters")}
+          >
+            <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+              <span className="text-xl">👤</span> Personnages
+            </h3>
+            {expandedSections.characters ? (
+              <ChevronUp size={16} className="text-gray-500" />
+            ) : (
+              <ChevronDown size={16} className="text-gray-500" />
+            )}
+          </div>
+          {expandedSections.characters && (
+            <div className="p-4 sm:p-6 pt-0">
+              <InvestigationCharacters
+                investigationId={editingId}
+                evidences={evidences}
+                showMsg={showMsg}
               />
             </div>
-            <div>
-              <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
-                Message Final (FR)
-              </label>
-              <input
-                type="text"
-                value={introConfig.final_message_fr}
-                onChange={(e) =>
-                  setIntroConfig({
-                    ...introConfig,
-                    final_message_fr: e.target.value,
-                  })
-                }
-                placeholder="Ex: Bonne enquête"
-                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
-                Message Final (EN)
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={introConfig.final_message_en}
-                  onChange={(e) =>
-                    setIntroConfig({
-                      ...introConfig,
-                      final_message_en: e.target.value,
-                    })
-                  }
-                  placeholder="Ex: Good investigation"
-                  className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+          )}
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* DIALOGUE SPEAKERS + EDITEUR DE DIALOGUE */}
+      {/* ============================================================ */}
+      {editingId && (
+        <div className="bg-purple-950/10 rounded-xl border border-purple-500/20">
+          <div
+            className="flex items-center justify-between p-4 sm:p-6 cursor-pointer hover:bg-white/[0.02] transition-colors"
+            onClick={() => toggleSection("dialogues")}
+          >
+            <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+              <span className="text-2xl">🎭</span> PNJ & Arbres de Dialogue
+            </h3>
+            {expandedSections.dialogues ? (
+              <ChevronUp size={16} className="text-gray-500" />
+            ) : (
+              <ChevronDown size={16} className="text-gray-500" />
+            )}
+          </div>
+          {expandedSections.dialogues && (
+            <div className="p-4 sm:p-6 pt-0 space-y-6">
+              <div className="space-y-4">
+                <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                  <span className="text-2xl">🎭</span> PNJ du Jeu
+                </h3>
+                <p className="text-xs text-gray-400">
+                  Ces personnages apparaissent dans les dialogues du jeu. Créez ici les PNJ qui existeront dans vos arbres de dialogue.
+                </p>
+                <DialogueSpeakersManager
+                  investigationId={editingId}
+                  showMsg={showMsg}
                 />
-                <button
-                  onClick={async () => {
-                    if (!introConfig.final_message_fr.trim()) return;
-                    setIsTranslatingIntro(true);
-                    try {
-                      const translated = await autoTranslate(
-                        introConfig.final_message_fr,
-                        "fr",
-                      );
+              </div>
+
+              <div className="border-t border-purple-500/20 pt-6 space-y-4">
+                <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                  <span className="text-2xl">🌳</span> Arbres de Dialogue
+                </h3>
+                <p className="text-xs text-gray-400">
+                  Créez des conversations interactives avec branchements. Chaque dialogue peut être déclenché depuis un hotspot dans le panorama.
+                </p>
+                <DialogueEditor
+                  investigationId={editingId}
+                  dialogueSpeakers={dialogueSpeakers}
+                  evidences={evidences}
+                  outroConfig={outroConfig}
+                  showMsg={showMsg}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* MOTS MÊLÉS */}
+      {/* ============================================================ */}
+      {editingId && (
+        <div className="bg-pink-950/10 rounded-xl border border-pink-500/20">
+          <div
+            className="flex items-center justify-between p-4 sm:p-6 cursor-pointer hover:bg-white/[0.02] transition-colors"
+            onClick={() => toggleSection("wordsearch")}
+          >
+            <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+              <span className="text-2xl">🧩</span> Mots Mêlés
+            </h3>
+            {expandedSections.wordsearch ? (
+              <ChevronUp size={16} className="text-gray-500" />
+            ) : (
+              <ChevronDown size={16} className="text-gray-500" />
+            )}
+          </div>
+          {expandedSections.wordsearch && (
+            <div className="p-4 sm:p-6 pt-0">
+              <WordSearchAdmin
+                investigationId={editingId}
+                chapters={chapters}
+                outroConfig={outroConfig}
+                allInstructions={allInstructions}
+                showMsg={showMsg}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* MINI-JEUX */}
+      {/* ============================================================ */}
+      {editingId && (
+        <div className="bg-purple-950/10 rounded-xl border border-purple-500/20">
+          <div
+            className="flex items-center justify-between p-4 sm:p-6 cursor-pointer hover:bg-white/[0.02] transition-colors"
+            onClick={() => toggleSection("minigames")}
+          >
+            <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+              <span className="text-2xl">🎮</span> Mini-Jeux
+            </h3>
+            {expandedSections.minigames ? (
+              <ChevronUp size={16} className="text-gray-500" />
+            ) : (
+              <ChevronDown size={16} className="text-gray-500" />
+            )}
+          </div>
+          {expandedSections.minigames && (
+            <div className="p-4 sm:p-6 pt-0">
+              <MiniGameListAdmin
+                investigationId={editingId}
+                chapters={chapters}
+                outroConfig={outroConfig}
+                allInstructions={allInstructions}
+                showMsg={showMsg}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* INSTRUCTIONS */}
+      {/* ============================================================ */}
+      {editingId && (
+        <div className="bg-blue-950/10 rounded-xl border border-blue-500/20">
+          <div
+            className="flex items-center justify-between p-4 sm:p-6 cursor-pointer hover:bg-white/[0.02] transition-colors"
+            onClick={() => toggleSection("instructions")}
+          >
+            <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+              <Lightbulb size={18} className="text-blue-400" />
+              Bibliothèque d'Instructions
+            </h3>
+            {expandedSections.instructions ? (
+              <ChevronUp size={16} className="text-gray-500" />
+            ) : (
+              <ChevronDown size={16} className="text-gray-500" />
+            )}
+          </div>
+          {expandedSections.instructions && (
+            <div className="p-4 sm:p-6 pt-0">
+              <InstructionsLibrary investigationId={editingId} showMsg={showMsg} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* INTRO */}
+      {/* ============================================================ */}
+      {editingId && introConfig && (
+        <div className="bg-indigo-950/10 rounded-xl border border-indigo-500/20">
+          <div
+            className="flex items-center justify-between p-4 sm:p-6 cursor-pointer hover:bg-white/[0.02] transition-colors"
+            onClick={() => toggleSection("intro")}
+          >
+            <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+              <FileText size={18} className="text-indigo-400" />
+              Écran d'Introduction
+            </h3>
+            {expandedSections.intro ? (
+              <ChevronUp size={16} className="text-gray-500" />
+            ) : (
+              <ChevronDown size={16} className="text-gray-500" />
+            )}
+          </div>
+
+          {expandedSections.intro && (
+            <div className="p-4 sm:p-6 pt-0 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
+                    Image de fond
+                  </label>
+                  <button
+                    onClick={openCloudinaryForIntroImage}
+                    className="w-full py-2 bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 rounded-lg text-xs font-bold hover:bg-indigo-600/40 flex items-center justify-center gap-2"
+                  >
+                    <ImagePlus size={14} />
+                    {introConfig.background_image_url
+                      ? "Changer l'image"
+                      : "Uploader une image"}
+                  </button>
+                  {introConfig.background_image_url && (
+                    <img
+                      src={introConfig.background_image_url}
+                      alt="Intro background"
+                      className="w-full h-32 object-cover rounded-lg mt-2 border border-white/10"
+                    />
+                  )}
+                </div>
+
+                {introConfig.text_effect === "typewriter" && (
+                  <div>
+                    <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
+                      ⌨️ Vitesse de frappe (ms)
+                    </label>
+                    <input
+                      type="number"
+                      value={introConfig.typewriter_speed || 30}
+                      onChange={(e) =>
+                        setIntroConfig({
+                          ...introConfig,
+                          typewriter_speed: Number(e.target.value),
+                        })
+                      }
+                      min="10"
+                      max="200"
+                      className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                    />
+                    <p className="text-[10px] text-gray-600 mt-1">
+                      20 = Très rapide, 100 = Lent
+                    </p>
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
+                    🎨 Couleur du texte
+                  </label>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="color"
+                      value={introConfig.text_color || "#FFFFFF"}
+                      onChange={(e) =>
+                        setIntroConfig({
+                          ...introConfig,
+                          text_color: e.target.value,
+                        })
+                      }
+                      className="w-10 h-10 rounded cursor-pointer border-0 bg-transparent"
+                    />
+                    <input
+                      type="text"
+                      value={introConfig.text_color || "#FFFFFF"}
+                      onChange={(e) =>
+                        setIntroConfig({
+                          ...introConfig,
+                          text_color: e.target.value,
+                        })
+                      }
+                      className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
+                    ✏️ Police du texte
+                  </label>
+                  <select
+                    value={introConfig.text_font || "serif"}
+                    onChange={(e) =>
                       setIntroConfig({
                         ...introConfig,
-                        final_message_en: translated,
-                      });
-                    } catch (err) {
-                      console.error("Translation error:", err);
+                        text_font: e.target.value,
+                      })
                     }
-                    setIsTranslatingIntro(false);
-                  }}
-                  className="p-2 bg-white/5 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-colors"
-                  disabled={isTranslatingIntro}
-                >
-                  {isTranslatingIntro ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : (
-                    <Languages size={14} />
+                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                  >
+                    <option value="serif">Serif (Classique)</option>
+                    <option value="sans-serif">Sans-Serif (Moderne)</option>
+                    <option value="monospace">Monospace (Machine)</option>
+                    <option value="'Courier New', Courier">Courier (Télétype)</option>
+                    <option value="'Georgia', serif">Georgia (Élégant)</option>
+                    <option value="'Times New Roman', serif">Times (Journal)</option>
+                    <option value="'Brush Script MT', cursive">Cursive (Manuscrit)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
+                    Audio narratif
+                  </label>
+                  <button
+                    onClick={openCloudinaryForIntroAudio}
+                    className="w-full py-2 bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 rounded-lg text-xs font-bold hover:bg-indigo-600/40 flex items-center justify-center gap-2"
+                  >
+                    <Music size={14} />
+                    {introConfig.audio_url
+                      ? "Changer l'audio"
+                      : "Uploader un audio"}
+                  </button>
+                  {introConfig.audio_url && (
+                    <audio
+                      src={introConfig.audio_url}
+                      controls
+                      className="w-full mt-2 h-8"
+                    />
                   )}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-400 mb-2 block font-bold uppercase">
+                  Textes défilants (FR)
+                </label>
+                <div className="space-y-2">
+                  {introConfig.scroll_texts_fr.map((text, idx) => (
+                    <div key={idx} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={text}
+                        onChange={(e) => {
+                          const newTexts = [...introConfig.scroll_texts_fr];
+                          newTexts[idx] = e.target.value;
+                          setIntroConfig({
+                            ...introConfig,
+                            scroll_texts_fr: newTexts,
+                          });
+                        }}
+                        placeholder="Ex: En l'an 1960, l'ombre d'un complot..."
+                        className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                      />
+                      <button
+                        onClick={() => {
+                          const newTexts = introConfig.scroll_texts_fr.filter(
+                            (_, i) => i !== idx,
+                          );
+                          setIntroConfig({
+                            ...introConfig,
+                            scroll_texts_fr: newTexts,
+                          });
+                        }}
+                        className="p-2 text-red-500 hover:bg-red-500/10 rounded"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => {
+                      setIntroConfig({
+                        ...introConfig,
+                        scroll_texts_fr: [...introConfig.scroll_texts_fr, ""],
+                      });
+                    }}
+                    className="w-full py-2 border border-dashed border-indigo-500/30 text-indigo-400 rounded text-xs font-bold hover:bg-indigo-500/10"
+                  >
+                    + Ajouter un texte FR
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-400 mb-2 block font-bold uppercase flex items-center gap-2">
+                  Textes défilants (EN)
+                  <Languages size={12} className="text-gray-500" />
+                </label>
+                <div className="space-y-2">
+                  {introConfig.scroll_texts_en.map((text, idx) => (
+                    <div key={idx} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={text}
+                        onChange={(e) => {
+                          const newTexts = [...introConfig.scroll_texts_en];
+                          newTexts[idx] = e.target.value;
+                          setIntroConfig({
+                            ...introConfig,
+                            scroll_texts_en: newTexts,
+                          });
+                        }}
+                        placeholder="Ex: In 1960, the shadow of a plot..."
+                        className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                      />
+                      <button
+                        onClick={async () => {
+                          if (!introConfig.scroll_texts_fr[idx]?.trim()) return;
+                          setIsTranslatingIntro(true);
+                          try {
+                            const translated = await autoTranslate(
+                              introConfig.scroll_texts_fr[idx],
+                              "fr",
+                            );
+                            const newTexts = [...introConfig.scroll_texts_en];
+                            newTexts[idx] = translated;
+                            setIntroConfig({
+                              ...introConfig,
+                              scroll_texts_en: newTexts,
+                            });
+                          } catch (err) {
+                            console.error("Translation error:", err);
+                          }
+                          setIsTranslatingIntro(false);
+                        }}
+                        className="p-2 bg-white/5 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-colors"
+                        disabled={isTranslatingIntro}
+                      >
+                        {isTranslatingIntro ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Languages size={14} />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => {
+                          const newTexts = introConfig.scroll_texts_en.filter(
+                            (_, i) => i !== idx,
+                          );
+                          setIntroConfig({
+                            ...introConfig,
+                            scroll_texts_en: newTexts,
+                          });
+                        }}
+                        className="p-2 text-red-500 hover:bg-red-500/10 rounded"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => {
+                      setIntroConfig({
+                        ...introConfig,
+                        scroll_texts_en: [...introConfig.scroll_texts_en, ""],
+                      });
+                    }}
+                    className="w-full py-2 border border-dashed border-indigo-500/30 text-indigo-400 rounded text-xs font-bold hover:bg-indigo-500/10"
+                  >
+                    + Add text EN
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-white/10 pt-4">
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
+                    Icône Finale
+                  </label>
+                  <input
+                    type="text"
+                    value={introConfig.final_message_icon}
+                    onChange={(e) =>
+                      setIntroConfig({
+                        ...introConfig,
+                        final_message_icon: e.target.value,
+                      })
+                    }
+                    placeholder="Ex: ✦ ou 🔍"
+                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-indigo-500 text-center"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
+                    Message Final (FR)
+                  </label>
+                  <input
+                    type="text"
+                    value={introConfig.final_message_fr}
+                    onChange={(e) =>
+                      setIntroConfig({
+                        ...introConfig,
+                        final_message_fr: e.target.value,
+                      })
+                    }
+                    placeholder="Ex: Bonne enquête"
+                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
+                    Message Final (EN)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={introConfig.final_message_en}
+                      onChange={(e) =>
+                        setIntroConfig({
+                          ...introConfig,
+                          final_message_en: e.target.value,
+                        })
+                      }
+                      placeholder="Ex: Good investigation"
+                      className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                    />
+                    <button
+                      onClick={async () => {
+                        if (!introConfig.final_message_fr.trim()) return;
+                        setIsTranslatingIntro(true);
+                        try {
+                          const translated = await autoTranslate(
+                            introConfig.final_message_fr,
+                            "fr",
+                          );
+                          setIntroConfig({
+                            ...introConfig,
+                            final_message_en: translated,
+                          });
+                        } catch (err) {
+                          console.error("Translation error:", err);
+                        }
+                        setIsTranslatingIntro(false);
+                      }}
+                      className="p-2 bg-white/5 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-colors"
+                      disabled={isTranslatingIntro}
+                    >
+                      {isTranslatingIntro ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Languages size={14} />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
+                    Temps de pause (sec/texte)
+                  </label>
+                  <input
+                    type="number"
+                    value={introConfig.text_scroll_speed}
+                    onChange={(e) =>
+                      setIntroConfig({
+                        ...introConfig,
+                        text_scroll_speed: Number(e.target.value),
+                      })
+                    }
+                    min="1"
+                    max="15"
+                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
+                    Volume audio (0-1)
+                  </label>
+                  <input
+                    type="number"
+                    value={introConfig.audio_volume}
+                    onChange={(e) =>
+                      setIntroConfig({
+                        ...introConfig,
+                        audio_volume: Math.max(
+                          0,
+                          Math.min(1, Number(e.target.value)),
+                        ),
+                      })
+                    }
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
+                    Permettre de passer ?
+                  </label>
+                  <select
+                    value={introConfig.skip_allowed ? "true" : "false"}
+                    onChange={(e) =>
+                      setIntroConfig({
+                        ...introConfig,
+                        skip_allowed: e.target.value === "true",
+                      })
+                    }
+                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white"
+                  >
+                    <option value="true">Oui</option>
+                    <option value="false">Non</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-white/10 pt-4">
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
+                    Filtre Visuel
+                  </label>
+                  <select
+                    value={introConfig.visual_filter || "none"}
+                    onChange={(e) =>
+                      setIntroConfig({
+                        ...introConfig,
+                        visual_filter: e.target.value,
+                      })
+                    }
+                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                  >
+                    <option value="none">Aucun (Original)</option>
+                    <option value="sepia">Sépia (Années 1900)</option>
+                    <option value="grayscale">Noir & Blanc (Archives)</option>
+                    <option value="vintage">Vintage (Contraste élevé)</option>
+                    <option value="noir">Film Noir (Sombre)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
+                    Effet Vidéo (Mouvement)
+                  </label>
+                  <select
+                    value={introConfig.image_effect || "none"}
+                    onChange={(e) =>
+                      setIntroConfig({
+                        ...introConfig,
+                        image_effect: e.target.value,
+                      })
+                    }
+                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                  >
+                    <option value="none">Aucun (Image fixe)</option>
+                    <option value="zoom-in">Zoom Lent (Effet dramatique)</option>
+                    <option value="zoom-out">Dé-zoom Lent (Révélation)</option>
+                    <option value="pan-left">Panoramique Gauche</option>
+                    <option value="pan-right">Panoramique Droite</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
+                    Effet de Texte
+                  </label>
+                  <select
+                    value={introConfig.text_effect || "none"}
+                    onChange={(e) =>
+                      setIntroConfig({
+                        ...introConfig,
+                        text_effect: e.target.value,
+                      })
+                    }
+                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
+                  >
+                    <option value="none">Aucun (Texte fixe)</option>
+                    <option value="typewriter">Machine à écrire</option>
+                    <option value="fade">Fondu</option>
+                    <option value="blur">Flou cinématique</option>
+                    <option value="slide">Glissement vertical</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowIntroPreview(true)}
+                  className="flex-1 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg font-bold text-sm flex items-center justify-center gap-2 border border-white/10"
+                >
+                  <Eye size={16} /> Aperçu
+                </button>
+                <button
+                  onClick={() => saveIntroConfig(editingId)}
+                  className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold text-sm flex items-center justify-center gap-2"
+                >
+                  <Save size={16} /> Sauvegarder l'intro
                 </button>
               </div>
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
-                Temps de pause (sec/texte)
-              </label>
-              <input
-                type="number"
-                value={introConfig.text_scroll_speed}
-                onChange={(e) =>
-                  setIntroConfig({
-                    ...introConfig,
-                    text_scroll_speed: Number(e.target.value),
-                  })
-                }
-                min="1"
-                max="15"
-                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
-                Volume audio (0-1)
-              </label>
-              <input
-                type="number"
-                value={introConfig.audio_volume}
-                onChange={(e) =>
-                  setIntroConfig({
-                    ...introConfig,
-                    audio_volume: Math.max(
-                      0,
-                      Math.min(1, Number(e.target.value)),
-                    ),
-                  })
-                }
-                min="0"
-                max="1"
-                step="0.1"
-                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
-                Permettre de passer ?
-              </label>
-              <select
-                value={introConfig.skip_allowed ? "true" : "false"}
-                onChange={(e) =>
-                  setIntroConfig({
-                    ...introConfig,
-                    skip_allowed: e.target.value === "true",
-                  })
-                }
-                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white"
-              >
-                <option value="true">Oui</option>
-                <option value="false">Non</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-white/10 pt-4">
-            <div>
-              <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
-                Filtre Visuel
-              </label>
-              <select
-                value={introConfig.visual_filter || "none"}
-                onChange={(e) =>
-                  setIntroConfig({
-                    ...introConfig,
-                    visual_filter: e.target.value,
-                  })
-                }
-                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
-              >
-                <option value="none">Aucun (Original)</option>
-                <option value="sepia">Sépia (Années 1900)</option>
-                <option value="grayscale">Noir & Blanc (Archives)</option>
-                <option value="vintage">Vintage (Contraste élevé)</option>
-                <option value="noir">Film Noir (Sombre)</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
-                Effet Vidéo (Mouvement)
-              </label>
-              <select
-                value={introConfig.image_effect || "none"}
-                onChange={(e) =>
-                  setIntroConfig({
-                    ...introConfig,
-                    image_effect: e.target.value,
-                  })
-                }
-                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
-              >
-                <option value="none">Aucun (Image fixe)</option>
-                <option value="zoom-in">Zoom Lent (Effet dramatique)</option>
-                <option value="zoom-out">Dé-zoom Lent (Révélation)</option>
-                <option value="pan-left">Panoramique Gauche</option>
-                <option value="pan-right">Panoramique Droite</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-gray-400 mb-1 block font-bold uppercase">
-                Effet de Texte
-              </label>
-              <select
-                value={introConfig.text_effect || "none"}
-                onChange={(e) =>
-                  setIntroConfig({
-                    ...introConfig,
-                    text_effect: e.target.value,
-                  })
-                }
-                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-indigo-500"
-              >
-                <option value="none">Aucun (Texte fixe)</option>
-                <option value="typewriter">Machine à écrire</option>
-                <option value="fade">Fondu</option>
-                <option value="blur">Flou cinématique</option>
-                <option value="slide">Glissement vertical</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex gap-3 pt-2">
-            <button
-              onClick={() => setShowIntroPreview(true)}
-              className="flex-1 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg font-bold text-sm flex items-center justify-center gap-2 border border-white/10"
-            >
-              <Eye size={16} /> Aperçu
-            </button>
-            <button
-              onClick={() => saveIntroConfig(editingId)}
-              className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-bold text-sm flex items-center justify-center gap-2"
-            >
-              <Save size={16} /> Sauvegarder l'intro
-            </button>
-          </div>
+          )}
         </div>
       )}
 
@@ -1925,321 +2281,474 @@ export default function InvestigationsTab({
         </div>
       )}
 
+      {/* ============================================================ */}
       {/* OUTRO */}
+      {/* ============================================================ */}
       {editingId && outroConfig && (
-        <div className="bg-green-950/10 p-4 sm:p-6 rounded-xl border border-green-500/20 space-y-6">
-          <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-            <Trophy size={18} className="text-green-400" /> Conclusions & Règles du Temps
-          </h3>
-
-          <div className="space-y-4 bg-[#D4AF37]/10 p-4 rounded-xl border border-[#D4AF37]/30">
-            <h4 className="text-sm font-bold text-[#D4AF37] border-b border-[#D4AF37]/20 pb-2 flex items-center gap-2">
-              <Star size={16} /> Économie du Jeu (Cauris & Temps)
-            </h4>
-
-            <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
-              ⏱ Gestion du Temps
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="text-xs text-gray-300 font-bold mb-1 block">
-                  Coût d'achat de temps (Cauris)
-                </label>
-                <input
-                  type="number"
-                  value={outroConfig.time_economy?.buy_cost ?? 50}
-                  onChange={(e) =>
-                    setOutroConfig({
-                      ...outroConfig,
-                      time_economy: {
-                        ...outroConfig.time_economy,
-                        buy_cost: Number(e.target.value),
-                      },
-                    })
-                  }
-                  className="w-full bg-[#1a1a1a] border border-[#D4AF37]/50 rounded px-3 py-2 text-sm text-white"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-gray-300 font-bold mb-1 block">
-                  Temps gagné lors de l'achat (Sec)
-                </label>
-                <input
-                  type="number"
-                  value={outroConfig.time_economy?.buy_seconds ?? 60}
-                  onChange={(e) =>
-                    setOutroConfig({
-                      ...outroConfig,
-                      time_economy: {
-                        ...outroConfig.time_economy,
-                        buy_seconds: Number(e.target.value),
-                      },
-                    })
-                  }
-                  className="w-full bg-[#1a1a1a] border border-[#D4AF37]/50 rounded px-3 py-2 text-sm text-white"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-gray-300 font-bold mb-1 block">
-                  Temps offert si on change de scène (Sec)
-                </label>
-                <input
-                  type="number"
-                  value={outroConfig.time_economy?.reward_seconds ?? 30}
-                  onChange={(e) =>
-                    setOutroConfig({
-                      ...outroConfig,
-                      time_economy: {
-                        ...outroConfig.time_economy,
-                        reward_seconds: Number(e.target.value),
-                      },
-                    })
-                  }
-                  className="w-full bg-[#1a1a1a] border border-[#D4AF37]/50 rounded px-3 py-2 text-sm text-white"
-                />
-              </div>
-            </div>
-
-            <div className="border-t border-[#D4AF37]/20 pt-4">
-              <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-3">
-                💡 Gestion des Indices
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-gray-300 font-bold mb-1 block">
-                    Coût pour révéler un indice manuellement (Cauris)
-                  </label>
-                  <input
-                    type="number"
-                    value={outroConfig.game_economy?.hint_cost_cauris ?? 5}
-                    onChange={(e) =>
-                      setOutroConfig({
-                        ...outroConfig,
-                        game_economy: {
-                          ...(outroConfig.game_economy || {}),
-                          hint_cost_cauris: Number(e.target.value),
-                        },
-                      })
-                    }
-                    min={0}
-                    className="w-full bg-[#1a1a1a] border border-[#D4AF37]/50 rounded px-3 py-2 text-sm text-white"
-                  />
-                  <p className="text-[10px] text-gray-500 mt-1">
-                    0 = Gratuit. Le joueur peut révéler librement.
-                  </p>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-300 font-bold mb-1 block">
-                    Nombre d'erreurs avant révélation automatique
-                  </label>
-                  <input
-                    type="number"
-                    value={outroConfig.game_economy?.auto_reveal_after ?? 3}
-                    onChange={(e) =>
-                      setOutroConfig({
-                        ...outroConfig,
-                        game_economy: {
-                          ...(outroConfig.game_economy || {}),
-                          auto_reveal_after: Number(e.target.value),
-                        },
-                      })
-                    }
-                    min={1}
-                    className="w-full bg-[#1a1a1a] border border-[#D4AF37]/50 rounded px-3 py-2 text-sm text-white"
-                  />
-                  <p className="text-[10px] text-gray-500 mt-1">
-                    Ex: 3 = après 3 erreurs sur cette énigme, l'indice suivant se débloque.
-                  </p>
-                </div>
-              </div>
-            </div>
+        <div className="bg-green-950/10 rounded-xl border border-green-500/20">
+          <div
+            className="flex items-center justify-between p-4 sm:p-6 cursor-pointer hover:bg-white/[0.02] transition-colors"
+            onClick={() => toggleSection("outro")}
+          >
+            <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+              <Trophy size={18} className="text-green-400" /> Conclusions & Règles du Temps
+            </h3>
+            {expandedSections.outro ? (
+              <ChevronUp size={16} className="text-gray-500" />
+            ) : (
+              <ChevronDown size={16} className="text-gray-500" />
+            )}
           </div>
 
-          <div className="space-y-4 pt-4 border-t border-white/10">
-            <h4 className="text-sm font-bold text-white border-b border-white/10 pb-2">
-              1. Victoire & Rangs Infinis
-            </h4>
-            <div className="space-y-4">
-              {outroConfig.ranks?.map((rank: any, rIdx: number) => (
-                <div
-                  key={rank.id || rIdx}
-                  className="bg-black/30 p-4 rounded-xl border border-white/10 space-y-4"
-                >
-                  <div className="mb-4">
-                    <label className="text-[10px] text-gray-500 font-bold">
-                      Nom de la règle (interne, pour bibliothèque)
+          {expandedSections.outro && (
+            <div className="p-4 sm:p-6 pt-0 space-y-6">
+              <div className="space-y-4 bg-[#D4AF37]/10 p-4 rounded-xl border border-[#D4AF37]/30">
+                <h4 className="text-sm font-bold text-[#D4AF37] border-b border-[#D4AF37]/20 pb-2 flex items-center gap-2">
+                  <Star size={16} /> Économie du Jeu (Cauris & Temps)
+                </h4>
+
+                <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
+                  ⏱ Gestion du Temps
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-xs text-gray-300 font-bold mb-1 block">
+                      Coût d'achat de temps (Cauris)
                     </label>
                     <input
-                      type="text"
-                      value={rank.name || ""}
-                      onChange={(e) => {
-                        const r = [...outroConfig.ranks];
-                        r[rIdx].name = e.target.value;
-                        setOutroConfig({ ...outroConfig, ranks: r });
-                      }}
-                      placeholder="Ex: victoire_legende"
-                      className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white font-mono"
+                      type="number"
+                      value={outroConfig.time_economy?.buy_cost ?? 50}
+                      onChange={(e) =>
+                        setOutroConfig({
+                          ...outroConfig,
+                          time_economy: {
+                            ...outroConfig.time_economy,
+                            buy_cost: Number(e.target.value),
+                          },
+                        })
+                      }
+                      className="w-full bg-[#1a1a1a] border border-[#D4AF37]/50 rounded px-3 py-2 text-sm text-white"
                     />
                   </div>
-
-                  <div className="space-y-2 border-b border-white/10 pb-4">
-                    <p className="text-[10px] text-[#D4AF37] uppercase tracking-widest font-bold flex items-center gap-1">
-                      <Star size={10} /> Titre géant affiché (ex: ENQUÊTE TERMINÉE)
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        value={rank.main_title_fr || ""}
-                        onChange={(e) => {
-                          const r = [...outroConfig.ranks];
-                          r[rIdx].main_title_fr = e.target.value;
-                          setOutroConfig({ ...outroConfig, ranks: r });
-                        }}
-                        placeholder="Titre géant FR"
-                        className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white"
-                      />
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={rank.main_title_en || ""}
-                          onChange={(e) => {
-                            const r = [...outroConfig.ranks];
-                            r[rIdx].main_title_en = e.target.value;
-                            setOutroConfig({ ...outroConfig, ranks: r });
-                          }}
-                          placeholder="Titre géant EN"
-                          className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white"
-                        />
-                        <button
-                          onClick={async () => {
-                            setIsTranslatingOutro(true);
-                            const t = await autoTranslate(rank.main_title_fr, "fr");
-                            const r = [...outroConfig.ranks];
-                            r[rIdx].main_title_en = t;
-                            setOutroConfig({ ...outroConfig, ranks: r });
-                            setIsTranslatingOutro(false);
-                          }}
-                          className="p-2 bg-white/5 rounded text-gray-400 hover:text-white flex-shrink-0"
-                        >
-                          <Languages size={16} />
-                        </button>
-                      </div>
-                    </div>
+                  <div>
+                    <label className="text-xs text-gray-300 font-bold mb-1 block">
+                      Temps gagné lors de l'achat (Sec)
+                    </label>
+                    <input
+                      type="number"
+                      value={outroConfig.time_economy?.buy_seconds ?? 60}
+                      onChange={(e) =>
+                        setOutroConfig({
+                          ...outroConfig,
+                          time_economy: {
+                            ...outroConfig.time_economy,
+                            buy_seconds: Number(e.target.value),
+                          },
+                        })
+                      }
+                      className="w-full bg-[#1a1a1a] border border-[#D4AF37]/50 rounded px-3 py-2 text-sm text-white"
+                    />
                   </div>
+                  <div>
+                    <label className="text-xs text-gray-300 font-bold mb-1 block">
+                      Temps offert si on change de scène (Sec)
+                    </label>
+                    <input
+                      type="number"
+                      value={outroConfig.time_economy?.reward_seconds ?? 30}
+                      onChange={(e) =>
+                        setOutroConfig({
+                          ...outroConfig,
+                          time_economy: {
+                            ...outroConfig.time_economy,
+                            reward_seconds: Number(e.target.value),
+                          },
+                        })
+                      }
+                      className="w-full bg-[#1a1a1a] border border-[#D4AF37]/50 rounded px-3 py-2 text-sm text-white"
+                    />
+                  </div>
+                </div>
 
-                  <div className="flex flex-col sm:flex-row gap-4 items-end border-b border-white/10 pb-4">
-                    <div className="w-28 flex-shrink-0">
-                      <label className="text-[10px] text-green-400 font-bold">
-                        Score Min (%)
+                <div className="border-t border-[#D4AF37]/20 pt-4">
+                  <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-3">
+                    💡 Gestion des Indices
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs text-gray-300 font-bold mb-1 block">
+                        Coût pour révéler un indice manuellement (Cauris)
                       </label>
                       <input
                         type="number"
-                        value={rank.min_percent}
-                        onChange={(e) => {
-                          const r = [...outroConfig.ranks];
-                          r[rIdx].min_percent = Number(e.target.value);
-                          setOutroConfig({ ...outroConfig, ranks: r });
-                        }}
-                        className="w-full bg-[#1a1a1a] border border-green-500/30 rounded px-3 py-2 text-sm text-white"
+                        value={outroConfig.game_economy?.hint_cost_cauris ?? 5}
+                        onChange={(e) =>
+                          setOutroConfig({
+                            ...outroConfig,
+                            game_economy: {
+                              ...(outroConfig.game_economy || {}),
+                              hint_cost_cauris: Number(e.target.value),
+                            },
+                          })
+                        }
+                        min={0}
+                        className="w-full bg-[#1a1a1a] border border-[#D4AF37]/50 rounded px-3 py-2 text-sm text-white"
                       />
+                      <p className="text-[10px] text-gray-500 mt-1">
+                        0 = Gratuit. Le joueur peut révéler librement.
+                      </p>
                     </div>
-                    <div className="flex-1">
-                      <label className="text-[10px] text-gray-500 font-bold">
-                        Nom du Rang (FR)
+                    <div>
+                      <label className="text-xs text-gray-300 font-bold mb-1 block">
+                        Nombre d'erreurs avant révélation automatique
                       </label>
                       <input
-                        type="text"
-                        value={rank.title_fr}
-                        onChange={(e) => {
-                          const r = [...outroConfig.ranks];
-                          r[rIdx].title_fr = e.target.value;
-                          setOutroConfig({ ...outroConfig, ranks: r });
-                        }}
-                        className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white"
+                        type="number"
+                        value={outroConfig.game_economy?.auto_reveal_after ?? 3}
+                        onChange={(e) =>
+                          setOutroConfig({
+                            ...outroConfig,
+                            game_economy: {
+                              ...(outroConfig.game_economy || {}),
+                              auto_reveal_after: Number(e.target.value),
+                            },
+                          })
+                        }
+                        min={1}
+                        className="w-full bg-[#1a1a1a] border border-[#D4AF37]/50 rounded px-3 py-2 text-sm text-white"
                       />
+                      <p className="text-[10px] text-gray-500 mt-1">
+                        Ex: 3 = après 3 erreurs sur cette énigme, l'indice suivant se débloque.
+                      </p>
                     </div>
-                    <div className="flex-1 flex gap-2 items-end">
-                      <div className="flex-1">
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-4 border-t border-white/10">
+                <h4 className="text-sm font-bold text-white border-b border-white/10 pb-2">
+                  1. Victoire & Rangs Infinis
+                </h4>
+                <div className="space-y-4">
+                  {outroConfig.ranks?.map((rank: any, rIdx: number) => (
+                    <div
+                      key={rank.id || rIdx}
+                      className="bg-black/30 p-4 rounded-xl border border-white/10 space-y-4"
+                    >
+                      <div className="mb-4">
                         <label className="text-[10px] text-gray-500 font-bold">
-                          Nom du Rang (EN)
+                          Nom de la règle (interne, pour bibliothèque)
                         </label>
                         <input
                           type="text"
-                          value={rank.title_en}
+                          value={rank.name || ""}
                           onChange={(e) => {
                             const r = [...outroConfig.ranks];
-                            r[rIdx].title_en = e.target.value;
+                            r[rIdx].name = e.target.value;
                             setOutroConfig({ ...outroConfig, ranks: r });
                           }}
-                          className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white"
+                          placeholder="Ex: victoire_legende"
+                          className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white font-mono"
                         />
                       </div>
-                      <button
-                        onClick={async () => {
-                          setIsTranslatingOutro(true);
-                          const t = await autoTranslate(rank.title_fr, "fr");
-                          const r = [...outroConfig.ranks];
-                          r[rIdx].title_en = t;
-                          setOutroConfig({ ...outroConfig, ranks: r });
-                          setIsTranslatingOutro(false);
-                        }}
-                        className="p-2 bg-white/5 rounded text-gray-400 hover:text-white flex-shrink-0"
-                      >
-                        <Languages size={16} />
-                      </button>
-                      <button
-                        onClick={() => {
-                          const r = outroConfig.ranks.filter(
-                            (_: any, i: number) => i !== rIdx,
-                          );
-                          setOutroConfig({ ...outroConfig, ranks: r });
-                        }}
-                        className="p-2 text-red-500 hover:bg-red-500/20 rounded flex-shrink-0"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
 
-                  <div className="space-y-2 pl-4 border-l-2 border-green-500/30">
-                    <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
-                      Messages aléatoires pour ce rang
-                    </p>
-                    {rank.messages?.map((msg: any, mIdx: number) => (
-                      <div
-                        key={msg.id || mIdx}
-                        className="flex gap-2 items-start bg-white/5 p-2 rounded"
-                      >
-                        <textarea
-                          rows={2}
-                          value={msg.text_fr}
-                          onChange={(e) => {
+                      <div className="space-y-2 border-b border-white/10 pb-4">
+                        <p className="text-[10px] text-[#D4AF37] uppercase tracking-widest font-bold flex items-center gap-1">
+                          <Star size={10} /> Titre géant affiché (ex: ENQUÊTE TERMINÉE)
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <input
+                            type="text"
+                            value={rank.main_title_fr || ""}
+                            onChange={(e) => {
+                              const r = [...outroConfig.ranks];
+                              r[rIdx].main_title_fr = e.target.value;
+                              setOutroConfig({ ...outroConfig, ranks: r });
+                            }}
+                            placeholder="Titre géant FR"
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white"
+                          />
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={rank.main_title_en || ""}
+                              onChange={(e) => {
+                                const r = [...outroConfig.ranks];
+                                r[rIdx].main_title_en = e.target.value;
+                                setOutroConfig({ ...outroConfig, ranks: r });
+                              }}
+                              placeholder="Titre géant EN"
+                              className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white"
+                            />
+                            <button
+                              onClick={async () => {
+                                setIsTranslatingOutro(true);
+                                const t = await autoTranslate(rank.main_title_fr, "fr");
+                                const r = [...outroConfig.ranks];
+                                r[rIdx].main_title_en = t;
+                                setOutroConfig({ ...outroConfig, ranks: r });
+                                setIsTranslatingOutro(false);
+                              }}
+                              className="p-2 bg-white/5 rounded text-gray-400 hover:text-white flex-shrink-0"
+                            >
+                              <Languages size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-4 items-end border-b border-white/10 pb-4">
+                        <div className="w-28 flex-shrink-0">
+                          <label className="text-[10px] text-green-400 font-bold">
+                            Score Min (%)
+                          </label>
+                          <input
+                            type="number"
+                            value={rank.min_percent}
+                            onChange={(e) => {
+                              const r = [...outroConfig.ranks];
+                              r[rIdx].min_percent = Number(e.target.value);
+                              setOutroConfig({ ...outroConfig, ranks: r });
+                            }}
+                            className="w-full bg-[#1a1a1a] border border-green-500/30 rounded px-3 py-2 text-sm text-white"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <label className="text-[10px] text-gray-500 font-bold">
+                            Nom du Rang (FR)
+                          </label>
+                          <input
+                            type="text"
+                            value={rank.title_fr}
+                            onChange={(e) => {
+                              const r = [...outroConfig.ranks];
+                              r[rIdx].title_fr = e.target.value;
+                              setOutroConfig({ ...outroConfig, ranks: r });
+                            }}
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white"
+                          />
+                        </div>
+                        <div className="flex-1 flex gap-2 items-end">
+                          <div className="flex-1">
+                            <label className="text-[10px] text-gray-500 font-bold">
+                              Nom du Rang (EN)
+                            </label>
+                            <input
+                              type="text"
+                              value={rank.title_en}
+                              onChange={(e) => {
+                                const r = [...outroConfig.ranks];
+                                r[rIdx].title_en = e.target.value;
+                                setOutroConfig({ ...outroConfig, ranks: r });
+                              }}
+                              className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white"
+                            />
+                          </div>
+                          <button
+                            onClick={async () => {
+                              setIsTranslatingOutro(true);
+                              const t = await autoTranslate(rank.title_fr, "fr");
+                              const r = [...outroConfig.ranks];
+                              r[rIdx].title_en = t;
+                              setOutroConfig({ ...outroConfig, ranks: r });
+                              setIsTranslatingOutro(false);
+                            }}
+                            className="p-2 bg-white/5 rounded text-gray-400 hover:text-white flex-shrink-0"
+                          >
+                            <Languages size={16} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              const r = outroConfig.ranks.filter(
+                                (_: any, i: number) => i !== rIdx,
+                              );
+                              setOutroConfig({ ...outroConfig, ranks: r });
+                            }}
+                            className="p-2 text-red-500 hover:bg-red-500/20 rounded flex-shrink-0"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 pl-4 border-l-2 border-green-500/30">
+                        <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">
+                          Messages aléatoires pour ce rang
+                        </p>
+                        {rank.messages?.map((msg: any, mIdx: number) => (
+                          <div
+                            key={msg.id || mIdx}
+                            className="flex gap-2 items-start bg-white/5 p-2 rounded"
+                          >
+                            <textarea
+                              rows={2}
+                              value={msg.text_fr}
+                              onChange={(e) => {
+                                const r = [...outroConfig.ranks];
+                                r[rIdx].messages[mIdx].text_fr = e.target.value;
+                                setOutroConfig({ ...outroConfig, ranks: r });
+                              }}
+                              placeholder="Message FR"
+                              className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white resize-none"
+                            />
+                            <textarea
+                              rows={2}
+                              value={msg.text_en}
+                              onChange={(e) => {
+                                const r = [...outroConfig.ranks];
+                                r[rIdx].messages[mIdx].text_en = e.target.value;
+                                setOutroConfig({ ...outroConfig, ranks: r });
+                              }}
+                              placeholder="Message EN"
+                              className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white resize-none"
+                            />
+                            <div className="flex flex-col gap-1">
+                              <button
+                                onClick={async () => {
+                                  setIsTranslatingOutro(true);
+                                  const t = await autoTranslate(msg.text_fr, "fr");
+                                  const r = [...outroConfig.ranks];
+                                  r[rIdx].messages[mIdx].text_en = t;
+                                  setOutroConfig({ ...outroConfig, ranks: r });
+                                  setIsTranslatingOutro(false);
+                                }}
+                                className="p-1.5 bg-white/5 rounded text-gray-400 hover:text-white"
+                              >
+                                <Languages size={12} />
+                              </button>
+                              <button
+                                onClick={() =>
+                                  setShowOutroPreview({
+                                    isTimeout: false,
+                                    title: rank.title_fr,
+                                    message: msg.text_fr,
+                                    color: rankColors[rIdx % rankColors.length],
+                                    score: rank.min_percent,
+                                  })
+                                }
+                                className="p-1.5 bg-white/5 rounded text-green-400 hover:bg-green-500 hover:text-black"
+                              >
+                                <Eye size={12} />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const r = [...outroConfig.ranks];
+                                  r[rIdx].messages = r[rIdx].messages.filter(
+                                    (_: any, i: number) => i !== mIdx,
+                                  );
+                                  setOutroConfig({ ...outroConfig, ranks: r });
+                                }}
+                                className="p-1.5 text-red-500 hover:bg-red-500/20 rounded"
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => {
                             const r = [...outroConfig.ranks];
-                            r[rIdx].messages[mIdx].text_fr = e.target.value;
+                            r[rIdx].messages = [
+                              ...(r[rIdx].messages || []),
+                              {
+                                id: Date.now().toString(),
+                                text_fr: "",
+                                text_en: "",
+                              },
+                            ];
                             setOutroConfig({ ...outroConfig, ranks: r });
                           }}
-                          placeholder="Message FR"
-                          className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white resize-none"
+                          className="text-xs text-green-400 hover:text-green-300 font-bold flex items-center gap-1 mt-2"
+                        >
+                          + Ajouter une variante de message
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() =>
+                      setOutroConfig({
+                        ...outroConfig,
+                        ranks: [
+                          ...(outroConfig.ranks || []),
+                          {
+                            id: Date.now().toString(),
+                            min_percent: 50,
+                            main_title_fr: "ENQUÊTE TERMINÉE",
+                            main_title_en: "",
+                            title_fr: "Nouveau Rang",
+                            title_en: "New Rank",
+                            messages: [],
+                          },
+                        ],
+                      })
+                    }
+                    className="w-full py-3 border border-dashed border-green-500/50 text-green-400 font-bold rounded-xl hover:bg-green-500/10"
+                  >
+                    + Créer un nouveau Rang (ex: 80%)
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-6 border-t border-white/10">
+                <h4 className="text-sm font-bold text-red-500 border-b border-red-500/20 pb-2 flex items-center gap-2">
+                  <AlertTriangle size={16} /> 2. Fins Tragiques (Game Over / Time Out Aléatoires)
+                </h4>
+                <div className="space-y-2">
+                  {outroConfig.game_overs?.map((go: any, idx: number) => (
+                    <div
+                      key={go.id || idx}
+                      className="space-y-2 bg-red-950/20 p-3 rounded-lg border border-red-500/20"
+                    >
+                      <div className="flex gap-2 items-end">
+                        <div className="flex-1">
+                          <label className="text-[10px] text-gray-500 font-bold">
+                            Nom de la règle (interne)
+                          </label>
+                          <input
+                            type="text"
+                            value={go.name || ""}
+                            onChange={(e) => {
+                              const g = [...outroConfig.game_overs];
+                              g[idx].name = e.target.value;
+                              setOutroConfig({ ...outroConfig, game_overs: g });
+                            }}
+                            placeholder="Ex: go_arrestation"
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1 text-xs text-white font-mono"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 items-start">
+                        <textarea
+                          rows={2}
+                          value={go.text_fr}
+                          onChange={(e) => {
+                            const g = [...outroConfig.game_overs];
+                            g[idx].text_fr = e.target.value;
+                            setOutroConfig({ ...outroConfig, game_overs: g });
+                          }}
+                          placeholder="Le temps est écoulé (FR)..."
+                          className="flex-1 bg-[#1a1a1a] border border-red-500/30 rounded px-2 py-1.5 text-xs text-white resize-none"
                         />
                         <textarea
                           rows={2}
-                          value={msg.text_en}
+                          value={go.text_en}
                           onChange={(e) => {
-                            const r = [...outroConfig.ranks];
-                            r[rIdx].messages[mIdx].text_en = e.target.value;
-                            setOutroConfig({ ...outroConfig, ranks: r });
+                            const g = [...outroConfig.game_overs];
+                            g[idx].text_en = e.target.value;
+                            setOutroConfig({ ...outroConfig, game_overs: g });
                           }}
-                          placeholder="Message EN"
-                          className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white resize-none"
+                          placeholder="Time is up (EN)..."
+                          className="flex-1 bg-[#1a1a1a] border border-red-500/30 rounded px-2 py-1.5 text-xs text-white resize-none"
                         />
                         <div className="flex flex-col gap-1">
                           <button
                             onClick={async () => {
                               setIsTranslatingOutro(true);
-                              const t = await autoTranslate(msg.text_fr, "fr");
-                              const r = [...outroConfig.ranks];
-                              r[rIdx].messages[mIdx].text_en = t;
-                              setOutroConfig({ ...outroConfig, ranks: r });
+                              const t = await autoTranslate(go.text_fr, "fr");
+                              const g = [...outroConfig.game_overs];
+                              g[idx].text_en = t;
+                              setOutroConfig({ ...outroConfig, game_overs: g });
                               setIsTranslatingOutro(false);
                             }}
                             className="p-1.5 bg-white/5 rounded text-gray-400 hover:text-white"
@@ -2249,24 +2758,22 @@ export default function InvestigationsTab({
                           <button
                             onClick={() =>
                               setShowOutroPreview({
-                                isTimeout: false,
-                                title: rank.title_fr,
-                                message: msg.text_fr,
-                                color: rankColors[rIdx % rankColors.length],
-                                score: rank.min_percent,
+                                isTimeout: true,
+                                title: "TEMPS ÉCOULÉ",
+                                message: go.text_fr,
+                                score: 0,
                               })
                             }
-                            className="p-1.5 bg-white/5 rounded text-green-400 hover:bg-green-500 hover:text-black"
+                            className="p-1.5 bg-white/5 rounded text-red-400 hover:bg-red-500 hover:text-white"
                           >
                             <Eye size={12} />
                           </button>
                           <button
                             onClick={() => {
-                              const r = [...outroConfig.ranks];
-                              r[rIdx].messages = r[rIdx].messages.filter(
-                                (_: any, i: number) => i !== mIdx,
+                              const g = outroConfig.game_overs.filter(
+                                (_: any, i: number) => i !== idx,
                               );
-                              setOutroConfig({ ...outroConfig, ranks: r });
+                              setOutroConfig({ ...outroConfig, game_overs: g });
                             }}
                             className="p-1.5 text-red-500 hover:bg-red-500/20 rounded"
                           >
@@ -2274,533 +2781,398 @@ export default function InvestigationsTab({
                           </button>
                         </div>
                       </div>
-                    ))}
-                    <button
-                      onClick={() => {
-                        const r = [...outroConfig.ranks];
-                        r[rIdx].messages = [
-                          ...(r[rIdx].messages || []),
+                    </div>
+                  ))}
+                  <button
+                    onClick={() =>
+                      setOutroConfig({
+                        ...outroConfig,
+                        game_overs: [
+                          ...(outroConfig.game_overs || []),
+                          { id: Date.now().toString(), text_fr: "", text_en: "" },
+                        ],
+                      })
+                    }
+                    className="w-full py-2 border border-dashed border-red-500/50 text-red-400 text-xs font-bold rounded hover:bg-red-500/10"
+                  >
+                    + Ajouter un scénario de Game Over
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-6 border-t border-white/10">
+                <h4 className="text-sm font-bold text-yellow-500 border-b border-yellow-500/20 pb-2 flex items-center gap-2">
+                  <AlertTriangle size={16} /> 2. Abandons (Menu Pause / Fuite)
+                </h4>
+                <p className="text-xs text-gray-400">
+                  Messages affichés si le joueur clique sur "Abandonner" ou fuit par un hotspot.
+                </p>
+                <div className="space-y-3">
+                  {(outroConfig.abandons || []).map((ab: any, idx: number) => (
+                    <div
+                      key={ab.id || idx}
+                      className="space-y-2 bg-yellow-950/20 p-3 rounded-lg border border-yellow-500/20"
+                    >
+                      <div className="flex gap-2 items-end">
+                        <div className="flex-1">
+                          <label className="text-[10px] text-gray-500 font-bold">
+                            Nom de la règle (interne)
+                          </label>
+                          <input
+                            type="text"
+                            value={ab.name || ""}
+                            onChange={(e) => {
+                              const a = [...outroConfig.abandons];
+                              a[idx].name = e.target.value;
+                              setOutroConfig({ ...outroConfig, abandons: a });
+                            }}
+                            placeholder="Ex: fuite_lache"
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1 text-xs text-white font-mono"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 items-start">
+                        <textarea
+                          rows={2}
+                          value={ab.text_fr}
+                          onChange={(e) => {
+                            const a = [...outroConfig.abandons];
+                            a[idx].text_fr = e.target.value;
+                            setOutroConfig({ ...outroConfig, abandons: a });
+                          }}
+                          placeholder="Vous prenez la fuite ? (FR)"
+                          className="flex-1 bg-[#1a1a1a] border border-yellow-500/30 rounded px-2 py-1.5 text-xs text-white resize-none"
+                        />
+                        <textarea
+                          rows={2}
+                          value={ab.text_en}
+                          onChange={(e) => {
+                            const a = [...outroConfig.abandons];
+                            a[idx].text_en = e.target.value;
+                            setOutroConfig({ ...outroConfig, abandons: a });
+                          }}
+                          placeholder="Are you fleeing? (EN)"
+                          className="flex-1 bg-[#1a1a1a] border border-yellow-500/30 rounded px-2 py-1.5 text-xs text-white resize-none"
+                        />
+                        <div className="flex flex-col gap-1">
+                          <button
+                            onClick={async () => {
+                              setIsTranslatingOutro(true);
+                              const t = await autoTranslate(ab.text_fr, "fr");
+                              const a = [...outroConfig.abandons];
+                              a[idx].text_en = t;
+                              setOutroConfig({ ...outroConfig, abandons: a });
+                              setIsTranslatingOutro(false);
+                            }}
+                            className="p-1.5 bg-white/5 rounded text-gray-400 hover:text-white"
+                          >
+                            <Languages size={12} />
+                          </button>
+                          <button
+                            onClick={() =>
+                              setPreviewAbortMsg(ab.text_fr || "Message abandon")
+                            }
+                            className="p-1.5 bg-white/5 rounded text-yellow-400 hover:bg-yellow-500 hover:text-black"
+                          >
+                            <Eye size={12} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              const a = outroConfig.abandons.filter(
+                                (_: any, i: number) => i !== idx,
+                              );
+                              setOutroConfig({ ...outroConfig, abandons: a });
+                            }}
+                            className="p-1.5 text-red-500 hover:bg-red-500/20 rounded"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() =>
+                      setOutroConfig({
+                        ...outroConfig,
+                        abandons: [
+                          ...(outroConfig.abandons || []),
                           {
                             id: Date.now().toString(),
+                            name: "",
                             text_fr: "",
                             text_en: "",
                           },
-                        ];
-                        setOutroConfig({ ...outroConfig, ranks: r });
-                      }}
-                      className="text-xs text-green-400 hover:text-green-300 font-bold flex items-center gap-1 mt-2"
-                    >
-                      + Ajouter une variante de message
-                    </button>
-                  </div>
-                </div>
-              ))}
-              <button
-                onClick={() =>
-                  setOutroConfig({
-                    ...outroConfig,
-                    ranks: [
-                      ...(outroConfig.ranks || []),
-                      {
-                        id: Date.now().toString(),
-                        min_percent: 50,
-                        main_title_fr: "ENQUÊTE TERMINÉE",
-                        main_title_en: "",
-                        title_fr: "Nouveau Rang",
-                        title_en: "New Rank",
-                        messages: [],
-                      },
-                    ],
-                  })
-                }
-                className="w-full py-3 border border-dashed border-green-500/50 text-green-400 font-bold rounded-xl hover:bg-green-500/10"
-              >
-                + Créer un nouveau Rang (ex: 80%)
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-4 pt-6 border-t border-white/10">
-            <h4 className="text-sm font-bold text-red-500 border-b border-red-500/20 pb-2 flex items-center gap-2">
-              <AlertTriangle size={16} /> 2. Fins Tragiques (Game Over / Time Out Aléatoires)
-            </h4>
-            <div className="space-y-2">
-              {outroConfig.game_overs?.map((go: any, idx: number) => (
-                <div
-                  key={go.id || idx}
-                  className="space-y-2 bg-red-950/20 p-3 rounded-lg border border-red-500/20"
-                >
-                  <div className="flex gap-2 items-end">
-                    <div className="flex-1">
-                      <label className="text-[10px] text-gray-500 font-bold">
-                        Nom de la règle (interne)
-                      </label>
-                      <input
-                        type="text"
-                        value={go.name || ""}
-                        onChange={(e) => {
-                          const g = [...outroConfig.game_overs];
-                          g[idx].name = e.target.value;
-                          setOutroConfig({ ...outroConfig, game_overs: g });
-                        }}
-                        placeholder="Ex: go_arrestation"
-                        className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1 text-xs text-white font-mono"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-2 items-start">
-                    <textarea
-                      rows={2}
-                      value={go.text_fr}
-                      onChange={(e) => {
-                        const g = [...outroConfig.game_overs];
-                        g[idx].text_fr = e.target.value;
-                        setOutroConfig({ ...outroConfig, game_overs: g });
-                      }}
-                      placeholder="Le temps est écoulé (FR)..."
-                      className="flex-1 bg-[#1a1a1a] border border-red-500/30 rounded px-2 py-1.5 text-xs text-white resize-none"
-                    />
-                    <textarea
-                      rows={2}
-                      value={go.text_en}
-                      onChange={(e) => {
-                        const g = [...outroConfig.game_overs];
-                        g[idx].text_en = e.target.value;
-                        setOutroConfig({ ...outroConfig, game_overs: g });
-                      }}
-                      placeholder="Time is up (EN)..."
-                      className="flex-1 bg-[#1a1a1a] border border-red-500/30 rounded px-2 py-1.5 text-xs text-white resize-none"
-                    />
-                    <div className="flex flex-col gap-1">
-                      <button
-                        onClick={async () => {
-                          setIsTranslatingOutro(true);
-                          const t = await autoTranslate(go.text_fr, "fr");
-                          const g = [...outroConfig.game_overs];
-                          g[idx].text_en = t;
-                          setOutroConfig({ ...outroConfig, game_overs: g });
-                          setIsTranslatingOutro(false);
-                        }}
-                        className="p-1.5 bg-white/5 rounded text-gray-400 hover:text-white"
-                      >
-                        <Languages size={12} />
-                      </button>
-                      <button
-                        onClick={() =>
-                          setShowOutroPreview({
-                            isTimeout: true,
-                            title: "TEMPS ÉCOULÉ",
-                            message: go.text_fr,
-                            score: 0,
-                          })
-                        }
-                        className="p-1.5 bg-white/5 rounded text-red-400 hover:bg-red-500 hover:text-white"
-                      >
-                        <Eye size={12} />
-                      </button>
-                      <button
-                        onClick={() => {
-                          const g = outroConfig.game_overs.filter(
-                            (_: any, i: number) => i !== idx,
-                          );
-                          setOutroConfig({ ...outroConfig, game_overs: g });
-                        }}
-                        className="p-1.5 text-red-500 hover:bg-red-500/20 rounded"
-                      >
-                        <X size={12} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              <button
-                onClick={() =>
-                  setOutroConfig({
-                    ...outroConfig,
-                    game_overs: [
-                      ...(outroConfig.game_overs || []),
-                      { id: Date.now().toString(), text_fr: "", text_en: "" },
-                    ],
-                  })
-                }
-                className="w-full py-2 border border-dashed border-red-500/50 text-red-400 text-xs font-bold rounded hover:bg-red-500/10"
-              >
-                + Ajouter un scénario de Game Over
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-4 pt-6 border-t border-white/10">
-            <h4 className="text-sm font-bold text-yellow-500 border-b border-yellow-500/20 pb-2 flex items-center gap-2">
-              <AlertTriangle size={16} /> 2. Abandons (Menu Pause / Fuite)
-            </h4>
-            <p className="text-xs text-gray-400">
-              Messages affichés si le joueur clique sur "Abandonner" ou fuit par un hotspot.
-            </p>
-            <div className="space-y-3">
-              {(outroConfig.abandons || []).map((ab: any, idx: number) => (
-                <div
-                  key={ab.id || idx}
-                  className="space-y-2 bg-yellow-950/20 p-3 rounded-lg border border-yellow-500/20"
-                >
-                  <div className="flex gap-2 items-end">
-                    <div className="flex-1">
-                      <label className="text-[10px] text-gray-500 font-bold">
-                        Nom de la règle (interne)
-                      </label>
-                      <input
-                        type="text"
-                        value={ab.name || ""}
-                        onChange={(e) => {
-                          const a = [...outroConfig.abandons];
-                          a[idx].name = e.target.value;
-                          setOutroConfig({ ...outroConfig, abandons: a });
-                        }}
-                        placeholder="Ex: fuite_lache"
-                        className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1 text-xs text-white font-mono"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-2 items-start">
-                    <textarea
-                      rows={2}
-                      value={ab.text_fr}
-                      onChange={(e) => {
-                        const a = [...outroConfig.abandons];
-                        a[idx].text_fr = e.target.value;
-                        setOutroConfig({ ...outroConfig, abandons: a });
-                      }}
-                      placeholder="Vous prenez la fuite ? (FR)"
-                      className="flex-1 bg-[#1a1a1a] border border-yellow-500/30 rounded px-2 py-1.5 text-xs text-white resize-none"
-                    />
-                    <textarea
-                      rows={2}
-                      value={ab.text_en}
-                      onChange={(e) => {
-                        const a = [...outroConfig.abandons];
-                        a[idx].text_en = e.target.value;
-                        setOutroConfig({ ...outroConfig, abandons: a });
-                      }}
-                      placeholder="Are you fleeing? (EN)"
-                      className="flex-1 bg-[#1a1a1a] border border-yellow-500/30 rounded px-2 py-1.5 text-xs text-white resize-none"
-                    />
-                    <div className="flex flex-col gap-1">
-                      <button
-                        onClick={async () => {
-                          setIsTranslatingOutro(true);
-                          const t = await autoTranslate(ab.text_fr, "fr");
-                          const a = [...outroConfig.abandons];
-                          a[idx].text_en = t;
-                          setOutroConfig({ ...outroConfig, abandons: a });
-                          setIsTranslatingOutro(false);
-                        }}
-                        className="p-1.5 bg-white/5 rounded text-gray-400 hover:text-white"
-                      >
-                        <Languages size={12} />
-                      </button>
-                      <button
-                        onClick={() =>
-                          setPreviewAbortMsg(ab.text_fr || "Message abandon")
-                        }
-                        className="p-1.5 bg-white/5 rounded text-yellow-400 hover:bg-yellow-500 hover:text-black"
-                      >
-                        <Eye size={12} />
-                      </button>
-                      <button
-                        onClick={() => {
-                          const a = outroConfig.abandons.filter(
-                            (_: any, i: number) => i !== idx,
-                          );
-                          setOutroConfig({ ...outroConfig, abandons: a });
-                        }}
-                        className="p-1.5 text-red-500 hover:bg-red-500/20 rounded"
-                      >
-                        <X size={12} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              <button
-                onClick={() =>
-                  setOutroConfig({
-                    ...outroConfig,
-                    abandons: [
-                      ...(outroConfig.abandons || []),
-                      {
-                        id: Date.now().toString(),
-                        name: "",
-                        text_fr: "",
-                        text_en: "",
-                      },
-                    ],
-                  })
-                }
-                className="w-full py-2 border border-dashed border-yellow-500/50 text-yellow-400 text-xs font-bold rounded hover:bg-yellow-500/10"
-              >
-                + Ajouter un scénario d'Abandon
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-4 pt-6 border-t border-white/10">
-            <h4 className="text-sm font-bold text-green-400 border-b border-green-500/20 pb-2 flex items-center gap-2">
-              <Trophy size={16} /> 3. Paliers d'encouragement (Toasts pendant le jeu)
-            </h4>
-            <p className="text-xs text-gray-400">
-              Ces messages s'affichent sous forme de notification quand le joueur atteint un certain pourcentage de résolution.
-            </p>
-            <div className="space-y-2">
-              {(outroConfig.milestones || []).map((m: any, idx: number) => (
-                <div
-                  key={m.id || idx}
-                  className="space-y-2 bg-black/30 p-3 rounded-lg border border-white/10"
-                >
-                  <div className="flex gap-2 items-end">
-                    <div className="flex-1">
-                      <label className="text-[10px] text-gray-500 font-bold">
-                        Nom de la règle (interne)
-                      </label>
-                      <input
-                        type="text"
-                        value={m.name || ""}
-                        onChange={(e) => {
-                          const newM = [...outroConfig.milestones];
-                          newM[idx].name = e.target.value;
-                          setOutroConfig({ ...outroConfig, milestones: newM });
-                        }}
-                        placeholder="Ex: toast_50"
-                        className="w-full bg-[#1a1a1a] border border-white/20 rounded px-2 py-1 text-xs text-white font-mono"
-                      />
-                    </div>
-                    <div className="w-24">
-                      <label className="text-[10px] text-gray-500 font-bold">
-                        Seuil %
-                      </label>
-                      <input
-                        type="number"
-                        value={m.percent}
-                        onChange={(e) => {
-                          const newM = [...outroConfig.milestones];
-                          newM[idx].percent = Number(e.target.value);
-                          setOutroConfig({ ...outroConfig, milestones: newM });
-                        }}
-                        className="w-full bg-[#1a1a1a] border border-white/20 rounded px-2 py-1 text-xs text-white text-center"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-2 items-start">
-                    <input
-                      type="text"
-                      value={m.fr}
-                      onChange={(e) => {
-                        const newM = [...outroConfig.milestones];
-                        newM[idx].fr = e.target.value;
-                        setOutroConfig({ ...outroConfig, milestones: newM });
-                      }}
-                      placeholder="Message FR"
-                      className="flex-1 bg-[#1a1a1a] border border-white/20 rounded px-2 py-1 text-xs text-white"
-                    />
-                    <input
-                      type="text"
-                      value={m.en}
-                      onChange={(e) => {
-                        const newM = [...outroConfig.milestones];
-                        newM[idx].en = e.target.value;
-                        setOutroConfig({ ...outroConfig, milestones: newM });
-                      }}
-                      placeholder="Message EN"
-                      className="flex-1 bg-[#1a1a1a] border border-white/20 rounded px-2 py-1 text-xs text-white"
-                    />
-                    <div className="flex gap-1">
-                      <button
-                        onClick={async () => {
-                          setIsTranslatingOutro(true);
-                          const t = await autoTranslate(m.fr, "fr");
-                          const newM = [...outroConfig.milestones];
-                          newM[idx].en = t;
-                          setOutroConfig({ ...outroConfig, milestones: newM });
-                          setIsTranslatingOutro(false);
-                        }}
-                        className="p-1.5 bg-white/5 rounded text-gray-400 hover:text-white"
-                      >
-                        <Languages size={12} />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setPreviewMilestone(m);
-                          setTimeout(() => setPreviewMilestone(null), 3000);
-                        }}
-                        className="p-1.5 bg-white/5 rounded text-green-400 hover:bg-green-500 hover:text-black"
-                      >
-                        <Eye size={12} />
-                      </button>
-                      <button
-                        onClick={() => {
-                          const newM = outroConfig.milestones.filter(
-                            (_: any, i: number) => i !== idx,
-                          );
-                          setOutroConfig({ ...outroConfig, milestones: newM });
-                        }}
-                        className="p-1.5 text-red-500 hover:bg-red-500/20 rounded"
-                      >
-                        <X size={12} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              <button
-                onClick={() =>
-                  setOutroConfig({
-                    ...outroConfig,
-                    milestones: [
-                      ...(outroConfig.milestones || []),
-                      {
-                        id: Date.now().toString(),
-                        name: "",
-                        percent: 50,
-                        fr: "Moitié du chemin fait !",
-                        en: "Halfway there!",
-                      },
-                    ],
-                  })
-                }
-                className="w-full py-2 border border-dashed border-green-500/30 text-green-400 text-xs font-bold rounded hover:bg-green-500/10"
-              >
-                + Ajouter un palier
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-4 pt-6 border-t border-white/10">
-            <h4 className="text-sm font-bold text-purple-400 border-b border-purple-500/20 pb-2 flex items-center gap-2">
-              <Zap size={16} /> 4. Bibliothèque d'Événements (Assignables aux Hotspots/Énigmes)
-            </h4>
-            <p className="text-xs text-gray-400">
-              Sélectionnez une règle que vous avez nommée ci-dessus pour la transformer en événement assignable.
-            </p>
-            <div className="space-y-3">
-              {(outroConfig.narrative_events || []).map((ev: any, idx: number) => (
-                <div
-                  key={ev.id || idx}
-                  className="flex gap-3 items-center bg-purple-950/20 p-3 rounded-lg border border-purple-500/20"
-                >
-                  <div className="flex-1">
-                    <select
-                      value={`${ev.source_type}|${ev.source_id}`}
-                      onChange={(e) => {
-                        const n = [...outroConfig.narrative_events];
-                        const [type, id] = e.target.value.split("|");
-                        const ruleName =
-                          type === "rank"
-                            ? outroConfig.ranks.find((r: any) => r.id === id)?.name
-                            : type === "game_over"
-                              ? outroConfig.game_overs.find((g: any) => g.id === id)?.name
-                              : type === "abandon"
-                                ? outroConfig.abandons.find((a: any) => a.id === id)?.name
-                                : outroConfig.milestones.find((m: any) => m.id === id)?.name || "";
-                        n[idx] = {
-                          id: n[idx].id,
-                          source_type: type,
-                          source_id: id,
-                          name: ruleName,
-                        };
-                        setOutroConfig({ ...outroConfig, narrative_events: n });
-                      }}
-                      className="w-full bg-[#1a1a1a] border border-purple-500/30 rounded px-3 py-2 text-sm text-white"
-                    >
-                      <option value="">-- Choisir une règle nommée --</option>
-                      <optgroup label="🏆 1. Victoires & Rangs">
-                        {(outroConfig.ranks || [])
-                          .filter((r: any) => r.name)
-                          .map((r: any) => (
-                            <option key={r.id} value={`rank|${r.id}`}>
-                              Rang: {r.name} ({r.min_percent}%)
-                            </option>
-                          ))}
-                      </optgroup>
-                      <optgroup label="💀 2. Fins Tragiques (Game Over)">
-                        {(outroConfig.game_overs || [])
-                          .filter((g: any) => g.name)
-                          .map((g: any) => (
-                            <option key={g.id} value={`game_over|${g.id}`}>
-                              Game Over: {g.name}
-                            </option>
-                          ))}
-                      </optgroup>
-                      <optgroup label="🚪 2.5 Abandons">
-                        {(outroConfig.abandons || [])
-                          .filter((a: any) => a.name)
-                          .map((a: any) => (
-                            <option key={a.id} value={`abandon|${a.id}`}>
-                              Abandon: {a.name}
-                            </option>
-                          ))}
-                      </optgroup>
-                      <optgroup label="💭 3. Paliers (Toasts)">
-                        {(outroConfig.milestones || [])
-                          .filter((m: any) => m.name)
-                          .map((m: any) => (
-                            <option key={m.id} value={`milestone|${m.id}`}>
-                              Toast: {m.name} ({m.percent}%)
-                            </option>
-                          ))}
-                      </optgroup>
-                    </select>
-                  </div>
-                  <div className="w-48">
-                    <input
-                      type="text"
-                      value={ev.name}
-                      readOnly
-                      placeholder="Nom auto"
-                      className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-2 text-xs text-gray-400 font-mono"
-                    />
-                  </div>
-                  <button
-                    onClick={() => {
-                      const n = outroConfig.narrative_events.filter(
-                        (_: any, i: number) => i !== idx,
-                      );
-                      setOutroConfig({ ...outroConfig, narrative_events: n });
-                    }}
-                    className="p-2 text-red-500 hover:bg-red-500/20 rounded flex-shrink-0"
+                        ],
+                      })
+                    }
+                    className="w-full py-2 border border-dashed border-yellow-500/50 text-yellow-400 text-xs font-bold rounded hover:bg-yellow-500/10"
                   >
-                    <Trash2 size={16} />
+                    + Ajouter un scénario d'Abandon
                   </button>
                 </div>
-              ))}
-              <button
-                onClick={() =>
-                  setOutroConfig({
-                    ...outroConfig,
-                    narrative_events: [
-                      ...(outroConfig.narrative_events || []),
-                      {
-                        id: Date.now().toString(),
-                        source_type: "",
-                        source_id: "",
-                        name: "",
-                      },
-                    ],
-                  })
-                }
-                className="w-full py-2 border border-dashed border-purple-500/50 text-purple-400 text-xs font-bold rounded hover:bg-purple-500/10"
-              >
-                + Créer un Événement à partir d'une règle
-              </button>
-            </div>
-          </div>
+              </div>
 
-          <div className="pt-4 border-t border-white/10">
-            <button
-              onClick={() => saveOutroConfig(editingId)}
-              className="w-full py-4 bg-green-600 hover:bg-green-500 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg"
-            >
-              <Save size={18} /> Sauvegarder toute la configuration (Temps, Rangs, Game Over)
-            </button>
-          </div>
+              <div className="space-y-4 pt-6 border-t border-white/10">
+                <h4 className="text-sm font-bold text-green-400 border-b border-green-500/20 pb-2 flex items-center gap-2">
+                  <Trophy size={16} /> 3. Paliers d'encouragement (Toasts pendant le jeu)
+                </h4>
+                <p className="text-xs text-gray-400">
+                  Ces messages s'affichent sous forme de notification quand le joueur atteint un certain pourcentage de résolution.
+                </p>
+                <div className="space-y-2">
+                  {(outroConfig.milestones || []).map((m: any, idx: number) => (
+                    <div
+                      key={m.id || idx}
+                      className="space-y-2 bg-black/30 p-3 rounded-lg border border-white/10"
+                    >
+                      <div className="flex gap-2 items-end">
+                        <div className="flex-1">
+                          <label className="text-[10px] text-gray-500 font-bold">
+                            Nom de la règle (interne)
+                          </label>
+                          <input
+                            type="text"
+                            value={m.name || ""}
+                            onChange={(e) => {
+                              const newM = [...outroConfig.milestones];
+                              newM[idx].name = e.target.value;
+                              setOutroConfig({ ...outroConfig, milestones: newM });
+                            }}
+                            placeholder="Ex: toast_50"
+                            className="w-full bg-[#1a1a1a] border border-white/20 rounded px-2 py-1 text-xs text-white font-mono"
+                          />
+                        </div>
+                        <div className="w-24">
+                          <label className="text-[10px] text-gray-500 font-bold">
+                            Seuil %
+                          </label>
+                          <input
+                            type="number"
+                            value={m.percent}
+                            onChange={(e) => {
+                              const newM = [...outroConfig.milestones];
+                              newM[idx].percent = Number(e.target.value);
+                              setOutroConfig({ ...outroConfig, milestones: newM });
+                            }}
+                            className="w-full bg-[#1a1a1a] border border-white/20 rounded px-2 py-1 text-xs text-white text-center"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 items-start">
+                        <input
+                          type="text"
+                          value={m.fr}
+                          onChange={(e) => {
+                            const newM = [...outroConfig.milestones];
+                            newM[idx].fr = e.target.value;
+                            setOutroConfig({ ...outroConfig, milestones: newM });
+                          }}
+                          placeholder="Message FR"
+                          className="flex-1 bg-[#1a1a1a] border border-white/20 rounded px-2 py-1 text-xs text-white"
+                        />
+                        <input
+                          type="text"
+                          value={m.en}
+                          onChange={(e) => {
+                            const newM = [...outroConfig.milestones];
+                            newM[idx].en = e.target.value;
+                            setOutroConfig({ ...outroConfig, milestones: newM });
+                          }}
+                          placeholder="Message EN"
+                          className="flex-1 bg-[#1a1a1a] border border-white/20 rounded px-2 py-1 text-xs text-white"
+                        />
+                        <div className="flex gap-1">
+                          <button
+                            onClick={async () => {
+                              setIsTranslatingOutro(true);
+                              const t = await autoTranslate(m.fr, "fr");
+                              const newM = [...outroConfig.milestones];
+                              newM[idx].en = t;
+                              setOutroConfig({ ...outroConfig, milestones: newM });
+                              setIsTranslatingOutro(false);
+                            }}
+                            className="p-1.5 bg-white/5 rounded text-gray-400 hover:text-white"
+                          >
+                            <Languages size={12} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setPreviewMilestone(m);
+                              setTimeout(() => setPreviewMilestone(null), 3000);
+                            }}
+                            className="p-1.5 bg-white/5 rounded text-green-400 hover:bg-green-500 hover:text-black"
+                          >
+                            <Eye size={12} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              const newM = outroConfig.milestones.filter(
+                                (_: any, i: number) => i !== idx,
+                              );
+                              setOutroConfig({ ...outroConfig, milestones: newM });
+                            }}
+                            className="p-1.5 text-red-500 hover:bg-red-500/20 rounded"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() =>
+                      setOutroConfig({
+                        ...outroConfig,
+                        milestones: [
+                          ...(outroConfig.milestones || []),
+                          {
+                            id: Date.now().toString(),
+                            name: "",
+                            percent: 50,
+                            fr: "Moitié du chemin fait !",
+                            en: "Halfway there!",
+                          },
+                        ],
+                      })
+                    }
+                    className="w-full py-2 border border-dashed border-green-500/30 text-green-400 text-xs font-bold rounded hover:bg-green-500/10"
+                  >
+                    + Ajouter un palier
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-6 border-t border-white/10">
+                <h4 className="text-sm font-bold text-purple-400 border-b border-purple-500/20 pb-2 flex items-center gap-2">
+                  <Zap size={16} /> 4. Bibliothèque d'Événements (Assignables aux Hotspots/Énigmes)
+                </h4>
+                <p className="text-xs text-gray-400">
+                  Sélectionnez une règle que vous avez nommée ci-dessus pour la transformer en événement assignable.
+                </p>
+                <div className="space-y-3">
+                  {(outroConfig.narrative_events || []).map((ev: any, idx: number) => (
+                    <div
+                      key={ev.id || idx}
+                      className="flex gap-3 items-center bg-purple-950/20 p-3 rounded-lg border border-purple-500/20"
+                    >
+                      <div className="flex-1">
+                        <select
+                          value={`${ev.source_type}|${ev.source_id}`}
+                          onChange={(e) => {
+                            const n = [...outroConfig.narrative_events];
+                            const [type, id] = e.target.value.split("|");
+                            const ruleName =
+                              type === "rank"
+                                ? outroConfig.ranks.find((r: any) => r.id === id)?.name
+                                : type === "game_over"
+                                  ? outroConfig.game_overs.find((g: any) => g.id === id)?.name
+                                  : type === "abandon"
+                                    ? outroConfig.abandons.find((a: any) => a.id === id)?.name
+                                    : outroConfig.milestones.find((m: any) => m.id === id)?.name || "";
+                            n[idx] = {
+                              id: n[idx].id,
+                              source_type: type,
+                              source_id: id,
+                              name: ruleName,
+                            };
+                            setOutroConfig({ ...outroConfig, narrative_events: n });
+                          }}
+                          className="w-full bg-[#1a1a1a] border border-purple-500/30 rounded px-3 py-2 text-sm text-white"
+                        >
+                          <option value="">-- Choisir une règle nommée --</option>
+                          <optgroup label="🏆 1. Victoires & Rangs">
+                            {(outroConfig.ranks || [])
+                              .filter((r: any) => r.name)
+                              .map((r: any) => (
+                                <option key={r.id} value={`rank|${r.id}`}>
+                                  Rang: {r.name} ({r.min_percent}%)
+                                </option>
+                              ))}
+                          </optgroup>
+                          <optgroup label="💀 2. Fins Tragiques (Game Over)">
+                            {(outroConfig.game_overs || [])
+                              .filter((g: any) => g.name)
+                              .map((g: any) => (
+                                <option key={g.id} value={`game_over|${g.id}`}>
+                                  Game Over: {g.name}
+                                </option>
+                              ))}
+                          </optgroup>
+                          <optgroup label="🚪 2.5 Abandons">
+                            {(outroConfig.abandons || [])
+                              .filter((a: any) => a.name)
+                              .map((a: any) => (
+                                <option key={a.id} value={`abandon|${a.id}`}>
+                                  Abandon: {a.name}
+                                </option>
+                              ))}
+                          </optgroup>
+                          <optgroup label="💭 3. Paliers (Toasts)">
+                            {(outroConfig.milestones || [])
+                              .filter((m: any) => m.name)
+                              .map((m: any) => (
+                                <option key={m.id} value={`milestone|${m.id}`}>
+                                  Toast: {m.name} ({m.percent}%)
+                                </option>
+                              ))}
+                          </optgroup>
+                        </select>
+                      </div>
+                      <div className="w-48">
+                        <input
+                          type="text"
+                          value={ev.name}
+                          readOnly
+                          placeholder="Nom auto"
+                          className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-2 text-xs text-gray-400 font-mono"
+                        />
+                      </div>
+                      <button
+                        onClick={() => {
+                          const n = outroConfig.narrative_events.filter(
+                            (_: any, i: number) => i !== idx,
+                          );
+                          setOutroConfig({ ...outroConfig, narrative_events: n });
+                        }}
+                        className="p-2 text-red-500 hover:bg-red-500/20 rounded flex-shrink-0"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() =>
+                      setOutroConfig({
+                        ...outroConfig,
+                        narrative_events: [
+                          ...(outroConfig.narrative_events || []),
+                          {
+                            id: Date.now().toString(),
+                            source_type: "",
+                            source_id: "",
+                            name: "",
+                          },
+                        ],
+                      })
+                    }
+                    className="w-full py-2 border border-dashed border-purple-500/50 text-purple-400 text-xs font-bold rounded hover:bg-purple-500/10"
+                  >
+                    + Créer un Événement à partir d'une règle
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-white/10">
+                <button
+                  onClick={() => saveOutroConfig(editingId)}
+                  className="w-full py-4 bg-green-600 hover:bg-green-500 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg"
+                >
+                  <Save size={18} /> Sauvegarder toute la configuration (Temps, Rangs, Game Over)
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -2886,1111 +3258,1119 @@ export default function InvestigationsTab({
         )}
       </AnimatePresence>
 
+      {/* ============================================================ */}
       {/* CHAPITRES */}
+      {/* ============================================================ */}
       {editingId && (
-        <div className="bg-red-950/10 p-4 sm:p-6 rounded-xl border border-red-500/20 space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-red-500/20 pb-4">
+        <div className="bg-red-950/10 rounded-xl border border-red-500/20">
+          <div
+            className="flex items-center justify-between p-4 sm:p-6 cursor-pointer hover:bg-white/[0.02] transition-colors"
+            onClick={() => toggleSection("chapters")}
+          >
             <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
               <ListOrdered size={18} className="text-red-400 flex-shrink-0" />
               Le Scénario de l'Enquête
             </h3>
-            <button
-              onClick={addChapter}
-              className="text-sm bg-red-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-red-500 font-bold shadow-lg w-full sm:w-auto justify-center"
-            >
-              <PlusCircle size={14} /> Ajouter un Chapitre
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  addChapter();
+                }}
+                className="text-sm bg-red-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-red-500 font-bold shadow-lg"
+              >
+                <PlusCircle size={14} /> Ajouter un Chapitre
+              </button>
+              {expandedSections.chapters ? (
+                <ChevronUp size={16} className="text-gray-500" />
+              ) : (
+                <ChevronDown size={16} className="text-gray-500" />
+              )}
+            </div>
           </div>
 
-          {chapters.map((chap, cIdx) => {
-            const isExpanded = expandedChapters[chap.id] !== false;
-            return (
-              <div
-                key={chap.id}
-                className="bg-[#0a0a0a] rounded-xl border border-white/10 shadow-2xl overflow-hidden"
-              >
-                <div
-                  className="flex items-center justify-between p-4 cursor-pointer hover:bg-white/[0.02] transition-colors"
-                  onClick={() => toggleChapter(chap.id)}
-                >
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <span className="w-7 h-7 rounded-full bg-red-500/20 flex items-center justify-center text-xs font-bold text-red-400 flex-shrink-0">
-                      {cIdx + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-red-400 font-bold text-sm truncate">
-                        {chap.title_fr || `Chapitre ${cIdx + 1}`}
-                      </p>
-                      <p className="text-gray-600 text-[10px]">
-                        {(chap.scenes || []).length} scène(s) •{" "}
-                        {(chap.enigmas || []).length} énigme(s)
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setItemToDelete({
-                          id: chap.id,
-                          table: "investigation_chapters",
-                        });
-                        setDeleteModalOpen(true);
-                      }}
-                      className="p-1.5 text-gray-600 hover:text-red-500 transition-colors"
+          {expandedSections.chapters && (
+            <div className="p-4 sm:p-6 pt-0 space-y-4">
+              {chapters.map((chap, cIdx) => {
+                const isExpanded = expandedChapters[chap.id] !== false;
+                return (
+                  <div
+                    key={chap.id}
+                    className="bg-[#0a0a0a] rounded-xl border border-white/10 shadow-2xl overflow-hidden"
+                  >
+                    <div
+                      className="flex items-center justify-between p-4 cursor-pointer hover:bg-white/[0.02] transition-colors"
+                      onClick={() => toggleChapter(chap.id)}
                     >
-                      <Trash2 size={14} />
-                    </button>
-                    {isExpanded ? (
-                      <ChevronUp size={16} className="text-gray-500" />
-                    ) : (
-                      <ChevronDown size={16} className="text-gray-500" />
-                    )}
-                  </div>
-                </div>
-
-                {isExpanded && (
-                  <div className="p-4 sm:p-5 border-t border-white/5 space-y-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1 block">
-                          Titre (FR)
-                        </label>
-                        <input
-                          type="text"
-                          value={chap.title_fr}
-                          onChange={(e) =>
-                            updateLocalChapter(chap.id, "title_fr", e.target.value)
-                          }
-                          onBlur={(e) =>
-                            updateDB("investigation_chapters", chap.id, {
-                              title_fr: e.target.value,
-                            })
-                          }
-                          placeholder="Ex: Le télégramme secret"
-                          className="w-full bg-[#111] border border-white/10 rounded px-3 py-2 text-sm text-white focus:border-red-500/50 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1 block">
-                          Titre (EN)
-                        </label>
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={chap.title_en || ""}
-                            onChange={(e) =>
-                              updateLocalChapter(chap.id, "title_en", e.target.value)
-                            }
-                            onBlur={(e) =>
-                              updateDB("investigation_chapters", chap.id, {
-                                title_en: e.target.value,
-                              })
-                            }
-                            placeholder="Ex: The secret telegram"
-                            className="flex-1 bg-[#111] border border-white/10 rounded px-3 py-2 text-sm text-white focus:border-red-500/50 outline-none"
-                          />
-                          <button
-                            onClick={() =>
-                              handleTranslateNested(
-                                chap.title_fr,
-                                "investigation_chapters",
-                                chap.id,
-                                "title_en",
-                                (val) => updateLocalChapter(chap.id, "title_en", val),
-                              )
-                            }
-                            className="p-2 bg-white/5 rounded text-gray-400 hover:text-white flex-shrink-0"
-                          >
-                            {isProcessing === chap.id + "title_en" ? (
-                              <Loader2 size={14} className="animate-spin" />
-                            ) : (
-                              <Languages size={14} />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
-                          <FileText size={10} /> L'Histoire (FR)
-                        </label>
-                        <textarea
-                          rows={4}
-                          value={chap.narrative_fr}
-                          onChange={(e) =>
-                            updateLocalChapter(chap.id, "narrative_fr", e.target.value)
-                          }
-                          onBlur={(e) =>
-                            updateDB("investigation_chapters", chap.id, {
-                              narrative_fr: e.target.value,
-                            })
-                          }
-                          placeholder="Ex: Ce matin du 17 janvier..."
-                          className="w-full bg-[#111] border border-white/10 rounded px-3 py-2 text-sm text-white resize-none focus:border-red-500/50 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
-                          <FileText size={10} /> L'Histoire (EN)
-                        </label>
-                        <div className="flex gap-2 items-start">
-                          <textarea
-                            rows={4}
-                            value={chap.narrative_en || ""}
-                            onChange={(e) =>
-                              updateLocalChapter(chap.id, "narrative_en", e.target.value)
-                            }
-                            onBlur={(e) =>
-                              updateDB("investigation_chapters", chap.id, {
-                                narrative_en: e.target.value,
-                              })
-                            }
-                            placeholder="Ex: On the morning of January 17..."
-                            className="flex-1 bg-[#111] border border-white/10 rounded px-3 py-2 text-sm text-white resize-none focus:border-red-500/50 outline-none"
-                          />
-                          <button
-                            onClick={() =>
-                              handleTranslateNested(
-                                chap.narrative_fr,
-                                "investigation_chapters",
-                                chap.id,
-                                "narrative_en",
-                                (val) => updateLocalChapter(chap.id, "narrative_en", val),
-                              )
-                            }
-                            className="p-2 bg-white/5 rounded text-gray-400 hover:text-white mt-1 flex-shrink-0"
-                          >
-                            {isProcessing === chap.id + "narrative_en" ? (
-                              <Loader2 size={14} className="animate-spin" />
-                            ) : (
-                              <Languages size={14} />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-2 flex items-center gap-1">
-                        <Paperclip size={10} /> Pièces à Conviction du Chapitre
-                      </label>
-                      {renderEvidenceList(chap.id, "chapter")}
-                    </div>
-
-                    <div className="border-t border-white/5 pt-6">
-                      <div className="flex items-center gap-2 mb-4">
-                        <Globe size={16} className="text-purple-400" />
-                        <h5 className="text-sm font-bold text-white">
-                          Scènes Panoramiques 360°
-                        </h5>
-                        <span className="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full">
-                          {(chap.scenes || []).length} scène(s)
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <span className="w-7 h-7 rounded-full bg-red-500/20 flex items-center justify-center text-xs font-bold text-red-400 flex-shrink-0">
+                          {cIdx + 1}
                         </span>
+                        <div className="min-w-0">
+                          <p className="text-red-400 font-bold text-sm truncate">
+                            {chap.title_fr || `Chapitre ${cIdx + 1}`}
+                          </p>
+                          <p className="text-gray-600 text-[10px]">
+                            {(chap.scenes || []).length} scène(s) •{" "}
+                            {(chap.enigmas || []).length} énigme(s)
+                          </p>
+                        </div>
                       </div>
-                      <PanoramaHotspotEditor
-                        investigationId={editingId!}
-                        chapterId={chap.id}
-                        scenes={chap.scenes || []}
-                        evidences={evidences}
-                        chapters={chapters}
-                        currentChapterId={chap.id}
-                        onScenesUpdate={() => fetchFullScenario(editingId!)}
-                        lang="fr"
-                        outroConfig={outroConfig}
-                      />
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setItemToDelete({
+                              id: chap.id,
+                              table: "investigation_chapters",
+                            });
+                            setDeleteModalOpen(true);
+                          }}
+                          className="p-1.5 text-gray-600 hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                        {isExpanded ? (
+                          <ChevronUp size={16} className="text-gray-500" />
+                        ) : (
+                          <ChevronDown size={16} className="text-gray-500" />
+                        )}
+                      </div>
                     </div>
 
-                    {/* ÉNIGMES */}
-                    <div className="border-t border-white/5 pt-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider flex items-center gap-1">
-                          <FileQuestion size={10} /> Énigmes du Chapitre
-                        </label>
-                        <button
-                          onClick={() => addEnigma(chap.id)}
-                          className="text-xs text-yellow-500 font-bold flex items-center gap-1 bg-yellow-500/10 px-3 py-1.5 rounded hover:bg-yellow-500/20 border border-yellow-500/20"
-                        >
-                          <PlusCircle size={12} /> Ajouter une Énigme
-                        </button>
-                      </div>
-
-                      <div className="space-y-3">
-                        {chap.enigmas?.map((enig: any, eIdx: number) => {
-                          const isEnigmaExpanded = expandedEnigmas[enig.id] !== false;
-
-                          return (
-                            <div
-                              key={enig.id}
-                              className="bg-[#1a1a1a] rounded-lg border border-yellow-500/20 overflow-hidden"
-                            >
-                              {/* HEADER ACCORDÉON */}
-                              <div
-                                className="flex items-center justify-between p-3 cursor-pointer hover:bg-white/[0.02] transition-colors"
-                                onClick={() => toggleEnigma(enig.id)}
+                    {isExpanded && (
+                      <div className="p-4 sm:p-5 border-t border-white/5 space-y-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1 block">
+                              Titre (FR)
+                            </label>
+                            <input
+                              type="text"
+                              value={chap.title_fr}
+                              onChange={(e) =>
+                                updateLocalChapter(chap.id, "title_fr", e.target.value)
+                              }
+                              onBlur={(e) =>
+                                updateDB("investigation_chapters", chap.id, {
+                                  title_fr: e.target.value,
+                                })
+                              }
+                              placeholder="Ex: Le télégramme secret"
+                              className="w-full bg-[#111] border border-white/10 rounded px-3 py-2 text-sm text-white focus:border-red-500/50 outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1 block">
+                              Titre (EN)
+                            </label>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={chap.title_en || ""}
+                                onChange={(e) =>
+                                  updateLocalChapter(chap.id, "title_en", e.target.value)
+                                }
+                                onBlur={(e) =>
+                                  updateDB("investigation_chapters", chap.id, {
+                                    title_en: e.target.value,
+                                  })
+                                }
+                                placeholder="Ex: The secret telegram"
+                                className="flex-1 bg-[#111] border border-white/10 rounded px-3 py-2 text-sm text-white focus:border-red-500/50 outline-none"
+                              />
+                              <button
+                                onClick={() =>
+                                  handleTranslateNested(
+                                    chap.title_fr,
+                                    "investigation_chapters",
+                                    chap.id,
+                                    "title_en",
+                                    (val) => updateLocalChapter(chap.id, "title_en", val),
+                                  )
+                                }
+                                className="p-2 bg-white/5 rounded text-gray-400 hover:text-white flex-shrink-0"
                               >
-                                <div className="flex items-center gap-3 flex-1 min-w-0">
-                                  <span className="w-6 h-6 rounded-full bg-yellow-500/20 flex items-center justify-center text-[10px] font-bold text-yellow-400 flex-shrink-0">
-                                    {eIdx + 1}
-                                  </span>
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="text-xs text-yellow-400 font-bold">
-                                        Énigme {eIdx + 1}
-                                      </span>
-                                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-gray-500 border border-white/10">
-                                        {(enig.response_type || "text") === "text" ? "✍️ Texte" : "✅ QCM"}
-                                      </span>
-                                      {enig.enigma_timer_seconds > 0 && (
-                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 flex items-center gap-1">
-                                          <Clock size={8} /> {enig.enigma_timer_seconds}s
-                                        </span>
-                                      )}
-                                      {enig.evidence_id && (
-                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                          📎
-                                        </span>
-                                      )}
-                                    </div>
-                                    <p className="text-[11px] text-gray-400 truncate mt-0.5">
-                                      {enig.question_fr || "Question non définie"}
-                                    </p>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setItemToDelete({ id: enig.id, table: "investigation_enigmas" });
-                                      setDeleteModalOpen(true);
-                                    }}
-                                    className="p-1 text-gray-600 hover:text-red-500"
+                                {isProcessing === chap.id + "title_en" ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : (
+                                  <Languages size={14} />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                              <FileText size={10} /> L'Histoire (FR)
+                            </label>
+                            <textarea
+                              rows={4}
+                              value={chap.narrative_fr}
+                              onChange={(e) =>
+                                updateLocalChapter(chap.id, "narrative_fr", e.target.value)
+                              }
+                              onBlur={(e) =>
+                                updateDB("investigation_chapters", chap.id, {
+                                  narrative_fr: e.target.value,
+                                })
+                              }
+                              placeholder="Ex: Ce matin du 17 janvier..."
+                              className="w-full bg-[#111] border border-white/10 rounded px-3 py-2 text-sm text-white resize-none focus:border-red-500/50 outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                              <FileText size={10} /> L'Histoire (EN)
+                            </label>
+                            <div className="flex gap-2 items-start">
+                              <textarea
+                                rows={4}
+                                value={chap.narrative_en || ""}
+                                onChange={(e) =>
+                                  updateLocalChapter(chap.id, "narrative_en", e.target.value)
+                                }
+                                onBlur={(e) =>
+                                  updateDB("investigation_chapters", chap.id, {
+                                    narrative_en: e.target.value,
+                                  })
+                                }
+                                placeholder="Ex: On the morning of January 17..."
+                                className="flex-1 bg-[#111] border border-white/10 rounded px-3 py-2 text-sm text-white resize-none focus:border-red-500/50 outline-none"
+                              />
+                              <button
+                                onClick={() =>
+                                  handleTranslateNested(
+                                    chap.narrative_fr,
+                                    "investigation_chapters",
+                                    chap.id,
+                                    "narrative_en",
+                                    (val) => updateLocalChapter(chap.id, "narrative_en", val),
+                                  )
+                                }
+                                className="p-2 bg-white/5 rounded text-gray-400 hover:text-white mt-1 flex-shrink-0"
+                              >
+                                {isProcessing === chap.id + "narrative_en" ? (
+                                  <Loader2 size={14} className="animate-spin" />
+                                ) : (
+                                  <Languages size={14} />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-2 flex items-center gap-1">
+                            <Paperclip size={10} /> Pièces à Conviction du Chapitre
+                          </label>
+                          {renderEvidenceList(chap.id, "chapter")}
+                        </div>
+
+                        <div className="border-t border-white/5 pt-6">
+                          <div className="flex items-center gap-2 mb-4">
+                            <Globe size={16} className="text-purple-400" />
+                            <h5 className="text-sm font-bold text-white">
+                              Scènes Panoramiques 360°
+                            </h5>
+                            <span className="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full">
+                              {(chap.scenes || []).length} scène(s)
+                            </span>
+                          </div>
+                          <PanoramaHotspotEditor
+                            investigationId={editingId!}
+                            chapterId={chap.id}
+                            scenes={chap.scenes || []}
+                            evidences={evidences}
+                            chapters={chapters}
+                            currentChapterId={chap.id}
+                            onScenesUpdate={() => fetchFullScenario(editingId!)}
+                            lang="fr"
+                            outroConfig={outroConfig}
+                          />
+                        </div>
+
+                        {/* ÉNIGMES */}
+                        <div className="border-t border-white/5 pt-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                              <FileQuestion size={10} /> Énigmes du Chapitre
+                            </label>
+                            <button
+                              onClick={() => addEnigma(chap.id)}
+                              className="text-xs text-yellow-500 font-bold flex items-center gap-1 bg-yellow-500/10 px-3 py-1.5 rounded hover:bg-yellow-500/20 border border-yellow-500/20"
+                            >
+                              <PlusCircle size={12} /> Ajouter une Énigme
+                            </button>
+                          </div>
+
+                          <div className="space-y-3">
+                            {chap.enigmas?.map((enig: any, eIdx: number) => {
+                              const isEnigmaExpanded = expandedEnigmas[enig.id] !== false;
+
+                              return (
+                                <div
+                                  key={enig.id}
+                                  className="bg-[#1a1a1a] rounded-lg border border-yellow-500/20 overflow-hidden"
+                                >
+                                  <div
+                                    className="flex items-center justify-between p-3 cursor-pointer hover:bg-white/[0.02] transition-colors"
+                                    onClick={() => toggleEnigma(enig.id)}
                                   >
-                                    <Trash2 size={14} />
-                                  </button>
-                                  {isEnigmaExpanded ? (
-                                    <ChevronUp size={14} className="text-gray-500" />
-                                  ) : (
-                                    <ChevronDown size={14} className="text-gray-500" />
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* CONTENU ACCORDÉON */}
-                              {isEnigmaExpanded && (
-                                <div className="p-4 border-t border-white/5 space-y-4">
-
-                                  {/* Sélectionner un indice existant */}
-                                  <div className="mb-4">
-                                    <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
-                                      📎 Sélectionner un indice (preuve média)
-                                    </label>
-                                    <select
-                                      value={enig.evidence_id || ""}
-                                      onChange={(event) => {
-                                        const newValue = event.target.value || null;
-                                        setChapters((prev) =>
-                                          prev.map((c) => ({
-                                            ...c,
-                                            enigmas: c.enigmas.map((enigma: any) =>
-                                              enigma.id === enig.id
-                                                ? { ...enigma, evidence_id: newValue }
-                                                : enigma,
-                                            ),
-                                          })),
-                                        );
-                                        supabase
-                                          .from("investigation_enigmas")
-                                          .update({ evidence_id: newValue })
-                                          .eq("id", enig.id)
-                                          .then(({ error }) => {
-                                            if (error) {
-                                              console.error("Erreur SQL evidence_id:", error);
-                                              showMsg("error", `Erreur BDD: ${error.message}`);
-                                            } else {
-                                              showMsg("success", "✅ Indice lié à l'énigme !");
-                                            }
-                                          });
-                                      }}
-                                      className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-yellow-500/50"
-                                    >
-                                      <option value="">— Aucun indice —</option>
-                                      {evidences.map((ev) => (
-                                        <option key={ev.id} value={ev.id}>
-                                          {ev.media_type === "image"
-                                            ? "🖼️"
-                                            : ev.media_type === "audio"
-                                              ? "🎵"
-                                              : "📄"}{" "}
-                                          {ev.name_fr}
-                                        </option>
-                                      ))}
-                                    </select>
-                                    {enig.evidence_id &&
-                                      (() => {
-                                        const ev = evidences.find((e) => e.id === enig.evidence_id);
-                                        return ev ? (
-                                          <p className="text-[10px] text-gray-600 mt-1">
-                                            ✅ Indice sélectionné : {ev.name_fr}
-                                          </p>
-                                        ) : null;
-                                      })()}
-                                  </div>
-
-                                  {/* Portée et Configuration */}
-                                  <div className="mb-4 space-y-3 bg-blue-900/10 p-3 rounded border border-blue-500/20">
-                                    <div>
-                                      <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
-                                        📍 Portée de l'énigme
-                                      </label>
-                                      <select
-                                        value={enig.scene_id ? "specific" : "chapter"}
-                                        onChange={(e) => {
-                                          if (e.target.value === "specific") {
-                                            const firstScene = chap.scenes?.[0];
-                                            setChapters((prev) =>
-                                              prev.map((c) => ({
-                                                ...c,
-                                                enigmas: c.enigmas.map((enigma: any) =>
-                                                  enigma.id === enig.id
-                                                    ? { ...enigma, scene_id: firstScene?.id || null }
-                                                    : enigma,
-                                                ),
-                                              })),
-                                            );
-                                            supabase
-                                              .from("investigation_enigmas")
-                                              .update({ scene_id: firstScene?.id || null })
-                                              .eq("id", enig.id);
-                                          } else {
-                                            setChapters((prev) =>
-                                              prev.map((c) => ({
-                                                ...c,
-                                                enigmas: c.enigmas.map((enigma: any) =>
-                                                  enigma.id === enig.id
-                                                    ? { ...enigma, scene_id: null }
-                                                    : enigma,
-                                                ),
-                                              })),
-                                            );
-                                            supabase
-                                              .from("investigation_enigmas")
-                                              .update({ scene_id: null })
-                                              .eq("id", enig.id);
-                                          }
-                                        }}
-                                        className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-                                      >
-                                        <option value="chapter">📚 Tout le chapitre</option>
-                                        <option value="specific">📍 Scène spécifique</option>
-                                      </select>
-                                    </div>
-
-                                    {enig.scene_id && (
-                                      <div>
-                                        <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
-                                          Choisir la scène
-                                        </label>
-                                        <select
-                                          value={enig.scene_id || ""}
-                                          onChange={(event) => {
-                                            setChapters((prev) =>
-                                              prev.map((c) => ({
-                                                ...c,
-                                                enigmas: c.enigmas.map((enigma: any) =>
-                                                  enigma.id === enig.id
-                                                    ? { ...enigma, scene_id: event.target.value || null }
-                                                    : enigma,
-                                                ),
-                                              })),
-                                            );
-                                            supabase
-                                              .from("investigation_enigmas")
-                                              .update({ scene_id: event.target.value || null })
-                                              .eq("id", enig.id);
-                                          }}
-                                          className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-                                        >
-                                          <option value="">— Sélectionner une scène —</option>
-                                          {(chap.scenes || []).map((scene: any, idx: number) => (
-                                            <option key={scene.id} value={scene.id}>
-                                              Scène {idx + 1} — {scene.title_fr}
-                                            </option>
-                                          ))}
-                                        </select>
-                                      </div>
-                                    )}
-
-                                    <div>
-                                      <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
-                                        <Clock size={12} className="inline mr-1" /> Timer d'énigme (secondes)
-                                      </label>
-                                      <input
-                                        type="number"
-                                        value={enig.enigma_timer_seconds || 0}
-                                        onChange={(event) => {
-                                          setChapters((prev) =>
-                                            prev.map((c) => ({
-                                              ...c,
-                                              enigmas: c.enigmas.map((enigma: any) =>
-                                                enigma.id === enig.id
-                                                  ? { ...enigma, enigma_timer_seconds: Number(event.target.value) }
-                                                  : enigma,
-                                              ),
-                                            })),
-                                          );
-                                        }}
-                                        onBlur={(event) => {
-                                          supabase
-                                            .from("investigation_enigmas")
-                                            .update({ enigma_timer_seconds: Number(event.target.value) })
-                                            .eq("id", enig.id);
-                                        }}
-                                        placeholder="0 = pas de timer"
-                                        className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-                                      />
-                                    </div>
-
-                                    {enig.enigma_timer_seconds > 0 && (
-                                      <div>
-                                        <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
-                                          <AlertTriangle size={12} className="inline mr-1 text-red-400" />
-                                          Action à l'expiration (optionnel)
-                                        </label>
-                                        <select
-                                          value={enig.timer_timeout_instruction_id || ""}
-                                          onChange={(event) => {
-                                            setChapters((prev) =>
-                                              prev.map((c) => ({
-                                                ...c,
-                                                enigmas: c.enigmas.map((enigma: any) =>
-                                                  enigma.id === enig.id
-                                                    ? { ...enigma, timer_timeout_instruction_id: event.target.value || null }
-                                                    : enigma,
-                                                ),
-                                              })),
-                                            );
-                                            supabase
-                                              .from("investigation_enigmas")
-                                              .update({ timer_timeout_instruction_id: event.target.value || null })
-                                              .eq("id", enig.id);
-                                          }}
-                                          className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-blue-500"
-                                        >
-                                          <option value="">— Aucune action —</option>
-                                          {allInstructions.map((instr: any) => (
-                                            <option key={instr.id} value={instr.id}>
-                                              {instr.icon} {instr.name}
-                                            </option>
-                                          ))}
-                                        </select>
-                                        <p className="text-[10px] text-gray-600 mt-1">
-                                          Une instruction s'affichera quand ce timer arrive à 0
-                                        </p>
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {/* Événements narratifs */}
-                                  <div className="space-y-4 bg-purple-900/10 p-3 rounded border border-purple-500/20">
-                                    <h4 className="text-[10px] text-purple-400 font-bold uppercase tracking-wider flex items-center gap-1">
-                                      <Zap size={12} /> Événements Narratifs (selon le résultat)
-                                    </h4>
-
-                                    <div>
-                                      <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
-                                        ✅ Si énigme résolue
-                                      </label>
-                                      <select
-                                        value={enig.trigger_event_on_success_id || ""}
-                                        onChange={(event) => {
-                                          setChapters((prev) =>
-                                            prev.map((c) => ({
-                                              ...c,
-                                              enigmas: c.enigmas.map((enigma: any) =>
-                                                enigma.id === enig.id
-                                                  ? { ...enigma, trigger_event_on_success_id: event.target.value || null }
-                                                  : enigma,
-                                              ),
-                                            })),
-                                          );
-                                        }}
-                                        onBlur={async (event) => {
-                                          const enigmaToSave = chapters
-                                            .find((c) => c.id === chap.id)
-                                            ?.enigmas?.find((en: any) => en.id === enig.id);
-                                          if (enigmaToSave) {
-                                            enigmaToSave.trigger_event_on_success_id = event.target.value || null;
-                                            await saveEnigmaToDb(enigmaToSave);
-                                          }
-                                        }}
-                                        className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
-                                      >
-                                        <option value="">— Aucun événement —</option>
-                                        {(outroConfig?.narrative_events || []).map((ev: any) => (
-                                          <option key={ev.id} value={ev.id}>
-                                            {ev.name || `Événement ${ev.id.slice(0, 4)}`}
-                                          </option>
-                                        ))}
-                                      </select>
-                                      <p className="text-[10px] text-gray-600 mt-1">
-                                        Cet événement se déclenche quand le joueur résout l'énigme
-                                      </p>
-                                    </div>
-
-                                    <div>
-                                      <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
-                                        ❌ Si énigme ratée (budget = 0)
-                                      </label>
-                                      <select
-                                        value={enig.trigger_event_on_failure_id || ""}
-                                        onChange={(event) => {
-                                          setChapters((prev) =>
-                                            prev.map((c) => ({
-                                              ...c,
-                                              enigmas: c.enigmas.map((enigma: any) =>
-                                                enigma.id === enig.id
-                                                  ? { ...enigma, trigger_event_on_failure_id: event.target.value || null }
-                                                  : enigma,
-                                              ),
-                                            })),
-                                          );
-                                        }}
-                                        onBlur={async (event) => {
-                                          const enigmaToSave = chapters
-                                            .find((c) => c.id === chap.id)
-                                            ?.enigmas?.find((en: any) => en.id === enig.id);
-                                          if (enigmaToSave) {
-                                            enigmaToSave.trigger_event_on_failure_id = event.target.value || null;
-                                            await saveEnigmaToDb(enigmaToSave);
-                                          }
-                                        }}
-                                        className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
-                                      >
-                                        <option value="">— Aucun événement —</option>
-                                        {(outroConfig?.narrative_events || []).map((ev: any) => (
-                                          <option key={ev.id} value={ev.id}>
-                                            {ev.name || `Événement ${ev.id.slice(0, 4)}`}
-                                          </option>
-                                        ))}
-                                      </select>
-                                      <p className="text-[10px] text-gray-600 mt-1">
-                                        Cet événement se déclenche si le joueur épuise son budget
-                                      </p>
-                                    </div>
-
-                                    <div>
-                                      <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
-                                        ⏱️ Si timer énigme = 0
-                                      </label>
-                                      <select
-                                        value={enig.trigger_event_on_timeout_id || ""}
-                                        onChange={(event) => {
-                                          setChapters((prev) =>
-                                            prev.map((c) => ({
-                                              ...c,
-                                              enigmas: c.enigmas.map((enigma: any) =>
-                                                enigma.id === enig.id
-                                                  ? { ...enigma, trigger_event_on_timeout_id: event.target.value || null }
-                                                  : enigma,
-                                              ),
-                                            })),
-                                          );
-                                        }}
-                                        onBlur={async (event) => {
-                                          const enigmaToSave = chapters
-                                            .find((c) => c.id === chap.id)
-                                            ?.enigmas?.find((en: any) => en.id === enig.id);
-                                          if (enigmaToSave) {
-                                            enigmaToSave.trigger_event_on_timeout_id = event.target.value || null;
-                                            await saveEnigmaToDb(enigmaToSave);
-                                          }
-                                        }}
-                                        className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
-                                      >
-                                        <option value="">— Aucun événement —</option>
-                                        {(outroConfig?.narrative_events || []).map((ev: any) => (
-                                          <option key={ev.id} value={ev.id}>
-                                            {ev.name || `Événement ${ev.id.slice(0, 4)}`}
-                                          </option>
-                                        ))}
-                                      </select>
-                                      <p className="text-[10px] text-gray-600 mt-1">
-                                        Cet événement se déclenche quand le timer arrive à 0
-                                      </p>
-                                    </div>
-
-                                    {enig.enigma_timer_seconds > 0 && (
-                                      <div>
-                                        <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
-                                          ⚙️ Comportement du timer
-                                        </label>
-                                        <select
-                                          value={enig.timer_behavior || "alert"}
-                                          onChange={(event) => {
-                                            setChapters((prev) =>
-                                              prev.map((c) => ({
-                                                ...c,
-                                                enigmas: c.enigmas.map((enigma: any) =>
-                                                  enigma.id === enig.id
-                                                    ? { ...enigma, timer_behavior: event.target.value as any }
-                                                    : enigma,
-                                                ),
-                                              })),
-                                            );
-                                          }}
-                                          onBlur={async (event) => {
-                                            const enigmaToSave = chapters
-                                              .find((c) => c.id === chap.id)
-                                              ?.enigmas?.find((en: any) => en.id === enig.id);
-                                            if (enigmaToSave) {
-                                              enigmaToSave.timer_behavior = event.target.value as any;
-                                              await saveEnigmaToDb(enigmaToSave);
-                                            }
-                                          }}
-                                          className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
-                                        >
-                                          <option value="alert">💡 Juste alerte (le jeu continue)</option>
-                                          <option value="pause">⏸️ Pause le jeu</option>
-                                          <option value="end_game">🔴 Termine le jeu</option>
-                                        </select>
-                                        <p className="text-[10px] text-gray-600 mt-1">
-                                          Que faire quand ce timer arrive à 0 ?
-                                        </p>
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {/* Mode de réponse */}
-                                  <div className="mb-4">
-                                    <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
-                                      Mode de réponse
-                                    </label>
-                                    <div className="flex gap-2">
-                                      {[
-                                        {
-                                          value: "text",
-                                          label: "✍️ Texte à taper",
-                                          activeClass: "bg-gray-600/30 border-gray-500/50 text-gray-400",
-                                        },
-                                        {
-                                          value: "choice",
-                                          label: "✅ Choix multiples",
-                                          activeClass: "bg-green-600/30 border-green-500/50 text-green-400",
-                                        },
-                                      ].map((type) => (
-                                        <button
-                                          key={type.value}
-                                          onClick={() => {
-                                            setChapters((prev) =>
-                                              prev.map((c) => ({
-                                                ...c,
-                                                enigmas: c.enigmas.map((enigma: any) =>
-                                                  enigma.id === enig.id
-                                                    ? { ...enigma, response_type: type.value }
-                                                    : enigma,
-                                                ),
-                                              })),
-                                            );
-                                            supabase
-                                              .from("investigation_enigmas")
-                                              .update({ response_type: type.value })
-                                              .eq("id", enig.id);
-                                          }}
-                                          className={`px-3 py-1.5 rounded text-xs font-bold border transition-colors ${
-                                            (enig.response_type || "text") === type.value
-                                              ? type.activeClass
-                                              : "bg-white/5 border-white/10 text-gray-400 hover:text-white"
-                                          }`}
-                                        >
-                                          {type.label}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  </div>
-
-                                  {/* Questions FR/EN */}
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
-                                    <div className="space-y-2">
-                                      <input
-                                        type="text"
-                                        value={enig.question_fr || ""}
-                                        onChange={(e) =>
-                                          updateLocalEnigma(chap.id, enig.id, "question_fr", e.target.value)
-                                        }
-                                        onBlur={async () => {
-                                          const enigmaToSave = chapters
-                                            .find((c) => c.id === chap.id)
-                                            ?.enigmas?.find((en: any) => en.id === enig.id);
-                                          if (enigmaToSave) {
-                                            await saveEnigmaToDb(enigmaToSave);
-                                          }
-                                        }}
-                                        placeholder="Question FR"
-                                        className="w-full bg-[#111] border border-white/10 rounded px-3 py-2 text-sm text-white focus:border-yellow-500/50 outline-none"
-                                      />
-                                      <div className="flex items-center gap-2">
-                                        <KeyRound size={12} className="text-green-500 flex-shrink-0" />
-                                        <input
-                                          type="text"
-                                          value={enig.expected_answer_fr || ""}
-                                          onChange={(e) =>
-                                            updateLocalEnigma(chap.id, enig.id, "expected_answer_fr", e.target.value)
-                                          }
-                                          onBlur={(e) =>
-                                            updateDB("investigation_enigmas", enig.id, {
-                                              expected_answer_fr: e.target.value,
-                                            })
-                                          }
-                                          placeholder="Réponse FR"
-                                          className="flex-1 bg-[#111] border border-green-500/30 rounded px-3 py-1.5 text-sm font-mono text-green-400 focus:border-green-500 outline-none"
-                                        />
-                                      </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                      <div className="flex gap-2">
-                                        <input
-                                          type="text"
-                                          value={enig.question_en || ""}
-                                          onChange={(e) =>
-                                            updateLocalEnigma(chap.id, enig.id, "question_en", e.target.value)
-                                          }
-                                          onBlur={(e) =>
-                                            updateDB("investigation_enigmas", enig.id, {
-                                              question_en: e.target.value,
-                                            })
-                                          }
-                                          placeholder="Question EN"
-                                          className="flex-1 bg-[#111] border border-white/10 rounded px-3 py-2 text-sm text-white focus:border-yellow-500/50 outline-none"
-                                        />
-                                        <button
-                                          onClick={() =>
-                                            handleTranslateNested(
-                                              enig.question_fr,
-                                              "investigation_enigmas",
-                                              enig.id,
-                                              "question_en",
-                                              (val) => updateLocalEnigma(chap.id, enig.id, "question_en", val),
-                                            )
-                                          }
-                                          className="p-2 bg-white/5 rounded text-gray-400 hover:text-white flex-shrink-0"
-                                        >
-                                          {isProcessing === enig.id + "question_en" ? (
-                                            <Loader2 size={14} className="animate-spin" />
-                                          ) : (
-                                            <Languages size={14} />
+                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                      <span className="w-6 h-6 rounded-full bg-yellow-500/20 flex items-center justify-center text-[10px] font-bold text-yellow-400 flex-shrink-0">
+                                        {eIdx + 1}
+                                      </span>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="text-xs text-yellow-400 font-bold">
+                                            Énigme {eIdx + 1}
+                                          </span>
+                                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-gray-500 border border-white/10">
+                                            {(enig.response_type || "text") === "text" ? "✍️ Texte" : "✅ QCM"}
+                                          </span>
+                                          {enig.enigma_timer_seconds > 0 && (
+                                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 flex items-center gap-1">
+                                              <Clock size={8} /> {enig.enigma_timer_seconds}s
+                                            </span>
                                           )}
-                                        </button>
+                                          {enig.evidence_id && (
+                                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                              📎
+                                            </span>
+                                          )}
+                                        </div>
+                                        <p className="text-[11px] text-gray-400 truncate mt-0.5">
+                                          {enig.question_fr || "Question non définie"}
+                                        </p>
                                       </div>
-                                      <input
-                                        type="text"
-                                        value={enig.expected_answer_en || ""}
-                                        onChange={(e) =>
-                                          updateLocalEnigma(chap.id, enig.id, "expected_answer_en", e.target.value)
-                                        }
-                                        onBlur={(e) =>
-                                          updateDB("investigation_enigmas", enig.id, {
-                                            expected_answer_en: e.target.value,
-                                          })
-                                        }
-                                        placeholder="Réponse EN (optionnel)"
-                                        className="w-full bg-[#111] border border-green-500/10 rounded px-3 py-1.5 text-sm font-mono text-green-400 focus:border-green-500 outline-none"
-                                      />
                                     </div>
-                                  </div>
-
-                                  {/* Choix multiples */}
-                                  {(enig.response_type || "text") === "choice" && (
-                                    <div className="mb-4 p-4 bg-green-900/10 border border-green-500/20 rounded-lg space-y-3">
-                                      <div className="flex items-center justify-between">
-                                        <label className="text-[10px] text-green-400 font-bold uppercase">
-                                          ✅ Options de réponse (max 4)
-                                        </label>
-                                        <button
-                                          onClick={() => addChoice(enig.id)}
-                                          disabled={(enig.choices_fr || []).length >= 4}
-                                          className="px-3 py-1.5 bg-green-600/20 text-green-400 border border-green-500/30 rounded text-xs font-bold hover:bg-green-600/40 flex items-center gap-1 disabled:opacity-50"
-                                        >
-                                          <PlusCircle size={10} /> Ajouter
-                                        </button>
-                                      </div>
-                                      <div className="space-y-2">
-                                        {(enig.choices_fr || []).map((choice: string, idx: number) => (
-                                          <div key={idx} className="flex gap-2 items-center">
-                                            <input
-                                              type="radio"
-                                              name={`correct-${enig.id}`}
-                                              checked={enig.correct_choice_index === idx}
-                                              onChange={() => setCorrectChoice(enig.id, idx)}
-                                              className="w-4 h-4 accent-green-500"
-                                            />
-                                            <input
-                                              type="text"
-                                              value={choice}
-                                              onChange={(e) => updateChoice(enig.id, idx, e.target.value, "fr")}
-                                              placeholder="Option FR"
-                                              className="flex-1 bg-[#111] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-green-500"
-                                            />
-                                            <input
-                                              type="text"
-                                              value={(enig.choices_en || [])[idx] || ""}
-                                              onChange={(e) => updateChoice(enig.id, idx, e.target.value, "en")}
-                                              placeholder="EN"
-                                              className="flex-1 bg-[#111] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-green-500"
-                                            />
-                                            <button
-                                              onClick={async () => {
-                                                if (!choice.trim()) return;
-                                                const translated = await autoTranslate(choice, "fr");
-                                                updateChoice(enig.id, idx, translated, "en");
-                                              }}
-                                              className="p-1.5 bg-white/5 rounded hover:bg-white/10"
-                                            >
-                                              <Languages size={10} className="text-gray-400" />
-                                            </button>
-                                            <button
-                                              onClick={() => deleteChoice(enig.id, idx)}
-                                              className="p-1 text-red-500 hover:bg-red-500/10 rounded"
-                                            >
-                                              <Trash2 size={12} />
-                                            </button>
-                                          </div>
-                                        ))}
-                                        {(enig.choices_fr || []).length === 0 && (
-                                          <p className="text-[10px] text-gray-600 italic">Aucune option</p>
-                                        )}
-                                      </div>
-                                      <p className="text-[10px] text-gray-500">
-                                        ⚠️ Cochez la radio button de la bonne réponse
-                                      </p>
-                                    </div>
-                                  )}
-
-                                  {renderEvidenceList(enig.id, "enigma")}
-
-                                  {/* Événement si résolue */}
-                                  <div className="mt-4 bg-purple-900/10 border border-purple-500/20 rounded-lg p-3">
-                                    <label className="text-[10px] text-purple-400 font-bold uppercase tracking-wider flex items-center gap-1 mb-2">
-                                      <Zap size={10} /> Déclencher un Événement si résolue
-                                    </label>
-                                    <select
-                                      value={enig.trigger_event_id || ""}
-                                      onChange={(e) =>
-                                        updateLocalEnigma(chap.id, enig.id, "trigger_event_id", e.target.value)
-                                      }
-                                      onBlur={(e) =>
-                                        updateDB("investigation_enigmas", enig.id, {
-                                          trigger_event_id: e.target.value,
-                                        })
-                                      }
-                                      className="w-full bg-[#111] border border-purple-500/30 rounded px-3 py-2 text-sm text-white outline-none focus:border-purple-500"
-                                    >
-                                      <option value="">— Aucun événement —</option>
-                                      {(outroConfig?.narrative_events || []).map((ev: any) => (
-                                        <option key={ev.id} value={ev.id}>
-                                          {ev.type === "takeover" ? "🎬" : "💭"}{" "}
-                                          {ev.name || `Événement ${ev.id.slice(0, 4)}`}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </div>
-
-                                  {/* Indices */}
-                                  <div className="mt-4 space-y-2">
-                                    <label className="text-[10px] text-gray-600 font-bold uppercase tracking-wider flex items-center gap-1">
-                                      <Lightbulb size={10} /> Indices (Payants)
-                                    </label>
-                                    {enig.clues?.map((clue: any, clIdx: number) => (
-                                      <div
-                                        key={clue.id}
-                                        className="bg-blue-900/10 p-3 rounded border border-blue-500/20 relative space-y-3"
+                                    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setItemToDelete({ id: enig.id, table: "investigation_enigmas" });
+                                          setDeleteModalOpen(true);
+                                        }}
+                                        className="p-1 text-gray-600 hover:text-red-500"
                                       >
-                                        <button
-                                          onClick={() => {
-                                            setItemToDelete({
-                                              id: clue.id,
-                                              table: "investigation_clues",
-                                            });
-                                            setDeleteModalOpen(true);
-                                          }}
-                                          className="absolute top-2 right-2 p-1 text-gray-600 hover:text-red-500"
-                                        >
-                                          <X size={12} />
-                                        </button>
-                                        <span className="text-[10px] text-blue-400 font-bold flex items-center gap-1 mb-2">
-                                          <Lightbulb size={10} /> Indice {clIdx + 1}
-                                        </span>
+                                        <Trash2 size={14} />
+                                      </button>
+                                      {isEnigmaExpanded ? (
+                                        <ChevronUp size={14} className="text-gray-500" />
+                                      ) : (
+                                        <ChevronDown size={14} className="text-gray-500" />
+                                      )}
+                                    </div>
+                                  </div>
 
-                                        <div className="flex gap-2 items-center p-2 bg-[#D4AF37]/10 rounded border border-[#D4AF37]/30">
-                                          <span className="text-[10px] text-[#D4AF37] font-bold flex-shrink-0">💰</span>
+                                  {isEnigmaExpanded && (
+                                    <div className="p-4 border-t border-white/5 space-y-4">
+
+                                      <div className="mb-4">
+                                        <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
+                                          📎 Sélectionner un indice (preuve média)
+                                        </label>
+                                        <select
+                                          value={enig.evidence_id || ""}
+                                          onChange={(event) => {
+                                            const newValue = event.target.value || null;
+                                            setChapters((prev) =>
+                                              prev.map((c) => ({
+                                                ...c,
+                                                enigmas: c.enigmas.map((enigma: any) =>
+                                                  enigma.id === enig.id
+                                                    ? { ...enigma, evidence_id: newValue }
+                                                    : enigma,
+                                                ),
+                                              })),
+                                            );
+                                            supabase
+                                              .from("investigation_enigmas")
+                                              .update({ evidence_id: newValue })
+                                              .eq("id", enig.id)
+                                              .then(({ error }) => {
+                                                if (error) {
+                                                  console.error("Erreur SQL evidence_id:", error);
+                                                  showMsg("error", `Erreur BDD: ${error.message}`);
+                                                } else {
+                                                  showMsg("success", "✅ Indice lié à l'énigme !");
+                                                }
+                                              });
+                                          }}
+                                          className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-yellow-500/50"
+                                        >
+                                          <option value="">— Aucun indice —</option>
+                                          {evidences.map((ev) => (
+                                            <option key={ev.id} value={ev.id}>
+                                              {ev.media_type === "image"
+                                                ? "🖼️"
+                                                : ev.media_type === "audio"
+                                                  ? "🎵"
+                                                  : "📄"}{" "}
+                                              {ev.name_fr}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        {enig.evidence_id &&
+                                          (() => {
+                                            const ev = evidences.find((e) => e.id === enig.evidence_id);
+                                            return ev ? (
+                                              <p className="text-[10px] text-gray-600 mt-1">
+                                                ✅ Indice sélectionné : {ev.name_fr}
+                                              </p>
+                                            ) : null;
+                                          })()}
+                                      </div>
+
+                                      <div className="mb-4 space-y-3 bg-blue-900/10 p-3 rounded border border-blue-500/20">
+                                        <div>
+                                          <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
+                                            📍 Portée de l'énigme
+                                          </label>
+                                          <select
+                                            value={enig.scene_id ? "specific" : "chapter"}
+                                            onChange={(e) => {
+                                              if (e.target.value === "specific") {
+                                                const firstScene = chap.scenes?.[0];
+                                                setChapters((prev) =>
+                                                  prev.map((c) => ({
+                                                    ...c,
+                                                    enigmas: c.enigmas.map((enigma: any) =>
+                                                      enigma.id === enig.id
+                                                        ? { ...enigma, scene_id: firstScene?.id || null }
+                                                        : enigma,
+                                                    ),
+                                                  })),
+                                                );
+                                                supabase
+                                                  .from("investigation_enigmas")
+                                                  .update({ scene_id: firstScene?.id || null })
+                                                  .eq("id", enig.id);
+                                              } else {
+                                                setChapters((prev) =>
+                                                  prev.map((c) => ({
+                                                    ...c,
+                                                    enigmas: c.enigmas.map((enigma: any) =>
+                                                      enigma.id === enig.id
+                                                        ? { ...enigma, scene_id: null }
+                                                        : enigma,
+                                                    ),
+                                                  })),
+                                                );
+                                                supabase
+                                                  .from("investigation_enigmas")
+                                                  .update({ scene_id: null })
+                                                  .eq("id", enig.id);
+                                              }
+                                            }}
+                                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                                          >
+                                            <option value="chapter">📚 Tout le chapitre</option>
+                                            <option value="specific">📍 Scène spécifique</option>
+                                          </select>
+                                        </div>
+
+                                        {enig.scene_id && (
+                                          <div>
+                                            <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
+                                              Choisir la scène
+                                            </label>
+                                            <select
+                                              value={enig.scene_id || ""}
+                                              onChange={(event) => {
+                                                setChapters((prev) =>
+                                                  prev.map((c) => ({
+                                                    ...c,
+                                                    enigmas: c.enigmas.map((enigma: any) =>
+                                                      enigma.id === enig.id
+                                                        ? { ...enigma, scene_id: event.target.value || null }
+                                                        : enigma,
+                                                    ),
+                                                  })),
+                                                );
+                                                supabase
+                                                  .from("investigation_enigmas")
+                                                  .update({ scene_id: event.target.value || null })
+                                                  .eq("id", enig.id);
+                                              }}
+                                              className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                                            >
+                                              <option value="">— Sélectionner une scène —</option>
+                                              {(chap.scenes || []).map((scene: any, idx: number) => (
+                                                <option key={scene.id} value={scene.id}>
+                                                  Scène {idx + 1} — {scene.title_fr}
+                                                </option>
+                                              ))}
+                                            </select>
+                                          </div>
+                                        )}
+
+                                        <div>
+                                          <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
+                                            <Clock size={12} className="inline mr-1" /> Timer d'énigme (secondes)
+                                          </label>
                                           <input
                                             type="number"
-                                            value={clue.reveal_cost_cauris ?? 5}
-                                            onChange={(e) => {
-                                              const newVal = Number(e.target.value);
+                                            value={enig.enigma_timer_seconds || 0}
+                                            onChange={(event) => {
                                               setChapters((prev) =>
                                                 prev.map((c) => ({
                                                   ...c,
                                                   enigmas: c.enigmas.map((enigma: any) =>
                                                     enigma.id === enig.id
-                                                      ? {
-                                                          ...enigma,
-                                                          clues: enigma.clues.map((cl: any) =>
-                                                            cl.id === clue.id
-                                                              ? { ...cl, reveal_cost_cauris: newVal }
-                                                              : cl,
-                                                          ),
-                                                        }
+                                                      ? { ...enigma, enigma_timer_seconds: Number(event.target.value) }
                                                       : enigma,
                                                   ),
                                                 })),
                                               );
                                             }}
-                                            onBlur={(e) =>
-                                              updateDB("investigation_clues", clue.id, {
-                                                reveal_cost_cauris: Number(e.target.value),
-                                              })
-                                            }
-                                            min={0}
-                                            className="flex-1 bg-[#1a1a1a] border border-[#D4AF37]/30 rounded px-2 py-1 text-xs text-[#D4AF37] font-bold outline-none focus:border-[#D4AF37]"
-                                            placeholder="5"
+                                            onBlur={(event) => {
+                                              supabase
+                                                .from("investigation_enigmas")
+                                                .update({ enigma_timer_seconds: Number(event.target.value) })
+                                                .eq("id", enig.id);
+                                            }}
+                                            placeholder="0 = pas de timer"
+                                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
                                           />
-                                          <span className="text-[10px] text-gray-500">Cauris</span>
                                         </div>
 
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+                                        {enig.enigma_timer_seconds > 0 && (
+                                          <div>
+                                            <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
+                                              <AlertTriangle size={12} className="inline mr-1 text-red-400" />
+                                              Action à l'expiration (optionnel)
+                                            </label>
+                                            <select
+                                              value={enig.timer_timeout_instruction_id || ""}
+                                              onChange={(event) => {
+                                                setChapters((prev) =>
+                                                  prev.map((c) => ({
+                                                    ...c,
+                                                    enigmas: c.enigmas.map((enigma: any) =>
+                                                      enigma.id === enig.id
+                                                        ? { ...enigma, timer_timeout_instruction_id: event.target.value || null }
+                                                        : enigma,
+                                                    ),
+                                                  })),
+                                                );
+                                                supabase
+                                                  .from("investigation_enigmas")
+                                                  .update({ timer_timeout_instruction_id: event.target.value || null })
+                                                  .eq("id", enig.id);
+                                              }}
+                                              className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-blue-500"
+                                            >
+                                              <option value="">— Aucune action —</option>
+                                              {allInstructions.map((instr: any) => (
+                                                <option key={instr.id} value={instr.id}>
+                                                  {instr.icon} {instr.name}
+                                                </option>
+                                              ))}
+                                            </select>
+                                            <p className="text-[10px] text-gray-600 mt-1">
+                                              Une instruction s'affichera quand ce timer arrive à 0
+                                            </p>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      <div className="space-y-4 bg-purple-900/10 p-3 rounded border border-purple-500/20">
+                                        <h4 className="text-[10px] text-purple-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                                          <Zap size={12} /> Événements Narratifs (selon le résultat)
+                                        </h4>
+
+                                        <div>
+                                          <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
+                                            ✅ Si énigme résolue
+                                          </label>
+                                          <select
+                                            value={enig.trigger_event_on_success_id || ""}
+                                            onChange={(event) => {
+                                              setChapters((prev) =>
+                                                prev.map((c) => ({
+                                                  ...c,
+                                                  enigmas: c.enigmas.map((enigma: any) =>
+                                                    enigma.id === enig.id
+                                                      ? { ...enigma, trigger_event_on_success_id: event.target.value || null }
+                                                      : enigma,
+                                                  ),
+                                                })),
+                                              );
+                                            }}
+                                            onBlur={async (event) => {
+                                              const enigmaToSave = chapters
+                                                .find((c) => c.id === chap.id)
+                                                ?.enigmas?.find((en: any) => en.id === enig.id);
+                                              if (enigmaToSave) {
+                                                enigmaToSave.trigger_event_on_success_id = event.target.value || null;
+                                                await saveEnigmaToDb(enigmaToSave);
+                                              }
+                                            }}
+                                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
+                                          >
+                                            <option value="">— Aucun événement —</option>
+                                            {(outroConfig?.narrative_events || []).map((ev: any) => (
+                                              <option key={ev.id} value={ev.id}>
+                                                {ev.name || `Événement ${ev.id.slice(0, 4)}`}
+                                              </option>
+                                            ))}
+                                          </select>
+                                          <p className="text-[10px] text-gray-600 mt-1">
+                                            Cet événement se déclenche quand le joueur résout l'énigme
+                                          </p>
+                                        </div>
+
+                                        <div>
+                                          <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
+                                            ❌ Si énigme ratée (budget = 0)
+                                          </label>
+                                          <select
+                                            value={enig.trigger_event_on_failure_id || ""}
+                                            onChange={(event) => {
+                                              setChapters((prev) =>
+                                                prev.map((c) => ({
+                                                  ...c,
+                                                  enigmas: c.enigmas.map((enigma: any) =>
+                                                    enigma.id === enig.id
+                                                      ? { ...enigma, trigger_event_on_failure_id: event.target.value || null }
+                                                      : enigma,
+                                                  ),
+                                                })),
+                                              );
+                                            }}
+                                            onBlur={async (event) => {
+                                              const enigmaToSave = chapters
+                                                .find((c) => c.id === chap.id)
+                                                ?.enigmas?.find((en: any) => en.id === enig.id);
+                                              if (enigmaToSave) {
+                                                enigmaToSave.trigger_event_on_failure_id = event.target.value || null;
+                                                await saveEnigmaToDb(enigmaToSave);
+                                              }
+                                            }}
+                                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
+                                          >
+                                            <option value="">— Aucun événement —</option>
+                                            {(outroConfig?.narrative_events || []).map((ev: any) => (
+                                              <option key={ev.id} value={ev.id}>
+                                                {ev.name || `Événement ${ev.id.slice(0, 4)}`}
+                                              </option>
+                                            ))}
+                                          </select>
+                                          <p className="text-[10px] text-gray-600 mt-1">
+                                            Cet événement se déclenche si le joueur épuise son budget
+                                          </p>
+                                        </div>
+
+                                        <div>
+                                          <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
+                                            ⏱️ Si timer énigme = 0
+                                          </label>
+                                          <select
+                                            value={enig.trigger_event_on_timeout_id || ""}
+                                            onChange={(event) => {
+                                              setChapters((prev) =>
+                                                prev.map((c) => ({
+                                                  ...c,
+                                                  enigmas: c.enigmas.map((enigma: any) =>
+                                                    enigma.id === enig.id
+                                                      ? { ...enigma, trigger_event_on_timeout_id: event.target.value || null }
+                                                      : enigma,
+                                                  ),
+                                                })),
+                                              );
+                                            }}
+                                            onBlur={async (event) => {
+                                              const enigmaToSave = chapters
+                                                .find((c) => c.id === chap.id)
+                                                ?.enigmas?.find((en: any) => en.id === enig.id);
+                                              if (enigmaToSave) {
+                                                enigmaToSave.trigger_event_on_timeout_id = event.target.value || null;
+                                                await saveEnigmaToDb(enigmaToSave);
+                                              }
+                                            }}
+                                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
+                                          >
+                                            <option value="">— Aucun événement —</option>
+                                            {(outroConfig?.narrative_events || []).map((ev: any) => (
+                                              <option key={ev.id} value={ev.id}>
+                                                {ev.name || `Événement ${ev.id.slice(0, 4)}`}
+                                              </option>
+                                            ))}
+                                          </select>
+                                          <p className="text-[10px] text-gray-600 mt-1">
+                                            Cet événement se déclenche quand le timer arrive à 0
+                                          </p>
+                                        </div>
+
+                                        {enig.enigma_timer_seconds > 0 && (
+                                          <div>
+                                            <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
+                                              ⚙️ Comportement du timer
+                                            </label>
+                                            <select
+                                              value={enig.timer_behavior || "alert"}
+                                              onChange={(event) => {
+                                                setChapters((prev) =>
+                                                  prev.map((c) => ({
+                                                    ...c,
+                                                    enigmas: c.enigmas.map((enigma: any) =>
+                                                      enigma.id === enig.id
+                                                        ? { ...enigma, timer_behavior: event.target.value as any }
+                                                        : enigma,
+                                                    ),
+                                                  })),
+                                                );
+                                              }}
+                                              onBlur={async (event) => {
+                                                const enigmaToSave = chapters
+                                                  .find((c) => c.id === chap.id)
+                                                  ?.enigmas?.find((en: any) => en.id === enig.id);
+                                                if (enigmaToSave) {
+                                                  enigmaToSave.timer_behavior = event.target.value as any;
+                                                  await saveEnigmaToDb(enigmaToSave);
+                                                }
+                                              }}
+                                              className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-purple-500"
+                                            >
+                                              <option value="alert">💡 Juste alerte (le jeu continue)</option>
+                                              <option value="pause">⏸️ Pause le jeu</option>
+                                              <option value="end_game">🔴 Termine le jeu</option>
+                                            </select>
+                                            <p className="text-[10px] text-gray-600 mt-1">
+                                              Que faire quand ce timer arrive à 0 ?
+                                            </p>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      <div className="mb-4">
+                                        <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">
+                                          Mode de réponse
+                                        </label>
+                                        <div className="flex gap-2">
+                                          {[
+                                            {
+                                              value: "text",
+                                              label: "✍️ Texte à taper",
+                                              activeClass: "bg-gray-600/30 border-gray-500/50 text-gray-400",
+                                            },
+                                            {
+                                              value: "choice",
+                                              label: "✅ Choix multiples",
+                                              activeClass: "bg-green-600/30 border-green-500/50 text-green-400",
+                                            },
+                                          ].map((type) => (
+                                            <button
+                                              key={type.value}
+                                              onClick={() => {
+                                                setChapters((prev) =>
+                                                  prev.map((c) => ({
+                                                    ...c,
+                                                    enigmas: c.enigmas.map((enigma: any) =>
+                                                      enigma.id === enig.id
+                                                        ? { ...enigma, response_type: type.value }
+                                                        : enigma,
+                                                    ),
+                                                  })),
+                                                );
+                                                supabase
+                                                  .from("investigation_enigmas")
+                                                  .update({ response_type: type.value })
+                                                  .eq("id", enig.id);
+                                              }}
+                                              className={`px-3 py-1.5 rounded text-xs font-bold border transition-colors ${(enig.response_type || "text") === type.value
+                                                  ? type.activeClass
+                                                  : "bg-white/5 border-white/10 text-gray-400 hover:text-white"
+                                                }`}
+                                            >
+                                              {type.label}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
+                                        <div className="space-y-2">
                                           <input
                                             type="text"
-                                            value={clue.text_fr || ""}
+                                            value={enig.question_fr || ""}
                                             onChange={(e) =>
-                                              updateLocalClue(chap.id, enig.id, clue.id, "text_fr", e.target.value)
+                                              updateLocalEnigma(chap.id, enig.id, "question_fr", e.target.value)
                                             }
-                                            onBlur={(e) =>
-                                              updateDB("investigation_clues", clue.id, { text_fr: e.target.value })
-                                            }
-                                            placeholder="Indice FR"
-                                            className="w-full bg-[#111] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500/50"
+                                            onBlur={async () => {
+                                              const enigmaToSave = chapters
+                                                .find((c) => c.id === chap.id)
+                                                ?.enigmas?.find((en: any) => en.id === enig.id);
+                                              if (enigmaToSave) {
+                                                await saveEnigmaToDb(enigmaToSave);
+                                              }
+                                            }}
+                                            placeholder="Question FR"
+                                            className="w-full bg-[#111] border border-white/10 rounded px-3 py-2 text-sm text-white focus:border-yellow-500/50 outline-none"
                                           />
-                                          <div className="flex gap-1">
+                                          <div className="flex items-center gap-2">
+                                            <KeyRound size={12} className="text-green-500 flex-shrink-0" />
                                             <input
                                               type="text"
-                                              value={clue.text_en || ""}
+                                              value={enig.expected_answer_fr || ""}
                                               onChange={(e) =>
-                                                updateLocalClue(chap.id, enig.id, clue.id, "text_en", e.target.value)
+                                                updateLocalEnigma(chap.id, enig.id, "expected_answer_fr", e.target.value)
                                               }
                                               onBlur={(e) =>
-                                                updateDB("investigation_clues", clue.id, { text_en: e.target.value })
+                                                updateDB("investigation_enigmas", enig.id, {
+                                                  expected_answer_fr: e.target.value,
+                                                })
                                               }
-                                              placeholder="Indice EN"
-                                              className="flex-1 bg-[#111] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500/50"
+                                              placeholder="Réponse FR"
+                                              className="flex-1 bg-[#111] border border-green-500/30 rounded px-3 py-1.5 text-sm font-mono text-green-400 focus:border-green-500 outline-none"
+                                            />
+                                          </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                          <div className="flex gap-2">
+                                            <input
+                                              type="text"
+                                              value={enig.question_en || ""}
+                                              onChange={(e) =>
+                                                updateLocalEnigma(chap.id, enig.id, "question_en", e.target.value)
+                                              }
+                                              onBlur={(e) =>
+                                                updateDB("investigation_enigmas", enig.id, {
+                                                  question_en: e.target.value,
+                                                })
+                                              }
+                                              placeholder="Question EN"
+                                              className="flex-1 bg-[#111] border border-white/10 rounded px-3 py-2 text-sm text-white focus:border-yellow-500/50 outline-none"
                                             />
                                             <button
                                               onClick={() =>
                                                 handleTranslateNested(
-                                                  clue.text_fr,
-                                                  "investigation_clues",
-                                                  clue.id,
-                                                  "text_en",
-                                                  (val) => updateLocalClue(chap.id, enig.id, clue.id, "text_en", val),
+                                                  enig.question_fr,
+                                                  "investigation_enigmas",
+                                                  enig.id,
+                                                  "question_en",
+                                                  (val) => updateLocalEnigma(chap.id, enig.id, "question_en", val),
                                                 )
                                               }
-                                              className="p-1.5 bg-white/5 rounded text-gray-400 hover:text-white flex-shrink-0"
+                                              className="p-2 bg-white/5 rounded text-gray-400 hover:text-white flex-shrink-0"
                                             >
-                                              {isProcessing === clue.id + "text_en" ? (
-                                                <Loader2 size={12} className="animate-spin" />
+                                              {isProcessing === enig.id + "question_en" ? (
+                                                <Loader2 size={14} className="animate-spin" />
                                               ) : (
-                                                <Languages size={12} />
+                                                <Languages size={14} />
                                               )}
                                             </button>
                                           </div>
+                                          <input
+                                            type="text"
+                                            value={enig.expected_answer_en || ""}
+                                            onChange={(e) =>
+                                              updateLocalEnigma(chap.id, enig.id, "expected_answer_en", e.target.value)
+                                            }
+                                            onBlur={(e) =>
+                                              updateDB("investigation_enigmas", enig.id, {
+                                                expected_answer_en: e.target.value,
+                                              })
+                                            }
+                                            placeholder="Réponse EN (optionnel)"
+                                            className="w-full bg-[#111] border border-green-500/10 rounded px-3 py-1.5 text-sm font-mono text-green-400 focus:border-green-500 outline-none"
+                                          />
                                         </div>
-
-                                        {renderEvidenceList(clue.id, "clue")}
                                       </div>
-                                    ))}
-                                    <button
-                                      onClick={() => addClue(enig.id)}
-                                      className="text-[10px] text-blue-400 font-bold flex items-center gap-1 bg-blue-500/10 px-2 py-1.5 rounded hover:bg-blue-500/20"
-                                    >
-                                      <PlusCircle size={10} /> Ajouter un Indice
-                                    </button>
-                                  </div>
 
-                                  {/* Bouton Sauvegarder */}
-                                  <div className="mt-6 pt-4 border-t border-white/10">
-                                    <button
-                                      onClick={async () => {
-                                        const { error } = await supabase
-                                          .from("investigation_enigmas")
-                                          .update({
-                                            question_fr: enig.question_fr,
-                                            question_en: enig.question_en,
-                                            expected_answer_fr: enig.expected_answer_fr,
-                                            expected_answer_en: enig.expected_answer_en,
-                                            response_type: enig.response_type || "text",
-                                            choices_fr: enig.choices_fr || [],
-                                            choices_en: enig.choices_en || [],
-                                            correct_choice_index: enig.correct_choice_index,
-                                            evidence_id: enig.evidence_id || null,
-                                            scene_id: enig.scene_id || null,
-                                            enigma_timer_seconds: enig.enigma_timer_seconds || 0,
-                                            timer_timeout_instruction_id: enig.timer_timeout_instruction_id || null,
-                                            trigger_event_id: enig.trigger_event_id || null,
-                                          })
-                                          .eq("id", enig.id);
+                                      {(enig.response_type || "text") === "choice" && (
+                                        <div className="mb-4 p-4 bg-green-900/10 border border-green-500/20 rounded-lg space-y-3">
+                                          <div className="flex items-center justify-between">
+                                            <label className="text-[10px] text-green-400 font-bold uppercase">
+                                              ✅ Options de réponse (max 4)
+                                            </label>
+                                            <button
+                                              onClick={() => addChoice(enig.id)}
+                                              disabled={(enig.choices_fr || []).length >= 4}
+                                              className="px-3 py-1.5 bg-green-600/20 text-green-400 border border-green-500/30 rounded text-xs font-bold hover:bg-green-600/40 flex items-center gap-1 disabled:opacity-50"
+                                            >
+                                              <PlusCircle size={10} /> Ajouter
+                                            </button>
+                                          </div>
+                                          <div className="space-y-2">
+                                            {(enig.choices_fr || []).map((choice: string, idx: number) => (
+                                              <div key={idx} className="flex gap-2 items-center">
+                                                <input
+                                                  type="radio"
+                                                  name={`correct-${enig.id}`}
+                                                  checked={enig.correct_choice_index === idx}
+                                                  onChange={() => setCorrectChoice(enig.id, idx)}
+                                                  className="w-4 h-4 accent-green-500"
+                                                />
+                                                <input
+                                                  type="text"
+                                                  value={choice}
+                                                  onChange={(e) => updateChoice(enig.id, idx, e.target.value, "fr")}
+                                                  placeholder="Option FR"
+                                                  className="flex-1 bg-[#111] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-green-500"
+                                                />
+                                                <input
+                                                  type="text"
+                                                  value={(enig.choices_en || [])[idx] || ""}
+                                                  onChange={(e) => updateChoice(enig.id, idx, e.target.value, "en")}
+                                                  placeholder="EN"
+                                                  className="flex-1 bg-[#111] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-green-500"
+                                                />
+                                                <button
+                                                  onClick={async () => {
+                                                    if (!choice.trim()) return;
+                                                    const translated = await autoTranslate(choice, "fr");
+                                                    updateChoice(enig.id, idx, translated, "en");
+                                                  }}
+                                                  className="p-1.5 bg-white/5 rounded hover:bg-white/10"
+                                                >
+                                                  <Languages size={10} className="text-gray-400" />
+                                                </button>
+                                                <button
+                                                  onClick={() => deleteChoice(enig.id, idx)}
+                                                  className="p-1 text-red-500 hover:bg-red-500/10 rounded"
+                                                >
+                                                  <Trash2 size={12} />
+                                                </button>
+                                              </div>
+                                            ))}
+                                            {(enig.choices_fr || []).length === 0 && (
+                                              <p className="text-[10px] text-gray-600 italic">Aucune option</p>
+                                            )}
+                                          </div>
+                                          <p className="text-[10px] text-gray-500">
+                                            ⚠️ Cochez la radio button de la bonne réponse
+                                          </p>
+                                        </div>
+                                      )}
 
-                                        if (error) {
-                                          showMsg("error", `Erreur sauvegarde: ${error.message}`);
-                                        } else {
-                                          showMsg("success", "✅ Énigme sauvegardée !");
-                                        }
-                                      }}
-                                      className="w-full py-2.5 bg-yellow-600 hover:bg-yellow-500 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors"
-                                    >
-                                      <Save size={14} /> Sauvegarder cette Énigme
-                                    </button>
-                                  </div>
+                                      {renderEvidenceList(enig.id, "enigma")}
 
+                                      <div className="mt-4 bg-purple-900/10 border border-purple-500/20 rounded-lg p-3">
+                                        <label className="text-[10px] text-purple-400 font-bold uppercase tracking-wider flex items-center gap-1 mb-2">
+                                          <Zap size={10} /> Déclencher un Événement si résolue
+                                        </label>
+                                        <select
+                                          value={enig.trigger_event_id || ""}
+                                          onChange={(e) =>
+                                            updateLocalEnigma(chap.id, enig.id, "trigger_event_id", e.target.value)
+                                          }
+                                          onBlur={(e) =>
+                                            updateDB("investigation_enigmas", enig.id, {
+                                              trigger_event_id: e.target.value,
+                                            })
+                                          }
+                                          className="w-full bg-[#111] border border-purple-500/30 rounded px-3 py-2 text-sm text-white outline-none focus:border-purple-500"
+                                        >
+                                          <option value="">— Aucun événement —</option>
+                                          {(outroConfig?.narrative_events || []).map((ev: any) => (
+                                            <option key={ev.id} value={ev.id}>
+                                              {ev.type === "takeover" ? "🎬" : "💭"}{" "}
+                                              {ev.name || `Événement ${ev.id.slice(0, 4)}`}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
+
+                                      <div className="mt-4 space-y-2">
+                                        <label className="text-[10px] text-gray-600 font-bold uppercase tracking-wider flex items-center gap-1">
+                                          <Lightbulb size={10} /> Indices (Payants)
+                                        </label>
+                                        {enig.clues?.map((clue: any, clIdx: number) => (
+                                          <div
+                                            key={clue.id}
+                                            className="bg-blue-900/10 p-3 rounded border border-blue-500/20 relative space-y-3"
+                                          >
+                                            <button
+                                              onClick={() => {
+                                                setItemToDelete({
+                                                  id: clue.id,
+                                                  table: "investigation_clues",
+                                                });
+                                                setDeleteModalOpen(true);
+                                              }}
+                                              className="absolute top-2 right-2 p-1 text-gray-600 hover:text-red-500"
+                                            >
+                                              <X size={12} />
+                                            </button>
+                                            <span className="text-[10px] text-blue-400 font-bold flex items-center gap-1 mb-2">
+                                              <Lightbulb size={10} /> Indice {clIdx + 1}
+                                            </span>
+
+                                            <div className="flex gap-2 items-center p-2 bg-[#D4AF37]/10 rounded border border-[#D4AF37]/30">
+                                              <span className="text-[10px] text-[#D4AF37] font-bold flex-shrink-0">💰</span>
+                                              <input
+                                                type="number"
+                                                value={clue.reveal_cost_cauris ?? 5}
+                                                onChange={(e) => {
+                                                  const newVal = Number(e.target.value);
+                                                  setChapters((prev) =>
+                                                    prev.map((c) => ({
+                                                      ...c,
+                                                      enigmas: c.enigmas.map((enigma: any) =>
+                                                        enigma.id === enig.id
+                                                          ? {
+                                                            ...enigma,
+                                                            clues: enigma.clues.map((cl: any) =>
+                                                              cl.id === clue.id
+                                                                ? { ...cl, reveal_cost_cauris: newVal }
+                                                                : cl,
+                                                            ),
+                                                          }
+                                                          : enigma,
+                                                      ),
+                                                    })),
+                                                  );
+                                                }}
+                                                onBlur={(e) =>
+                                                  updateDB("investigation_clues", clue.id, {
+                                                    reveal_cost_cauris: Number(e.target.value),
+                                                  })
+                                                }
+                                                min={0}
+                                                className="flex-1 bg-[#1a1a1a] border border-[#D4AF37]/30 rounded px-2 py-1 text-xs text-[#D4AF37] font-bold outline-none focus:border-[#D4AF37]"
+                                                placeholder="5"
+                                              />
+                                              <span className="text-[10px] text-gray-500">Cauris</span>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+                                              <input
+                                                type="text"
+                                                value={clue.text_fr || ""}
+                                                onChange={(e) =>
+                                                  updateLocalClue(chap.id, enig.id, clue.id, "text_fr", e.target.value)
+                                                }
+                                                onBlur={(e) =>
+                                                  updateDB("investigation_clues", clue.id, { text_fr: e.target.value })
+                                                }
+                                                placeholder="Indice FR"
+                                                className="w-full bg-[#111] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500/50"
+                                              />
+                                              <div className="flex gap-1">
+                                                <input
+                                                  type="text"
+                                                  value={clue.text_en || ""}
+                                                  onChange={(e) =>
+                                                    updateLocalClue(chap.id, enig.id, clue.id, "text_en", e.target.value)
+                                                  }
+                                                  onBlur={(e) =>
+                                                    updateDB("investigation_clues", clue.id, { text_en: e.target.value })
+                                                  }
+                                                  placeholder="Indice EN"
+                                                  className="flex-1 bg-[#111] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-blue-500/50"
+                                                />
+                                                <button
+                                                  onClick={() =>
+                                                    handleTranslateNested(
+                                                      clue.text_fr,
+                                                      "investigation_clues",
+                                                      clue.id,
+                                                      "text_en",
+                                                      (val) => updateLocalClue(chap.id, enig.id, clue.id, "text_en", val),
+                                                    )
+                                                  }
+                                                  className="p-1.5 bg-white/5 rounded text-gray-400 hover:text-white flex-shrink-0"
+                                                >
+                                                  {isProcessing === clue.id + "text_en" ? (
+                                                    <Loader2 size={12} className="animate-spin" />
+                                                  ) : (
+                                                    <Languages size={12} />
+                                                  )}
+                                                </button>
+                                              </div>
+                                            </div>
+
+                                            {renderEvidenceList(clue.id, "clue")}
+                                          </div>
+                                        ))}
+                                        <button
+                                          onClick={() => addClue(enig.id)}
+                                          className="text-[10px] text-blue-400 font-bold flex items-center gap-1 bg-blue-500/10 px-2 py-1.5 rounded hover:bg-blue-500/20"
+                                        >
+                                          <PlusCircle size={10} /> Ajouter un Indice
+                                        </button>
+                                      </div>
+
+                                      <div className="mt-6 pt-4 border-t border-white/10">
+                                        <button
+                                          onClick={async () => {
+                                            const { error } = await supabase
+                                              .from("investigation_enigmas")
+                                              .update({
+                                                question_fr: enig.question_fr,
+                                                question_en: enig.question_en,
+                                                expected_answer_fr: enig.expected_answer_fr,
+                                                expected_answer_en: enig.expected_answer_en,
+                                                response_type: enig.response_type || "text",
+                                                choices_fr: enig.choices_fr || [],
+                                                choices_en: enig.choices_en || [],
+                                                correct_choice_index: enig.correct_choice_index,
+                                                evidence_id: enig.evidence_id || null,
+                                                scene_id: enig.scene_id || null,
+                                                enigma_timer_seconds: enig.enigma_timer_seconds || 0,
+                                                timer_timeout_instruction_id: enig.timer_timeout_instruction_id || null,
+                                                trigger_event_id: enig.trigger_event_id || null,
+                                              })
+                                              .eq("id", enig.id);
+
+                                            if (error) {
+                                              showMsg("error", `Erreur sauvegarde: ${error.message}`);
+                                            } else {
+                                              showMsg("success", "✅ Énigme sauvegardée !");
+                                            }
+                                          }}
+                                          className="w-full py-2.5 bg-yellow-600 hover:bg-yellow-500 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors"
+                                        >
+                                          <Save size={14} /> Sauvegarder cette Énigme
+                                        </button>
+                                      </div>
+
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
+                              );
+                            })}
+                          </div>
+                        </div>
 
-                    {/* Outils de Déduction */}
-                    <div className="border-t border-white/5 pt-6">
-                      <div className="mb-4">
-                        <h5 className="text-sm font-bold text-white flex items-center gap-2">
-                          🧠 Outils de Déduction
-                        </h5>
-                        <p className="text-[10px] text-gray-500 mt-1">
-                          Configurez la timeline et le tableau de connexions. Le joueur glisse ses preuves collectées pour valider ses déductions.
-                        </p>
+                        <div className="border-t border-white/5 pt-6">
+                          <div className="mb-4">
+                            <h5 className="text-sm font-bold text-white flex items-center gap-2">
+                              🧠 Outils de Déduction
+                            </h5>
+                            <p className="text-[10px] text-gray-500 mt-1">
+                              Configurez la timeline et le tableau de connexions. Le joueur glisse ses preuves collectées pour valider ses déductions.
+                            </p>
+                          </div>
+                          <DeductionSection chap={chap} />
+                        </div>
                       </div>
-                      <DeductionSection chap={chap} />
-                    </div>
+                    )}
                   </div>
-                )}
-              </div>
-            );
-          })}
+                );
+              })}
 
-          {chapters.length === 0 && (
-            <div className="text-center py-12 border border-dashed border-red-500/20 rounded-xl">
-              <p className="text-gray-500 text-sm">Aucun chapitre créé</p>
-              <p className="text-gray-600 text-xs mt-1">
-                Cliquez sur "Ajouter un Chapitre" pour commencer le scénario
-              </p>
+              {chapters.length === 0 && (
+                <div className="text-center py-12 border border-dashed border-red-500/20 rounded-xl">
+                  <p className="text-gray-500 text-sm">Aucun chapitre créé</p>
+                  <p className="text-gray-600 text-xs mt-1">
+                    Cliquez sur "Ajouter un Chapitre" pour commencer le scénario
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
       )}
 
+      {/* ============================================================ */}
       {/* LISTE DES DOSSIERS */}
+      {/* ============================================================ */}
       {!editingId && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {investigations.map((inv) => (
@@ -4014,11 +4394,10 @@ export default function InvestigationsTab({
                 <div className="min-w-0">
                   <div className="flex gap-2 mb-1 flex-wrap">
                     <span
-                      className={`text-[10px] px-2 py-0.5 rounded font-bold ${
-                        inv.status === "published"
+                      className={`text-[10px] px-2 py-0.5 rounded font-bold ${inv.status === "published"
                           ? "bg-green-500/20 text-green-400"
                           : "bg-yellow-500/20 text-yellow-400"
-                      }`}
+                        }`}
                     >
                       {inv.status === "published" ? "✅ Publié" : "📝 Brouillon"}
                     </span>

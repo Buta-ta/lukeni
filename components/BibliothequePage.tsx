@@ -11,7 +11,7 @@ import {
   Star, Heart, MessageCircle, Send, Play, Pause, Plus,
   Sparkles, Lightbulb, User as UserIcon, Globe, Upload,
   FileText, Music, ChevronRight, Check, ExternalLink, AlertCircle, Users,
-  ChevronLeft,  Highlighter, Bookmark, BookmarkMinus, BookmarkPlus, Book, 
+  ChevronLeft, Highlighter, Bookmark, BookmarkMinus, BookmarkPlus, Book,
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import SpaceHeader from '@/components/SpaceHeader';
@@ -20,6 +20,7 @@ import { useOpenLibrary, useLibGen } from '@/lib/hooks/useOpenLibrary';
 import type { EnrichedOLBook } from '@/lib/hooks/useOpenLibrary';
 import { NotesplitContainer } from '@/components/NotesplitContainer';
 import CloudinaryPDFReader from '@/components/CloudinaryPDFReaderWrapper';
+import BookPaywall from '@/components/BookPaywall';
 
 // ============================================================================
 // TYPES
@@ -481,7 +482,7 @@ const EPUBReader = memo(({ url, title, lang, onClose }: EPUBReaderProps) => {
         // ✅ GESTION DU SURLIGNEUR
         rendition.on('rendered', () => {
           if (!highlightMode) return;
-          
+
           const ifr = rendition.getContents()[0];
           if (!ifr || !ifr.document) return;
 
@@ -511,13 +512,13 @@ const EPUBReader = memo(({ url, title, lang, onClose }: EPUBReaderProps) => {
       if (renditionRef.current) {
         try {
           renditionRef.current.destroy();
-        } catch {}
+        } catch { }
         renditionRef.current = null;
       }
       if (bookRef.current) {
         try {
           bookRef.current.destroy();
-        } catch {}
+        } catch { }
         bookRef.current = null;
       }
     };
@@ -543,7 +544,7 @@ const EPUBReader = memo(({ url, title, lang, onClose }: EPUBReaderProps) => {
       range.surroundContents(span);
       setHighlights(prev => [...prev, selection.toString()]);
       selection.removeAllRanges();
-      
+
       // Feedback visuel
       console.log('[EPUBReader] Texte surligné:', selection.toString().substring(0, 50));
     } catch (err) {
@@ -557,26 +558,26 @@ const EPUBReader = memo(({ url, title, lang, onClose }: EPUBReaderProps) => {
     try {
       renditionRef.current.themes.override('font-size', `${fontSize}%`);
       renditionRef.current.themes.override('line-height', `${lineHeight}`);
-    } catch {}
+    } catch { }
   }, [fontSize, lineHeight]);
 
   const goNext = useCallback(() => {
     try {
       renditionRef.current?.next();
-    } catch {}
+    } catch { }
   }, []);
 
   const goPrev = useCallback(() => {
     try {
       renditionRef.current?.prev();
-    } catch {}
+    } catch { }
   }, []);
 
   const goToTocItem = useCallback((href: string) => {
     try {
       renditionRef.current?.display(href);
       setShowToc(false);
-    } catch {}
+    } catch { }
   }, []);
 
   // Navigation clavier
@@ -654,11 +655,10 @@ const EPUBReader = memo(({ url, title, lang, onClose }: EPUBReaderProps) => {
           {/* Surligneur */}
           <button
             onClick={() => setHighlightMode(!highlightMode)}
-            className={`hidden md:flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-all ml-1 ${
-              highlightMode
-                ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-                : 'text-gray-500 hover:text-white'
-            }`}
+            className={`hidden md:flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-all ml-1 ${highlightMode
+              ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+              : 'text-gray-500 hover:text-white'
+              }`}
             title={highlightMode ? 'Désactiver surligneur' : 'Activer surligneur'}
           >
             <Highlighter size={14} />
@@ -668,9 +668,8 @@ const EPUBReader = memo(({ url, title, lang, onClose }: EPUBReaderProps) => {
           {toc.length > 0 && (
             <button
               onClick={() => setShowToc(v => !v)}
-              className={`hidden md:block p-2 rounded-lg text-xs transition-colors ${
-                showToc ? 'bg-emerald-500/20 text-emerald-400' : 'text-gray-500 hover:text-white'
-              }`}
+              className={`hidden md:block p-2 rounded-lg text-xs transition-colors ${showToc ? 'bg-emerald-500/20 text-emerald-400' : 'text-gray-500 hover:text-white'
+                }`}
               title={lang === 'fr' ? 'Table des matières' : 'Table of contents'}
             >
               <FileText size={16} />
@@ -1271,8 +1270,8 @@ AddBookModal.displayName = 'AddBookModal';
 // BOOK CARD
 // ============================================================================
 
-const BookCard = memo(({ book, index, lang, onClick }: {
-  book: Book; index: number; lang: 'fr' | 'en'; onClick: () => void;
+const BookCard = memo(({ book, index, lang, onClick, isLocked }: {
+  book: Book; index: number; lang: 'fr' | 'en'; onClick: () => void; isLocked?: boolean;
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
@@ -1310,6 +1309,12 @@ const BookCard = memo(({ book, index, lang, onClick }: {
             {book.has_audio && <span className="w-6 h-6 rounded-full bg-purple-500/70 backdrop-blur-sm flex items-center justify-center"><Headphones size={11} className="text-white" /></span>}
             {book.access_type === 'read_and_download' && <span className="w-6 h-6 rounded-full bg-blue-500/70 backdrop-blur-sm flex items-center justify-center"><Download size={11} className="text-white" /></span>}
           </div>
+
+          {isLocked && (
+            <span className="w-6 h-6 rounded-full bg-amber-500/70 backdrop-blur-sm flex items-center justify-center">
+              <LockIcon size={11} className="text-white" />
+            </span>
+          )}
         </div>
         <div className="absolute bottom-0 left-0 right-0 p-3 z-10">
           <h3 className="text-white text-sm font-bold line-clamp-2 leading-snug group-hover:text-emerald-400 transition-colors">
@@ -1382,8 +1387,8 @@ AudioPlayer.displayName = 'AudioPlayer';
 // BOOK DETAIL MODAL
 // ============================================================================
 
-const BookDetailModal = memo(({ book, lang, user, onClose }: {
-  book: Book; lang: 'fr' | 'en'; user: User | null; onClose: () => void;
+const BookDetailModal = memo(({ book, lang, user, onClose, isLocked, onShowPaywall }: {
+  book: Book; lang: 'fr' | 'en'; user: User | null; onClose: () => void; isLocked?: boolean; onShowPaywall?: () => void;
 }) => {
   const [userRating, setUserRating] = useState(0);
   const [avgRating, setAvgRating] = useState(0);
@@ -1482,7 +1487,7 @@ const BookDetailModal = memo(({ book, lang, user, onClose }: {
     (async () => {
       try {
         await supabase.rpc('increment_book_downloads', { book_id: book.id });
-      } catch {}
+      } catch { }
     })();
   }, [book.file_url, book.id]);
 
@@ -1499,11 +1504,10 @@ const BookDetailModal = memo(({ book, lang, user, onClose }: {
               <CaurisIcon className="w-5 h-5 text-emerald-500 flex-shrink-0" />
               <h3 className="text-white text-sm font-bold truncate">{title}</h3>
               {/* Badge type de fichier */}
-              <span className={`flex-shrink-0 px-2 py-0.5 rounded-md text-[10px] font-bold border ${
-                fileType === 'epub'
-                  ? 'bg-purple-500/20 text-purple-400 border-purple-500/30'
-                  : 'bg-blue-500/20 text-blue-400 border-blue-500/30'
-              }`}>
+              <span className={`flex-shrink-0 px-2 py-0.5 rounded-md text-[10px] font-bold border ${fileType === 'epub'
+                ? 'bg-purple-500/20 text-purple-400 border-purple-500/30'
+                : 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                }`}>
                 {fileType === 'epub' ? 'EPUB' : 'PDF'}
               </span>
             </div>
@@ -1546,22 +1550,20 @@ const BookDetailModal = memo(({ book, lang, user, onClose }: {
             <div className="h-12 flex items-center justify-center gap-4 border-t border-white/10 bg-[#0a0a14]">
               <button
                 onClick={() => setReaderMode(fileType === 'epub' ? 'epub' : 'pdf')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                  readerMode !== 'audio'
-                    ? 'bg-emerald-500/20 text-emerald-400'
-                    : 'text-gray-500 hover:text-white'
-                }`}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${readerMode !== 'audio'
+                  ? 'bg-emerald-500/20 text-emerald-400'
+                  : 'text-gray-500 hover:text-white'
+                  }`}
               >
                 <BookOpen size={14} />
                 {fileType === 'epub' ? 'EPUB' : (lang === 'fr' ? 'Document' : 'Document')}
               </button>
               <button
                 onClick={() => setReaderMode('audio')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                  readerMode === 'audio'
-                    ? 'bg-purple-500/20 text-purple-400'
-                    : 'text-gray-500 hover:text-white'
-                }`}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${readerMode === 'audio'
+                  ? 'bg-purple-500/20 text-purple-400'
+                  : 'text-gray-500 hover:text-white'
+                  }`}
               >
                 <Headphones size={14} />
                 {lang === 'fr' ? 'Audio' : 'Audio'}
@@ -1604,11 +1606,10 @@ const BookDetailModal = memo(({ book, lang, user, onClose }: {
               {/* ✅ Badge type de fichier sous la couverture */}
               {book.file_url && (
                 <div className="mt-2 flex justify-center">
-                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                    fileType === 'epub'
-                      ? 'bg-purple-500/20 text-purple-400 border-purple-500/30'
-                      : 'bg-blue-500/20 text-blue-400 border-blue-500/30'
-                  }`}>
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${fileType === 'epub'
+                    ? 'bg-purple-500/20 text-purple-400 border-purple-500/30'
+                    : 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                    }`}>
                     <FileText size={10} />
                     {fileType === 'epub' ? 'EPUB' : 'PDF'}
                   </span>
@@ -1650,15 +1651,25 @@ const BookDetailModal = memo(({ book, lang, user, onClose }: {
             {book.file_url && (
               <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                 onClick={() => {
+                  if (isLocked && onShowPaywall) {
+                    onShowPaywall();
+                    return;
+                  }
                   setShowReader(true);
                   setReaderMode(fileType === 'epub' ? 'epub' : 'pdf');
                 }}
-                className="flex items-center gap-2 bg-emerald-500 text-black px-6 py-3 rounded-xl font-bold text-sm hover:bg-white transition-colors shadow-[0_0_20px_rgba(16,185,129,0.3)]">
-                <BookOpen size={18} />
-                {/* ✅ Label dynamique selon le type */}
-                {lang === 'fr'
-                  ? (fileType === 'epub' ? 'Lire (EPUB)' : 'Lire (PDF)')
-                  : (fileType === 'epub' ? 'Read (EPUB)' : 'Read (PDF)')}
+                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-colors shadow-[0_0_20px_rgba(16,185,129,0.3)] ${isLocked
+                    ? 'bg-amber-500 text-black hover:bg-amber-400'
+                    : 'bg-emerald-500 text-black hover:bg-white'
+                  }`}
+              >
+                {isLocked ? <LockIcon size={18} /> : <BookOpen size={18} />}
+                {isLocked
+                  ? (lang === 'fr' ? 'Accès Premium' : 'Premium Access')
+                  : (lang === 'fr'
+                    ? (fileType === 'epub' ? 'Lire (EPUB)' : 'Lire (PDF)')
+                    : (fileType === 'epub' ? 'Read (EPUB)' : 'Read (PDF)'))
+                }
               </motion.button>
             )}
             {book.has_audio && (
@@ -1943,6 +1954,9 @@ export default function BibliothequePage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [circles, setCircles] = useState<any[]>([]);
   const [searchMode, setSearchMode] = useState<'books' | 'circles'>('books');
+  const [bookPricing, setBookPricing] = useState<Record<string, any>>({});
+  const [userBookAccess, setUserBookAccess] = useState<Set<string>>(new Set());
+  const [paywallBook, setPaywallBook] = useState<Book | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -1971,20 +1985,72 @@ export default function BibliothequePage() {
   useEffect(() => {
     async function fetchData() {
       setIsLoading(true);
-      const [catResult, bookResult, collageResult, settingsResult] = await Promise.all([
+      const [catResult, bookResult, collageResult, settingsResult, pricingResult] = await Promise.all([
         supabase.from('categories').select('id, name_fr, name_en, color').eq('is_active', true).eq('show_bibliotheque', true).order('name_fr'),
         supabase.from('library_books').select('*, categories(id, name_fr, name_en, color)').eq('status', 'published').order('created_at', { ascending: false }),
         supabase.from('library_collage').select('*').order('slot_index'),
         supabase.from('library_collage_settings').select('*').limit(1).single(),
+        supabase.from('product_pricing').select('*').eq('product_type', 'book'),
       ]);
       if (catResult.data) setCategories(catResult.data as Category[]);
       if (bookResult.data) setBooks(bookResult.data as unknown as Book[]);
       if (collageResult.data) setCollageSlots(collageResult.data as CollageSlot[]);
       if (settingsResult.data) setCollageSettings(settingsResult.data as CollageSettings);
+
+      // ✅ Charger les prix des livres
+      if (pricingResult.data) {
+        const pMap: Record<string, any> = {};
+        pricingResult.data.forEach(p => pMap[p.product_id] = p);
+        setBookPricing(pMap);
+      }
+
       setIsLoading(false);
     }
     fetchData();
   }, []);
+
+
+  // ✅ Vérifier les accès utilisateur aux livres payants
+  useEffect(() => {
+    if (!user) {
+      setUserBookAccess(new Set());
+      return;
+    }
+
+    const checkAccess = async () => {
+      const accessSet = new Set<string>();
+
+      const [accessRes, grantRes] = await Promise.all([
+        supabase.from('user_access').select('target_id').eq('user_id', user.id).eq('access_type', 'book').eq('status', 'completed'),
+        supabase.from('admin_user_access_grants').select('target_ids, access_scope').eq('user_id', user.id).eq('access_type', 'book'),
+      ]);
+
+      if (accessRes.data) {
+        accessRes.data.forEach(a => accessSet.add(a.target_id));
+      }
+
+      if (grantRes.data) {
+        grantRes.data.forEach(g => {
+          if (g.access_scope === 'all') {
+            accessSet.add('ALL_BOOKS_ACCESS');
+          } else if (g.target_ids) {
+            g.target_ids.forEach((id: string) => accessSet.add(id));
+          }
+        });
+      }
+
+      setUserBookAccess(accessSet);
+    };
+
+    checkAccess();
+  }, [user]);
+
+
+  const checkBookAccess = (bookId: string): boolean => {
+    if (!bookPricing[bookId]) return true; // Livre gratuit
+    if (userBookAccess.has('ALL_BOOKS_ACCESS')) return true;
+    return userBookAccess.has(bookId);
+  };
 
   const filtered = useMemo(() => {
     let result = books;
@@ -2152,7 +2218,14 @@ export default function BibliothequePage() {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
             {filtered.map((book, i) => (
-              <BookCard key={book.id} book={book} index={i} lang={lang} onClick={() => setSelectedBook(book)} />
+              <BookCard
+                key={book.id}
+                book={book}
+                index={i}
+                lang={lang}
+                onClick={() => setSelectedBook(book)}
+                isLocked={!!bookPricing[book.id] && !checkBookAccess(book.id)}
+              />
             ))}
           </div>
         )}
@@ -2162,9 +2235,29 @@ export default function BibliothequePage() {
       {/* Modals */}
       <AnimatePresence>
         {selectedBook && (
-          <BookDetailModal book={selectedBook} lang={lang} user={user} onClose={() => setSelectedBook(null)} />
+          <BookDetailModal
+            book={selectedBook}
+            lang={lang}
+            user={user}
+            onClose={() => setSelectedBook(null)}
+            isLocked={!!bookPricing[selectedBook.id] && !checkBookAccess(selectedBook.id)}
+            onShowPaywall={() => setPaywallBook(selectedBook)}
+          />
         )}
       </AnimatePresence>
+
+      {/* ✅ PAYWALL LIVRE PAYANT */}
+      {paywallBook && (
+        <BookPaywall
+          bookId={paywallBook.id}
+          bookTitle={lang === 'fr' ? paywallBook.title_fr : paywallBook.title_en}
+          lang={lang}
+          onAccessGranted={() => {
+            setUserBookAccess(prev => new Set(prev).add(paywallBook.id));
+            setPaywallBook(null);
+          }}
+        />
+      )}
 
       <AnimatePresence>
         {selectedOLBook && (

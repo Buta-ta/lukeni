@@ -17,6 +17,10 @@ import {
 } from 'lucide-react';
 import ContributeModal from '@/components/ContributeModal';
 
+
+
+
+
 const MusicMap = dynamic(
   () => import('@/components/music/MusicMap'),
   {
@@ -754,6 +758,13 @@ const YouTubePlayer = ({
 
 export default function VoyageMusicalPage() {
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
+    // ✅ Appliquer l'attribut data-landing-page au HTML
+  useEffect(() => {
+    document.documentElement.setAttribute('data-landing-page', 'true');
+    return () => {
+      document.documentElement.setAttribute('data-landing-page', 'false');
+    };
+  }, []);
   const [isMounted, setIsMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 

@@ -41,6 +41,7 @@ interface Timeline {
     title_en: string;
     slots: TimelineSlot[];
     instruction_id?: string;
+    scene_id?: string | null;
 }
 
 interface Props {
@@ -111,7 +112,6 @@ function RewardForm({
         setIsTranslating(false);
     };
 
-    // Calcule les options de cible selon le type
     const renderTargetSelect = () => {
         switch (reward.type) {
             case "scene":
@@ -191,43 +191,31 @@ function RewardForm({
                         onChange={e => onChange({ ...reward, target_id: e.target.value })}
                         className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none">
                         <option value="">— Choisir un événement outro —</option>
-
                         {(outroConfig?.ranks || []).filter((r: any) => r.name).length > 0 && (
                             <optgroup label="🏆 Victoires & Rangs">
                                 {outroConfig.ranks.filter((r: any) => r.name).map((r: any) => (
-                                    <option key={r.id} value={`rank|${r.id}`}>
-                                        {r.name} ({r.min_percent}%)
-                                    </option>
+                                    <option key={r.id} value={`rank|${r.id}`}>{r.name} ({r.min_percent}%)</option>
                                 ))}
                             </optgroup>
                         )}
-
                         {(outroConfig?.game_overs || []).filter((g: any) => g.name).length > 0 && (
                             <optgroup label="💀 Game Over">
                                 {outroConfig.game_overs.filter((g: any) => g.name).map((g: any) => (
-                                    <option key={g.id} value={`game_over|${g.id}`}>
-                                        {g.name}
-                                    </option>
+                                    <option key={g.id} value={`game_over|${g.id}`}>{g.name}</option>
                                 ))}
                             </optgroup>
                         )}
-
                         {(outroConfig?.abandons || []).filter((a: any) => a.name).length > 0 && (
                             <optgroup label="🚪 Abandons">
                                 {outroConfig.abandons.filter((a: any) => a.name).map((a: any) => (
-                                    <option key={a.id} value={`abandon|${a.id}`}>
-                                        {a.name}
-                                    </option>
+                                    <option key={a.id} value={`abandon|${a.id}`}>{a.name}</option>
                                 ))}
                             </optgroup>
                         )}
-
                         {(outroConfig?.milestones || []).filter((m: any) => m.name).length > 0 && (
                             <optgroup label="💭 Toasts d'encouragement">
                                 {outroConfig.milestones.filter((m: any) => m.name).map((m: any) => (
-                                    <option key={m.id} value={`milestone|${m.id}`}>
-                                        {m.name} ({m.percent}%)
-                                    </option>
+                                    <option key={m.id} value={`milestone|${m.id}`}>{m.name} ({m.percent}%)</option>
                                 ))}
                             </optgroup>
                         )}
@@ -235,9 +223,7 @@ function RewardForm({
                 );
             case "hotspot":
                 const allHotspots = scenes.flatMap((sc: any) =>
-                    (sc.hotspots || []).map((h: any) => ({
-                        ...h, sceneName: sc.title_fr || "Scène"
-                    }))
+                    (sc.hotspots || []).map((h: any) => ({ ...h, sceneName: sc.title_fr || "Scène" }))
                 );
                 return (
                     <select value={reward.target_id}
@@ -245,9 +231,7 @@ function RewardForm({
                         className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none">
                         <option value="">— Choisir un hotspot —</option>
                         {allHotspots.map((h: any) => (
-                            <option key={h.id} value={h.id}>
-                                {h.icon} {h.label_fr} ({h.sceneName})
-                            </option>
+                            <option key={h.id} value={h.id}>{h.icon} {h.label_fr} ({h.sceneName})</option>
                         ))}
                     </select>
                 );
@@ -274,7 +258,6 @@ function RewardForm({
             className="p-3 rounded-lg border space-y-2"
             style={{ borderColor: (cfg?.color || "#fff") + "33", backgroundColor: (cfg?.color || "#fff") + "0a" }}
         >
-            {/* Type + Supprimer */}
             <div className="flex items-center gap-2">
                 <select
                     value={reward.type}
@@ -289,14 +272,10 @@ function RewardForm({
                     <Trash2 size={12} />
                 </button>
             </div>
-
-            {/* Cible */}
             <div>
                 <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Cible</label>
                 {renderTargetSelect()}
             </div>
-
-            {/* Notification */}
             <div className="grid grid-cols-2 gap-2">
                 <div>
                     <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Notification (FR)</label>
@@ -318,10 +297,7 @@ function RewardForm({
                             placeholder="Ex: A secret place reveals itself..."
                             className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
                         />
-                        <button
-                            onClick={handleTranslate}
-                            className="p-1.5 bg-white/5 rounded hover:bg-white/10"
-                        >
+                        <button onClick={handleTranslate} className="p-1.5 bg-white/5 rounded hover:bg-white/10">
                             {isTranslating
                                 ? <Loader2 size={10} className="animate-spin text-red-500" />
                                 : <Languages size={10} className="text-gray-400" />
@@ -336,20 +312,8 @@ function RewardForm({
 
 // ── SOUS-COMPOSANT : UN SLOT DE TIMELINE ──────────────────
 function TimelineSlotForm({
-    slot,
-    index,
-    evidences,
-    scenes,
-    chapters,
-    enigmas,
-    outroConfig,
-    allInstructions,
-    wordSearches,
-    lang,
-    onChange,
-    onDelete,
-    isTranslating,
-    setIsTranslating
+    slot, index, evidences, scenes, chapters, enigmas, outroConfig,
+    allInstructions, wordSearches, lang, onChange, onDelete, isTranslating, setIsTranslating
 }: {
     slot: TimelineSlot;
     index: number;
@@ -371,13 +335,7 @@ function TimelineSlotForm({
     const addReward = () => {
         onChange({
             ...slot,
-            rewards: [...slot.rewards, {
-                id: uuidv4(),
-                type: "scene",
-                target_id: "",
-                notif_fr: "",
-                notif_en: "",
-            }]
+            rewards: [...slot.rewards, { id: uuidv4(), type: "scene", target_id: "", notif_fr: "", notif_en: "" }]
         });
     };
 
@@ -403,7 +361,6 @@ function TimelineSlotForm({
 
     return (
         <div className="bg-[#0f0f0f] border border-white/10 rounded-xl overflow-hidden">
-            {/* Header du slot */}
             <div
                 className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-white/[0.02]"
                 onClick={() => setIsExpanded(!isExpanded)}
@@ -412,9 +369,7 @@ function TimelineSlotForm({
                     <div className="w-7 h-7 rounded-full bg-amber-500/20 flex items-center justify-center text-xs font-bold text-amber-400 flex-shrink-0">
                         {index + 1}
                     </div>
-                    <span className="text-sm font-bold text-white">
-                        {slot.label_fr || `Date ${index + 1}`}
-                    </span>
+                    <span className="text-sm font-bold text-white">{slot.label_fr || `Date ${index + 1}`}</span>
                     {slot.rewards.length > 0 && (
                         <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">
                             {slot.rewards.length} récompense(s)
@@ -422,10 +377,7 @@ function TimelineSlotForm({
                     )}
                 </div>
                 <div className="flex items-center gap-2">
-                    <button
-                        onClick={e => { e.stopPropagation(); onDelete(); }}
-                        className="p-1 text-gray-600 hover:text-red-500"
-                    >
+                    <button onClick={e => { e.stopPropagation(); onDelete(); }} className="p-1 text-gray-600 hover:text-red-500">
                         <Trash2 size={14} />
                     </button>
                     {isExpanded ? <ChevronUp size={14} className="text-gray-500" /> : <ChevronDown size={14} className="text-gray-500" />}
@@ -434,91 +386,59 @@ function TimelineSlotForm({
 
             {isExpanded && (
                 <div className="p-4 border-t border-white/5 space-y-4">
-
-                    {/* Labels */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">
                                 <Calendar size={10} className="inline mr-1" /> Label (FR)
                             </label>
-                            <input
-                                type="text"
-                                value={slot.label_fr}
+                            <input type="text" value={slot.label_fr}
                                 onChange={e => onChange({ ...slot, label_fr: e.target.value })}
                                 placeholder="Ex: 14 Septembre 1960"
-                                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-amber-500"
-                            />
+                                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-amber-500" />
                         </div>
                         <div>
                             <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Label (EN)</label>
                             <div className="flex gap-1">
-                                <input
-                                    type="text"
-                                    value={slot.label_en}
+                                <input type="text" value={slot.label_en}
                                     onChange={e => onChange({ ...slot, label_en: e.target.value })}
                                     placeholder="Ex: September 14, 1960"
-                                    className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none"
-                                />
-                                <button
-                                    onClick={() => translateField(slot.label_fr, "label_en")}
-                                    className="p-2 bg-white/5 rounded hover:bg-white/10"
-                                >
-                                    {isTranslating
-                                        ? <Loader2 size={12} className="animate-spin text-red-500" />
-                                        : <Languages size={12} className="text-gray-400" />
-                                    }
+                                    className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none" />
+                                <button onClick={() => translateField(slot.label_fr, "label_en")} className="p-2 bg-white/5 rounded hover:bg-white/10">
+                                    {isTranslating ? <Loader2 size={12} className="animate-spin text-red-500" /> : <Languages size={12} className="text-gray-400" />}
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    {/* Indices */}
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">
-                                💡 Indice pour le joueur (FR)
-                            </label>
-                            <input
-                                type="text"
-                                value={slot.hint_fr}
+                            <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">💡 Indice (FR)</label>
+                            <input type="text" value={slot.hint_fr}
                                 onChange={e => onChange({ ...slot, hint_fr: e.target.value })}
                                 placeholder="Ex: Regardez les archives financières..."
-                                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-blue-500"
-                            />
+                                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-blue-500" />
                         </div>
                         <div>
                             <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Indice (EN)</label>
                             <div className="flex gap-1">
-                                <input
-                                    type="text"
-                                    value={slot.hint_en}
+                                <input type="text" value={slot.hint_en}
                                     onChange={e => onChange({ ...slot, hint_en: e.target.value })}
                                     placeholder="Ex: Look at the financial records..."
-                                    className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none"
-                                />
-                                <button
-                                    onClick={() => translateField(slot.hint_fr, "hint_en")}
-                                    className="p-2 bg-white/5 rounded hover:bg-white/10"
-                                >
-                                    {isTranslating
-                                        ? <Loader2 size={12} className="animate-spin text-red-500" />
-                                        : <Languages size={12} className="text-gray-400" />
-                                    }
+                                    className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none" />
+                                <button onClick={() => translateField(slot.hint_fr, "hint_en")} className="p-2 bg-white/5 rounded hover:bg-white/10">
+                                    {isTranslating ? <Loader2 size={12} className="animate-spin text-red-500" /> : <Languages size={12} className="text-gray-400" />}
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    {/* Preuve attendue */}
                     <div>
                         <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">
-                            🔍 Preuve attendue (que le joueur doit déposer ici)
+                            🔍 Preuve attendue
                         </label>
-                        <select
-                            value={slot.expected_evidence_id}
+                        <select value={slot.expected_evidence_id}
                             onChange={e => onChange({ ...slot, expected_evidence_id: e.target.value })}
-                            className="w-full bg-[#1a1a1a] border border-amber-500/30 rounded px-3 py-2 text-sm text-white outline-none focus:border-amber-500"
-                        >
+                            className="w-full bg-[#1a1a1a] border border-amber-500/30 rounded px-3 py-2 text-sm text-white outline-none focus:border-amber-500">
                             <option value="">— Choisir la preuve attendue —</option>
                             {evidences.map((ev: any) => (
                                 <option key={ev.id} value={ev.id}>
@@ -533,33 +453,20 @@ function TimelineSlotForm({
                         )}
                     </div>
 
-
-
-                    {/* Instruction du slot */}
                     <div>
                         <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">
                             💡 Instruction à afficher (optionnel)
                         </label>
-                        <select
-                            value={slot.instruction_id || ""}
+                        <select value={slot.instruction_id || ""}
                             onChange={e => onChange({ ...slot, instruction_id: e.target.value || undefined })}
-                            className="w-full bg-[#1a1a1a] border border-blue-500/30 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-                        >
+                            className="w-full bg-[#1a1a1a] border border-blue-500/30 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500">
                             <option value="">— Aucune instruction —</option>
                             {allInstructions.map((instr: any) => (
-                                <option key={instr.id} value={instr.id}>
-                                    {instr.icon} {instr.name}
-                                </option>
+                                <option key={instr.id} value={instr.id}>{instr.icon} {instr.name}</option>
                             ))}
                         </select>
-                        <p className="text-[10px] text-gray-600 mt-1">
-                            Cette instruction s'affichera quand le joueur accède à cette timeline.
-                        </p>
                     </div>
 
-
-
-                    {/* ✅ AJOUTE JUSTE AVANT LES RÉCOMPENSES */}
                     <TimelineConditionEditor
                         slot={slot}
                         onUpdateSlot={onChange}
@@ -573,27 +480,19 @@ function TimelineSlotForm({
                         sceneHotspots={scenes.flatMap((sc: any) => sc.hotspots || [])}
                     />
 
-
-                    {/* Récompenses */}
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
                             <label className="text-[10px] text-gray-500 font-bold uppercase flex items-center gap-1">
                                 <Gift size={10} /> Récompenses si validé ({slot.rewards.length})
                             </label>
-                            <button
-                                onClick={addReward}
-                                className="flex items-center gap-1 px-2 py-1 bg-green-600/20 text-green-400 border border-green-500/30 rounded text-[10px] font-bold hover:bg-green-600/40"
-                            >
+                            <button onClick={addReward}
+                                className="flex items-center gap-1 px-2 py-1 bg-green-600/20 text-green-400 border border-green-500/30 rounded text-[10px] font-bold hover:bg-green-600/40">
                                 <Plus size={10} /> Ajouter
                             </button>
                         </div>
-
                         {slot.rewards.length === 0 && (
-                            <p className="text-[10px] text-gray-600 italic">
-                                Aucune récompense — la validation sera silencieuse
-                            </p>
+                            <p className="text-[10px] text-gray-600 italic">Aucune récompense — la validation sera silencieuse</p>
                         )}
-
                         {slot.rewards.map((reward, rIdx) => (
                             <RewardForm
                                 key={reward.id}
@@ -618,27 +517,15 @@ function TimelineSlotForm({
 
 // ── COMPOSANT PRINCIPAL ────────────────────────────────────
 export default function TimelineAdmin({
-    chapterId,
-    evidences,
-    scenes,
-    chapters,
-    enigmas,
-    outroConfig,
-    wordSearches = [],
-    lang = "fr",
-    showMsg,
-    investigationId
+    chapterId, evidences, scenes, chapters, enigmas, outroConfig,
+    wordSearches = [], lang = "fr", showMsg, investigationId
 }: Props) {
     const [timeline, setTimeline] = useState<Timeline | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isTranslating, setIsTranslating] = useState(false);
-
-
-
     const [allInstructions, setAllInstructions] = useState<any[]>([]);
 
-    // ── Charger la timeline existante et les instructions ──
     useEffect(() => {
         const load = async () => {
             setIsLoading(true);
@@ -647,14 +534,8 @@ export default function TimelineAdmin({
                 .select("*")
                 .eq("chapter_id", chapterId)
                 .maybeSingle();
+            setTimeline(data || null);
 
-            if (data) {
-                setTimeline(data);
-            } else {
-                setTimeline(null);
-            }
-
-            // Charger les instructions disponibles
             if (investigationId) {
                 const { data: instrs } = await supabase
                     .from("investigation_instructions")
@@ -662,7 +543,6 @@ export default function TimelineAdmin({
                     .eq("investigation_id", investigationId);
                 setAllInstructions(instrs || []);
             }
-
             setIsLoading(false);
         };
         load();
@@ -674,6 +554,7 @@ export default function TimelineAdmin({
             title_fr: "Nouvelle Timeline",
             title_en: "New Timeline",
             slots: [],
+            scene_id: null,
         });
     };
 
@@ -682,13 +563,8 @@ export default function TimelineAdmin({
         setTimeline({
             ...timeline,
             slots: [...timeline.slots, {
-                id: uuidv4(),
-                label_fr: "",
-                label_en: "",
-                hint_fr: "",
-                hint_en: "",
-                expected_evidence_id: "",
-                rewards: [],
+                id: uuidv4(), label_fr: "", label_en: "",
+                hint_fr: "", hint_en: "", expected_evidence_id: "", rewards: [],
             }]
         });
     };
@@ -719,27 +595,31 @@ export default function TimelineAdmin({
         if (!timeline) return;
         setIsSaving(true);
         try {
+            const payload = {
+                title_fr: timeline.title_fr,
+                title_en: timeline.title_en,
+                slots: timeline.slots,
+                scene_id: timeline.scene_id || null,
+            };
+
+            console.log("📋 Payload à sauvegarder:", payload); // ✅ LOG ICI
+
+
             if (timeline.id) {
-                // Update
-                const { error } = await supabase
-                    .from("investigation_timelines")
-                    .update({
-                        title_fr: timeline.title_fr,
-                        title_en: timeline.title_en,
-                        slots: timeline.slots,
-                    })
-                    .eq("id", timeline.id);
-                if (error) throw error;
-            } else {
-                // Insert
+                console.log("🔍 Timeline ID:", timeline.id);
+                console.log("🔍 Payload complet:", JSON.stringify(payload, null, 2));
                 const { data, error } = await supabase
                     .from("investigation_timelines")
-                    .insert({
-                        chapter_id: chapterId,
-                        title_fr: timeline.title_fr,
-                        title_en: timeline.title_en,
-                        slots: timeline.slots,
-                    })
+                    .update(payload)
+                    .eq("id", timeline.id)
+                    .select();
+                console.log("✅ Réponse Supabase - Data:", data);
+                console.log("❌ Réponse Supabase - Error:", error);
+                if (error) throw error;
+            } else {
+                const { data, error } = await supabase
+                    .from("investigation_timelines")
+                    .insert({ chapter_id: chapterId, ...payload })
                     .select()
                     .single();
                 if (error) throw error;
@@ -759,7 +639,6 @@ export default function TimelineAdmin({
         showMsg("success", "Timeline supprimée.");
     };
 
-    // ── RENDU ──────────────────────────────────────────────
     if (isLoading) return (
         <div className="flex justify-center py-8">
             <Loader2 className="animate-spin text-amber-500" size={24} />
@@ -770,10 +649,8 @@ export default function TimelineAdmin({
         <div className="text-center py-8 border border-dashed border-amber-500/20 rounded-xl">
             <Calendar size={32} className="mx-auto text-amber-500/50 mb-3" />
             <p className="text-gray-500 text-sm mb-4">Aucune timeline pour ce chapitre</p>
-            <button
-                onClick={createTimeline}
-                className="px-4 py-2 bg-amber-600/20 text-amber-400 border border-amber-500/30 rounded-lg text-sm font-bold hover:bg-amber-600/40 flex items-center gap-2 mx-auto"
-            >
+            <button onClick={createTimeline}
+                className="px-4 py-2 bg-amber-600/20 text-amber-400 border border-amber-500/30 rounded-lg text-sm font-bold hover:bg-amber-600/40 flex items-center gap-2 mx-auto">
                 <Plus size={14} /> Créer une Timeline
             </button>
         </div>
@@ -781,7 +658,6 @@ export default function TimelineAdmin({
 
     return (
         <div className="space-y-4">
-            {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <Calendar size={16} className="text-amber-400" />
@@ -790,71 +666,67 @@ export default function TimelineAdmin({
                         {timeline.slots.length} date(s)
                     </span>
                 </div>
-                <button
-                    onClick={handleDelete}
-                    className="p-1.5 text-gray-600 hover:text-red-500 transition-colors"
-                >
+                <button onClick={handleDelete} className="p-1.5 text-gray-600 hover:text-red-500 transition-colors">
                     <Trash2 size={14} />
                 </button>
             </div>
 
-            {/* Titre de la timeline */}
+            {/* ── CONFIG SCÈNE ── */}
+            <div className="bg-blue-950/20 p-3 rounded-xl border border-blue-500/20 space-y-2">
+                <label className="text-[10px] text-blue-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                    📍 Scène d'apparition (optionnel)
+                </label>
+                <select
+                    value={timeline.scene_id || ""}
+                    onChange={e => setTimeline({ ...timeline, scene_id: e.target.value || null })}
+                    className="w-full bg-[#1a1a1a] border border-blue-500/30 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                >
+                    <option value="">— Toutes les scènes du chapitre —</option>
+                    {scenes.map((sc: any, idx: number) => (
+                        <option key={sc.id} value={sc.id}>Scène {idx + 1} — {sc.title_fr}</option>
+                    ))}
+                </select>
+                <p className="text-[10px] text-gray-500">
+                    Si une scène est sélectionnée, le bouton Déduction n'apparaît que dans cette scène. Sinon il est visible partout dans le chapitre.
+                </p>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
                 <div>
                     <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Titre (FR)</label>
-                    <input
-                        type="text"
-                        value={timeline.title_fr}
+                    <input type="text" value={timeline.title_fr}
                         onChange={e => setTimeline({ ...timeline, title_fr: e.target.value })}
                         placeholder="Ex: Chronologie du Coup d'État"
-                        className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-amber-500"
-                    />
+                        className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-amber-500" />
                 </div>
                 <div>
                     <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Titre (EN)</label>
                     <div className="flex gap-2">
-                        <input
-                            type="text"
-                            value={timeline.title_en}
+                        <input type="text" value={timeline.title_en}
                             onChange={e => setTimeline({ ...timeline, title_en: e.target.value })}
                             placeholder="Ex: Coup d'État Timeline"
-                            className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none"
-                        />
-                        <button
-                            onClick={translateTitle}
-                            className="p-2 bg-white/5 rounded hover:bg-white/10"
-                        >
-                            {isTranslating
-                                ? <Loader2 size={14} className="animate-spin text-red-500" />
-                                : <Languages size={14} className="text-gray-400" />
-                            }
+                            className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none" />
+                        <button onClick={translateTitle} className="p-2 bg-white/5 rounded hover:bg-white/10">
+                            {isTranslating ? <Loader2 size={14} className="animate-spin text-red-500" /> : <Languages size={14} className="text-gray-400" />}
                         </button>
                     </div>
                 </div>
             </div>
 
-
-
-            {/* Instruction de la timeline */}
             <div>
                 <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">
                     💡 Instruction à afficher quand le joueur ouvre cette timeline (optionnel)
                 </label>
-                <select
-                    value={timeline.instruction_id || ""}
+                <select value={timeline.instruction_id || ""}
                     onChange={e => setTimeline({ ...timeline, instruction_id: e.target.value || undefined })}
-                    className="w-full bg-[#1a1a1a] border border-blue-500/30 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-                >
+                    className="w-full bg-[#1a1a1a] border border-blue-500/30 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500">
                     <option value="">— Aucune instruction —</option>
                     {allInstructions.map((instr: any) => (
-                        <option key={instr.id} value={instr.id}>
-                            {instr.icon} {instr.name}
-                        </option>
+                        <option key={instr.id} value={instr.id}>{instr.icon} {instr.name}</option>
                     ))}
                 </select>
             </div>
 
-            {/* Slots */}
             <div className="space-y-3">
                 {timeline.slots.map((slot, idx) => (
                     <TimelineSlotForm
@@ -875,21 +747,14 @@ export default function TimelineAdmin({
                         setIsTranslating={setIsTranslating}
                     />
                 ))}
-
-                <button
-                    onClick={addSlot}
-                    className="w-full py-3 border border-dashed border-amber-500/30 text-amber-400 rounded-xl text-sm font-bold hover:bg-amber-500/10 flex items-center justify-center gap-2"
-                >
+                <button onClick={addSlot}
+                    className="w-full py-3 border border-dashed border-amber-500/30 text-amber-400 rounded-xl text-sm font-bold hover:bg-amber-500/10 flex items-center justify-center gap-2">
                     <Plus size={14} /> Ajouter une Date
                 </button>
             </div>
 
-            {/* Sauvegarde */}
-            <button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="w-full py-3 bg-amber-600 hover:bg-amber-500 text-black rounded-xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
-            >
+            <button onClick={handleSave} disabled={isSaving}
+                className="w-full py-3 bg-amber-600 hover:bg-amber-500 text-black rounded-xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
                 {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                 Sauvegarder la Timeline
             </button>

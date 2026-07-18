@@ -26,8 +26,8 @@ interface BoardNode {
     type: "person" | "place" | "org" | "event" | "document";
     image_url?: string;
     filter_type: "none" | "sepia" | "grayscale";
-    pos_x: number; // 0-100 (% du canvas)
-    pos_y: number; // 0-100 (% du canvas)
+    pos_x: number;
+    pos_y: number;
 }
 
 interface BoardConnection {
@@ -46,20 +46,20 @@ interface DeductionBoard {
     nodes: BoardNode[];
     connections: BoardConnection[];
     instruction_id?: string;
+    scene_id?: string | null;
 }
 
 interface Props {
-  chapterId: string;
-  evidences: any[];
-  scenes: any[];
-  chapters: any[];
-  enigmas: any[];
-  outroConfig: any;
-  showMsg: (type: "success" | "error", text: string) => void;
-  investigationId?: string;
+    chapterId: string;
+    evidences: any[];
+    scenes: any[];
+    chapters: any[];
+    enigmas: any[];
+    outroConfig: any;
+    showMsg: (type: "success" | "error", text: string) => void;
+    investigationId?: string;
 }
 
-// ── CONFIG ─────────────────────────────────────────────────
 const NODE_TYPES = [
     { value: "person", label: "👤 Personne", color: "#14b8a6" },
     { value: "place", label: "📍 Lieu", color: "#8b5cf6" },
@@ -105,12 +105,8 @@ function RewardForm({
         setIsTranslating(false);
     };
 
-    // Tous les hotspots de toutes les scènes
     const allHotspots = scenes.flatMap((sc: any) =>
-        (sc.hotspots || []).map((h: any) => ({
-            ...h,
-            sceneName: sc.title_fr || "Scène"
-        }))
+        (sc.hotspots || []).map((h: any) => ({ ...h, sceneName: sc.title_fr || "Scène" }))
     );
 
     const renderTarget = () => {
@@ -133,9 +129,7 @@ function RewardForm({
                         className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none">
                         <option value="">— Choisir un hotspot —</option>
                         {allHotspots.map((h: any) => (
-                            <option key={h.id} value={h.id}>
-                                {h.icon} {h.label_fr} ({h.sceneName})
-                            </option>
+                            <option key={h.id} value={h.id}>{h.icon} {h.label_fr} ({h.sceneName})</option>
                         ))}
                     </select>
                 );
@@ -171,9 +165,7 @@ function RewardForm({
                         <option value="">— Choisir un indice —</option>
                         {enigmas.flatMap((en: any) =>
                             (en.clues || []).map((cl: any, i: number) => (
-                                <option key={cl.id} value={cl.id}>
-                                    [{en.question_fr?.slice(0, 20)}...] Indice {i + 1}
-                                </option>
+                                <option key={cl.id} value={cl.id}>[{en.question_fr?.slice(0, 20)}...] Indice {i + 1}</option>
                             ))
                         )}
                     </select>
@@ -195,43 +187,31 @@ function RewardForm({
                         onChange={e => onChange({ ...reward, target_id: e.target.value })}
                         className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-purple-500">
                         <option value="">— Choisir un événement outro —</option>
-
                         {(outroConfig?.ranks || []).filter((r: any) => r.name).length > 0 && (
                             <optgroup label="🏆 Victoires & Rangs">
                                 {outroConfig.ranks.filter((r: any) => r.name).map((r: any) => (
-                                    <option key={r.id} value={`rank|${r.id}`}>
-                                        {r.name} ({r.min_percent}%)
-                                    </option>
+                                    <option key={r.id} value={`rank|${r.id}`}>{r.name} ({r.min_percent}%)</option>
                                 ))}
                             </optgroup>
                         )}
-
                         {(outroConfig?.game_overs || []).filter((g: any) => g.name).length > 0 && (
                             <optgroup label="💀 Game Over">
                                 {outroConfig.game_overs.filter((g: any) => g.name).map((g: any) => (
-                                    <option key={g.id} value={`game_over|${g.id}`}>
-                                        {g.name}
-                                    </option>
+                                    <option key={g.id} value={`game_over|${g.id}`}>{g.name}</option>
                                 ))}
                             </optgroup>
                         )}
-
                         {(outroConfig?.abandons || []).filter((a: any) => a.name).length > 0 && (
                             <optgroup label="🚪 Abandons">
                                 {outroConfig.abandons.filter((a: any) => a.name).map((a: any) => (
-                                    <option key={a.id} value={`abandon|${a.id}`}>
-                                        {a.name}
-                                    </option>
+                                    <option key={a.id} value={`abandon|${a.id}`}>{a.name}</option>
                                 ))}
                             </optgroup>
                         )}
-
                         {(outroConfig?.milestones || []).filter((m: any) => m.name).length > 0 && (
                             <optgroup label="💭 Toasts d'encouragement">
                                 {outroConfig.milestones.filter((m: any) => m.name).map((m: any) => (
-                                    <option key={m.id} value={`milestone|${m.id}`}>
-                                        {m.name} ({m.percent}%)
-                                    </option>
+                                    <option key={m.id} value={`milestone|${m.id}`}>{m.name} ({m.percent}%)</option>
                                 ))}
                             </optgroup>
                         )}
@@ -284,9 +264,7 @@ function RewardForm({
                             placeholder="Ex: The link is established..."
                             className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none" />
                         <button onClick={handleTranslate} className="p-1.5 bg-white/5 rounded hover:bg-white/10">
-                            {isTranslating
-                                ? <Loader2 size={10} className="animate-spin text-red-500" />
-                                : <Languages size={10} className="text-gray-400" />}
+                            {isTranslating ? <Loader2 size={10} className="animate-spin text-red-500" /> : <Languages size={10} className="text-gray-400" />}
                         </button>
                     </div>
                 </div>
@@ -297,9 +275,7 @@ function RewardForm({
 
 // ── CANVAS VISUEL ──────────────────────────────────────────
 function BoardCanvas({
-    nodes,
-    connections,
-    onNodeMove,
+    nodes, connections, onNodeMove,
 }: {
     nodes: BoardNode[];
     connections: BoardConnection[];
@@ -345,12 +321,6 @@ function BoardCanvas({
         document.addEventListener("mouseup", handleMouseUp);
     };
 
-    // Calcule les coordonnées pixel depuis les % pour le SVG
-    const getPixelPos = (node: BoardNode, canvasW: number, canvasH: number) => ({
-        x: (node.pos_x / 100) * canvasW + 40,
-        y: (node.pos_y / 100) * canvasH + 40,
-    });
-
     return (
         <div
             ref={canvasRef}
@@ -361,7 +331,6 @@ function BoardCanvas({
                 backgroundSize: "40px 40px"
             }}
         >
-            {/* SVG connexions */}
             <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
                 <defs>
                     <marker id="admin-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
@@ -372,53 +341,37 @@ function BoardCanvas({
                     const nodeA = nodes.find(n => n.id === conn.node_a_id);
                     const nodeB = nodes.find(n => n.id === conn.node_b_id);
                     if (!nodeA || !nodeB) return null;
-
-                    // On utilise des % directement via SVG viewBox-like
-                    // On calcule les positions en px en supposant 100% = taille du SVG
-                    const x1pct = nodeA.pos_x + 5; // centre approximatif
+                    const x1pct = nodeA.pos_x + 5;
                     const y1pct = nodeA.pos_y + 10;
                     const x2pct = nodeB.pos_x + 5;
                     const y2pct = nodeB.pos_y + 10;
-
                     const hasEvidence = !!conn.expected_evidence_id;
-
                     return (
-                        <line
-                            key={conn.id}
+                        <line key={conn.id}
                             x1={`${x1pct}%`} y1={`${y1pct}%`}
                             x2={`${x2pct}%`} y2={`${y2pct}%`}
                             stroke={hasEvidence ? "#D4AF37" : "#4b5563"}
-                            strokeWidth="2"
-                            strokeDasharray="6,3"
-                            markerEnd="url(#admin-arrow)"
-                            opacity="0.8"
-                        />
+                            strokeWidth="2" strokeDasharray="6,3"
+                            markerEnd="url(#admin-arrow)" opacity="0.8" />
                     );
                 })}
             </svg>
 
-            {/* Nœuds */}
             {nodes.map(node => {
                 const typeCfg = NODE_TYPES.find(t => t.value === node.type);
                 return (
-                    <div
-                        key={node.id}
+                    <div key={node.id}
                         className="absolute z-10 flex flex-col items-center gap-1 cursor-grab active:cursor-grabbing"
                         style={{ left: `${node.pos_x}%`, top: `${node.pos_y}%` }}
-                        onMouseDown={e => handleMouseDown(e, node)}
-                    >
-                        {/* Épingle */}
+                        onMouseDown={e => handleMouseDown(e, node)}>
                         <div className="w-2.5 h-2.5 rounded-full border-2 border-white shadow"
                             style={{ backgroundColor: typeCfg?.color || "#fff" }} />
-                        {/* Image/icône */}
-                        <div
-                            className="w-12 h-12 rounded-lg border-2 overflow-hidden flex items-center justify-center shadow-xl"
+                        <div className="w-12 h-12 rounded-lg border-2 overflow-hidden flex items-center justify-center shadow-xl"
                             style={{
                                 borderColor: typeCfg?.color || "#fff",
                                 backgroundColor: (typeCfg?.color || "#fff") + "22",
                                 filter: node.filter_type === "sepia" ? "sepia(80%)" : node.filter_type === "grayscale" ? "grayscale(100%)" : "none"
-                            }}
-                        >
+                            }}>
                             {node.image_url
                                 ? <img src={node.image_url} alt="" className="w-full h-full object-cover pointer-events-none" draggable={false} />
                                 : <span className="text-xl pointer-events-none">
@@ -426,16 +379,8 @@ function BoardCanvas({
                                 </span>
                             }
                         </div>
-                        {/* Label complet */}
-                        <div
-                            className="px-2 py-1 rounded text-[9px] font-bold text-white text-center leading-tight shadow pointer-events-none"
-                            style={{
-                                backgroundColor: (typeCfg?.color || "#333") + "cc",
-                                maxWidth: "90px",
-                                wordBreak: "break-word",
-                                whiteSpace: "normal",
-                            }}
-                        >
+                        <div className="px-2 py-1 rounded text-[9px] font-bold text-white text-center leading-tight shadow pointer-events-none"
+                            style={{ backgroundColor: (typeCfg?.color || "#333") + "cc", maxWidth: "90px", wordBreak: "break-word", whiteSpace: "normal" }}>
                             {node.label_fr || "?"}
                         </div>
                     </div>
@@ -453,7 +398,7 @@ function BoardCanvas({
 
 // ── COMPOSANT PRINCIPAL ────────────────────────────────────
 export default function DeductionBoardAdmin({
-  chapterId, evidences, scenes, chapters, enigmas, outroConfig, showMsg, investigationId
+    chapterId, evidences, scenes, chapters, enigmas, outroConfig, showMsg, investigationId
 }: Props) {
     const [board, setBoard] = useState<DeductionBoard | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -461,33 +406,36 @@ export default function DeductionBoardAdmin({
     const [isTranslating, setIsTranslating] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [activeTab, setActiveTab] = useState<"canvas" | "nodes" | "connections">("canvas");
+    const [allInstructions, setAllInstructions] = useState<any[]>([]);
 
-      const [allInstructions, setAllInstructions] = useState<any[]>([]);
+    const GRID_POSITIONS = [
+        { x: 10, y: 10 }, { x: 55, y: 10 },
+        { x: 10, y: 55 }, { x: 55, y: 55 },
+        { x: 32, y: 32 }, { x: 78, y: 32 },
+        { x: 32, y: 78 }, { x: 78, y: 78 },
+    ];
 
-  // ── Charger le board et les instructions ──
-  useEffect(() => {
-    const load = async () => {
-      setIsLoading(true);
-      const { data } = await supabase
-        .from("investigation_deduction_boards")
-        .select("*")
-        .eq("chapter_id", chapterId)
-        .maybeSingle();
-      setBoard(data || null);
+    useEffect(() => {
+        const load = async () => {
+            setIsLoading(true);
+            const { data } = await supabase
+                .from("investigation_deduction_boards")
+                .select("*")
+                .eq("chapter_id", chapterId)
+                .maybeSingle();
+            setBoard(data || null);
 
-      // Charger les instructions disponibles
-      if (investigationId) {
-        const { data: instrs } = await supabase
-          .from("investigation_instructions")
-          .select("*")
-          .eq("investigation_id", investigationId);
-        setAllInstructions(instrs || []);
-      }
-
-      setIsLoading(false);
-    };
-    load();
-  }, [chapterId, investigationId]);
+            if (investigationId) {
+                const { data: instrs } = await supabase
+                    .from("investigation_instructions")
+                    .select("*")
+                    .eq("investigation_id", investigationId);
+                setAllInstructions(instrs || []);
+            }
+            setIsLoading(false);
+        };
+        load();
+    }, [chapterId, investigationId]);
 
     const createBoard = () => setBoard({
         chapter_id: chapterId,
@@ -495,16 +443,8 @@ export default function DeductionBoardAdmin({
         title_en: "New Board",
         nodes: [],
         connections: [],
+        scene_id: null,
     });
-
-    // ── Nœuds ──
-    // Positions prédéfinies en grille pour les nouveaux nœuds
-    const GRID_POSITIONS = [
-        { x: 10, y: 10 }, { x: 55, y: 10 },
-        { x: 10, y: 55 }, { x: 55, y: 55 },
-        { x: 32, y: 32 }, { x: 78, y: 32 },
-        { x: 32, y: 78 }, { x: 78, y: 78 },
-    ];
 
     const addNode = () => {
         if (!board) return;
@@ -513,12 +453,9 @@ export default function DeductionBoardAdmin({
         setBoard({
             ...board,
             nodes: [...board.nodes, {
-                id: uuidv4(),
-                label_fr: "", label_en: "",
-                type: "person",
-                filter_type: "none",
-                pos_x: pos.x,
-                pos_y: pos.y,
+                id: uuidv4(), label_fr: "", label_en: "",
+                type: "person", filter_type: "none",
+                pos_x: pos.x, pos_y: pos.y,
             }]
         });
     };
@@ -542,7 +479,6 @@ export default function DeductionBoardAdmin({
         });
     };
 
-    // ── Connexions ──
     const addConnection = () => {
         if (!board || board.nodes.length < 2) {
             showMsg("error", "Vous devez avoir au moins 2 nœuds pour créer une connexion.");
@@ -568,7 +504,6 @@ export default function DeductionBoardAdmin({
         setBoard({ ...board, connections: board.connections.filter(c => c.id !== id) });
     };
 
-    // ── Upload image nœud ──
     const uploadNodeImage = (nodeId: string) => {
         setIsUploading(true);
         const run = () => {
@@ -596,7 +531,6 @@ export default function DeductionBoardAdmin({
         } else { run(); }
     };
 
-    // ── Traduction titre ──
     const translateTitle = async () => {
         if (!board?.title_fr.trim()) return;
         setIsTranslating(true);
@@ -607,7 +541,6 @@ export default function DeductionBoardAdmin({
         setIsTranslating(false);
     };
 
-    // ── Sauvegarde ──
     const handleSave = async () => {
         if (!board) return;
         setIsSaving(true);
@@ -618,6 +551,7 @@ export default function DeductionBoardAdmin({
                 nodes: board.nodes,
                 connections: board.connections,
                 instruction_id: board.instruction_id || null,
+                scene_id: board.scene_id || null,
             };
             if (board.id) {
                 const { error } = await supabase
@@ -646,7 +580,6 @@ export default function DeductionBoardAdmin({
         showMsg("success", "Tableau supprimé.");
     };
 
-    // ── RENDU ──────────────────────────────────────────────
     if (isLoading) return (
         <div className="flex justify-center py-8">
             <Loader2 className="animate-spin text-purple-500" size={24} />
@@ -666,7 +599,6 @@ export default function DeductionBoardAdmin({
 
     return (
         <div className="space-y-4">
-            {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <Network size={16} className="text-purple-400" />
@@ -680,7 +612,26 @@ export default function DeductionBoardAdmin({
                 </button>
             </div>
 
-            {/* Titre */}
+            {/* ── CONFIG SCÈNE ── */}
+            <div className="bg-blue-950/20 p-3 rounded-xl border border-blue-500/20 space-y-2">
+                <label className="text-[10px] text-blue-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                    📍 Scène d'apparition (optionnel)
+                </label>
+                <select
+                    value={board.scene_id || ""}
+                    onChange={e => setBoard({ ...board, scene_id: e.target.value || null })}
+                    className="w-full bg-[#1a1a1a] border border-blue-500/30 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
+                >
+                    <option value="">— Toutes les scènes du chapitre —</option>
+                    {scenes.map((sc: any, idx: number) => (
+                        <option key={sc.id} value={sc.id}>Scène {idx + 1} — {sc.title_fr}</option>
+                    ))}
+                </select>
+                <p className="text-[10px] text-gray-500">
+                    Si une scène est sélectionnée, le bouton Déduction n'apparaît que dans cette scène. Sinon il est visible partout dans le chapitre.
+                </p>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
                 <div>
                     <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Titre (FR)</label>
@@ -697,36 +648,26 @@ export default function DeductionBoardAdmin({
                             placeholder="Ex: Network of betrayal"
                             className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none" />
                         <button onClick={translateTitle} className="p-2 bg-white/5 rounded hover:bg-white/10">
-                            {isTranslating
-                                ? <Loader2 size={14} className="animate-spin text-red-500" />
-                                : <Languages size={14} className="text-gray-400" />}
+                            {isTranslating ? <Loader2 size={14} className="animate-spin text-red-500" /> : <Languages size={14} className="text-gray-400" />}
                         </button>
                     </div>
                 </div>
             </div>
 
+            <div>
+                <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">
+                    💡 Instruction à afficher quand le joueur ouvre ce tableau (optionnel)
+                </label>
+                <select value={board.instruction_id || ""}
+                    onChange={e => setBoard({ ...board, instruction_id: e.target.value || undefined })}
+                    className="w-full bg-[#1a1a1a] border border-blue-500/30 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500">
+                    <option value="">— Aucune instruction —</option>
+                    {allInstructions.map((instr: any) => (
+                        <option key={instr.id} value={instr.id}>{instr.icon} {instr.name}</option>
+                    ))}
+                </select>
+            </div>
 
-
-                  {/* Instruction du board */}
-      <div>
-        <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">
-          💡 Instruction à afficher quand le joueur ouvre ce tableau (optionnel)
-        </label>
-        <select
-          value={board.instruction_id || ""}
-          onChange={e => setBoard({ ...board, instruction_id: e.target.value || undefined })}
-          className="w-full bg-[#1a1a1a] border border-blue-500/30 rounded px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-        >
-          <option value="">— Aucune instruction —</option>
-          {allInstructions.map((instr: any) => (
-            <option key={instr.id} value={instr.id}>
-              {instr.icon} {instr.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-            {/* Onglets */}
             <div className="flex gap-1 bg-black/40 p-1 rounded-lg border border-white/10">
                 {[
                     { id: "canvas", label: `🗺️ Canvas` },
@@ -734,20 +675,17 @@ export default function DeductionBoardAdmin({
                     { id: "connections", label: `🔗 Liens (${board.connections.length})` },
                 ].map(tab => (
                     <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
-                        className={`flex-1 py-2 rounded text-xs font-bold transition-colors ${activeTab === tab.id
-                            ? "bg-purple-600/30 text-purple-300"
-                            : "text-gray-500 hover:text-white"}`}>
+                        className={`flex-1 py-2 rounded text-xs font-bold transition-colors ${activeTab === tab.id ? "bg-purple-600/30 text-purple-300" : "text-gray-500 hover:text-white"}`}>
                         {tab.label}
                     </button>
                 ))}
             </div>
 
-            {/* ── CANVAS ── */}
             {activeTab === "canvas" && (
                 <div className="space-y-2">
                     <div className="flex items-center justify-between">
                         <p className="text-[10px] text-gray-500">
-                            Glissez les nœuds pour les positionner. Les connexions apparaissent en pointillés.
+                            Glissez les nœuds pour les positionner.
                         </p>
                         <button
                             onClick={() => {
@@ -758,20 +696,14 @@ export default function DeductionBoardAdmin({
                                 });
                                 setBoard({ ...board, nodes: recentered });
                             }}
-                            className="flex-shrink-0 px-2 py-1 bg-white/5 border border-white/10 rounded text-[10px] text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-                        >
+                            className="flex-shrink-0 px-2 py-1 bg-white/5 border border-white/10 rounded text-[10px] text-gray-400 hover:text-white hover:bg-white/10 transition-colors">
                             🔄 Recentrer
                         </button>
                     </div>
-                    <BoardCanvas
-                        nodes={board.nodes}
-                        connections={board.connections}
-                        onNodeMove={moveNode}
-                    />
+                    <BoardCanvas nodes={board.nodes} connections={board.connections} onNodeMove={moveNode} />
                 </div>
             )}
 
-            {/* ── NŒUDS ── */}
             {activeTab === "nodes" && (
                 <div className="space-y-3">
                     <button onClick={addNode}
@@ -786,7 +718,6 @@ export default function DeductionBoardAdmin({
                                 className="p-3 rounded-lg border space-y-3"
                                 style={{ borderColor: (typeCfg?.color || "#fff") + "33", backgroundColor: (typeCfg?.color || "#fff") + "0a" }}>
 
-                                {/* Type + Supprimer */}
                                 <div className="flex items-center gap-2">
                                     <select value={node.type}
                                         onChange={e => updateNode(node.id, { ...node, type: e.target.value as BoardNode["type"] })}
@@ -799,7 +730,6 @@ export default function DeductionBoardAdmin({
                                     </button>
                                 </div>
 
-                                {/* Labels FR/EN avec traduction */}
                                 <div className="grid grid-cols-2 gap-2">
                                     <div>
                                         <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Nom (FR)</label>
@@ -826,15 +756,12 @@ export default function DeductionBoardAdmin({
                                                     setIsTranslating(false);
                                                 }}
                                                 className="p-1.5 bg-white/5 rounded hover:bg-white/10 flex-shrink-0">
-                                                {isTranslating
-                                                    ? <Loader2 size={10} className="animate-spin text-red-500" />
-                                                    : <Languages size={10} className="text-gray-400" />}
+                                                {isTranslating ? <Loader2 size={10} className="animate-spin text-red-500" /> : <Languages size={10} className="text-gray-400" />}
                                             </button>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Image + Filtre */}
                                 <div className="flex items-center gap-2">
                                     {node.image_url && (
                                         <img src={node.image_url} alt=""
@@ -862,7 +789,6 @@ export default function DeductionBoardAdmin({
                 </div>
             )}
 
-            {/* ── CONNEXIONS ── */}
             {activeTab === "connections" && (
                 <div className="space-y-3">
                     <button onClick={addConnection}
@@ -883,19 +809,16 @@ export default function DeductionBoardAdmin({
                             <div key={conn.id}
                                 className="bg-[#0f0f0f] border border-white/10 rounded-xl p-4 space-y-3">
 
-                                {/* Header connexion */}
                                 <div className="flex items-center justify-between">
                                     <span className="text-xs font-bold text-white flex items-center gap-2">
                                         <Link size={12} className="text-[#D4AF37]" />
                                         Connexion {cIdx + 1} : {nodeA?.label_fr || "?"} → {nodeB?.label_fr || "?"}
                                     </span>
-                                    <button onClick={() => deleteConnection(conn.id)}
-                                        className="p-1 text-gray-600 hover:text-red-500">
+                                    <button onClick={() => deleteConnection(conn.id)} className="p-1 text-gray-600 hover:text-red-500">
                                         <Trash2 size={12} />
                                     </button>
                                 </div>
 
-                                {/* Nœuds A et B */}
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">De (Nœud A)</label>
@@ -921,7 +844,6 @@ export default function DeductionBoardAdmin({
                                     </div>
                                 </div>
 
-                                {/* Preuve attendue */}
                                 <div>
                                     <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">
                                         🔍 Preuve qui valide cette connexion
@@ -943,7 +865,6 @@ export default function DeductionBoardAdmin({
                                     )}
                                 </div>
 
-                                {/* Récompenses */}
                                 <div className="space-y-2">
                                     <div className="flex items-center justify-between">
                                         <label className="text-[10px] text-gray-500 font-bold uppercase flex items-center gap-1">
@@ -952,9 +873,7 @@ export default function DeductionBoardAdmin({
                                         <button
                                             onClick={() => updateConnection(conn.id, {
                                                 ...conn,
-                                                rewards: [...conn.rewards, {
-                                                    id: uuidv4(), type: "scene", target_id: "", notif_fr: "", notif_en: ""
-                                                }]
+                                                rewards: [...conn.rewards, { id: uuidv4(), type: "scene", target_id: "", notif_fr: "", notif_en: "" }]
                                             })}
                                             className="flex items-center gap-1 px-2 py-1 bg-green-600/20 text-green-400 border border-green-500/30 rounded text-[10px] font-bold hover:bg-green-600/40">
                                             <Plus size={10} /> Ajouter
@@ -989,7 +908,6 @@ export default function DeductionBoardAdmin({
                 </div>
             )}
 
-            {/* Sauvegarde */}
             <button onClick={handleSave} disabled={isSaving}
                 className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
                 {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}

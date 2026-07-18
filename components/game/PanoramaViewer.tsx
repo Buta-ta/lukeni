@@ -170,14 +170,14 @@ function calculateHotspotProximity(cameraRotation: { x: number; y: number }, hot
 
 // ── Hotspot 3D ──
 function HotspotMarker({
-  hotspot, onActivate, solvedEnigmas,completedWordSearches, lang, characters, proximityState, isTransitioning
+  hotspot, onActivate, solvedEnigmas, completedWordSearches, lang, characters, proximityState, isTransitioning
 }: any) {
   const { position } = flatToSpherical(hotspot.x_percent, hotspot.y_percent);
   const [hovered, setHovered] = useState(false);
   const config = HOTSPOT_CONFIG[hotspot.type] || { color: '#ffffff', icon: '❓' };
   const activeColor = hotspot.color || config.color;
-  const isLocked = hotspot.condition 
-    ? !solvedEnigmas.includes(hotspot.condition) && !(completedWordSearches || []).includes(hotspot.condition) 
+  const isLocked = hotspot.condition
+    ? !solvedEnigmas.includes(hotspot.condition) && !(completedWordSearches || []).includes(hotspot.condition)
     : false;
   const isTransition = hotspot.type === 'transition';
   const state = isTransition ? (proximityState || 'FAR') : null;
@@ -206,14 +206,14 @@ function HotspotMarker({
       >
         {hotspot.invisible ? (
           /* ── INVISIBLE : zone cliquable transparente uniquement ── */
-          <div
+          <div data-hotspot-marker="true"
             className={`relative w-20 h-20 rounded-full cursor-pointer transition-all duration-300 ${isTransitioning ? 'pointer-events-none opacity-0' : 'opacity-0 hover:opacity-10'}`}
             style={{ backgroundColor: activeColor }}
             onClick={() => !isLocked && !isTransitioning && onActivate(hotspot)}
           />
         ) : (
           /* ── VISIBLE : rendu normal ── */
-          <div
+          <div data-hotspot-marker="true"
             className={`relative w-20 h-20 rounded-full flex items-center justify-center cursor-pointer transition-all duration-300 ${isTransitioning ? 'pointer-events-none opacity-0 scale-50' : 'opacity-70 hover:opacity-100 scale-100 hover:scale-110'}`}
             onClick={() => !isLocked && !isTransitioning && onActivate(hotspot)}
           >
@@ -236,7 +236,7 @@ function HotspotMarker({
     <Html position={position} center distanceFactor={8}>
       {hotspot.invisible ? (
         /* ── INVISIBLE : zone cliquable transparente + tooltip au hover ── */
-        <div
+        <div data-hotspot-marker="true"
           className={`relative select-none w-16 h-16 rounded-full ${isTransitioning ? 'pointer-events-none opacity-0' : 'cursor-pointer opacity-0 hover:opacity-10 transition-opacity duration-300'}`}
           style={{ backgroundColor: activeColor }}
           onMouseEnter={() => setHovered(true)}
@@ -257,7 +257,7 @@ function HotspotMarker({
         </div>
       ) : (
         /* ── VISIBLE : rendu normal ── */
-        <div
+        <div data-hotspot-marker="true"
           className={`relative select-none ${isTransitioning ? 'pointer-events-none opacity-0' : 'cursor-pointer transition-opacity duration-300'}`}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
@@ -265,9 +265,9 @@ function HotspotMarker({
         >
           <div
             className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-200 overflow-hidden ${state === 'VERY_CLOSE' ? 'scale-150 opacity-100' :
-                state === 'CLOSE' ? 'scale-125 opacity-75 animate-pulse' :
-                  state === 'FAR' ? 'scale-100 opacity-40' :
-                    isLocked ? 'opacity-50 grayscale' : 'hover:scale-125'
+              state === 'CLOSE' ? 'scale-125 opacity-75 animate-pulse' :
+                state === 'FAR' ? 'scale-100 opacity-40' :
+                  isLocked ? 'opacity-50 grayscale' : 'hover:scale-125'
               }`}
             style={{
               backgroundColor: activeColor + '33',
@@ -321,6 +321,7 @@ interface PanoramaViewerProps {
   onHotspotActivate: (hotspot: Hotspot, evidence?: any) => void;
   onTransition?: (chapterId: string) => void;
   onSceneChange?: (sceneId: string) => void; // ✅ NOUVEAU
+  onSceneTap?: () => void; // ✅ NOUVEAU : tap propre sur la scène (hors hotspot/UI)
   ambientAudioUrl?: string | null;
   ambientAudioVolume?: number;
   visualFilter?: string;
@@ -330,13 +331,50 @@ interface PanoramaViewerProps {
 }
 
 export default function PanoramaViewer({
-  panoramaUrl, hotspots, evidences, solvedEnigmas,completedWordSearches = [], lang = 'fr',
-  onHotspotActivate, onTransition, onSceneChange,
+  panoramaUrl, hotspots, evidences, solvedEnigmas, completedWordSearches = [], lang = 'fr',
+  onHotspotActivate, onTransition, onSceneChange, onSceneTap,
   ambientAudioUrl, ambientAudioVolume = 0.5, visualFilter = 'none', isEditorPreview = false, characters = [],
 }: PanoramaViewerProps) {
 
   const [proximities, setProximities] = useState<Record<string, 'FAR' | 'CLOSE' | 'VERY_CLOSE'>>({});
   const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // ── Détection d'un "tap propre" sur la scène (hors hotspot/UI) ──
+  // Desktop : 1 clic net déclenche le callback. Mobile : double-tap requis.
+  const tapStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const lastTapRef = useRef<{ x: number; y: number; time: number } | null>(null);
+
+  const handleScenePointerDown = (e: React.PointerEvent) => {
+    tapStartRef.current = { x: e.clientX, y: e.clientY, time: Date.now() };
+  };
+
+  const handleScenePointerUp = (e: React.PointerEvent) => {
+    const start = tapStartRef.current;
+    tapStartRef.current = null;
+    if (!start || !onSceneTap) return;
+
+    const dist = Math.hypot(e.clientX - start.x, e.clientY - start.y);
+    const duration = Date.now() - start.time;
+    // Si mouvement trop grand ou trop long → c'était un drag (rotation caméra), pas un tap
+    if (dist > 10 || duration > 400) return;
+
+    const target = e.target as HTMLElement;
+    // On ignore les clics sur un hotspot ou un élément d'UI interne (volume, etc.)
+    if (target.closest('[data-hotspot-marker]') || target.closest('[data-ui-block]')) return;
+
+    if (e.pointerType === 'touch') {
+      const now = Date.now();
+      const last = lastTapRef.current;
+      if (last && now - last.time < 350 && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 40) {
+        lastTapRef.current = null;
+        onSceneTap();
+      } else {
+        lastTapRef.current = { x: e.clientX, y: e.clientY, time: now };
+      }
+    } else {
+      onSceneTap();
+    }
+  };
 
   // ✅ NOUVEAU : Gestion audio avancée
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -447,7 +485,8 @@ export default function PanoramaViewer({
   return (
     <div
       className={isEditorPreview ? "relative w-full h-[500px] overflow-hidden rounded-xl bg-black" : "absolute inset-0 w-full h-full overflow-hidden bg-black"}
-      onPointerDown={handleUnlockAudio} // ✅ Se déclenche dès que le joueur clique pour bouger la caméra !
+      onPointerDown={(e) => { handleUnlockAudio(); handleScenePointerDown(e); }}
+      onPointerUp={handleScenePointerUp}
     >
 
       {/* ✅ Audio avec ref pour contrôler volume/mute */}
@@ -465,7 +504,7 @@ export default function PanoramaViewer({
 
       {/* ✅ NOUVEAU : Contrôle Volume / Mute (Bouton flottant) */}
       {ambientAudioUrl && !isEditorPreview && (
-        <div className="absolute top-4 right-4 z-50">
+        <div className="absolute top-4 right-4 z-50" data-ui-block="true">
           <div className="relative">
             <button
               onClick={() => setShowVolumePanel(!showVolumePanel)}
@@ -517,8 +556,8 @@ export default function PanoramaViewer({
                     <button
                       onClick={() => setIsMuted(!isMuted)}
                       className={`w-full py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1.5 ${isMuted
-                          ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                          : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10'
+                        ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                        : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10'
                         }`}
                     >
                       {isMuted ? <VolumeX size={12} /> : <Volume2 size={12} />}

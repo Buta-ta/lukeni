@@ -2,6 +2,26 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 
+
+
+// ✅ Helper pour extraire les vraies infos d'erreur Supabase/JS
+const getErrorDetails = (err: any): string => {
+  if (!err) return 'Erreur inconnue';
+  const parts: string[] = [];
+  if (err.message) parts.push(`message: ${err.message}`);
+  if (err.code) parts.push(`code: ${err.code}`);
+  if (err.details) parts.push(`details: ${err.details}`);
+  if (err.hint) parts.push(`hint: ${err.hint}`);
+  if (parts.length === 0) {
+    try {
+      return JSON.stringify(err, Object.getOwnPropertyNames(err));
+    } catch {
+      return String(err);
+    }
+  }
+  return parts.join(' | ');
+};
+
 export interface InvestigationSession {
   id: string;
   investigation_id: string;
@@ -25,6 +45,9 @@ export interface InvestigationSession {
   completed_word_searches?: string[];
   word_search_progress?: Record<string, string[]>;
   revealed_hotspot_ids?: string[];
+  completed_mini_games?: string[];
+  current_mini_game_id?: string | null;
+  mini_game_progress?: Record<string, any>;
 }
 
 // ── Générateur de code de groupe ──
@@ -64,6 +87,10 @@ const serializeSession = (data: any): InvestigationSession | null => {
     completed_word_searches: Array.isArray(data.completed_word_searches) ? data.completed_word_searches : [],
     revealed_hotspot_ids: Array.isArray(data.revealed_hotspot_ids) ? data.revealed_hotspot_ids : [],
     word_search_progress: (data.word_search_progress && typeof data.word_search_progress === "object") ? data.word_search_progress : {},
+    completed_mini_games: Array.isArray(data.completed_mini_games) ? data.completed_mini_games : [],
+    current_mini_game_id: data.current_mini_game_id ?? null,
+    mini_game_progress: (data.mini_game_progress && typeof data.mini_game_progress === "object") ? data.mini_game_progress : {},
+
   };
 };
 
@@ -122,6 +149,9 @@ export function useInvestigationSession(
               completed_word_searches: [],
               word_search_progress: {},
               revealed_hotspot_ids: [],
+              completed_mini_games: [],
+              current_mini_game_id: null,
+              mini_game_progress: {},
 
             })
             .select()
@@ -132,8 +162,9 @@ export function useInvestigationSession(
           setError(null);
         }
       } catch (err: any) {
-        console.error('Load/create session error:', err);
-        setError(err.message);
+        const details = getErrorDetails(err);
+        console.error('Load/create session error:', details, err);
+        setError(details);
       } finally {
         setIsLoading(false);
       }
@@ -255,7 +286,7 @@ export function useInvestigationSession(
             : null
         );
 
-        
+
 
       } catch (err: any) {
         console.error('Collect evidence error:', err);
@@ -591,6 +622,9 @@ export function useInvestigationSession(
         completed_word_searches: [],
         word_search_progress: {},
         revealed_hotspot_ids: [],
+        completed_mini_games: [],
+        current_mini_game_id: null,
+        mini_game_progress: {},
       };
 
       const { error: err } = await supabase

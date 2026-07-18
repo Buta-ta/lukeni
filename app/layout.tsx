@@ -19,6 +19,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
+  minimumScale: 1,
   userScalable: true,
   viewportFit: 'cover',
 };
@@ -43,7 +44,7 @@ export const metadata: Metadata = {
   authors: [{ name: "Lukeni", url: "https://lukeni.app" }],
   creator: "Lukeni",
   manifest: "/manifest.json",
-  
+
   openGraph: {
     type: "website",
     locale: "fr_FR",
@@ -68,7 +69,7 @@ export const metadata: Metadata = {
       },
     ],
   },
-  
+
   twitter: {
     card: "summary_large_image",
     title: "Lukeni — Peuple, Mémoire, Mission",
@@ -76,7 +77,7 @@ export const metadata: Metadata = {
     images: ["https://lukeni.app/icon-512x512.png"],
     creator: "@lukeni",
   },
-  
+
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
@@ -89,13 +90,13 @@ export const metadata: Metadata = {
     ],
     shortcut: [{ url: "/favicon.ico" }],
   },
-  
+
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Lukeni",
   },
-  
+
   formatDetection: {
     telephone: false,
     email: false,
@@ -112,7 +113,7 @@ export const metadata: Metadata = {
       'max-snippet': -1,
     },
   },
-  
+
   alternates: {
     canonical: "https://lukeni.app",
   },
@@ -144,6 +145,11 @@ export default function RootLayout({
         <link rel="mask-icon" href="/icon-192x192.png" color="#D4AF37" />
         <link rel="alternate" hrefLang="fr" href="https://lukeni.app" />
         <meta name="google-site-verification" content="" />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1.0, maximum-scale=5.0, minimum-scale=1.0, user-scalable=yes, viewport-fit=cover"
+        />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
         {/* ✅ JSZIP ET EPUB.JS POUR LA LECTURE EPUB */}
         <script
@@ -155,7 +161,7 @@ export default function RootLayout({
           async
         ></script>
       </head>
-      
+
       <body className="min-h-full flex flex-col bg-[#020111] text-white">
         {/* ✅ UN SEUL PASSAGE DE {children} */}
         <LayoutClient>

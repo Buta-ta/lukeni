@@ -51,7 +51,12 @@ import ContextualEnding from "@/components/game/ContextualEnding";
 import DeductionPanel from "@/components/game/DeductionPanel";
 import InstructionsPanel from "@/components/game/InstructionsPanel";
 import { useDeduction } from "@/lib/hooks/useDeduction";
+import { useMiniGameSession } from "@/lib/hooks/useMiniGameSession";
 import WordSearchGame from "@/components/game/WordSearchGame";
+import DialogueGame from "@/components/game/DialogueGame";
+import DialoguePlayer from "@/components/game/DialoguePlayer";
+import { MiniGameRenderer } from "@/components/game/MiniGames";
+import InvestigationPaywall from "@/components/InvestigationPaywall";
 
 // --- COMPOSANT : EFFET CRT (Global) ---
 const CRTEffect = () => (
@@ -265,6 +270,10 @@ export default function InvestigationGame(props: {
 
   const [showIntro, setShowIntro] = useState(true);
   const [showOutro, setShowOutro] = useState(false);
+
+  const [hasPaymentAccess, setHasPaymentAccess] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [pricingData, setPricingData] = useState<any>(null);
   const [gameIntroConfig, setGameIntroConfig] = useState<any | null>(null);
 
   const [timerSeconds, setTimerSeconds] = useState<number | null>(null);
@@ -298,90 +307,96 @@ export default function InvestigationGame(props: {
 
   const [chatInput, setChatInput] = useState("");
 
+  // ── ÉTATS POUR LE SYSTÈME DE DIALOGUE ──
+  const [activeDialogueId, setActiveDialogueId] = useState<string | null>(null);
+  const [dialogueNodes, setDialogueNodes] = useState<any[]>([]);
+
+  const [chapterTimeline, setChapterTimeline] = useState<any | null>(null);
+  const [chapterBoard, setChapterBoard] = useState<any | null>(null);
 
 
   // ✅ Vérifier si deux preuves sont liées (même énigme, scène ou chapitre)
-const checkEvidencesLinked = (ev1: any, ev2: any, chaps: any[]): boolean => {
-  // Chercher dans quelle(s) énigme(s) ces preuves apparaissent
-  const enigmas1 = chaps
-    .flatMap((c) => c.enigmas || [])
-    .filter((e: any) => e.evidence_id === ev1.id);
-  
-  const enigmas2 = chaps
-    .flatMap((c) => c.enigmas || [])
-    .filter((e: any) => e.evidence_id === ev2.id);
+  const checkEvidencesLinked = (ev1: any, ev2: any, chaps: any[]): boolean => {
+    // Chercher dans quelle(s) énigme(s) ces preuves apparaissent
+    const enigmas1 = chaps
+      .flatMap((c) => c.enigmas || [])
+      .filter((e: any) => e.evidence_id === ev1.id);
 
-  // Même énigme ?
-  const sameEnigma = enigmas1.some((e1: any) =>
-    enigmas2.some((e2: any) => e1.id === e2.id)
-  );
-  if (sameEnigma) return true;
+    const enigmas2 = chaps
+      .flatMap((c) => c.enigmas || [])
+      .filter((e: any) => e.evidence_id === ev2.id);
 
-  // Même chapitre ?
-  const chapter1 = chaps.find((c) =>
-    (c.enigmas || []).some((e: any) => e.evidence_id === ev1.id)
-  );
-  const chapter2 = chaps.find((c) =>
-    (c.enigmas || []).some((e: any) => e.evidence_id === ev2.id)
-  );
-  if (chapter1 && chapter2 && chapter1.id === chapter2.id) return true;
-
-  return false;
-};
-
-// ✅ Filtrer et trier les preuves collectées
-const getFilteredAndSortedEvidences = () => {
-  if (!session?.collected_evidences) return [];
-
-  let filtered = (session.collected_evidences || [])
-    .map((eid) => evidences.find((ev) => ev.id === eid))
-    .filter((ev) => ev !== undefined);
-
-  // Filtre par type
-  if (inventoryFilter.type === "favorites") {
-    filtered = filtered.filter((ev) =>
-      JSON.parse(localStorage.getItem(`fav_${ev.id}`) || "false")
+    // Même énigme ?
+    const sameEnigma = enigmas1.some((e1: any) =>
+      enigmas2.some((e2: any) => e1.id === e2.id)
     );
-  } else if (inventoryFilter.type !== "all") {
-    filtered = filtered.filter(
-      (ev) => ev?.media_type === inventoryFilter.type
+    if (sameEnigma) return true;
+
+    // Même chapitre ?
+    const chapter1 = chaps.find((c) =>
+      (c.enigmas || []).some((e: any) => e.evidence_id === ev1.id)
     );
-  }
-
-  // Filtre par chapitre
-  if (inventoryFilter.chapter) {
-    filtered = filtered.filter((ev) => {
-      const enigma = chapters
-        .flatMap((c) => c.enigmas || [])
-        .find((e: any) => e.evidence_id === ev.id);
-      return enigma ? chapters.find((c) => c.enigmas?.includes(enigma))?.id === inventoryFilter.chapter : false;
-    });
-  }
-
-  // Filtre par recherche
-  if (inventoryFilter.search) {
-    const search = inventoryFilter.search.toLowerCase();
-    filtered = filtered.filter((ev) => {
-      const name = lang === "fr" ? ev.name_fr : ev.name_en || ev.name_fr;
-      return name?.toLowerCase().includes(search);
-    });
-  }
-
-  // Tri
-  if (inventoryFilter.sort === "alpha") {
-    filtered.sort((a, b) => {
-      const nameA = lang === "fr" ? a?.name_fr : a?.name_en || a?.name_fr;
-      const nameB = lang === "fr" ? b?.name_fr : b?.name_en || b?.name_fr;
-      return (nameA || "").localeCompare(nameB || "");
-    });
-  } else if (inventoryFilter.sort === "type") {
-    filtered.sort((a, b) =>
-      (a?.media_type || "").localeCompare(b?.media_type || "")
+    const chapter2 = chaps.find((c) =>
+      (c.enigmas || []).some((e: any) => e.evidence_id === ev2.id)
     );
-  }
+    if (chapter1 && chapter2 && chapter1.id === chapter2.id) return true;
 
-  return filtered;
-};
+    return false;
+  };
+
+  // ✅ Filtrer et trier les preuves collectées
+  const getFilteredAndSortedEvidences = () => {
+    if (!session?.collected_evidences) return [];
+
+    let filtered = (session.collected_evidences || [])
+      .map((eid) => evidences.find((ev) => ev.id === eid))
+      .filter((ev) => ev !== undefined);
+
+    // Filtre par type
+    if (inventoryFilter.type === "favorites") {
+      filtered = filtered.filter((ev) =>
+        JSON.parse(localStorage.getItem(`fav_${ev.id}`) || "false")
+      );
+    } else if (inventoryFilter.type !== "all") {
+      filtered = filtered.filter(
+        (ev) => ev?.media_type === inventoryFilter.type
+      );
+    }
+
+    // Filtre par chapitre
+    if (inventoryFilter.chapter) {
+      filtered = filtered.filter((ev) => {
+        const enigma = chapters
+          .flatMap((c) => c.enigmas || [])
+          .find((e: any) => e.evidence_id === ev.id);
+        return enigma ? chapters.find((c) => c.enigmas?.includes(enigma))?.id === inventoryFilter.chapter : false;
+      });
+    }
+
+    // Filtre par recherche
+    if (inventoryFilter.search) {
+      const search = inventoryFilter.search.toLowerCase();
+      filtered = filtered.filter((ev) => {
+        const name = lang === "fr" ? ev.name_fr : ev.name_en || ev.name_fr;
+        return name?.toLowerCase().includes(search);
+      });
+    }
+
+    // Tri
+    if (inventoryFilter.sort === "alpha") {
+      filtered.sort((a, b) => {
+        const nameA = lang === "fr" ? a?.name_fr : a?.name_en || a?.name_fr;
+        const nameB = lang === "fr" ? b?.name_fr : b?.name_en || b?.name_fr;
+        return (nameA || "").localeCompare(nameB || "");
+      });
+    } else if (inventoryFilter.sort === "type") {
+      filtered.sort((a, b) =>
+        (a?.media_type || "").localeCompare(b?.media_type || "")
+      );
+    }
+
+    return filtered;
+  };
 
   // ── GROUPE MULTIJOUEUR ──
   const [showJoinGroupModal, setShowJoinGroupModal] = useState(false);
@@ -398,6 +413,11 @@ const getFilteredAndSortedEvidences = () => {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const [hasUnreadMemory, setHasUnreadMemory] = useState(false);
+
+  // ── COCKPIT RÉTRACTABLE ──
+  const [cockpitVisible, setCockpitVisible] = useState(true);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const lastSeenChatCountRef = useRef(0);
 
   const {
     session,
@@ -506,13 +526,28 @@ const getFilteredAndSortedEvidences = () => {
   } | null>(null);
   // FONCTION MAGIQUE POUR EMPECHER LES ERREURS 404 D'IMAGES
 
+
+  const [availableMiniGames, setAvailableMiniGames] = useState<any[]>([]);
+  const [showMiniGamesDropdown, setShowMiniGamesDropdown] = useState(false);
+  const [activeMiniGame, setActiveMiniGame] = useState<any | null>(null);
+  const [miniGameSessionActive, setMiniGameSessionActive] = useState<any | null>(null);
+
+
+  const {
+    miniGameSessions,
+    startMiniGame,
+    completeMiniGame,
+    failMiniGame,
+    timeoutMiniGame,
+    revealClue,
+  } = useMiniGameSession(session?.id || null, user?.id || null);
+
   const [showInstructions, setShowInstructions] = useState(false);
 
   const [instructionNotifications, setInstructionNotifications] = useState<
     { id: string; icon: string; name: string; text: string }[]
   >([]);
 
-  // ── Ajouter une notification d'instruction ──
   // ── Ajouter une notification d'instruction ──
   const addInstructionNotification = useCallback(
     async (instrId: string) => {
@@ -524,15 +559,21 @@ const getFilteredAndSortedEvidences = () => {
 
       if (data) {
         const newNotif = {
-          id: Math.random().toString(36).slice(2), // ID unique garanti
+          id: `notif_${instrId}`, // ✅ UTILISER L'ID DE L'INSTRUCTION AU LIEU DE RANDOM
           icon: data.icon,
-
           name: lang === "fr" ? data.name : data.name_en || data.name,
           text: lang === "fr" ? data.instruction_fr : data.instruction_en,
         };
 
-        // On ajoute TOUTES les notifications, sans filtrer
-        setInstructionNotifications((prev) => [...prev, newNotif]);
+        setInstructionNotifications((prev) => {
+          // ✅ NE PAS AJOUTER SI ELLE EXISTE DÉJÀ
+          if (prev.some((n) => n.id === newNotif.id)) {
+            console.log("⚠️ Notification déjà présente:", newNotif.id);
+            return prev;
+          }
+          console.log("📢 Nouvelle notification créée:", newNotif);
+          return [...prev, newNotif];
+        });
       }
     },
     [lang],
@@ -552,6 +593,12 @@ const getFilteredAndSortedEvidences = () => {
   const [clueToast, setClueToast] = useState<string | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1); // ✅ Pour zoom image
   const [isZooming, setIsZooming] = useState(false); // ✅ État zoom
+
+  const [allDialogues, setAllDialogues] = useState<any[]>([]);
+
+  const lastSceneIdRef = useRef<string | null>(null);
+
+
 
   const renderAvatar = (
     url: string | null | undefined,
@@ -574,6 +621,15 @@ const getFilteredAndSortedEvidences = () => {
       </div>
     );
   };
+
+
+  // ✅ Appliquer l'attribut data-game-page au HTML
+  useEffect(() => {
+    document.documentElement.setAttribute('data-game-page', 'true');
+    return () => {
+      document.documentElement.setAttribute('data-game-page', 'false');
+    };
+  }, []);
 
   // ── GESTION DE LA NOTIFICATION MÉMOIRE ──
   useEffect(() => {
@@ -666,6 +722,29 @@ const getFilteredAndSortedEvidences = () => {
           )
           .eq("investigation_id", invId)
           .order("step_order", { ascending: true });
+
+
+        // ✅ NOUVEAU : Charger timeline et board du chapitre actuel
+        let chapterTimelineData: any = null;
+        let chapterBoardData: any = null;
+
+        if (chaps && chaps.length > 0) {
+          const firstChapterId = chaps[0].id;
+
+          const { data: tlData } = await supabase
+            .from("investigation_timelines")
+            .select("*")
+            .eq("chapter_id", firstChapterId)
+            .maybeSingle();
+          chapterTimelineData = tlData;
+
+          const { data: bdData } = await supabase
+            .from("investigation_deduction_boards")
+            .select("*")
+            .eq("chapter_id", firstChapterId)
+            .maybeSingle();
+          chapterBoardData = bdData;
+        }
         if (chaps) {
           setChapters(
             chaps.map((c) => ({
@@ -709,6 +788,79 @@ const getFilteredAndSortedEvidences = () => {
           .maybeSingle();
         if (outro) setOutroConfig(outro);
 
+
+        // ✅ Charger les dialogues (requêtes séparées pour éviter l'erreur PGRST201)
+        // ✅ Charger les dialogues (requêtes séparées pour éviter l'erreur PGRST201)
+        const { data: dialoguesData, error: dialoguesError } = await supabase
+          .from("investigation_dialogues")
+          .select("*")
+          .eq("investigation_id", invId);
+        console.log("📋 dialoguesData:", dialoguesData);
+        console.log("📋 dialoguesError:", dialoguesError);
+        console.log("📋 invId utilisé pour le filtre:", invId);
+
+
+
+        // ✅ Charger les mini-jeux disponibles (AVEC LES INDICES)
+        // ✅ Charger les mini-jeux disponibles (AVEC LES INDICES)
+        const { data: miniGamesData } = await supabase
+          .from("investigation_mini_games")
+          .select("*, mini_game_clues:investigation_mini_game_clues(*)")
+          .eq("investigation_id", invId)
+          .order("created_at", { ascending: true });
+
+        if (miniGamesData) {
+          setAvailableMiniGames(miniGamesData);
+        }
+
+        if (dialoguesData && dialoguesData.length > 0) {
+          console.log("📋 dialogueIds à chercher:", dialoguesData.map(d => d.id));
+          const dialogueIds = dialoguesData.map(d => d.id);
+
+          const { data: dlgNodes, error: nodesError } = await supabase
+            .from("investigation_dialogue_nodes")
+            .select("*")
+            .in("dialogue_id", dialogueIds);
+
+          console.log("📋 dlgNodes:", dlgNodes);
+          console.log("📋 nodesError:", nodesError);
+
+          const nodeIds = (dlgNodes || []).map(n => n.id);
+
+          let dlgChoices: any[] = [];
+          if (nodeIds.length > 0) {
+            const { data: choicesData, error: choicesError } = await supabase
+              .from("investigation_dialogue_choices")
+              .select("*")
+              .in("node_id", nodeIds);
+            console.log("📋 choicesData:", choicesData);
+            console.log("📋 choicesError:", choicesError);
+            dlgChoices = choicesData || [];
+          }
+
+          // Assembler les données
+          const assembledDialogues = dialoguesData.map(dlg => ({
+            ...dlg,
+            nodes: (dlgNodes || [])
+              .filter(n => n.dialogue_id === dlg.id)
+              .map(node => ({
+                ...node,
+                choices: dlgChoices.filter(c => c.node_id === node.id)
+              }))
+          }));
+
+          console.log("📋 assembledDialogues FINAL:", assembledDialogues);
+
+          // Stocker dans un state
+          setAllDialogues(assembledDialogues);
+          console.log("✅ setAllDialogues appelé");
+        } else {
+          console.log("⚠️ Bloc dialogues ignoré : dialoguesData vide ou absent");
+        }
+
+        // Stocker les dialogues dans une variable locale si besoin
+        // (ils seront chargés à la demande via les hotspots)
+
         // ✅ Charger la config de l'intro
         const { data: introCfg } = await supabase
           .from("investigation_intro_config")
@@ -716,6 +868,51 @@ const getFilteredAndSortedEvidences = () => {
           .eq("investigation_id", invId)
           .maybeSingle();
         if (introCfg) setGameIntroConfig(introCfg);
+        // ✅ Stocker timeline et board pour le bouton Déduction
+        setChapterTimeline(chapterTimelineData);
+        setChapterBoard(chapterBoardData);
+
+
+
+        // ✅ Vérifier l'accès payant
+        const { data: pricing } = await supabase
+          .from('product_pricing')
+          .select('*')
+          .eq('product_type', 'investigation')
+          .eq('product_id', invId)
+          .maybeSingle();
+
+        if (pricing) {
+          setPricingData(pricing);
+
+          // ✅ CODE CORRIGÉ (2 corrections)
+
+          // Vérifier si l'utilisateur a acheté
+          const { data: userAccess } = await supabase  // ✅ Renommé de 'access' à 'userAccess'
+            .from('user_access')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('target_id', invId)
+            .eq('status', 'completed')
+            .maybeSingle();
+
+          // Vérifier si admin a accordé l'accès
+          const { data: adminGrant } = await supabase  // ✅ Renommé de 'grant' à 'adminGrant'
+            .from('admin_user_access_grants')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('access_type', 'investigation')  // ✅ Ajout: filtrer par type
+            .or(`access_scope.eq.all,target_ids.cs.{${invId}}`)  // ✅ CORRECTION: utiliser target_ids (tableau)
+            .maybeSingle();
+
+          if (userAccess || adminGrant) {  // ✅ Utiliser les nouveaux noms
+            setHasPaymentAccess(true);
+          } else {
+            setShowPaywall(true);
+          }
+        } else {
+          setHasPaymentAccess(true); // Gratuit
+        }
       } catch (err) {
         console.error("Load data error:", err);
       } finally {
@@ -775,6 +972,8 @@ const getFilteredAndSortedEvidences = () => {
       setRevealedClues(sessionRevealedClues);
     }
 
+
+
     // ✅ Charger la progression des mots mêlés depuis la session
     // ✅ Charger la progression des mots mêlés depuis la session
     const wsProgress = (session as any)?.word_search_progress;
@@ -831,7 +1030,8 @@ const getFilteredAndSortedEvidences = () => {
       updateProgress(currentChapter.id, currentScene.id);
     }, 500);
     return () => clearTimeout(timeout);
-  }, [currentChapter?.id, currentScene?.id, updateProgress]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentChapter?.id, currentScene?.id]); // ✅ Retiré updateProgress
 
   useEffect(() => {
     if (!session || isSessionLoading) return;
@@ -850,24 +1050,52 @@ const getFilteredAndSortedEvidences = () => {
     setTimerActive(true);
   }, [currentScene?.id]);
 
-  // ── DÉCLENCHER INSTRUCTION DU HOTSPOT ──
-  useEffect(() => {
-    if (!activeHotspot?.instruction_id) return;
-    addInstructionNotification(activeHotspot.instruction_id);
-  }, [activeHotspot?.instruction_id, addInstructionNotification]);
-
   // ── DÉCLENCHER INSTRUCTION DE LA SCÈNE ──
   useEffect(() => {
-    // ✅ On vide les anciennes instructions à chaque changement de scène
-    setInstructionNotifications([]);
+    if (!currentScene?.id) {
+      setInstructionNotifications([]);
+      shownDeductionNotifs.current.clear();
+      lastSceneIdRef.current = null;
+      return;
+    }
 
-    if (!currentScene?.instruction_id) return;
-    addInstructionNotification(currentScene.instruction_id);
-  }, [
-    currentScene?.id,
-    currentScene?.instruction_id,
-    addInstructionNotification,
-  ]);
+    // ✅ ÉVITER LE DÉCLENCHEMENT DOUBLE (Strict Mode + loading)
+    if (lastSceneIdRef.current === currentScene.id) return;
+    lastSceneIdRef.current = currentScene.id;
+
+    // ✅ VIDER TOUTES les notifications
+    setInstructionNotifications([]);
+    shownDeductionNotifs.current.clear();
+
+    if (!currentScene.instruction_id) return;
+
+    // ✅ Capturer l'ID actuel pour annuler si la scène change pendant l'appel async
+    const activeSceneId = currentScene.id;
+
+    const loadInstruction = async () => {
+      const { data } = await supabase
+        .from("investigation_instructions")
+        .select("*")
+        .eq("id", currentScene.instruction_id!)
+        .single();
+
+      // ✅ Si la scène a changé pendant l'appel, on abandonne
+      if (lastSceneIdRef.current !== activeSceneId) return;
+
+      if (data) {
+        const newNotif = {
+          id: `scene_${data.id}`,
+          icon: data.icon,
+          name: lang === "fr" ? data.name : data.name_en || data.name,
+          text: lang === "fr" ? data.instruction_fr : data.instruction_en,
+        };
+
+        setInstructionNotifications([newNotif]); // ✅ REMPLACER au lieu d'ajouter
+      }
+    };
+
+    loadInstruction();
+  }, [currentScene?.id, lang]);
 
   // ── DÉCLENCHER INSTRUCTION DU BOARD / TIMELINE ──
   const shownDeductionNotifs = useRef(new Set<string>());
@@ -1079,6 +1307,13 @@ const getFilteredAndSortedEvidences = () => {
     evidences,
   ]);
 
+
+
+  // ✅ Fermer le dropdown mini-jeux quand on change de panel
+  useEffect(() => {
+    setShowMiniGamesDropdown(false);
+  }, [activeUI]);
+
   useEffect(() => {
     // ✅ Mettre en pause les DEUX timers si abandon ou achat
     if (
@@ -1197,6 +1432,22 @@ const getFilteredAndSortedEvidences = () => {
       chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [chatMessages, activeUI]);
+
+  // ── Compteur de messages non lus (utilisé pour la notif du Cauris) ──
+  useEffect(() => {
+    if (activeUI === "chat") {
+      setUnreadChatCount(0);
+      lastSeenChatCountRef.current = chatMessages.length;
+      return;
+    }
+    if (chatMessages.length > lastSeenChatCountRef.current) {
+      setUnreadChatCount(
+        (c) => c + (chatMessages.length - lastSeenChatCountRef.current),
+      );
+      lastSeenChatCountRef.current = chatMessages.length;
+    }
+  }, [chatMessages.length, activeUI]);
+
 
   const handleBuyTime = async () => {
     if (!userProfile || !outroConfig?.time_economy) return;
@@ -1512,12 +1763,30 @@ const getFilteredAndSortedEvidences = () => {
         return;
       }
 
+      // ✅ NOUVEAU : Dialogue interactif avec choix
+      // ✅ Dialogue interactif avec choix
+      if (hotspot.type === "dialogue" && hotspot.dialogue_id) {
+        console.log("💬 Hotspot dialogue cliqué, dialogue_id:", hotspot.dialogue_id);
+        console.log("💬 allDialogues disponibles:", allDialogues.map(d => d.id));
+        const dialogue = allDialogues.find(d => d.id === hotspot.dialogue_id);
+        if (dialogue) {
+          console.log("💬 Dialogue trouvé, nodes:", dialogue.nodes?.length);
+          setDialogueNodes(dialogue.nodes || []);
+          setActiveDialogueId(hotspot.dialogue_id);
+        } else {
+          console.warn("❌ Dialogue INTROUVABLE pour l'id:", hotspot.dialogue_id);
+        }
+        return;
+      }
       if (hotspot.type === "dialogue_bubble") {
         setActiveHotspot(hotspot);
         setActiveEvidence(null);
         // Pas de trigger_event ici, le joueur vient d'ouvrir la bulle
         return;
       }
+
+
+
       setActiveHotspot(hotspot);
       if (hotspot.evidence_id) {
         const evidence = evidences.find((e) => e.id === hotspot.evidence_id);
@@ -1594,6 +1863,7 @@ const getFilteredAndSortedEvidences = () => {
       lang,
       revealedHotspotIds,
       session,
+      allDialogues,
     ],
   );
 
@@ -1602,6 +1872,12 @@ const getFilteredAndSortedEvidences = () => {
     setShowCharacterSelect(false);
     if (session) await saveCharacter(characterId);
   };
+
+  const handleSceneTap = useCallback(() => {
+    setCockpitVisible((prev) => !prev);
+  }, []);
+
+
   const handleSendMessage = async () => {
     if (!chatInput.trim() || !user) return;
     await sendChatMessage(
@@ -1837,23 +2113,25 @@ const getFilteredAndSortedEvidences = () => {
   const PRESET_EMOJIS = ["❤️", "👍", "🔥", "🧩", "🕵️", "😮"];
 
   // ✅ NOUVEAU : États pour le panel Preuves
- const [inventoryFilter, setInventoryFilter] = useState<{
-  type: "all" | "favorites" | "image" | "audio" | "document" | "video";
-  chapter: string;
-  sort: "date" | "alpha" | "type";
-  search?: string;
-}>({
-  type: "all",
-  chapter: "",
-  sort: "date",
-  search: "",
-});
+  const [inventoryFilter, setInventoryFilter] = useState<{
+    type: "all" | "favorites" | "image" | "audio" | "document" | "video";
+    chapter: string;
+    sort: "date" | "alpha" | "type";
+    search?: string;
+  }>({
+    type: "all",
+    chapter: "",
+    sort: "date",
+    search: "",
+  });
 
   // ✅ Preuves récemment ajoutées (pour badge "NOUVEAU")
   const [recentlyAddedEvidences, setRecentlyAddedEvidences] = useState<
     string[]
   >([]);
 
+
+  // ── RAPPORT D'INVESTIGATION ──
 
 
   // ✅ Navigation entre preuves
@@ -1874,9 +2152,164 @@ const getFilteredAndSortedEvidences = () => {
   };
 
   // ✅ Preuves filtrées
- const filteredEvidences = useMemo(() => {
-  return getFilteredAndSortedEvidences();
-}, [session?.collected_evidences, evidences, inventoryFilter, lang, chapters]);
+  const filteredEvidences = useMemo(() => {
+    return getFilteredAndSortedEvidences();
+  }, [session?.collected_evidences, evidences, inventoryFilter, lang, chapters]);
+
+
+  // ✅ Filtrer les mots mêlés pour la scène actuelle
+  const currentWordSearch =
+    (wordSearches || []).find((ws: any) => {
+      if (ws.chapter_id !== currentChapter?.id) return false;
+      if (ws.scene_id && ws.scene_id !== currentScene?.id) return false;
+      return true;
+    }) || null;
+
+
+
+  const [showTaskReport, setShowTaskReport] = useState(false);
+
+
+  const shouldShowDeductionButton = (() => {
+    // Si chapterTimeline ou chapterBoard sont null, les recharger à la demande
+    // (mais on va les obtenir des states qui existent déjà)
+
+    const hasTimeline = !!chapterTimeline;
+    const hasBoard = !!chapterBoard;
+
+    if (!hasTimeline && !hasBoard) {
+      return false;
+    }
+
+    if (chapterTimeline?.scene_id && chapterTimeline.scene_id !== currentScene?.id) {
+      return false;
+    }
+
+    if (chapterBoard?.scene_id && chapterBoard.scene_id !== currentScene?.id) {
+      return false;
+    }
+
+    return true;
+  })();
+
+  // ── CALCUL DES TÂCHES DE LA SCÈNE (Rapport d'Investigation) ──
+  const sceneTasks = useMemo(() => {
+    if (!currentScene) return [];
+    const tasks: { id: string; type: 'enigma' | 'minigame' | 'wordsearch' | 'evidence' | 'dialogue' | 'deduction'; icon: string; name: string; completed: boolean; action: () => void }[] = [];
+
+    // 1. Énigmes (toutes, résolues ou non)
+    allChapterEnigmas.forEach((e) => {
+      tasks.push({
+        id: e.id,
+        type: 'enigma',
+        icon: '❓',
+        name: lang === "fr" ? e.question_fr : e.question_en,
+        completed: session?.solved_enigmas?.includes(`enigma_${e.id}_solved`) || false,
+        action: () => setActiveUI('enigmas'),
+      });
+    });
+
+    // 2. Mini-Jeux (tous, complétés ou non)
+    const sceneMiniGames = availableMiniGames.filter((mg) => {
+      if (mg.scene_id) return mg.scene_id === currentScene.id;
+      return mg.chapter_id === currentChapter?.id;
+    });
+    sceneMiniGames.forEach((mg) => {
+      tasks.push({
+        id: mg.id,
+        type: 'minigame',
+        icon: '📻',
+        name: lang === "fr" ? mg.title_fr : mg.title_en,
+        completed: session?.completed_mini_games?.includes(mg.id) || false,
+        action: () => {
+          setActiveMiniGame(mg);
+          setActiveUI(null);
+        },
+      });
+    });
+
+    // 3. Mots mêlés (s'il y en a dans la scène)
+    if (currentWordSearch) {
+      const isCompleted = Array.isArray((session as any)?.completed_word_searches) && (session as any)?.completed_word_searches?.includes(`wordsearch_${currentWordSearch.id}_completed`);
+      tasks.push({
+        id: currentWordSearch.id,
+        type: 'wordsearch',
+        icon: '🧩',
+        name: lang === "fr" ? currentWordSearch.title_fr : currentWordSearch.title_en,
+        completed: isCompleted,
+        action: () => setActiveUI('wordsearch'),
+      });
+    }
+
+    // 4. Preuves disponibles dans la scène (toutes, collectées ou non)
+    const sceneHotspots = currentScene.hotspots || [];
+    sceneHotspots.forEach((h: any) => {
+      if (h.evidence_id) {
+        const ev = evidences.find((e: any) => e.id === h.evidence_id);
+        if (ev) {
+          const isCollected = session?.collected_evidences?.includes(h.evidence_id);
+          tasks.push({
+            id: `ev_${ev.id}`,
+            type: 'evidence',
+            icon: ev.media_type === 'image' ? '🖼️' : ev.media_type === 'audio' ? '🎵' : '📄',
+            name: lang === "fr" ? ev.name_fr : ev.name_en || ev.name_fr,
+            completed: isCollected || false,
+            action: () => setActiveUI('inventory'),
+          });
+        }
+      }
+    });
+
+    // 5. Dialogues interactifs disponibles (tous)
+    sceneHotspots.forEach((h: any) => {
+      if (h.type === 'dialogue' && h.dialogue_id) {
+        const dlg = allDialogues.find((d: any) => d.id === h.dialogue_id);
+        if (dlg) {
+          tasks.push({
+            id: `dlg_${h.id}`,
+            type: 'dialogue',
+            icon: '💬',
+            name: lang === "fr" ? h.label_fr : h.label_en,
+            completed: false, // TODO: Tracker les dialogues faits dans la session
+            action: () => {
+              setDialogueNodes(dlg.nodes || []);
+              setActiveDialogueId(h.dialogue_id);
+            },
+          });
+        }
+      }
+    });
+
+    // 6. Déduction (Timeline / Board)
+    if (shouldShowDeductionButton) {
+      const hasTimeline = !!timeline;
+      const hasBoard = !!board;
+
+      if (hasTimeline || hasBoard) {
+        const unvalidatedSlots = timeline?.slots?.filter((s: any) => !(session as any)?.validated_deductions?.includes(`timeline_${s.id}`)).length || 0;
+        const unvalidatedConns = board?.connections?.filter((c: any) => !(session as any)?.validated_deductions?.includes(`board_${c.id}`)).length || 0;
+        const isDeductionComplete = (unvalidatedSlots + unvalidatedConns) === 0;
+
+        tasks.push({
+          id: 'deduction_task',
+          type: 'deduction',
+          icon: '🧠',
+          name: hasTimeline
+            ? (lang === "fr" ? "Timeline Chronologique" : "Chronological Timeline")
+            : (lang === "fr" ? "Tableau de Connexions" : "Connection Board"),
+          completed: isDeductionComplete,
+          action: () => setActiveUI('deduction'),
+        });
+      }
+    }
+
+    return tasks;
+  }, [allChapterEnigmas, availableMiniGames, currentWordSearch, session, lang, currentScene, currentChapter, evidences, allDialogues, shouldShowDeductionButton, timeline, board, setDialogueNodes, setActiveDialogueId, setActiveMiniGame, setActiveUI]);
+
+  const completedTasksCount = sceneTasks.filter(t => t.completed).length;
+  const totalTasksCount = sceneTasks.length;
+  const sceneProgressPercent = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 100;
+  const remainingTasksCount = totalTasksCount - completedTasksCount;
 
   if (!isMounted) return null;
   if (!invId)
@@ -1909,6 +2342,24 @@ const getFilteredAndSortedEvidences = () => {
         onExit={() => router.push("/investigations")}
       />
     );
+
+
+
+
+  // ✅ PAYWALL SI PAS D'ACCÈS
+  if (showPaywall && pricingData && !hasPaymentAccess) {
+    return (
+      <InvestigationPaywall
+        investigationId={invId}
+        investigationTitle={lang === "fr" ? investigation?.title_fr : investigation?.title_en || ""}
+        lang={lang}
+        onAccessGranted={() => {
+          setHasPaymentAccess(true);
+          setShowPaywall(false);
+        }}
+      />
+    );
+  }
   // APRÈS (correction complète)
   if (isLoading || !investigation || !currentChapter || !currentScene)
     return (
@@ -2013,6 +2464,9 @@ const getFilteredAndSortedEvidences = () => {
     );
   }
 
+
+
+
   const chapTitle =
     lang === "fr" ? currentChapter.title_fr : currentChapter.title_en;
   const chapNarrative =
@@ -2020,13 +2474,45 @@ const getFilteredAndSortedEvidences = () => {
   const sceneTitle =
     lang === "fr" ? currentScene.title_fr : currentScene.title_en;
 
-  // ✅ Filtrer les mots mêlés pour la scène actuelle
-  const currentWordSearch =
-    (wordSearches || []).find((ws: any) => {
-      if (ws.chapter_id !== currentChapter?.id) return false;
-      if (ws.scene_id && ws.scene_id !== currentScene?.id) return false;
-      return true;
-    }) || null;
+
+
+
+
+
+
+
+
+
+
+
+
+  // ── Agrégation des notifications pour le bouton Cauris (cockpit masqué) ──
+  const sceneMiniGamesForNotif = availableMiniGames.filter((mg) => {
+    if (mg.scene_id) return mg.scene_id === currentScene?.id;
+    return mg.chapter_id === currentChapter?.id;
+  });
+  const hasMiniGameNotif = sceneMiniGamesForNotif.some(
+    (mg) => !(session?.completed_mini_games || []).includes(mg.id),
+  );
+  const hasWordSearchNotif =
+    !!currentWordSearch &&
+    !((session as any)?.completed_word_searches || []).includes(
+      `wordsearch_${currentWordSearch.id}_completed`,
+    );
+  const totalDeductionItems =
+    (timeline?.slots?.length || 0) + (board?.connections?.length || 0);
+  const validatedDeductionCount =
+    (session as any)?.validated_deductions?.length || 0;
+  const hasDeductionNotif =
+    totalDeductionItems > 0 && validatedDeductionCount < totalDeductionItems;
+  const hasCockpitNotification =
+    hasUnreadMemory ||
+    !allSolved ||
+    recentlyAddedEvidences.length > 0 ||
+    hasDeductionNotif ||
+    hasWordSearchNotif ||
+    hasMiniGameNotif ||
+    unreadChatCount > 0;
 
   // ── MOTEUR D'ÉVÉNEMENTS NARRATIFS ──
   // ── MOTEUR D'ÉVÉNEMENTS NARRATIFS ──
@@ -2098,13 +2584,35 @@ const getFilteredAndSortedEvidences = () => {
     }, 1500);
   };
 
+
+  const reloadDeductionConfig = async () => {
+    if (!currentChapter?.id) return;
+
+    const { data: tlData } = await supabase
+      .from("investigation_timelines")
+      .select("*")
+      .eq("chapter_id", currentChapter.id)
+      .maybeSingle();
+    setChapterTimeline(tlData);
+
+    const { data: bdData } = await supabase
+      .from("investigation_deduction_boards")
+      .select("*")
+      .eq("chapter_id", currentChapter.id)
+      .maybeSingle();
+    setChapterBoard(bdData);
+  };
+
+
+
   return (
-    <div className="h-[100dvh] w-screen bg-black overflow-hidden relative font-sans text-white">
+    <div className="h-[100dvh] w-screen bg-black overflow-hidden relative font-sans text-white text-[12px]">
+
       {currentScene.panorama_url ? (
         <PanoramaViewer
           panoramaUrl={currentScene.panorama_url}
           hotspots={
-            activeUI || showAbortMenu
+            activeUI || showAbortMenu || activeDialogueId || activeMiniGame
               ? []
               : hotspots
                 .filter((h) => h.id !== activeHotspot?.id)
@@ -2124,6 +2632,7 @@ const getFilteredAndSortedEvidences = () => {
           }
           lang={lang}
           onHotspotActivate={handleHotspotActivate}
+          onSceneTap={handleSceneTap}
           onSceneChange={(sceneId) => {
             // ✅ LA MAGIE EST ICI : On change la scène après le fondu noir
             const newSceneIdx = currentChapter?.scenes?.findIndex(
@@ -2319,182 +2828,316 @@ const getFilteredAndSortedEvidences = () => {
       </div>
 
       {/* COCKPIT INFÉRIEUR */}
-      <div className="absolute bottom-6 inset-x-0 z-30 flex justify-center pointer-events-none">
-        <div className="flex items-center gap-2 md:gap-4 bg-black/60 backdrop-blur-md border border-white/10 p-2 rounded-full pointer-events-auto shadow-2xl flex-wrap justify-center">
-          <button
-            onClick={() => setActiveUI(activeUI === "story" ? null : "story")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors relative ${activeUI === "story" ? "bg-[#06b6d4] text-black" : "hover:bg-white/10 text-gray-300"}`}
+      <AnimatePresence mode="wait">
+        {cockpitVisible ? (
+          <motion.div
+            key="cockpit-full"
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.85 }}
+            transition={{ duration: 0.2 }}
+            className="absolute bottom-6 inset-x-0 z-30 flex justify-center pointer-events-none"
           >
-            <BookOpen size={18} />
-            <span className="hidden md:block font-mono text-xs font-bold tracking-widest">
-              {lang === "fr" ? "MÉMOIRE" : "MEMORY"}
-            </span>
-            {/* ✅ NOUVEAU : Badge rouge si non lu */}
-            {hasUnreadMemory && activeUI !== "story" && (
-              <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
-            )}
-          </button>
+            <div className="flex items-center gap-2 md:gap-4 bg-black/60 backdrop-blur-md border border-white/10 p-2 rounded-full pointer-events-auto shadow-2xl flex-wrap justify-center">
+              <button
+                onClick={() => setActiveUI(activeUI === "story" ? null : "story")}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors relative ${activeUI === "story" ? "bg-[#06b6d4] text-black" : "hover:bg-white/10 text-gray-300"}`}
+              >
+                <BookOpen size={18} />
+                <span className="hidden md:block font-mono text-xs font-bold tracking-widest">
+                  {lang === "fr" ? "MÉMOIRE" : "MEMORY"}
+                </span>
+                {/* ✅ NOUVEAU : Badge rouge si non lu */}
+                {hasUnreadMemory && activeUI !== "story" && (
+                  <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                )}
+              </button>
 
-          <div className="w-px h-6 bg-white/20" />
-          <button
-            onClick={() =>
-              setActiveUI(activeUI === "mission" ? null : "mission")
-            }
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors relative ${activeUI === "mission" ? "bg-green-600 text-white" : "hover:bg-white/10 text-gray-300"}`}
-          >
-            <Target size={18} />
-            <span className="hidden md:block font-mono text-xs font-bold tracking-widest">
-              {lang === "fr" ? "MISSION" : "MISSION"}
-            </span>
-            {/* Badge si objectifs non complétés */}
-            {(() => {
-              const objectives = currentScene?.mission_objectives_fr || [];
-              if (objectives.length > 0) {
-                return (
-                  <span className="ml-1 bg-green-500/20 px-1.5 py-0.5 rounded text-[10px] font-mono">
-                    {objectives.length}
-                  </span>
-                );
-              }
-              return null;
-            })()}
-          </button>
-
-          <div className="w-px h-6 bg-white/20" />
-          <button
-            onClick={() => {
-              if (activeUI === "enigmas") {
-                setActiveUI(null);
-                setEnigmaTimerActive(false); // ✅ Pause en fermant
-              } else {
-                setActiveUI("enigmas");
-                // ✅ Redémarrer le timer s'il était en pause
-                if (
-                  enigmaTimerSeconds !== null &&
-                  enigmaTimerSeconds > 0 &&
-                  !enigmaTimerActive
-                ) {
-                  setEnigmaTimerActive(true);
-                }
-              }
-            }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors relative ${activeUI === "enigmas" ? "bg-[#D4AF37] text-black" : "hover:bg-white/10 text-gray-300"}`}
-          >
-            <Target size={18} />
-            <span className="hidden md:block font-mono text-xs font-bold tracking-widest">
-              {lang === "fr" ? "ÉNIGMES" : "ENIGMAS"}
-            </span>
-            {!allSolved && (
-              <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
-            )}
-          </button>
-          <div className="w-px h-6 bg-white/20" />
-          <button
-            onClick={() =>
-              setActiveUI(activeUI === "inventory" ? null : "inventory")
-            }
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors ${activeUI === "inventory" ? "bg-white text-black" : "hover:bg-white/10 text-gray-300"}`}
-          >
-            <Briefcase size={18} />
-            <span className="hidden md:block font-mono text-xs font-bold tracking-widest">
-              {lang === "fr" ? "PREUVES" : "EVIDENCE"}
-            </span>
-            {(session?.collected_evidences?.length || 0) > 0 && (
-              <span className="ml-1 bg-white/20 px-1.5 py-0.5 rounded text-[10px] font-mono">
-                {session?.collected_evidences?.length || 0}
-              </span>
-            )}
-          </button>
-
-          {/* Bouton Déduction — visible si timeline ou board existe */}
-          {(timeline || board) && (
-            <>
               <div className="w-px h-6 bg-white/20" />
               <button
                 onClick={() =>
-                  setActiveUI(activeUI === "deduction" ? null : "deduction")
+                  setActiveUI(activeUI === "mission" ? null : "mission")
                 }
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors relative ${activeUI === "deduction"
-                    ? "bg-[#D4AF37] text-black"
-                    : "hover:bg-white/10 text-gray-300"
-                  }`}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors relative ${activeUI === "mission" ? "bg-green-600 text-white" : "hover:bg-white/10 text-gray-300"}`}
               >
-                <span className="text-lg">🧠</span>
+                <Target size={18} />
                 <span className="hidden md:block font-mono text-xs font-bold tracking-widest">
-                  {lang === "fr" ? "DÉDUCTION" : "DEDUCTION"}
+                  {lang === "fr" ? "MISSION" : "MISSION"}
                 </span>
-                {/* Badge si des déductions sont disponibles */}
+                {/* Badge si objectifs non complétés */}
                 {(() => {
-                  const totalSlots = timeline?.slots?.length || 0;
-                  const totalConns = board?.connections?.length || 0;
-                  const validatedCount =
-                    (session as any)?.validated_deductions?.length || 0;
-                  const total = totalSlots + totalConns;
-                  if (total > 0 && validatedCount < total) {
+                  const objectives = currentScene?.mission_objectives_fr || [];
+                  if (objectives.length > 0) {
                     return (
-                      <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-[#D4AF37] rounded-full animate-pulse" />
+                      <span className="ml-1 bg-green-500/20 px-1.5 py-0.5 rounded text-[10px] font-mono">
+                        {objectives.length}
+                      </span>
                     );
                   }
                   return null;
                 })()}
               </button>
-            </>
-          )}
 
-          <div className="w-px h-6 bg-white/20" />
-          <button
-            onClick={() =>
-              setActiveUI(activeUI === "wordsearch" ? null : "wordsearch")
-            }
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors relative ${activeUI === "wordsearch"
-                ? "bg-pink-600 text-white"
-                : "hover:bg-white/10 text-gray-300"
-              }`}
-          >
-            <span className="text-lg">🧩</span>
-            <span className="hidden md:block font-mono text-xs font-bold tracking-widest">
-              {lang === "fr" ? "MOTS MÊLÉS" : "WORD SEARCH"}
-            </span>
-            {/* ✅ BADGE DE NOTIFICATION SI MOTS MÊLÉS DISPONIBLES */}
-            {currentWordSearch && activeUI !== "wordsearch" && (
-              <motion.span
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="absolute -top-2 -right-2 w-3.5 h-3.5 bg-pink-500 rounded-full animate-pulse shadow-[0_0_12px_rgba(236,72,153,0.8)]"
-                title={
-                  lang === "fr"
-                    ? "Un mots mêlés vous attend !"
-                    : "A word search awaits you!"
-                }
-              />
-            )}
-          </button>
-
-          {/* Chat visible uniquement si le joueur est dans un groupe */}
-          {session?.group_id && (
-            <>
               <div className="w-px h-6 bg-white/20" />
               <button
-                onClick={() => setActiveUI(activeUI === "chat" ? null : "chat")}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors relative ${activeUI === "chat"
-                    ? "bg-purple-600 text-white"
-                    : "hover:bg-white/10 text-gray-300"
-                  }`}
+                onClick={() => {
+                  if (activeUI === "enigmas") {
+                    setActiveUI(null);
+                    setEnigmaTimerActive(false); // ✅ Pause en fermant
+                  } else {
+                    setActiveUI("enigmas");
+                    // ✅ Redémarrer le timer s'il était en pause
+                    if (
+                      enigmaTimerSeconds !== null &&
+                      enigmaTimerSeconds > 0 &&
+                      !enigmaTimerActive
+                    ) {
+                      setEnigmaTimerActive(true);
+                    }
+                  }
+                }}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors relative ${activeUI === "enigmas" ? "bg-[#D4AF37] text-black" : "hover:bg-white/10 text-gray-300"}`}
               >
-                <MessageCircle size={18} />
+                <Target size={18} />
                 <span className="hidden md:block font-mono text-xs font-bold tracking-widest">
-                  CHAT
+                  {lang === "fr" ? "ÉNIGMES" : "ENIGMAS"}
                 </span>
-                {presentUsers.length > 1 && (
-                  <span className="ml-1 bg-purple-500 px-1.5 py-0.5 rounded text-[10px] font-mono">
-                    {presentUsers.length}
+                {!allSolved && (
+                  <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
+                )}
+              </button>
+              <div className="w-px h-6 bg-white/20" />
+              <button
+                onClick={() =>
+                  setActiveUI(activeUI === "inventory" ? null : "inventory")
+                }
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors ${activeUI === "inventory" ? "bg-white text-black" : "hover:bg-white/10 text-gray-300"}`}
+              >
+                <Briefcase size={18} />
+                <span className="hidden md:block font-mono text-xs font-bold tracking-widest">
+                  {lang === "fr" ? "PREUVES" : "EVIDENCE"}
+                </span>
+                {(session?.collected_evidences?.length || 0) > 0 && (
+                  <span className="ml-1 bg-white/20 px-1.5 py-0.5 rounded text-[10px] font-mono">
+                    {session?.collected_evidences?.length || 0}
                   </span>
                 )}
               </button>
-            </>
-          )}
-        </div>
-      </div>
+
+              {/* Bouton Déduction — visible si timeline ou board existe */}
+              {shouldShowDeductionButton && (
+                <>
+                  <div className="w-px h-6 bg-white/20" />
+                  <button
+                    onClick={() =>
+                      setActiveUI(activeUI === "deduction" ? null : "deduction")
+                    }
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors relative ${activeUI === "deduction"
+                      ? "bg-[#D4AF37] text-black"
+                      : "hover:bg-white/10 text-gray-300"
+                      }`}
+                  >
+                    <span className="text-lg">🧠</span>
+                    <span className="hidden md:block font-mono text-xs font-bold tracking-widest">
+                      {lang === "fr" ? "DÉDUCTION" : "DEDUCTION"}
+                    </span>
+                    {/* Badge si des déductions sont disponibles */}
+                    {(() => {
+                      const totalSlots = timeline?.slots?.length || 0;
+                      const totalConns = board?.connections?.length || 0;
+                      const validatedCount =
+                        (session as any)?.validated_deductions?.length || 0;
+                      const total = totalSlots + totalConns;
+                      if (total > 0 && validatedCount < total) {
+                        return (
+                          <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-[#D4AF37] rounded-full animate-pulse" />
+                        );
+                      }
+                      return null;
+                    })()}
+                  </button>
+                </>
+              )}
+
+              <div className="w-px h-6 bg-white/20" />
+              <button
+                onClick={() =>
+                  setActiveUI(activeUI === "wordsearch" ? null : "wordsearch")
+                }
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors relative ${activeUI === "wordsearch"
+                  ? "bg-pink-600 text-white"
+                  : "hover:bg-white/10 text-gray-300"
+                  }`}
+              >
+                <span className="text-lg">🧩</span>
+                <span className="hidden md:block font-mono text-xs font-bold tracking-widest">
+                  {lang === "fr" ? "MOTS MÊLÉS" : "WORD SEARCH"}
+                </span>
+                {/* ✅ BADGE DE NOTIFICATION SI MOTS MÊLÉS DISPONIBLES */}
+                {currentWordSearch && activeUI !== "wordsearch" && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute -top-2 -right-2 w-3.5 h-3.5 bg-pink-500 rounded-full animate-pulse shadow-[0_0_12px_rgba(236,72,153,0.8)]"
+                    title={
+                      lang === "fr"
+                        ? "Un mots mêlés vous attend !"
+                        : "A word search awaits you!"
+                    }
+                  />
+                )}
+              </button>
+
+              {/* Mini-Jeux disponibles (Filtrage Contextuel) */}
+              {(() => {
+                // ✅ FILTRAGE DIÉGÉTIQUE : Ne garder que les jeux de la scène actuelle
+                const sceneMiniGames = availableMiniGames.filter((mg) => {
+                  if (mg.scene_id) return mg.scene_id === currentScene?.id;
+                  // Si aucun scene_id défini, on peut décider de l'afficher dans tout le chapitre
+                  return mg.chapter_id === currentChapter?.id;
+                });
+
+                if (sceneMiniGames.length === 0) return null; // Le bouton disparaît s'il n'y a pas de jeu ici
+
+                const completed = session?.completed_mini_games || [];
+                const remaining = sceneMiniGames.filter(mg => !completed.includes(mg.id)).length;
+
+                return (
+                  <>
+                    <div className="w-px h-6 bg-white/20" />
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowMiniGamesDropdown(!showMiniGamesDropdown)}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-full transition-colors relative ${activeMiniGame
+                          ? "bg-purple-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.5)]"
+                          : "hover:bg-white/10 text-gray-300"
+                          }`}
+                      >
+                        <span className="text-base">📻</span>
+                        <span className="hidden md:block font-mono text-[10px] font-bold tracking-widest">
+                          {lang === "fr" ? "OUTILS" : "TOOLS"}
+                        </span>
+                        {/* Badge : nombre de mini-jeux non complétés dans CETTE scène */}
+                        {remaining > 0 && (
+                          <motion.span
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-purple-500 rounded-full flex items-center justify-center text-[9px] font-bold text-white animate-pulse"
+                          >
+                            {remaining}
+                          </motion.span>
+                        )}
+                      </button>
+
+                      {/* Déroulant des mini-jeux de la scène */}
+                      <AnimatePresence>
+                        {showMiniGamesDropdown && (
+                          <>
+                            {/* Overlay pour fermer au clic dehors (mobile) */}
+                            <div className="fixed inset-0 z-[90]" onClick={() => setShowMiniGamesDropdown(false)} />
+
+                            <motion.div
+                              initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                              transition={{ duration: 0.15 }}
+                              className="absolute bottom-full mb-2 left-0 md:right-0 md:left-auto bg-[#111] border border-purple-500/30 rounded-xl shadow-2xl overflow-hidden w-64 max-w-[calc(100vw-2rem)] z-[100]"
+                            >
+                              {/* Header compact */}
+                              <div className="px-3 py-2 bg-purple-500/10 border-b border-purple-500/20 flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-purple-400 font-mono uppercase">
+                                  {lang === "fr" ? "Mini-Jeux" : "Mini-Games"}
+                                </span>
+                                <span className="text-[9px] text-gray-500">
+                                  {completed.length}/{sceneMiniGames.length}
+                                </span>
+                              </div>
+
+                              {/* Liste scrollable */}
+                              <div className="p-2 space-y-1 max-h-[200px] overflow-y-auto">
+                                {sceneMiniGames.map((mg) => {
+                                  const isCompleted = completed.includes(mg.id);
+                                  return (
+                                    <button
+                                      key={mg.id}
+                                      onClick={() => {
+                                        if (isCompleted) return; // 🔒 BLOQUE L'OUVERTURE SI DÉJÀ RÉUSSI
+                                        setActiveMiniGame(mg);
+                                        setShowMiniGamesDropdown(false);
+                                        setActiveUI(null); // Fermer les autres panels
+                                      }}
+                                      disabled={isCompleted}
+                                      className={`w-full text-left px-2.5 py-2 rounded-lg text-[10px] font-bold transition-all flex items-center gap-2 ${isCompleted
+                                        ? "bg-green-500/5 border border-green-500/20 text-green-600/70 cursor-default opacity-60" // Visuel désactivé
+                                        : "bg-purple-500/10 border border-purple-500/20 text-purple-300 hover:bg-purple-500/20"
+                                        }`}
+                                    >
+                                      <span className="flex-1 truncate">
+                                        {lang === "fr" ? mg.title_fr : mg.title_en || mg.title_fr}
+                                      </span>
+                                      {isCompleted && <span className="flex-shrink-0 text-[10px]">✅</span>}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </motion.div>
+                          </>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </>
+                );
+              })()}
+
+              {/* Chat visible uniquement si le joueur est dans un groupe */}
+              {session?.group_id && (
+                <>
+                  <div className="w-px h-6 bg-white/20" />
+                  <button
+                    onClick={() => setActiveUI(activeUI === "chat" ? null : "chat")}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors relative ${activeUI === "chat"
+                      ? "bg-purple-600 text-white"
+                      : "hover:bg-white/10 text-gray-300"
+                      }`}
+                  >
+                    <MessageCircle size={18} />
+                    <span className="hidden md:block font-mono text-xs font-bold tracking-widest">
+                      CHAT
+                    </span>
+                    {presentUsers.length > 1 && (
+                      <span className="ml-1 bg-purple-500 px-1.5 py-0.5 rounded text-[10px] font-mono">
+                        {presentUsers.length}
+                      </span>
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
+          </motion.div>
+        ) : (
+          <motion.button
+            key="cockpit-cauris"
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.5 }}
+            transition={{ duration: 0.2 }}
+            onClick={() => setCockpitVisible(true)}
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 pointer-events-auto"
+          >
+            <div className="relative w-14 h-14 rounded-full bg-black/60 backdrop-blur-md border border-[#D4AF37]/40 flex items-center justify-center shadow-2xl hover:border-[#D4AF37] transition-colors">
+              <CaurisIcon className="w-7 h-7 text-[#D4AF37]" />
+
+              {/* ✅ BADGE SOLDE CAURIS */}
+              <div className="absolute -bottom-2 -right-2 bg-[#D4AF37] text-black rounded-full px-2 py-1 text-[10px] font-bold font-mono shadow-lg border border-[#D4AF37]">
+                {budgetCauris}
+              </div>
+              {hasCockpitNotification && (
+                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)] border-2 border-black" />
+              )}
+            </div>
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       {/* 🟠 MODALE ACHAT DE TEMPS 🟠 */}
       <AnimatePresence>
@@ -2578,6 +3221,131 @@ const getFilteredAndSortedEvidences = () => {
           onReplay={handleReplay}
           onExit={() => router.push("/investigations")}
         />
+      )}
+
+
+
+
+      {/* ── RAPPORT D'INVESTIGATION (Flottant) ── */}
+      {isMounted && !showIntro && !showOutro && !showCharacterSelect && totalTasksCount > 0 && (
+        <div className="fixed z-40 right-3 top-20 md:top-1/2 md:-translate-y-1/2">
+          <div className="relative">
+            <button
+              onClick={() => setShowTaskReport(!showTaskReport)}
+              className="relative w-14 h-14 md:w-16 md:h-16 rounded-full bg-black/70 backdrop-blur-md border border-[#D4AF37]/40 flex items-center justify-center shadow-2xl hover:border-[#D4AF37] transition-all group"
+            >
+              {/* Jauge circulaire SVG */}
+              <svg className="absolute inset-0 w-full h-full -rotate-90 p-1" viewBox="0 0 48 48">
+                <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="3" fill="none" className="text-white/10" />
+                <circle
+                  cx="24" cy="24" r="20"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  fill="none"
+                  strokeDasharray={`${2 * Math.PI * 20}`}
+                  strokeDashoffset={`${2 * Math.PI * 20 * (1 - sceneProgressPercent / 100)}`}
+                  className={`transition-all duration-700 ${sceneProgressPercent === 100 ? 'text-green-400 drop-shadow-[0_0_6px_rgba(74,222,128,0.5)]' : 'text-[#D4AF37]'}`}
+                  strokeLinecap="round"
+                />
+              </svg>
+
+              {/* Pourcentage central */}
+              <span className={`z-10 font-mono text-[10px] md:text-xs font-black ${sceneProgressPercent === 100 ? 'text-green-400' : 'text-white group-hover:text-[#D4AF37] transition-colors'}`}>
+                {sceneProgressPercent}%
+              </span>
+
+              {/* Badge rouge si tâches restantes */}
+              {remainingTasksCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-lg animate-pulse border-2 border-black">
+                  {remainingTasksCount}
+                </span>
+              )}
+            </button>
+
+            {/* Dropdown du rapport */}
+            <AnimatePresence>
+              {showTaskReport && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowTaskReport(false)} />
+
+                  <motion.div
+                    initial={{ opacity: 0, x: 20, scale: 0.95 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    exit={{ opacity: 0, x: 20, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute right-0 top-full mt-2 md:top-1/2 md:-translate-y-1/2 md:right-full md:mr-3 w-72 max-w-[calc(100vw-2rem)] bg-[#111] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50"
+                  >
+                    {/* Header */}
+                    <div className="p-3 bg-white/5 border-b border-white/10 flex items-center justify-between">
+                      <h3 className="text-xs font-bold text-white font-mono uppercase tracking-wider">
+                        {lang === 'fr' ? '📋 Rapport' : '📋 Report'}
+                      </h3>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${sceneProgressPercent === 100 ? 'bg-green-500/20 text-green-400' : 'bg-[#D4AF37]/20 text-[#D4AF37]'}`}>
+                        {completedTasksCount}/{totalTasksCount}
+                      </span>
+                    </div>
+
+                    {/* Barre de progression */}
+                    <div className="px-3 pt-2 pb-1">
+                      <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${sceneProgressPercent}%` }}
+                          transition={{ duration: 0.7 }}
+                          className={`h-full rounded-full ${sceneProgressPercent === 100 ? 'bg-green-400' : 'bg-[#D4AF37]'}`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Liste des tâches */}
+                    <div className="p-2 max-h-[50vh] overflow-y-auto space-y-1">
+                      {sceneTasks.map(task => (
+                        <button
+                          key={task.id}
+                          onClick={() => {
+                            if (!task.completed) task.action();
+                            setShowTaskReport(false);
+                          }}
+                          disabled={task.completed}
+                          className={`w-full text-left p-2.5 rounded-lg flex items-center gap-2.5 transition-colors ${task.completed ? 'bg-green-500/5 border border-green-500/10 text-gray-600 cursor-default' : 'bg-white/5 border border-white/10 text-white hover:bg-white/10 cursor-pointer'}`}
+                        >
+                          <span className={`text-base ${task.completed ? 'opacity-40' : ''}`}>{task.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-[11px] leading-tight truncate ${task.completed ? 'line-through' : 'font-medium'}`}>
+                              {task.name}
+                            </p>
+                            <p className="text-[9px] text-gray-500 capitalize mt-0.5">
+                              {task.type === 'enigma' ? (lang === 'fr' ? 'Énigme' : 'Enigma')
+                                : task.type === 'minigame' ? (lang === 'fr' ? 'Mini-Jeu' : 'Mini-Game')
+                                  : task.type === 'wordsearch' ? (lang === 'fr' ? 'Mots Mêlés' : 'Word Search')
+                                    : task.type === 'evidence' ? (lang === 'fr' ? 'Preuve' : 'Evidence')
+                                      : task.type === 'dialogue' ? (lang === 'fr' ? 'Dialogue' : 'Dialogue')
+                                        : (lang === 'fr' ? 'Déduction' : 'Deduction')}
+                            </p>
+                          </div>
+                          {task.completed ? (
+                            <CheckCircle size={14} className="text-green-500/50 flex-shrink-0" />
+                          ) : (
+                            <span className="text-[9px] text-[#D4AF37] font-bold">{lang === 'fr' ? 'À faire' : 'TODO'}</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Footer */}
+                    {sceneProgressPercent === 100 && (
+                      <div className="p-3 bg-green-500/5 border-t border-green-500/20 text-center">
+                        <p className="text-green-400 text-[10px] font-bold font-mono uppercase">
+                          {lang === 'fr' ? '✅ Scène Analyse Terminée' : '✅ Scene Analysis Complete'}
+                        </p>
+                      </div>
+                    )}
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
       )}
 
       {/* 🟡 MENU D'ABANDON (PAUSE) 🟡 */}
@@ -2936,10 +3704,10 @@ const getFilteredAndSortedEvidences = () => {
                     duration: 0.5,
                   }}
                   className={`flex items-center gap-1.5 px-2 py-1 rounded font-mono text-xs font-bold border ${enigmaTimerSeconds <= 10
-                      ? "bg-red-500/20 border-red-500/50 text-red-400"
-                      : enigmaTimerSeconds <= 30
-                        ? "bg-amber-500/20 border-amber-500/30 text-amber-400"
-                        : "bg-black/50 border-white/20 text-white"
+                    ? "bg-red-500/20 border-red-500/50 text-red-400"
+                    : enigmaTimerSeconds <= 30
+                      ? "bg-amber-500/20 border-amber-500/30 text-amber-400"
+                      : "bg-black/50 border-white/20 text-white"
                     }`}
                 >
                   <Clock size={12} />
@@ -3016,10 +3784,10 @@ const getFilteredAndSortedEvidences = () => {
                         }
                       }}
                       className={`p-4 rounded-xl border font-mono ${isSolved
-                          ? "bg-green-900/10 border-green-500/30"
-                          : isWrong
-                            ? "bg-red-900/20 border-red-500/50 animate-pulse"
-                            : "bg-black/50 border-white/10 cursor-pointer hover:border-[#D4AF37]/50"
+                        ? "bg-green-900/10 border-green-500/30"
+                        : isWrong
+                          ? "bg-red-900/20 border-red-500/50 animate-pulse"
+                          : "bg-black/50 border-white/10 cursor-pointer hover:border-[#D4AF37]/50"
                         }`}
                     >
                       {/* Question */}
@@ -3275,8 +4043,8 @@ const getFilteredAndSortedEvidences = () => {
                                 <div
                                   key={clue.id}
                                   className={`p-3 rounded-lg text-xs border ${isRevealed
-                                      ? "bg-blue-900/20 border-blue-500/30"
-                                      : "bg-black/40 border-white/10"
+                                    ? "bg-blue-900/20 border-blue-500/30"
+                                    : "bg-black/40 border-white/10"
                                     }`}
                                 >
                                   {isRevealed ? (
@@ -3342,8 +4110,8 @@ const getFilteredAndSortedEvidences = () => {
                                         }
                                         disabled={budgetCauris < clueCost}
                                         className={`flex-shrink-0 px-3 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${budgetCauris >= clueCost
-                                            ? "bg-[#D4AF37] hover:bg-white text-black shadow-lg hover:shadow-xl"
-                                            : "bg-red-500/10 border border-red-500/30 text-red-400 cursor-not-allowed"
+                                          ? "bg-[#D4AF37] hover:bg-white text-black shadow-lg hover:shadow-xl"
+                                          : "bg-red-500/10 border border-red-500/30 text-red-400 cursor-not-allowed"
                                           }`}
                                       >
                                         <span>💰</span>
@@ -3543,16 +4311,16 @@ const getFilteredAndSortedEvidences = () => {
                     })
                   }
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${inventoryFilter.type === tab.id
-                      ? "bg-white/10 text-white border border-white/30"
-                      : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"
+                    ? "bg-white/10 text-white border border-white/30"
+                    : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"
                     }`}
                 >
                   <span>{tab.icon}</span>
                   <span className="hidden sm:inline">{tab.label}</span>
                   <span
                     className={`text-[10px] px-1.5 py-0.5 rounded-full ${inventoryFilter.type === tab.id
-                        ? "bg-white/20"
-                        : "bg-white/10"
+                      ? "bg-white/20"
+                      : "bg-white/10"
                       }`}
                   >
                     {tab.count}
@@ -3694,27 +4462,27 @@ const getFilteredAndSortedEvidences = () => {
                           initial={{ opacity: 0, scale: 0.8 }}
                           animate={{ opacity: 1, scale: 1 }}
                           className={`group relative aspect-square rounded-xl overflow-hidden border cursor-pointer transition-all hover:shadow-lg ${isRecentlyAdded
-                              ? "border-[#D4AF37] shadow-[0_0_15px_rgba(212,175,55,0.3)]"
-                              : "border-white/20 hover:border-white/40"
+                            ? "border-[#D4AF37] shadow-[0_0_15px_rgba(212,175,55,0.3)]"
+                            : "border-white/20 hover:border-white/40"
                             } bg-white/5`}
-  onClick={() => {
-  setActiveEvidence(ev);
-  const fakeHotspot: any = {
-    id: `inventory_${ev.id}`,
-    type: "evidence",
-    x_percent: 50,
-    y_percent: 50,
-    label_fr: lang === "fr" ? ev.name_fr : ev.name_en || ev.name_fr,
-    label_en: ev.name_en || ev.name_fr,
-    icon: ev.media_type === "image" ? "📸" : ev.media_type === "audio" ? "🎵" : ev.media_type === "video" ? "🎬" : "📄",
-    color: "#D4AF37",
-    evidence_id: ev.id,
-    invisible: false,
-    condition: null,
-    hotspot_order: 0,
-  };
-  setActiveHotspot(fakeHotspot);
-}}
+                          onClick={() => {
+                            setActiveEvidence(ev);
+                            const fakeHotspot: any = {
+                              id: `inventory_${ev.id}`,
+                              type: "evidence",
+                              x_percent: 50,
+                              y_percent: 50,
+                              label_fr: lang === "fr" ? ev.name_fr : ev.name_en || ev.name_fr,
+                              label_en: ev.name_en || ev.name_fr,
+                              icon: ev.media_type === "image" ? "📸" : ev.media_type === "audio" ? "🎵" : ev.media_type === "video" ? "🎬" : "📄",
+                              color: "#D4AF37",
+                              evidence_id: ev.id,
+                              invisible: false,
+                              condition: null,
+                              hotspot_order: 0,
+                            };
+                            setActiveHotspot(fakeHotspot);
+                          }}
                         >
                           {/* Badge "NOUVEAU" */}
                           {isRecentlyAdded && (
@@ -3883,8 +4651,8 @@ const getFilteredAndSortedEvidences = () => {
                       <div
                         key={member.user_id}
                         className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-[10px] ${isOnline
-                            ? "bg-green-500/10 border-green-500/20 text-green-300"
-                            : "bg-white/5 border-white/10 text-gray-500"
+                          ? "bg-green-500/10 border-green-500/20 text-green-300"
+                          : "bg-white/5 border-white/10 text-gray-500"
                           }`}
                       >
                         {/* Avatar */}
@@ -4007,8 +4775,8 @@ const getFilteredAndSortedEvidences = () => {
                             {/* Bulle de message */}
                             <div
                               className={`relative max-w-[85%] px-3 py-2 rounded-2xl text-xs ${isMyMessage
-                                  ? "bg-purple-600/30 text-white rounded-tr-none"
-                                  : "bg-white/5 text-gray-200 rounded-tl-none"
+                                ? "bg-purple-600/30 text-white rounded-tr-none"
+                                : "bg-white/5 text-gray-200 rounded-tl-none"
                                 }`}
                             >
                               {msg.content}
@@ -4016,8 +4784,8 @@ const getFilteredAndSortedEvidences = () => {
                               {/* Boutons d'action (survol desktop / toujours visible mobile) */}
                               <div
                                 className={`absolute top-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ${isMyMessage
-                                    ? "right-full mr-1"
-                                    : "left-full ml-1"
+                                  ? "right-full mr-1"
+                                  : "left-full ml-1"
                                   }`}
                               >
                                 {/* Répondre */}
@@ -4080,8 +4848,8 @@ const getFilteredAndSortedEvidences = () => {
                                             setShowEmojiPicker(null);
                                           }}
                                           className={`text-lg hover:scale-125 transition-transform p-1 rounded-lg ${hasReacted
-                                              ? "bg-purple-500/20"
-                                              : "hover:bg-white/10"
+                                            ? "bg-purple-500/20"
+                                            : "hover:bg-white/10"
                                             }`}
                                         >
                                           {emoji}
@@ -4136,8 +4904,8 @@ const getFilteredAndSortedEvidences = () => {
                                       addReaction(msg.id, reaction.emoji)
                                     }
                                     className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] border transition-all ${reaction.hasUserReacted
-                                        ? "bg-purple-500/20 border-purple-500/40 text-purple-300"
-                                        : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
+                                      ? "bg-purple-500/20 border-purple-500/40 text-purple-300"
+                                      : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
                                       }`}
                                   >
                                     <span>{reaction.emoji}</span>
@@ -4530,6 +5298,29 @@ const getFilteredAndSortedEvidences = () => {
         playerAvatarUrl={selectedCharacter?.avatar_url} // <-- AJOUT ICI : La photo de Ye Moko !
       />
 
+
+
+      {/* ✅ NOUVEAU : MODAL DIALOGUE INTERACTIF */}
+      {activeDialogueId && (
+        <DialoguePlayer
+          dialogueId={activeDialogueId}
+          investigationId={invId}
+          lang={lang}
+          preloadedData={allDialogues.find(d => d.id === activeDialogueId)}
+          unlockedEvidenceIds={session?.collected_evidences || []}
+          onClose={() => {
+            setActiveDialogueId(null);
+            setDialogueNodes([]);
+          }}
+          onUnlockEvidence={(evidenceId) => {
+            handleCollectEvidence(evidenceId);
+          }}
+          onTriggerEvent={(eventId) => {
+            triggerNarrativeEvent(eventId);
+          }}
+        />
+      )}
+
       {/* ── ÉCRAN DE FIN CONTEXTUALISÉE ── */}
       {showContextualEnding && (
         <ContextualEnding
@@ -4551,6 +5342,217 @@ const getFilteredAndSortedEvidences = () => {
           onReplay={handleReplay}
           onExit={() => router.push("/investigations")}
         />
+      )}
+
+
+
+
+      {/* ════════════════════════════════════════════════════
+          MODAL MINI-JEU ACTIF
+      ════════════════════════════════════════════════════ */}
+      {activeMiniGame && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
+        >
+          <motion.div
+            initial={{ scale: 0.9 }}
+            animate={{ scale: 1 }}
+            exit={{ scale: 0.9 }}
+            className="relative w-full max-w-2xl max-h-[90vh] bg-black border border-purple-500/30 rounded-2xl overflow-hidden flex flex-col"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 bg-purple-500/10 border-b border-purple-500/20">
+              <div>
+                <h2 className="text-lg font-bold text-white uppercase tracking-wider">
+                  {lang === "fr" ? activeMiniGame.title_fr : (activeMiniGame.title_en || activeMiniGame.title_fr)}
+                </h2>
+
+                <p className="text-xs text-gray-400 mt-1">
+                  💰 {activeMiniGame.reward_cauris || 10} Cauris
+                  {activeMiniGame.max_attempts > 0 &&
+                    ` • ${activeMiniGame.max_attempts} ${lang === "fr" ? "tentatives" : "attempts"}`}
+                </p>
+              </div>
+              <button
+                onClick={async () => {
+                  // ✅ SAUVEGARDER AVANT DE FERMER
+                  if (session?.id) {
+                    await supabase
+                      .from("investigation_sessions")
+                      .update({ current_cauris: budgetCauris })
+                      .eq("id", session.id);
+                  }
+                  setActiveMiniGame(null);
+                  setMiniGameSessionActive(null);
+                }}
+                className="p-1 text-gray-400 hover:text-white"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Contenu du mini-jeu */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-6">
+              {isMounted && (
+                <MiniGameRenderer
+                  miniGame={activeMiniGame}
+                  onComplete={async (score: number, caurisEarned: number) => {
+                    // ✅ VICTOIRE
+                    if (miniGameSessionActive) {
+                      await completeMiniGame(
+                        miniGameSessionActive.id,
+                        score,
+                        caurisEarned,
+                        0,
+                      );
+                    }
+
+                    const newBudget = budgetCauris + caurisEarned;
+                    setBudgetCauris(newBudget);
+                    setCaurisDelta(`+${caurisEarned}`);
+                    setTimeout(() => setCaurisDelta(null), 1200);
+
+                    const newCompletedGames = [...(session?.completed_mini_games || [])];
+                    if (!newCompletedGames.includes(activeMiniGame.id)) {
+                      newCompletedGames.push(activeMiniGame.id);
+                    }
+
+                    if (session) {
+                      session.completed_mini_games = newCompletedGames;
+                      session.current_cauris = newBudget;
+                    }
+
+                    // ✅ SAUVEGARDER EN BDD
+                    await supabase
+                      .from("investigation_sessions")
+                      .update({
+                        current_cauris: newBudget,
+                        completed_mini_games: newCompletedGames
+                      })
+                      .eq("id", session?.id);
+
+                    setActiveMilestone({
+                      fr: `✅ Mini-jeu réussi ! +${caurisEarned} Cauris`,
+                      en: `✅ Mini-game completed! +${caurisEarned} Cauris`,
+                    });
+                    setTimeout(() => setActiveMilestone(null), 3000);
+
+                    if (activeMiniGame.trigger_event_on_success_id) {
+                      triggerNarrativeEvent(
+                        activeMiniGame.trigger_event_on_success_id,
+                      );
+                    }
+
+                    if (activeMiniGame.success_target_scene_id) {
+                      const newSceneIdx = currentChapter?.scenes?.findIndex(
+                        (s) => s.id === activeMiniGame.success_target_scene_id,
+                      );
+                      if (newSceneIdx !== undefined && newSceneIdx !== -1) {
+                        setCurrentSceneIndex(newSceneIdx);
+                      }
+                    } else if (activeMiniGame.success_target_chapter_id) {
+                      const newChapIdx = chapters.findIndex(
+                        (c) => c.id === activeMiniGame.success_target_chapter_id,
+                      );
+                      if (newChapIdx !== -1) {
+                        setCurrentChapterIndex(newChapIdx);
+                        setCurrentSceneIndex(0);
+                      }
+                    }
+
+                    setTimeout(() => {
+                      setActiveMiniGame(null);
+                      setMiniGameSessionActive(null);
+                    }, 2000);
+                  }}
+                  onFail={async (caurisLost: number) => {
+                    // ❌ ÉCHEC
+                    const newBudget = Math.max(0, budgetCauris - caurisLost);
+                    setBudgetCauris(newBudget);
+                    setCaurisDelta(`-${caurisLost}`);
+                    setTimeout(() => setCaurisDelta(null), 1200);
+
+                    // ✅ SAUVEGARDER EN BDD
+                    await supabase
+                      .from("investigation_sessions")
+                      .update({ current_cauris: newBudget })
+                      .eq("id", session?.id);
+
+                    if (activeMiniGame.trigger_event_on_failure_id) {
+                      triggerNarrativeEvent(
+                        activeMiniGame.trigger_event_on_failure_id,
+                      );
+                    }
+
+                    if (activeMiniGame.failure_target_scene_id) {
+                      const newSceneIdx = currentChapter?.scenes?.findIndex(
+                        (s) => s.id === activeMiniGame.failure_target_scene_id,
+                      );
+                      if (newSceneIdx !== undefined && newSceneIdx !== -1) {
+                        setCurrentSceneIndex(newSceneIdx);
+                      }
+                    } else if (activeMiniGame.failure_target_chapter_id) {
+                      const newChapIdx = chapters.findIndex(
+                        (c) => c.id === activeMiniGame.failure_target_chapter_id,
+                      );
+                      if (newChapIdx !== -1) {
+                        setCurrentChapterIndex(newChapIdx);
+                        setCurrentSceneIndex(0);
+                      }
+                    }
+
+                    if (newBudget <= 0) {
+                      setShowContextualEnding({
+                        title:
+                          lang === "fr" ? "FAILLITE" : "BANKRUPTCY",
+                        message:
+                          lang === "fr"
+                            ? "Vos réserves de Cauris sont épuisées."
+                            : "Your Cauris reserves are empty.",
+                        type: "abandon",
+                      });
+                      setTimeout(() => {
+                        setActiveMiniGame(null);
+                        setMiniGameSessionActive(null);
+                      }, 2000);
+                    }
+                  }}
+                  onClose={async () => {
+                    // ✅ SAUVEGARDER AVANT DE FERMER
+                    if (session?.id) {
+                      await supabase
+                        .from("investigation_sessions")
+                        .update({ current_cauris: budgetCauris })
+                        .eq("id", session.id);
+                    }
+                    setActiveMiniGame(null);
+                    setMiniGameSessionActive(null);
+                  }}
+                  onProgressUpdate={async (newBudget: number, caurisLost: number) => {
+                    // ✅ MISE À JOUR EN TEMPS RÉEL
+                    setBudgetCauris(newBudget);
+
+                    // Sauvegarder en BDD aussi
+                    await supabase
+                      .from("investigation_sessions")
+                      .update({ current_cauris: newBudget })
+                      .eq("id", session?.id)
+                      .then(({ error }) => {
+                        if (error) console.error("Erreur sauvegarde Cauris:", error);
+                      });
+                  }}
+                  budgetCauris={budgetCauris}
+                  lang={lang}
+                  sessionId={session?.id || ""}
+                  userId={user?.id || ""}
+                />
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
       )}
 
       {/* ════════════════════════════════════════════════════
@@ -4612,8 +5614,8 @@ const getFilteredAndSortedEvidences = () => {
                   onKeyDown={(e) => e.key === "Enter" && handleJoinGroup()}
                   placeholder="LUKENI-XXXXXX"
                   className={`w-full bg-black/50 border rounded-xl px-4 py-3 text-center font-mono font-black text-xl text-white outline-none tracking-[0.3em] transition-colors ${joinError
-                      ? "border-red-500/50 focus:border-red-500"
-                      : "border-purple-500/30 focus:border-purple-500"
+                    ? "border-red-500/50 focus:border-red-500"
+                    : "border-purple-500/30 focus:border-purple-500"
                     }`}
                   maxLength={13}
                   autoFocus
@@ -4756,14 +5758,14 @@ const getFilteredAndSortedEvidences = () => {
                   <div
                     key={step.pct}
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${saveProgress >= step.pct
-                        ? "bg-[#D4AF37]/20 border-[#D4AF37]/50 text-[#D4AF37]"
-                        : "bg-white/5 border-white/10 text-gray-600"
+                      ? "bg-[#D4AF37]/20 border-[#D4AF37]/50 text-[#D4AF37]"
+                      : "bg-white/5 border-white/10 text-gray-600"
                       }`}
                   >
                     <div
                       className={`w-3 h-3 rounded-full transition-all ${saveProgress >= step.pct
-                          ? "bg-[#D4AF37] shadow-[0_0_6px_rgba(212,175,55,0.6)]"
-                          : "bg-gray-600"
+                        ? "bg-[#D4AF37] shadow-[0_0_6px_rgba(212,175,55,0.6)]"
+                        : "bg-gray-600"
                         }`}
                     />
                     <span className="font-mono">{step.label}</span>
@@ -4800,6 +5802,9 @@ const getFilteredAndSortedEvidences = () => {
         )}
       </AnimatePresence>
 
+
+
+
       {/* ── MODALE DE VISUALISATION DES PREUVES ── */}
       <EvidenceModal
         hotspot={activeHotspot}
@@ -4815,6 +5820,7 @@ const getFilteredAndSortedEvidences = () => {
 
         onNavigate={handleNavigateEvidence}
       />
-    </div>
+
+    </div >
   );
 }

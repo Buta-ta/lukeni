@@ -11,7 +11,9 @@ export type HotspotType =
   | 'locked'
   | 'character'
   | 'ending'
-  | 'dialogue_bubble';
+  | 'dialogue_bubble'
+  | 'dialogue';
+
 
 export const HOTSPOT_ICONS_PRESET = [
   { value: '🔍', label: 'Loupe' }, { value: '🔎', label: 'Loupe zoom' },
@@ -111,6 +113,7 @@ export interface Hotspot {
   dialogue_typewriter_speed?: number;
   dialogue_style?: string;
   dialogue_size?: 'small' | 'medium' | 'large';
+  dialogue_id?: string;
 }
 
 
@@ -247,6 +250,7 @@ export const HOTSPOT_CONFIG: Record<HotspotType, { icon: string; color: string; 
   character: { icon: '👤', color: '#14b8a6', label_fr: 'Personnage', label_en: 'Character' },
   ending: { icon: '🏁', color: '#ec4899', label_fr: 'Fin', label_en: 'Ending' },
   dialogue_bubble: { icon: '💬', color: '#f97316', label_fr: 'Dialogue', label_en: 'Dialogue' },
+  dialogue: { icon: '🗨️', color: '#a855f7', label_fr: 'Dialogue Interactif', label_en: 'Interactive Dialogue' },
 };
 
 
