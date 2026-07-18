@@ -3,32 +3,15 @@ import { createClient } from '@supabase/supabase-js';
 
 export async function POST(req: Request) {
   try {
-    // 1️⃣ Vérification anti-crash des variables d'environnement
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const secretKey = process.env.FEDAPAY_SECRET_KEY;
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
-    if (!supabaseUrl || !supabaseKey) {
-      return NextResponse.json({ success: false, error: 'Clés Supabase manquantes dans Vercel.' });
-    }
-    if (!secretKey) {
-      return NextResponse.json({ success: false, error: 'Clé FEDAPAY_SECRET_KEY manquante dans Vercel.' });
-    }
-
-    const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
-
-    // 2️⃣ Lecture sécurisée des données envoyées par le modal
     const bodyText = await req.text();
-    if (!bodyText) return NextResponse.json({ success: false, error: 'La requête envoyée est vide.' });
-    
     const body = JSON.parse(bodyText);
-    const { productType, productId, userId, userEmail } = body; 
+    const { productType, productId, currency, userId, userEmail } = body; 
 
-    if (!productType || !productId || !userId) {
-      return NextResponse.json({ success: false, error: 'Paramètres manquants depuis le frontend.' });
-    }
-
-    // 3️⃣ Vérification du produit
     const { data: pricing, error: pricingError } = await supabaseAdmin
       .from('product_pricing')
       .select('*')
@@ -40,19 +23,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Produit introuvable dans la base de données.' });
     }
 
-    // 4️⃣ Montant forcé en XOF (CFA) pour éviter les bugs FedaPay
+    // Toujours en XOF pour la compatibilité avec ton compte FedaPay
     const finalAmount = pricing.price_xof_cfa;
     const finalCurrency = 'XOF';
-    
-    if (!finalAmount || isNaN(finalAmount)) {
-      return NextResponse.json({ success: false, error: `Prix XOF invalide dans la BDD: ${finalAmount}` });
-    }
-
     const description = productType === 'investigation' ? `Investigation - ${productId}` : `Livre - ${productId}`;
+    
+    const secretKey = process.env.FEDAPAY_SECRET_KEY || '';
     const isLive = secretKey.startsWith('sk_live');
     const fedapayBaseUrl = isLive ? 'https://api.fedapay.com/v1' : 'https://sandbox-api.fedapay.com/v1';
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}` || 'https://lukeni.vercel.app';
-    
+
     // -----------------------------------------------------
     // ÉTAPE 1 : CRÉER LA TRANSACTION FEDAPAY
     // -----------------------------------------------------
@@ -70,28 +50,23 @@ export async function POST(req: Request) {
       headers: {
         'Authorization': `Bearer ${secretKey}`,
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
       },
       body: JSON.stringify(fedapayPayload),
     });
 
-    const createText = await createRes.text();
-    let createData;
-    try { 
-      createData = JSON.parse(createText); 
-    } catch (e) { 
-      return NextResponse.json({ success: false, error: `Crash API FedaPay (Étape 1) : ${createText}` }); 
-    }
+    const createData = await createRes.json();
 
     if (!createRes.ok) {
-      return NextResponse.json({ success: false, error: `Refus FedaPay : ${createData.message || JSON.stringify(createData)}` });
+      return NextResponse.json({ success: false, error: `Refus FedaPay : ${createData.message || 'Erreur inconnue'}` });
     }
 
-    const transaction = createData.v1?.transaction || createData.transaction || createData;
-    const transactionId = transaction?.id;
+    // 💥 EXTRACTION BLINDÉE DE L'ID (Peu importe l'architecture de la réponse)
+    const transactionId = createData?.v1?.transaction?.id 
+                       || createData?.transaction?.id 
+                       || createData?.id;
 
     if (!transactionId) {
-      return NextResponse.json({ success: false, error: `Impossible d'extraire l'ID. Réponse API: ${JSON.stringify(createData)}` });
+      return NextResponse.json({ success: false, error: `Impossible de trouver l'ID dans la réponse FedaPay: ${JSON.stringify(createData)}` });
     }
 
     // -----------------------------------------------------
@@ -102,31 +77,25 @@ export async function POST(req: Request) {
       headers: {
         'Authorization': `Bearer ${secretKey}`,
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
       },
-      body: JSON.stringify({}) // Requis par FedaPay pour les requêtes POST
+      body: JSON.stringify({})
     });
 
-    const tokenText = await tokenRes.text();
-    let tokenData;
-    try { 
-      tokenData = JSON.parse(tokenText); 
-    } catch (e) { 
-      return NextResponse.json({ success: false, error: `Crash API FedaPay (Étape 2 Token) : ${tokenText}` }); 
-    }
+    const tokenData = await tokenRes.json();
 
     if (!tokenRes.ok) {
-      return NextResponse.json({ success: false, error: `Refus Token FedaPay : ${tokenData.message || JSON.stringify(tokenData)}` });
+      return NextResponse.json({ success: false, error: `Refus Token FedaPay : ${tokenData.message || 'Erreur inconnue'}` });
     }
 
-    const transactionToken = tokenData.v1?.token || tokenData.token;
+    // 💥 EXTRACTION BLINDÉE DU TOKEN
+    const transactionToken = tokenData?.v1?.token || tokenData?.token || tokenData?.id;
 
     if (!transactionToken) {
-      return NextResponse.json({ success: false, error: `Token introuvable. Réponse API: ${JSON.stringify(tokenData)}` });
+      return NextResponse.json({ success: false, error: `Impossible de trouver le Token dans la réponse FedaPay: ${JSON.stringify(tokenData)}` });
     }
 
     // -----------------------------------------------------
-    // ÉTAPE 3 : SAUVEGARDE BDD ET ENVOI AU FRONTEND
+    // ÉTAPE 3 : SAUVEGARDE ET ENVOI AU FRONTEND
     // -----------------------------------------------------
     await supabaseAdmin.from('fedapay_transactions').insert({
       user_id: userId,
@@ -145,7 +114,6 @@ export async function POST(req: Request) {
     });
 
   } catch (err: any) {
-    // Dernier rempart : capture toute erreur inattendue
-    return NextResponse.json({ success: false, error: `Erreur interne du serveur : ${err.message}` });
+    return NextResponse.json({ success: false, error: `Erreur interne : ${err.message}` });
   }
 }
