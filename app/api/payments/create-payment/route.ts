@@ -23,7 +23,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Produit introuvable dans la base de données.' });
     }
 
-    // Toujours en XOF pour la compatibilité avec ton compte FedaPay
     const finalAmount = pricing.price_xof_cfa;
     const finalCurrency = 'XOF';
     const description = productType === 'investigation' ? `Investigation - ${productId}` : `Livre - ${productId}`;
@@ -57,16 +56,16 @@ export async function POST(req: Request) {
     const createData = await createRes.json();
 
     if (!createRes.ok) {
-      return NextResponse.json({ success: false, error: `Refus FedaPay : ${createData.message || 'Erreur inconnue'}` });
+      return NextResponse.json({ success: false, error: `Refus FedaPay : ${JSON.stringify(createData)}` });
     }
 
-    // 💥 EXTRACTION BLINDÉE DE L'ID (Peu importe l'architecture de la réponse)
-    const transactionId = createData?.v1?.transaction?.id 
+    // 💥 CORRECTION DE L'EXTRACTION DE L'ID (Gestion du format tordu de FedaPay)
+    const transactionId = createData?.['v1/transaction']?.id 
                        || createData?.transaction?.id 
                        || createData?.id;
 
     if (!transactionId) {
-      return NextResponse.json({ success: false, error: `Impossible de trouver l'ID dans la réponse FedaPay: ${JSON.stringify(createData)}` });
+      return NextResponse.json({ success: false, error: `Impossible de trouver l'ID. Format reçu: ${JSON.stringify(createData)}` });
     }
 
     // -----------------------------------------------------
@@ -78,20 +77,23 @@ export async function POST(req: Request) {
         'Authorization': `Bearer ${secretKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({})
+      body: JSON.stringify({}) // Requis par FedaPay
     });
 
     const tokenData = await tokenRes.json();
 
     if (!tokenRes.ok) {
-      return NextResponse.json({ success: false, error: `Refus Token FedaPay : ${tokenData.message || 'Erreur inconnue'}` });
+      return NextResponse.json({ success: false, error: `Refus Token FedaPay : ${JSON.stringify(tokenData)}` });
     }
 
-    // 💥 EXTRACTION BLINDÉE DU TOKEN
-    const transactionToken = tokenData?.v1?.token || tokenData?.token || tokenData?.id;
+    // 💥 CORRECTION DE L'EXTRACTION DU TOKEN (Gestion du format tordu)
+    const transactionToken = tokenData?.['v1/token']?.token 
+                          || tokenData?.['v1/token'] 
+                          || tokenData?.token 
+                          || tokenData?.id;
 
     if (!transactionToken) {
-      return NextResponse.json({ success: false, error: `Impossible de trouver le Token dans la réponse FedaPay: ${JSON.stringify(tokenData)}` });
+      return NextResponse.json({ success: false, error: `Impossible de trouver le Token. Format reçu: ${JSON.stringify(tokenData)}` });
     }
 
     // -----------------------------------------------------
@@ -110,7 +112,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      transactionToken: transactionToken,
+      transactionToken: transactionToken, // On envoie enfin le bon Token !
     });
 
   } catch (err: any) {
