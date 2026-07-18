@@ -1,23 +1,34 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 export async function POST(req: Request) {
   try {
-    const bodyText = await req.text();
-    if (!bodyText) return NextResponse.json({ error: 'Body is empty' }, { status: 400 });
-    const body = JSON.parse(bodyText);
+    // 1️⃣ Vérification anti-crash des variables d'environnement
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const secretKey = process.env.FEDAPAY_SECRET_KEY;
 
-    const { productType, productId, currency, userId, userEmail } = body; 
-
-    if (!productType || !productId || !userId) {
-      return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
+    if (!supabaseUrl || !supabaseKey) {
+      return NextResponse.json({ success: false, error: 'Clés Supabase manquantes dans Vercel.' });
+    }
+    if (!secretKey) {
+      return NextResponse.json({ success: false, error: 'Clé FEDAPAY_SECRET_KEY manquante dans Vercel.' });
     }
 
+    const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
+
+    // 2️⃣ Lecture sécurisée des données envoyées par le modal
+    const bodyText = await req.text();
+    if (!bodyText) return NextResponse.json({ success: false, error: 'La requête envoyée est vide.' });
+    
+    const body = JSON.parse(bodyText);
+    const { productType, productId, userId, userEmail } = body; 
+
+    if (!productType || !productId || !userId) {
+      return NextResponse.json({ success: false, error: 'Paramètres manquants depuis le frontend.' });
+    }
+
+    // 3️⃣ Vérification du produit
     const { data: pricing, error: pricingError } = await supabaseAdmin
       .from('product_pricing')
       .select('*')
@@ -26,25 +37,24 @@ export async function POST(req: Request) {
       .single();
 
     if (pricingError || !pricing) {
-      return NextResponse.json({ error: 'Product not found in DB' }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'Produit introuvable dans la base de données.' });
     }
 
-    // Toujours en XOF pour éviter l'erreur FedaPay
+    // 4️⃣ Montant forcé en XOF (CFA) pour éviter les bugs FedaPay
     const finalAmount = pricing.price_xof_cfa;
     const finalCurrency = 'XOF';
-    const description = productType === 'investigation' ? `Investigation - ${productId}` : `Livre - ${productId}`;
-
-    const secretKey = process.env.FEDAPAY_SECRET_KEY || '';
-    if (!secretKey) {
-       return NextResponse.json({ error: 'FEDAPAY_SECRET_KEY is missing' }, { status: 500 });
+    
+    if (!finalAmount || isNaN(finalAmount)) {
+      return NextResponse.json({ success: false, error: `Prix XOF invalide dans la BDD: ${finalAmount}` });
     }
 
+    const description = productType === 'investigation' ? `Investigation - ${productId}` : `Livre - ${productId}`;
     const isLive = secretKey.startsWith('sk_live');
     const fedapayBaseUrl = isLive ? 'https://api.fedapay.com/v1' : 'https://sandbox-api.fedapay.com/v1';
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}` || 'https://lukeni.vercel.app';
     
     // -----------------------------------------------------
-    // ÉTAPE 1 : CRÉER LA TRANSACTION
+    // ÉTAPE 1 : CRÉER LA TRANSACTION FEDAPAY
     // -----------------------------------------------------
     const fedapayPayload = {
       description,
@@ -55,7 +65,7 @@ export async function POST(req: Request) {
       metadata: { userId, productType, productId }
     };
 
-    const fedapayResponse = await fetch(`${fedapayBaseUrl}/transactions`, {
+    const createRes = await fetch(`${fedapayBaseUrl}/transactions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${secretKey}`,
@@ -65,40 +75,54 @@ export async function POST(req: Request) {
       body: JSON.stringify(fedapayPayload),
     });
 
-    const fedapayData = await fedapayResponse.json();
-
-    if (!fedapayResponse.ok) {
-      const errorMessage = fedapayData.message || JSON.stringify(fedapayData);
-      return NextResponse.json({ error: `FedaPay a refusé : ${errorMessage}` }, { status: 400 });
+    const createText = await createRes.text();
+    let createData;
+    try { 
+      createData = JSON.parse(createText); 
+    } catch (e) { 
+      return NextResponse.json({ success: false, error: `Crash API FedaPay (Étape 1) : ${createText}` }); 
     }
 
-    // Récupération de l'ID de la transaction
-    const transaction = fedapayData.v1?.transaction || fedapayData.transaction || fedapayData;
+    if (!createRes.ok) {
+      return NextResponse.json({ success: false, error: `Refus FedaPay : ${createData.message || JSON.stringify(createData)}` });
+    }
+
+    const transaction = createData.v1?.transaction || createData.transaction || createData;
     const transactionId = transaction?.id;
 
     if (!transactionId) {
-      return NextResponse.json({ error: `Impossible de récupérer l'ID. Réponse API: ${JSON.stringify(fedapayData)}` }, { status: 500 });
+      return NextResponse.json({ success: false, error: `Impossible d'extraire l'ID. Réponse API: ${JSON.stringify(createData)}` });
     }
 
     // -----------------------------------------------------
-    // ÉTAPE 2 : GÉNÉRER LE TOKEN DE PAIEMENT POUR LA REDIRECTION
+    // ÉTAPE 2 : GÉNÉRER LE TOKEN DE PAIEMENT
     // -----------------------------------------------------
-    const tokenResponse = await fetch(`${fedapayBaseUrl}/transactions/${transactionId}/token`, {
+    const tokenRes = await fetch(`${fedapayBaseUrl}/transactions/${transactionId}/token`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${secretKey}`,
         'Content-Type': 'application/json',
         'Accept': 'application/json'
-      }
+      },
+      body: JSON.stringify({}) // Requis par FedaPay pour les requêtes POST
     });
 
-    const tokenData = await tokenResponse.json();
-    
-    // Récupération du fameux Token !
+    const tokenText = await tokenRes.text();
+    let tokenData;
+    try { 
+      tokenData = JSON.parse(tokenText); 
+    } catch (e) { 
+      return NextResponse.json({ success: false, error: `Crash API FedaPay (Étape 2 Token) : ${tokenText}` }); 
+    }
+
+    if (!tokenRes.ok) {
+      return NextResponse.json({ success: false, error: `Refus Token FedaPay : ${tokenData.message || JSON.stringify(tokenData)}` });
+    }
+
     const transactionToken = tokenData.v1?.token || tokenData.token;
 
     if (!transactionToken) {
-       return NextResponse.json({ error: `Impossible de générer le Token. Réponse API: ${JSON.stringify(tokenData)}` }, { status: 500 });
+      return NextResponse.json({ success: false, error: `Token introuvable. Réponse API: ${JSON.stringify(tokenData)}` });
     }
 
     // -----------------------------------------------------
@@ -115,13 +139,13 @@ export async function POST(req: Request) {
       description,
     });
 
-    // On renvoie le bon Token au composant PaywallModal.tsx !
     return NextResponse.json({
       success: true,
       transactionToken: transactionToken,
     });
 
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    // Dernier rempart : capture toute erreur inattendue
+    return NextResponse.json({ success: false, error: `Erreur interne du serveur : ${err.message}` });
   }
 }
