@@ -38,7 +38,8 @@ export async function POST(req: Request) {
       amount: finalAmount,
       currency: { iso: finalCurrency }, 
       customer: { email: userEmail || 'joueur@lukeni.com' },
-      callback_url: `${appUrl}/api/webhooks/fedapay`,
+      // 💥 ON AJOUTE LE PRODUCT_ID DANS L'URL DE RETOUR ICI :
+      callback_url: `${appUrl}/api/webhooks/fedapay?product_id=${productId}`,
       metadata: { userId, productType, productId }
     };
 
@@ -63,7 +64,6 @@ export async function POST(req: Request) {
     const tokenData = await tokenRes.json();
     const transactionToken = tokenData?.['v1/token']?.token || tokenData?.token;
     
-    // 💥 LA MAGIE EST ICI : On récupère l'URL exacte générée par FedaPay
     const paymentUrl = tokenData?.['v1/token']?.url || tokenData?.url;
 
     if (!transactionToken || !paymentUrl) {
@@ -85,7 +85,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       transactionToken: transactionToken,
-      paymentUrl: paymentUrl, // 👈 On envoie l'URL officielle au frontend !
+      paymentUrl: paymentUrl,
     });
 
   } catch (err: any) {

@@ -1,10 +1,40 @@
-// app/api/webhooks/fedapay/route.ts
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase'; // Attention : l'idéal ici est d'utiliser le supabase-admin avec la SERVICE_ROLE_KEY
+import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 
+// ----------------------------------------------------------------------
+// 🚦 GET : GESTION DES REDIRECTIONS (Quand le joueur quitte FedaPay)
+// ----------------------------------------------------------------------
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const close = searchParams.get('close'); // Renvoi par FedaPay si le joueur ferme la fenêtre
+  const productId = searchParams.get('product_id');
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}` || 'https://lukeni.vercel.app';
+
+  // Si on n'a pas l'ID du produit, on redirige vers l'accueil des enquêtes par défaut
+  if (!productId) {
+    return NextResponse.redirect(`${appUrl}/investigations`);
+  }
+
+  // Que le joueur ait cliqué sur "Annuler (X)" ou qu'il ait terminé son paiement,
+  // on le renvoie proprement sur la page du jeu.
+  // S'il a payé, la page détectera son accès et se débloquera.
+  // S'il a annulé, le Paywall s'affichera à nouveau.
+  return NextResponse.redirect(`${appUrl}/investigations/${productId}`);
+}
+
+
+// ----------------------------------------------------------------------
+// 🔒 POST : VALIDATION SILENCIEUSE DES PAIEMENTS (Envoyé par le serveur FedaPay)
+// ----------------------------------------------------------------------
 export async function POST(req: Request) {
   try {
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
     // 1️⃣ Récupérer le texte brut pour la signature
     const bodyText = await req.text();
     const signature = req.headers.get('x-fedapay-signature');
@@ -13,7 +43,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No signature' }, { status: 401 });
     }
 
-    // 2️⃣ Vérifier la signature
+    // 2️⃣ Vérifier la signature FedaPay
     const computedSignature = crypto
       .createHmac('sha256', process.env.FEDAPAY_SECRET_KEY!)
       .update(bodyText)
@@ -24,7 +54,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
-    // 3️⃣ Parser le JSON (Fedapay envoie l'objet dans "entity")
+    // 3️⃣ Parser les données
     const body = JSON.parse(bodyText);
     const transaction = body.entity; 
 
@@ -33,7 +63,7 @@ export async function POST(req: Request) {
     }
 
     // 4️⃣ Récupérer la transaction en BDD
-    const { data: dbTransaction, error: fetchError } = await supabase
+    const { data: dbTransaction, error: fetchError } = await supabaseAdmin
       .from('fedapay_transactions')
       .select('*')
       .eq('fedapay_transaction_id', transaction.id)
@@ -43,12 +73,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Transaction not found in db' }, { status: 404 });
     }
 
-    // 5️⃣ Gérer les statuts Fedapay (approved, declined, etc.)
-    // Note: FedaPay utilise "approved", "canceled", "declined"
+    // 5️⃣ Mettre à jour l'accès selon le statut du paiement
     if (transaction.status === 'approved' || transaction.status === 'completed') {
       
-      // Maj transaction
-      await supabase
+      // Valider la transaction
+      await supabaseAdmin
         .from('fedapay_transactions')
         .update({
           status: 'completed',
@@ -57,8 +86,8 @@ export async function POST(req: Request) {
         })
         .eq('fedapay_transaction_id', transaction.id);
 
-      // Créer l'accès
-      await supabase
+      // 🔓 Débloquer l'accès définitif au jeu !
+      await supabaseAdmin
         .from('user_access')
         .insert({
           user_id: dbTransaction.user_id,
@@ -72,7 +101,8 @@ export async function POST(req: Request) {
         });
 
     } else if (transaction.status === 'canceled' || transaction.status === 'declined') {
-      await supabase
+      // Marquer comme échoué
+      await supabaseAdmin
         .from('fedapay_transactions')
         .update({ status: 'failed', completed_at: new Date().toISOString() })
         .eq('fedapay_transaction_id', transaction.id);
