@@ -75,6 +75,7 @@ export default function PaywallModal({
     : `${amount.toFixed(2)} €`;
 
   // 2️⃣ Lancement du paiement
+  // 2️⃣ Lancement du paiement
   const handlePayment = async () => {
     setIsProcessing(true);
 
@@ -107,14 +108,13 @@ export default function PaywallModal({
         return;
       }
 
-      // ✅ REDIRECTION VERS LA PAGE SÉCURISÉE DE FEDAPAY (Zéro bug de widget)
-      const publicKey = process.env.NEXT_PUBLIC_FEDAPAY_PUBLIC_KEY || '';
-      const isLive = !publicKey.includes('sandbox');
-      const checkoutBaseUrl = isLive 
-        ? 'https://checkout.fedapay.com/pay/' 
-        : 'https://sandbox-checkout.fedapay.com/pay/';
-      
-      window.location.href = checkoutBaseUrl + data.transactionToken;
+      // ✅ REDIRECTION DIRECTE VERS L'URL FOURNIE PAR FEDAPAY
+      if (data.paymentUrl) {
+        window.location.href = data.paymentUrl;
+      } else {
+        alert("Erreur: URL de paiement introuvable.");
+        setIsProcessing(false);
+      }
 
     } catch (err) {
       console.error('Payment error:', err);

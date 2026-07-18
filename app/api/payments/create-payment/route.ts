@@ -20,7 +20,7 @@ export async function POST(req: Request) {
       .single();
 
     if (pricingError || !pricing) {
-      return NextResponse.json({ success: false, error: 'Produit introuvable dans la base de données.' });
+      return NextResponse.json({ success: false, error: 'Produit introuvable dans la BDD.' });
     }
 
     const finalAmount = pricing.price_xof_cfa;
@@ -32,9 +32,7 @@ export async function POST(req: Request) {
     const fedapayBaseUrl = isLive ? 'https://api.fedapay.com/v1' : 'https://sandbox-api.fedapay.com/v1';
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}` || 'https://lukeni.vercel.app';
 
-    // -----------------------------------------------------
-    // ÉTAPE 1 : CRÉER LA TRANSACTION FEDAPAY
-    // -----------------------------------------------------
+    // --- ÉTAPE 1 : CRÉATION ---
     const fedapayPayload = {
       description,
       amount: finalAmount,
@@ -46,59 +44,33 @@ export async function POST(req: Request) {
 
     const createRes = await fetch(`${fedapayBaseUrl}/transactions`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${secretKey}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Authorization': `Bearer ${secretKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(fedapayPayload),
     });
 
     const createData = await createRes.json();
+    const transactionId = createData?.['v1/transaction']?.id || createData?.transaction?.id || createData?.id;
 
-    if (!createRes.ok) {
-      return NextResponse.json({ success: false, error: `Refus FedaPay : ${JSON.stringify(createData)}` });
-    }
+    if (!transactionId) return NextResponse.json({ success: false, error: `ID introuvable.` });
 
-    // 💥 CORRECTION DE L'EXTRACTION DE L'ID (Gestion du format tordu de FedaPay)
-    const transactionId = createData?.['v1/transaction']?.id 
-                       || createData?.transaction?.id 
-                       || createData?.id;
-
-    if (!transactionId) {
-      return NextResponse.json({ success: false, error: `Impossible de trouver l'ID. Format reçu: ${JSON.stringify(createData)}` });
-    }
-
-    // -----------------------------------------------------
-    // ÉTAPE 2 : GÉNÉRER LE TOKEN DE PAIEMENT
-    // -----------------------------------------------------
+    // --- ÉTAPE 2 : TOKEN ET URL ---
     const tokenRes = await fetch(`${fedapayBaseUrl}/transactions/${transactionId}/token`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${secretKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({}) // Requis par FedaPay
+      headers: { 'Authorization': `Bearer ${secretKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
     });
 
     const tokenData = await tokenRes.json();
+    const transactionToken = tokenData?.['v1/token']?.token || tokenData?.token;
+    
+    // 💥 LA MAGIE EST ICI : On récupère l'URL exacte générée par FedaPay
+    const paymentUrl = tokenData?.['v1/token']?.url || tokenData?.url;
 
-    if (!tokenRes.ok) {
-      return NextResponse.json({ success: false, error: `Refus Token FedaPay : ${JSON.stringify(tokenData)}` });
+    if (!transactionToken || !paymentUrl) {
+      return NextResponse.json({ success: false, error: `URL de paiement introuvable.` });
     }
 
-    // 💥 CORRECTION DE L'EXTRACTION DU TOKEN (Gestion du format tordu)
-    const transactionToken = tokenData?.['v1/token']?.token 
-                          || tokenData?.['v1/token'] 
-                          || tokenData?.token 
-                          || tokenData?.id;
-
-    if (!transactionToken) {
-      return NextResponse.json({ success: false, error: `Impossible de trouver le Token. Format reçu: ${JSON.stringify(tokenData)}` });
-    }
-
-    // -----------------------------------------------------
-    // ÉTAPE 3 : SAUVEGARDE ET ENVOI AU FRONTEND
-    // -----------------------------------------------------
+    // --- ÉTAPE 3 : BDD ---
     await supabaseAdmin.from('fedapay_transactions').insert({
       user_id: userId,
       fedapay_transaction_id: transactionId,
@@ -112,7 +84,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      transactionToken: transactionToken, // On envoie enfin le bon Token !
+      transactionToken: transactionToken,
+      paymentUrl: paymentUrl, // 👈 On envoie l'URL officielle au frontend !
     });
 
   } catch (err: any) {
