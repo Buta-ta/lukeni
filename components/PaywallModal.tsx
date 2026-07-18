@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Loader2, X, Lock } from 'lucide-react';
-import { supabase } from '@/lib/supabase-browser'; // ✅ AJOUT DE SUPABASE
+import { motion, AnimatePresence } from 'framer-motion';
+import { Loader2, X, Lock, ShieldCheck, Clock } from 'lucide-react';
+import { supabase } from '@/lib/supabase-browser';
 
 interface PaywallModalProps {
   isOpen: boolean;
@@ -19,49 +19,37 @@ interface PaywallModalProps {
   onTrialStart?: () => void;
 }
 
+// ⚠️ Pour TypeScript : On déclare que window.FedaPay va exister
+declare global {
+  interface Window {
+    FedaPay: any;
+  }
+}
+
 const translations = {
   fr: {
-    unlockAccess: 'Débloquer l\'accès',
-    amountXOF: 'Montant CFA',
-    amountEUR: 'Montant EUR',
-    basedOnLocation: 'Basé sur votre localisation :',
-    mobileMoney: 'Mobile Money (Afrique)',
-    orangeMoney: 'Orange Money',
-    mtnMoney: 'MTN Money',
-    moovMoney: 'Moov Money',
-    otherMethod: 'Autre moyen',
-    bankCard: 'Carte Bancaire',
-    pay: 'Payer',
-    or: 'ou',
-    freeTrial: 'Essai gratuit 30 min',
-    retryIn24h: 'Essai renouvelable dans 24h après expiration',
-    securedBy: 'Sécurisé par',
-    bankDataProtected: 'Vos données bancaires sont protégées',
-    exchangeRate: 'Le taux utilisé : 1 EUR = 655 XOF (mis à jour quotidiennement)',
-    updateDaily: '(mis à jour quotidiennement)',
-    processing: 'Traitement...',
+    unlockAccess: 'Déverrouiller l\'accès',
+    amountXOF: 'Prix en CFA',
+    amountEUR: 'Prix en EUR',
+    basedOnLocation: 'Basé sur votre zone :',
+    paySecurely: 'Payer de manière sécurisée',
+    or: 'OU',
+    freeTrial: 'Essai gratuit (30 min)',
+    retryIn24h: 'L\'essai se renouvelle 24h après expiration',
+    securedBy: 'Paiement crypté et sécurisé par FedaPay',
+    processing: 'Création de la transaction...',
   },
   en: {
-    // ... tes traductions
     unlockAccess: 'Unlock Access',
-    amountXOF: 'CFA Amount',
-    amountEUR: 'EUR Amount',
-    basedOnLocation: 'Based on your location:',
-    mobileMoney: 'Mobile Money (Africa)',
-    orangeMoney: 'Orange Money',
-    mtnMoney: 'MTN Money',
-    moovMoney: 'Moov Money',
-    otherMethod: 'Other method',
-    bankCard: 'Bank Card',
-    pay: 'Pay',
-    or: 'or',
-    freeTrial: 'Free 30 min trial',
-    retryIn24h: 'Trial can be renewed in 24h after expiration',
-    securedBy: 'Secured by',
-    bankDataProtected: 'Your bank data is protected',
-    exchangeRate: 'Exchange rate: 1 EUR = 655 XOF (updated daily)',
-    updateDaily: '(updated daily)',
-    processing: 'Processing...',
+    amountXOF: 'Price in CFA',
+    amountEUR: 'Price in EUR',
+    basedOnLocation: 'Based on your region:',
+    paySecurely: 'Pay securely',
+    or: 'OR',
+    freeTrial: 'Free Trial (30 min)',
+    retryIn24h: 'Trial renews 24h after expiration',
+    securedBy: 'Encrypted and secured by FedaPay',
+    processing: 'Creating transaction...',
   },
 };
 
@@ -80,254 +68,234 @@ export default function PaywallModal({
   const [isProcessing, setIsProcessing] = useState(false);
   const [detectedCountry, setDetectedCountry] = useState<string | null>(null);
 
+  // 1️⃣ Charger le script officiel de FedaPay discrètement en arrière-plan
+  useEffect(() => {
+    if (isOpen && !document.getElementById('fedapay-script')) {
+      const script = document.createElement('script');
+      script.id = 'fedapay-script';
+      script.src = 'https://checkout.fedapay.com/js/checkout.js';
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  }, [isOpen]);
+
+  // 2️⃣ Détecter la devise selon le pays
   useEffect(() => {
     if (!isOpen) return;
-
     const detectCurrency = async () => {
       try {
         const response = await fetch('/api/payments/get-user-currency');
         const data = await response.json();
-
         if (data.success) {
           setCurrency(data.currency);
           setDetectedCountry(data.country_name);
         }
       } catch (err) {
-        console.error('Currency detection error:', err);
         setCurrency('EUR');
       }
     };
-
     detectCurrency();
   }, [isOpen]);
 
   const amount = currency === 'XOF' ? pricing.price_xof_cfa : pricing.price_eur;
   const displayAmount = currency === 'XOF'
     ? `${amount.toLocaleString()} CFA`
-    : `${amount.toFixed(2)} EUR`;
+    : `${amount.toFixed(2)} €`;
 
-  // ✅ CORRECTION ICI : LA FONCTION HANDLE PAYMENT
+  // 3️⃣ Fonction pour déclencher le paiement
   const handlePayment = async () => {
-    setIsProcessing(true); // 🔄 Le bouton commence à tourner
+    setIsProcessing(true);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.user) {
         alert(lang === 'fr' ? 'Vous devez être connecté pour payer.' : 'You must be logged in to pay.');
-        return; // Le bloc finally enlèvera le isProcessing
+        setIsProcessing(false);
+        return;
       }
 
       const userId = session.user.id;
       const userEmail = session.user.email;
+      const publicKey = process.env.NEXT_PUBLIC_FEDAPAY_PUBLIC_KEY;
 
+      if (!publicKey) {
+        console.error("Clé publique FedaPay introuvable dans Vercel (NEXT_PUBLIC_FEDAPAY_PUBLIC_KEY)");
+      }
+
+      // On demande le token à notre serveur
       const response = await fetch('/api/payments/create-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productType,
-          productId,
-          currency,
-          userId,        
-          userEmail      
-        }),
+        body: JSON.stringify({ productType, productId, currency, userId, userEmail }),
       });
 
       const data = await response.json();
 
-      if (data.success) {
-        // Redirection vers FedaPay
-        if (data.paymentUrl) {
-          window.location.href = data.paymentUrl;
-        } else if (data.transactionToken) {
-          const isLive = process.env.NEXT_PUBLIC_FEDAPAY_PUBLIC_KEY?.includes('sandbox') ? false : true;
-          const checkoutBaseUrl = isLive 
-            ? 'https://checkout.fedapay.com/pay/' 
-            : 'https://sandbox-checkout.fedapay.com/pay/';
-            
-          window.location.href = checkoutBaseUrl + data.transactionToken;
-        }
-      } else {
+      if (!data.success) {
         alert(`${lang === 'fr' ? 'Erreur' : 'Error'}: ${data.error}`);
+        setIsProcessing(false);
+        return;
       }
+
+      // Si le serveur a répondu avec succès
+      setIsProcessing(false);
+
+      // On ferme NOTRE modal pour ne pas cacher celui de FedaPay
+      onClose();
+
+      // On ouvre le VRAI modal sécurisé de FedaPay
+      if (window.FedaPay && publicKey) {
+        const widget = window.FedaPay.init({
+          public_key: publicKey,
+          transaction: {
+            token: data.transactionToken
+          },
+          onComplete: () => {
+            // Optionnel : tu pourrais rediriger vers la page /success ici si tu le souhaites
+            // window.location.href = `/pages/payments/success?transaction_id=${data.transactionToken}`;
+          }
+        });
+        widget.open();
+      } else {
+        // Mode secours (si le script JS n'est pas chargé) : on redirige vers leur page web
+        const isLive = !publicKey?.includes('sandbox');
+        const checkoutBaseUrl = isLive 
+          ? 'https://checkout.fedapay.com/pay/' 
+          : 'https://sandbox-checkout.fedapay.com/pay/';
+        window.location.assign(checkoutBaseUrl + data.transactionToken);
+      }
+
     } catch (err) {
       console.error('Payment error:', err);
-      alert(lang === 'fr' ? 'Erreur de connexion au serveur de paiement' : 'Payment server connection error');
-    } finally {
-      // ✅ C'EST ÇA QUI EMPÊCHE LE BOUTON DE FIGER
-      setIsProcessing(false); 
+      alert(lang === 'fr' ? 'Erreur de connexion' : 'Connection error');
+      setIsProcessing(false);
     }
   };
 
   const handleTrial = () => {
-    if (onTrialStart) {
-      onTrialStart();
-    }
+    if (onTrialStart) onTrialStart();
     onClose();
   };
 
   if (!isOpen) return null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
-      onClick={onClose}
-    >
+    <AnimatePresence>
       <motion.div
-        initial={{ scale: 0.9, y: 20 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.9, y: 20 }}
-        onClick={(e) => e.stopPropagation()}
-        className="bg-gradient-to-br from-[#1a1a2e] to-[#0f0f0f] border border-[#D4AF37]/30 rounded-2xl p-8 max-w-md w-full shadow-2xl"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"
+        onClick={onClose}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <Lock size={24} className="text-[#D4AF37]" />
-            <h2 className="text-2xl font-bold text-white">{t.unlockAccess}</h2>
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0, y: 10 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.95, opacity: 0, y: 10 }}
+          onClick={(e) => e.stopPropagation()}
+          className="bg-[#0A0A0F] border border-[#D4AF37]/30 rounded-2xl p-6 md:p-8 max-w-sm w-full shadow-2xl flex flex-col relative max-h-[90vh] overflow-y-auto"
+        >
+          {/* Header Compact */}
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center gap-3 text-[#D4AF37]">
+              <div className="p-2 bg-[#D4AF37]/10 rounded-lg">
+                <Lock size={20} />
+              </div>
+              <h2 className="text-xl font-bold text-white font-serif leading-tight">
+                {t.unlockAccess}
+              </h2>
+            </div>
+            <button onClick={onClose} className="p-1 text-gray-500 hover:text-white transition-colors bg-white/5 rounded-full">
+              <X size={16} />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 text-gray-400 hover:text-white transition-colors"
-          >
-            <X size={20} />
-          </button>
-        </div>
 
-        {/* Titre du produit */}
-        <p className="text-gray-300 text-sm mb-6 line-clamp-2 font-serif">
-          "{productTitle}"
-        </p>
-
-        {/* Sélecteur de devise */}
-        <div className="flex gap-3 mb-6">
-          <button
-            onClick={() => setCurrency('XOF')}
-            className={`flex-1 py-3 rounded-lg font-bold transition-all ${
-              currency === 'XOF'
-                ? 'bg-[#D4AF37] text-black shadow-lg'
-                : 'bg-white/10 text-white hover:bg-white/20 border border-white/10'
-            }`}
-          >
-            🌍 CFA
-          </button>
-          <button
-            onClick={() => setCurrency('EUR')}
-            className={`flex-1 py-3 rounded-lg font-bold transition-all ${
-              currency === 'EUR'
-                ? 'bg-[#D4AF37] text-black shadow-lg'
-                : 'bg-white/10 text-white hover:bg-white/20 border border-white/10'
-            }`}
-          >
-            💳 EUR
-          </button>
-        </div>
-
-        {/* Montant affiché */}
-        <div className="bg-black/50 p-4 rounded-xl mb-6 text-center border border-[#D4AF37]/20">
-          <p className="text-gray-400 text-xs uppercase tracking-widest mb-2">
-            {currency === 'XOF' ? t.amountXOF : t.amountEUR}
+          <p className="text-gray-400 text-sm mb-6 font-serif italic border-l-2 border-[#D4AF37]/50 pl-3">
+            {productTitle}
           </p>
-          <p className="text-4xl font-bold text-[#D4AF37]">{displayAmount}</p>
-          {detectedCountry && (
-            <p className="text-[10px] text-gray-600 mt-2">
-              {t.basedOnLocation} {detectedCountry}
-            </p>
-          )}
-        </div>
 
-        {/* Moyens de paiement - CFA */}
-        {currency === 'XOF' && (
-          <div className="space-y-3 mb-6">
-            <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">
-              {t.mobileMoney}
-            </p>
-            <div className="space-y-2">
-              {[
-                { name: t.orangeMoney, icon: '🟠' },
-                { name: t.mtnMoney, icon: '🔴' },
-                { name: t.moovMoney, icon: '🟢' },
-              ].map((method) => (
-                <button
-                  key={method.name}
-                  onClick={handlePayment}
-                  disabled={isProcessing}
-                  className="w-full py-3 bg-white/5 hover:bg-white/10 disabled:bg-white/5 text-white rounded-lg font-bold transition-all disabled:opacity-50 border border-white/10 flex items-center justify-center gap-2"
-                >
-                  {method.icon} {method.name}
-                </button>
-              ))}
-            </div>
-
-            <div className="border-t border-white/10 pt-3">
-              <p className="text-xs text-gray-500 uppercase tracking-widest font-bold mb-2">
-                {t.otherMethod}
-              </p>
-              <button
-                onClick={handlePayment}
-                disabled={isProcessing}
-                className="w-full py-3 bg-white/5 hover:bg-white/10 disabled:bg-white/5 text-white rounded-lg font-bold transition-all disabled:opacity-50 border border-white/10 flex items-center justify-center gap-2"
-              >
-                💳 {t.bankCard}
-              </button>
-            </div>
+          {/* Switch EUR / CFA */}
+          <div className="flex gap-2 mb-5 bg-black/40 p-1 rounded-xl border border-white/5">
+            <button
+              onClick={() => setCurrency('XOF')}
+              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+                currency === 'XOF' ? 'bg-[#D4AF37] text-black shadow-md' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Mobile Money (CFA)
+            </button>
+            <button
+              onClick={() => setCurrency('EUR')}
+              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+                currency === 'EUR' ? 'bg-[#D4AF37] text-black shadow-md' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Carte (EUR)
+            </button>
           </div>
-        )}
 
-        {/* Paiement par carte - EUR */}
-        {currency === 'EUR' && (
+          {/* Box Prix */}
+          <div className="bg-gradient-to-br from-white/5 to-transparent p-5 rounded-xl mb-6 text-center border border-white/10 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-2 opacity-10">
+              <ShieldCheck size={64} />
+            </div>
+            <p className="text-gray-400 text-[10px] uppercase tracking-widest mb-1 relative z-10">
+              {currency === 'XOF' ? t.amountXOF : t.amountEUR}
+            </p>
+            <p className="text-3xl font-black text-white relative z-10 tracking-tight">
+              {displayAmount}
+            </p>
+            {detectedCountry && (
+              <p className="text-[9px] text-gray-500 mt-2 relative z-10">
+                {t.basedOnLocation} <span className="text-gray-300">{detectedCountry}</span>
+              </p>
+            )}
+          </div>
+
+          {/* Bouton Payer */}
           <button
             onClick={handlePayment}
             disabled={isProcessing}
-            className="w-full py-4 bg-[#D4AF37] hover:bg-yellow-400 disabled:bg-[#D4AF37] text-black rounded-lg font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2 mb-6"
+            className="w-full py-4 bg-[#D4AF37] hover:bg-yellow-400 text-black rounded-xl font-black transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(212,175,55,0.2)]"
           >
             {isProcessing ? (
-              <>
-                <Loader2 size={18} className="animate-spin" />
-                {t.processing}
-              </>
+              <><Loader2 size={18} className="animate-spin" /> {t.processing}</>
             ) : (
-              <>
-                💳 {t.pay} {displayAmount}
-              </>
+              <>🔒 {t.paySecurely}</>
             )}
           </button>
-        )}
 
-        {/* Divider */}
-        <div className="relative mb-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-white/10"></div>
+          {/* Diviseur */}
+          <div className="relative my-5">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/10"></div>
+            </div>
+            <div className="relative flex justify-center text-[10px] font-bold">
+              <span className="px-3 bg-[#0A0A0F] text-gray-600 tracking-widest">{t.or}</span>
+            </div>
           </div>
-          <div className="relative flex justify-center text-xs">
-            <span className="px-2 bg-[#0f0f0f] text-gray-500">{t.or}</span>
-          </div>
-        </div>
 
-        {/* Bouton Essai */}
-        <button
-          onClick={handleTrial}
-          className="w-full py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg font-bold transition-all border border-white/10 flex items-center justify-center gap-2"
-        >
-          ⏱️ {t.freeTrial}
-        </button>
+          {/* Bouton Essai */}
+          <button
+            onClick={handleTrial}
+            className="w-full py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl text-sm font-bold transition-all border border-white/10 flex items-center justify-center gap-2"
+          >
+            <Clock size={16} className="text-gray-400" /> {t.freeTrial}
+          </button>
 
-        <p className="text-[10px] text-gray-600 text-center mt-4">
-          {t.retryIn24h}
-        </p>
-
-        {/* Sécurité */}
-        <div className="mt-6 pt-6 border-t border-white/10">
-          <p className="text-[10px] text-gray-600 text-center">
-            🔒 {t.securedBy} <strong className="text-[#D4AF37]">FedaPay</strong>
-            <br />
-            {t.bankDataProtected}
+          <p className="text-[9px] text-gray-600 text-center mt-3 mb-4">
+            {t.retryIn24h}
           </p>
-        </div>
+
+          {/* Sécurité Footer */}
+          <div className="mt-auto pt-4 border-t border-white/5 flex items-center justify-center gap-2 text-gray-600">
+            <ShieldCheck size={12} />
+            <p className="text-[9px] uppercase tracking-wider">{t.securedBy}</p>
+          </div>
+
+        </motion.div>
       </motion.div>
-    </motion.div>
+    </AnimatePresence>
   );
 }
