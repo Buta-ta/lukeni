@@ -1,7 +1,9 @@
 // components/InvestigationPaywall.tsx
 
+"use client";
+
 import React, { useEffect, useState } from 'react';
-import { Lock } from 'lucide-react';
+import { Lock, Loader2 } from 'lucide-react';
 import PaywallModal from '@/components/PaywallModal';
 import { useTrialSession } from '@/lib/hooks/useTrialSession';
 import { supabase } from '@/lib/supabase';
@@ -46,6 +48,7 @@ export default function InvestigationPaywall({
   const [pricing, setPricing] = useState<any>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [isStartingTrial, setIsStartingTrial] = useState(false);
 
   const {
     trial,
@@ -55,26 +58,36 @@ export default function InvestigationPaywall({
     timeBeforeRetry,
   } = useTrialSession(userId, investigationId, 'investigation');
 
+  // 1. Récupération robuste de l'utilisateur avec onAuthStateChange
   useEffect(() => {
-    const getUser = async () => {
+    const getInitialSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      console.log('🔍 Session récupérée:', session?.user?.id || 'NULLE');
-      setUserId(session?.user?.id || null);
+      if (session?.user?.id) {
+        setUserId(session.user.id);
+      }
     };
-    getUser();
+    getInitialSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUserId(session?.user?.id || null);
+    });
+
+    return () => subscription?.unsubscribe();
   }, []);
 
+  // 2. Vérification des accès payant (completed) ou admin grant
   useEffect(() => {
     if (!userId) return;
 
     const checkAccess = async () => {
-      // Vérifier si accès payant
+      // Vérifier si accès payant validé
       const { data: access } = await supabase
         .from('user_access')
         .select('*')
         .eq('user_id', userId)
         .eq('target_id', investigationId)
         .eq('access_type', 'investigation')
+        .eq('status', 'completed')
         .maybeSingle();
 
       if (access) {
@@ -85,7 +98,6 @@ export default function InvestigationPaywall({
       }
 
       // Vérifier si admin grant
-      // ✅ LA BONNE REQUÊTE
       const { data: grant } = await supabase
         .from('admin_user_access_grants')
         .select('id')
@@ -100,13 +112,22 @@ export default function InvestigationPaywall({
         onAccessGranted();
         return;
       }
-
-      // Sinon : montrer paywall
     };
 
     checkAccess();
   }, [userId, investigationId, onAccessGranted]);
 
+  // 3. Observer le state du trial pour fermer le paywall dès qu'il devient actif
+  useEffect(() => {
+    if (trial && trial.status === 'active') {
+      console.log('✅ Trial actif détecté, fermeture immédiate du paywall.');
+      setHasAccess(true);
+      setShowPaywall(false);
+      onAccessGranted();
+    }
+  }, [trial, onAccessGranted]);
+
+  // 4. Charger le prix du produit
   useEffect(() => {
     const fetchPricing = async () => {
       const { data } = await supabase
@@ -122,13 +143,21 @@ export default function InvestigationPaywall({
     fetchPricing();
   }, [investigationId]);
 
-  if (hasAccess || !showPaywall) {
+  if (hasAccess || !showPaywall || (trial && trial.status === 'active')) {
     return null;
   }
 
-  if (trial && trial.status === 'active' && timeRemaining !== null) {
-    return null; // L'essai est actif, ne pas montrer le paywall
-  }
+  const handleStartTrial = async () => {
+    setIsStartingTrial(true);
+    const success = await startTrial(30);
+    setIsStartingTrial(false);
+    
+    if (success) {
+      setHasAccess(true);
+      setShowPaywall(false);
+      onAccessGranted();
+    }
+  };
 
   return (
     <>
@@ -159,10 +188,15 @@ export default function InvestigationPaywall({
           <div className="flex flex-col gap-3">
             {(!trial || canRetry) && (
               <button
-                onClick={() => startTrial(30)}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold transition-colors"
+                onClick={handleStartTrial}
+                disabled={isStartingTrial}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                ⏱️ {t.tryFree}
+                {isStartingTrial ? (
+                  <><Loader2 size={16} className="animate-spin" /> Chargement...</>
+                ) : (
+                  `⏱️ ${t.tryFree}`
+                )}
               </button>
             )}
 
