@@ -12,7 +12,7 @@ interface InvestigationPaywallProps {
   investigationId: string;
   investigationTitle: string;
   lang: 'fr' | 'en';
-  onAccessGranted: () => void;
+  onAccessGranted: (isTrial?: boolean) => void;
 }
 
 const translations = {
@@ -41,6 +41,7 @@ export default function InvestigationPaywall({
   const [userId, setUserId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [isStartingTrial, setIsStartingTrial] = useState(false);
+  const [trialDuration, setTrialDuration] = useState(30);
 
   const { trial, startTrial } = useTrialSession(userId, investigationId, 'investigation');
 
@@ -79,7 +80,7 @@ export default function InvestigationPaywall({
       if (access) {
         setHasAccess(true);
         setShowPaywall(false);
-        onAccessGranted();
+        onAccessGranted(false); // ✅ Accès complet (pas un trial)
         return;
       }
 
@@ -95,7 +96,7 @@ export default function InvestigationPaywall({
       if (grant) {
         setHasAccess(true);
         setShowPaywall(false);
-        onAccessGranted();
+        onAccessGranted(false); // ✅ Accès complet (pas un trial)
         return;
       }
     };
@@ -108,13 +109,14 @@ export default function InvestigationPaywall({
     if (trial && trial.status === 'active') {
       setHasAccess(true);
       setShowPaywall(false);
-      onAccessGranted();
+      onAccessGranted(true); // ✅ Accès trial
     }
   }, [trial, onAccessGranted]);
 
-  // 4. Charger le prix
+  // 4. Charger le prix et la durée du trial
   useEffect(() => {
-    const fetchPricing = async () => {
+    const fetchPricingAndConfig = async () => {
+      // Charger le prix
       const { data } = await supabase
         .from('product_pricing')
         .select('*')
@@ -122,15 +124,41 @@ export default function InvestigationPaywall({
         .eq('product_id', investigationId)
         .maybeSingle();
       setPricing(data);
+
+      // ✅ Charger la durée du trial configurée par l'admin
+      const { data: trialConfig } = await supabase
+        .from('trial_config')
+        .select('trial_duration_minutes')
+        .eq('id', 1)
+        .maybeSingle();
+      if (trialConfig) {
+        setTrialDuration(trialConfig.trial_duration_minutes || 30);
+      }
     };
-    fetchPricing();
+    fetchPricingAndConfig();
   }, [investigationId]);
 
-  // Gestionnaire pour démarrer l'essai
+  // 5. Auto-démarrer l'essai si l'utilisateur vient de la page liste
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('autoStartTrial') === 'true' && !hasAccess && !isStartingTrial && userId && !trial) {
+      handleStartTrial();
+      window.history.replaceState({}, '', `/investigations/${investigationId}`);
+    }
+  }, [userId, hasAccess, isStartingTrial, trial, investigationId]);
+
+  // 6. Gestionnaire pour démarrer l'essai
   const handleStartTrial = async () => {
     setIsStartingTrial(true);
-    await startTrial(30);
+    const success = await startTrial(trialDuration); // ✅ Utilise la durée de l'admin
     setIsStartingTrial(false);
+
+    if (success) {
+      setHasAccess(true);
+      setShowPaywall(false);
+      onAccessGranted(true); // ✅ Indique que c'est un trial
+    }
   };
 
   // Ne rien afficher si accès accordé ou trial actif
@@ -162,7 +190,7 @@ export default function InvestigationPaywall({
               {isStartingTrial ? (
                 <><Loader2 size={16} className="animate-spin" /> {lang === 'fr' ? 'Chargement...' : 'Loading...'}</>
               ) : (
-                `⏱️ ${t.tryFree}`
+                `⏱️ ${t.tryFree} (${trialDuration} min)`
               )}
             </button>
 

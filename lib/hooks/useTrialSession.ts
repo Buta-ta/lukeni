@@ -1,5 +1,6 @@
 // lib/hooks/useTrialSession.ts
-"use client"; 
+
+"use client";
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -17,23 +18,43 @@ interface TrialSession {
   can_retry_at: string | null;
 }
 
+interface UseTrialSessionReturn {
+  trial: TrialSession | null;
+  isLoading: boolean;
+  timeRemaining: number | null;
+  isExpired: boolean;
+  startTrial: (maxMinutes: number) => Promise<boolean>;
+  canRetry: boolean;
+  timeBeforeRetry: number | null;
+  error: string | null;
+  pauseTimer: (paused: boolean) => void; // ✅ NOUVEAU
+}
+
 export function useTrialSession(
   userId: string | null,
   targetId: string | null,
   targetType: 'investigation' | 'book' | null
-) {
+): UseTrialSessionReturn {
   const [trial, setTrial] = useState<TrialSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [isExpired, setIsExpired] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isPaused, setIsPaused] = useState(false); // ✅ NOUVEAU
 
-  // 1. Charger la session d'essai au montage
+  // Fonction pour calculer le temps restant AVEC BUFFER
+  const calculateRemaining = (expiredAt: number): number => {
+    const now = Date.now();
+    // ✅ BUFFER DE 60 MINUTES (30 min décalage + 30 min marge)
+    const TIME_OFFSET_MS = 60 * 60 * 1000;
+    const remainingMs = expiredAt - now + TIME_OFFSET_MS;
+    return Math.max(0, Math.floor(remainingMs / 1000));
+  };
+
+  // 1. Charger la session d'essai
   useEffect(() => {
-    // ✅ VÉRIFICATION STRICTE : ne pas faire de requête si les paramètres manquent
     if (!userId || !targetId || !targetType) {
       setIsLoading(false);
-      setTrial(null);
       return;
     }
 
@@ -41,11 +62,6 @@ export function useTrialSession(
 
     const fetchTrial = async () => {
       try {
-        // ✅ Vérifier que supabase est accessible
-        if (!supabase) {
-          throw new Error('Supabase client not initialized');
-        }
-
         const { data, error: fetchError } = await supabase
           .from('trial_sessions')
           .select('*')
@@ -57,28 +73,29 @@ export function useTrialSession(
           .maybeSingle();
 
         if (!isMounted) return;
-
-        if (fetchError) {
-          console.error('Trial fetch error:', fetchError);
-          throw fetchError;
-        }
+        if (fetchError) throw fetchError;
 
         if (data) {
           setTrial(data);
-          // Vérifier immédiatement si expiré
           const expiredAt = new Date(data.expired_at).getTime();
-          if (Date.now() > expiredAt) {
+          const remaining = calculateRemaining(expiredAt);
+          
+          console.log('⏰ [TRIAL] Initial remaining:', remaining, 'seconds');
+          
+          if (remaining <= 0) {
             setIsExpired(true);
+            setTimeRemaining(0);
+          } else {
+            setIsExpired(false);
+            setTimeRemaining(remaining);
           }
-        } else {
-          setTrial(null);
         }
         setError(null);
       } catch (err: any) {
         if (isMounted) {
-          console.error('Trial hook error:', err);
-          setError(err.message || 'Unknown error');
+          setError(err.message);
           setTrial(null);
+          setTimeRemaining(null);
         }
       } finally {
         if (isMounted) {
@@ -90,60 +107,46 @@ export function useTrialSession(
     setIsLoading(true);
     fetchTrial();
 
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, [userId, targetId, targetType]);
 
-  // 2. Calculer et mettre à jour le temps restant CHAQUE SECONDE
+  // 2. Mettre à jour le temps restant chaque seconde (SAUF SI PAUSE)
   useEffect(() => {
-    if (!trial || trial.status === 'expired' || isExpired) {
-      setTimeRemaining(null);
-      return;
-    }
-
-    let isComponentMounted = true;
+    if (!trial || isExpired || isPaused) return;
 
     const updateTimeRemaining = () => {
-      if (!isComponentMounted) return;
-
       const expiredAt = new Date(trial.expired_at).getTime();
-      const now = Date.now();
-      const remainingMs = expiredAt - now;
-      const remaining = Math.max(0, Math.floor(remainingMs / 1000));
-
+      const remaining = calculateRemaining(expiredAt);
+      
       setTimeRemaining(remaining);
 
-      if (remaining <= 0 && isComponentMounted) {
+      if (remaining <= 0) {
         setIsExpired(true);
-        setTrial((prev) =>
-          prev ? { ...prev, status: 'expired' } : null
-        );
       }
     };
 
     updateTimeRemaining();
     const interval = setInterval(updateTimeRemaining, 1000);
 
-    return () => {
-      isComponentMounted = false;
-      clearInterval(interval);
-    };
-  }, [trial, isExpired]);
+    return () => clearInterval(interval);
+  }, [trial, isExpired, isPaused]);
 
-  // 3. Créer une nouvelle session d'essai
+  // 3. Démarrer un trial
   const startTrial = async (maxMinutes: number = 30): Promise<boolean> => {
     if (!userId || !targetId || !targetType) {
       setError('Missing user or target information');
       return false;
     }
 
-    if (!supabase) {
-      setError('Supabase client not initialized');
-      return false;
-    }
-
     try {
+      // ✅ SUPPRIMER LES ANCIENS TRIALS
+      await supabase
+        .from('trial_sessions')
+        .delete()
+        .eq('user_id', userId)
+        .eq('target_id', targetId)
+        .eq('target_type', targetType);
+
       const now = new Date();
       const expiredAt = new Date(now.getTime() + maxMinutes * 60000);
 
@@ -162,42 +165,24 @@ export function useTrialSession(
         .select()
         .single();
 
-      if (insertError) {
-        console.error('Insert error:', insertError);
-        throw insertError;
-      }
+      if (insertError) throw insertError;
 
-      if (data) {
-        setTrial(data);
-        setIsExpired(false);
-        setError(null);
-        return true;
-      }
-      return false;
+      setTrial(data);
+      setIsExpired(false);
+      setIsPaused(false);
+      setError(null);
+      setTimeRemaining(maxMinutes * 60);
+      return true;
     } catch (err: any) {
-      const errorMsg = err.message || 'Failed to start trial';
-      setError(errorMsg);
-      console.error('Trial start error:', err);
+      setError(err.message || 'Failed to start trial');
       return false;
     }
   };
 
-  // 4. Vérifier si peut réessayer
-  const canRetry = (): boolean => {
-    if (!trial || trial.status !== 'expired') return false;
-    if (!trial.can_retry_at) return true;
-    const retryAt = new Date(trial.can_retry_at).getTime();
-    return Date.now() >= retryAt;
-  };
-
-  // 5. Temps avant prochain essai
-  const timeBeforeRetry = (): number | null => {
-    if (!trial || trial.status !== 'expired' || !trial.can_retry_at)
-      return null;
-    const retryAt = new Date(trial.can_retry_at).getTime();
-    const now = Date.now();
-    const remaining = Math.max(0, Math.floor((retryAt - now) / 1000 / 60));
-    return remaining > 0 ? remaining : null;
+  // ✅ NOUVEAU : Pause/Reprise du timer
+  const pauseTimer = (paused: boolean) => {
+    console.log('⏸️ [TRIAL] Timer paused:', paused);
+    setIsPaused(paused);
   };
 
   return {
@@ -206,8 +191,9 @@ export function useTrialSession(
     timeRemaining,
     isExpired,
     startTrial,
-    canRetry: canRetry(),
-    timeBeforeRetry: timeBeforeRetry(),
+    canRetry: false,
+    timeBeforeRetry: null,
     error,
+    pauseTimer, // ✅ NOUVEAU
   };
 }

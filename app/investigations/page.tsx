@@ -1,7 +1,7 @@
 // app/investigations/page.tsx
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-browser";
@@ -129,7 +129,7 @@ interface AccessInfo {
   priceCfa?: number;
   hasFullAccess: boolean;
   trialStatus: "none" | "active" | "expired";
-  trialTimeRemaining: number; // en minutes
+  trialTimeRemaining: number;
 }
 
 export default function InvestigationsHub() {
@@ -140,14 +140,74 @@ export default function InvestigationsHub() {
   const [lang, setLang] = useState<"fr" | "en">("fr");
   const [userId, setUserId] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<any | null>(null);
-
-  // Sessions utilisateur par investigation
   const [userSessions, setUserSessions] = useState<Record<string, any>>({});
-
-  // ✅ NOUVEAU : Map des accès (prix, trial, etc.)
+  const [trialConfigDuration, setTrialConfigDuration] = useState(30);
   const [accessMap, setAccessMap] = useState<Record<string, AccessInfo>>({});
 
-  // Modal groupe (créateur)
+
+
+
+  // ✅ NOUVEAU : Pour rafraîchir les données trial
+  const [trialRefreshKey, setTrialRefreshKey] = useState(0);
+
+  // ✅ NOUVEAU : Fonction pour rafraîchir les trials
+  const refreshTrialData = useCallback(async () => {
+    if (!userId || !investigations.length) return;
+
+    const invIds = investigations.map((i: any) => i.id);
+    const { data: trialData } = await supabase
+      .from('trial_sessions')
+      .select('*')
+      .eq('user_id', userId)
+      .in('target_id', invIds);
+
+    // Mettre à jour l'accessMap avec les nouvelles données
+    setAccessMap(prev => {
+      const updated = { ...prev };
+      for (const inv of investigations) {
+        const trial = trialData?.find((t: any) => t.target_id === inv.id);
+        if (trial && trial.status === 'active') {
+          const expiredAt = new Date(trial.expired_at).getTime();
+          const now = Date.now();
+          const TIME_OFFSET_MS = 60 * 60 * 1000;
+          const remainingMs = expiredAt - now + TIME_OFFSET_MS;
+          if (remainingMs > 0) {
+            updated[inv.id] = {
+              ...updated[inv.id],
+              trialStatus: 'active',
+              trialTimeRemaining: Math.max(0, Math.floor(remainingMs / 1000 / 60)),
+            };
+          }
+        }
+      }
+      return updated;
+    });
+  }, [userId, investigations]);
+
+  // ✅ NOUVEAU : Écouter le focus de la page pour rafraîchir
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setTrialRefreshKey(prev => prev + 1);
+        refreshTrialData();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // ✅ RAFRAÎCHIR AUTOMATIQUEMENT TOUTES LES 30 SECONDES
+    const interval = setInterval(() => {
+      setTrialRefreshKey(prev => prev + 1);
+      refreshTrialData();
+    }, 30000);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(interval);
+    };
+  }, [refreshTrialData]);
+
+  // Modal groupe
   const [groupModal, setGroupModal] = useState<{
     invId: string;
     invTitle: string;
@@ -158,7 +218,7 @@ export default function InvestigationsHub() {
   const [isCreatingGroup, setIsCreatingGroup] = useState<string | null>(null);
   const [isDisablingGroup, setIsDisablingGroup] = useState(false);
 
-  // Modal suppression partie
+  // Modal suppression
   const [deleteModal, setDeleteModal] = useState<{
     invId: string;
     invTitle: string;
@@ -171,14 +231,10 @@ export default function InvestigationsHub() {
     if (storedLang) setLang(storedLang.replace(/"/g, "") as "fr" | "en");
 
     async function load() {
-      // Récupérer l'utilisateur connecté
-      const {
-        data: { session: authSession },
-      } = await supabase.auth.getSession();
+      const { data: { session: authSession } } = await supabase.auth.getSession();
       const currentUserId = authSession?.user?.id || null;
       setUserId(currentUserId);
 
-      // ✅ NOUVEAU : Récupérer le profil utilisateur
       let profileData: any = null;
       if (currentUserId) {
         const { data: profile } = await supabase
@@ -186,59 +242,38 @@ export default function InvestigationsHub() {
           .select("*")
           .eq("id", currentUserId)
           .single();
-
         if (profile) {
           profileData = profile;
           setUserProfile(profile);
         }
       }
 
-      const [invRes, boardRes] = await Promise.all([
-        supabase
-          .from("investigations")
-          .select("*")
-          .order("created_at", { ascending: false }),
+      // ✅ DÉCLARER invIds AVANT LE Promise.all
+      const invRes = await supabase.from("investigations").select("*").order("created_at", { ascending: false });
+      const invIds = invRes.data?.map((i: any) => i.id) || [];
+
+      const [boardRes, trialConfigRes, trialRes] = await Promise.all([
         supabase.from("investigation_board").select("*"),
+        supabase.from('trial_config').select('trial_duration_minutes').eq('id', 1).maybeSingle(),
+        supabase.from('trial_sessions').select('*').eq('user_id', currentUserId).in('target_id', invIds),
       ]);
+
+      if (trialConfigRes.data) {
+        setTrialConfigDuration(trialConfigRes.data.trial_duration_minutes || 30);
+      }
 
       if (invRes.data) setInvestigations(invRes.data);
       if (boardRes.data) setBoardNodes(boardRes.data);
 
-      // Charger les sessions de l'utilisateur
       if (currentUserId && invRes.data) {
         const invIds = invRes.data.map((i: any) => i.id);
 
-        // ✅ NOUVEAU : Requêtes parallèles pour les accès
-        const [
-          sessionsRes,
-          pricingRes,
-          userAccessRes,
-          adminGrantsRes,
-          trialRes,
-        ] = await Promise.all([
-          supabase
-            .from("investigation_sessions")
-            .select("*")
-            .eq("user_id", currentUserId)
-            .in("investigation_id", invIds),
-          supabase
-            .from("product_pricing")
-            .select("*")
-            .in("product_id", invIds),
-          supabase
-            .from("user_access")
-            .select("target_id")
-            .eq("user_id", currentUserId)
-            .eq("status", "completed"),
-          supabase
-            .from("admin_user_access_grants")
-            .select("access_scope, target_ids, access_type")
-            .eq("user_id", currentUserId),
-          supabase
-            .from("trial_sessions")
-            .select("*")
-            .eq("user_id", currentUserId)
-            .in("target_id", invIds),
+        const [sessionsRes, pricingRes, userAccessRes, adminGrantsRes, trialRes] = await Promise.all([
+          supabase.from("investigation_sessions").select("*").eq("user_id", currentUserId).in("investigation_id", invIds),
+          supabase.from("product_pricing").select("*").in("product_id", invIds),
+          supabase.from("user_access").select("target_id").eq("user_id", currentUserId).eq("status", "completed"),
+          supabase.from("admin_user_access_grants").select("access_scope, target_ids, access_type").eq("user_id", currentUserId),
+          supabase.from("trial_sessions").select("*").eq("user_id", currentUserId).in("target_id", invIds),
         ]);
 
         const sessions = sessionsRes.data || [];
@@ -247,20 +282,14 @@ export default function InvestigationsHub() {
         const adminGrants = adminGrantsRes.data || [];
         const trialData = trialRes.data || [];
 
-        // ✅ NOUVEAU : Calculer la map d'accès pour chaque enquête
         const map: Record<string, AccessInfo> = {};
         for (const inv of invRes.data) {
-          const pricing = pricingData.find(
-            (p) => p.product_id === inv.id && p.product_type === "investigation"
-          );
+          const pricing = pricingData.find((p) => p.product_id === inv.id && p.product_type === "investigation");
           const isFree = !pricing;
 
           const hasBought = userAccessData.some((a) => a.target_id === inv.id);
           const hasGrant = adminGrants.some(
-            (g) =>
-              g.access_type === "investigation" &&
-              (g.access_scope === "all" ||
-                (g.target_ids && g.target_ids.includes(inv.id)))
+            (g) => g.access_type === "investigation" && (g.access_scope === "all" || (g.target_ids && g.target_ids.includes(inv.id)))
           );
           const hasFullAccess = hasBought || hasGrant;
 
@@ -272,12 +301,12 @@ export default function InvestigationsHub() {
             if (trial.status === "active") {
               const expiredAt = new Date(trial.expired_at).getTime();
               const now = Date.now();
-              if (now < expiredAt) {
+              // ✅ BUFFER DE 60 MINUTES (MÊME QUE LE JEU)
+              const TIME_OFFSET_MS = 60 * 60 * 1000;
+              const remainingMs = expiredAt - now + TIME_OFFSET_MS;
+              if (remainingMs > 0) {
                 trialStatus = "active";
-                trialTimeRemaining = Math.max(
-                  0,
-                  Math.floor((expiredAt - now) / 1000 / 60)
-                );
+                trialTimeRemaining = Math.max(0, Math.floor(remainingMs / 1000 / 60));
               } else {
                 trialStatus = "expired";
               }
@@ -297,7 +326,6 @@ export default function InvestigationsHub() {
         }
         setAccessMap(map);
 
-        // Sessions map
         if (sessions) {
           const sessionsMap: Record<string, any> = {};
           sessions.forEach((s: any) => {
@@ -305,21 +333,12 @@ export default function InvestigationsHub() {
           });
           setUserSessions(sessionsMap);
 
-          // ✅ Calculer les Cauris réels : profil + sessions actives
           if (profileData) {
             const activeSessionCauris = sessions
               .filter((s: any) => s.status === "active")
-              .reduce(
-                (sum: number, s: any) => sum + (s.current_cauris || 0),
-                0
-              );
-
+              .reduce((sum: number, s: any) => sum + (s.current_cauris || 0), 0);
             const totalCauris = (profileData.cauris || 0) + activeSessionCauris;
-
-            setUserProfile({
-              ...profileData,
-              cauris: totalCauris,
-            });
+            setUserProfile({ ...profileData, cauris: totalCauris });
           }
         }
       }
@@ -329,20 +348,16 @@ export default function InvestigationsHub() {
     load();
   }, []);
 
-  // ── Créer un groupe ──
   const handleCreateGroup = async (inv: any) => {
     if (!userId) return;
     setIsCreatingGroup(inv.id);
 
     try {
       const existingSession = userSessions[inv.id];
-
-      // Si un groupe est déjà actif, afficher directement le modal
       if (existingSession?.group_code && existingSession?.group_id) {
         setGroupModal({
           invId: inv.id,
-          invTitle:
-            lang === "fr" ? inv.title_fr : inv.title_en || inv.title_fr,
+          invTitle: lang === "fr" ? inv.title_fr : inv.title_en || inv.title_fr,
           groupCode: existingSession.group_code,
           groupId: existingSession.group_id,
         });
@@ -353,7 +368,6 @@ export default function InvestigationsHub() {
       const newGroupCode = generateGroupCode();
       const newGroupId = crypto.randomUUID();
 
-      // 1️⃣ CRÉER LE GROUPE DANS LA BASE DE DONNÉES
       const { error: groupErr } = await supabase
         .from("investigation_groups")
         .insert({
@@ -364,20 +378,12 @@ export default function InvestigationsHub() {
           status: "waiting",
         });
 
-      if (groupErr) {
-        console.error("Erreur création groupe dans Supabase:", groupErr);
-        throw groupErr;
-      }
+      if (groupErr) throw groupErr;
 
-      // 2️⃣ Upsert la session avec le groupe
       if (existingSession) {
         await supabase
           .from("investigation_sessions")
-          .update({
-            group_code: newGroupCode,
-            group_id: newGroupId,
-            is_group_creator: true,
-          })
+          .update({ group_code: newGroupCode, group_id: newGroupId, is_group_creator: true })
           .eq("id", existingSession.id);
       } else {
         await supabase.from("investigation_sessions").insert({
@@ -392,21 +398,14 @@ export default function InvestigationsHub() {
         });
       }
 
-      // Mettre à jour le state local
       setUserSessions((prev) => ({
         ...prev,
-        [inv.id]: {
-          ...(prev[inv.id] || {}),
-          group_code: newGroupCode,
-          group_id: newGroupId,
-          is_group_creator: true,
-        },
+        [inv.id]: { ...(prev[inv.id] || {}), group_code: newGroupCode, group_id: newGroupId, is_group_creator: true },
       }));
 
       setGroupModal({
         invId: inv.id,
-        invTitle:
-          lang === "fr" ? inv.title_fr : inv.title_en || inv.title_fr,
+        invTitle: lang === "fr" ? inv.title_fr : inv.title_en || inv.title_fr,
         groupCode: newGroupCode,
         groupId: newGroupId,
       });
@@ -417,7 +416,6 @@ export default function InvestigationsHub() {
     }
   };
 
-  // ── Désactiver le multijoueur ──
   const handleDisableGroup = async () => {
     if (!groupModal || !userId) return;
     setIsDisablingGroup(true);
@@ -428,21 +426,12 @@ export default function InvestigationsHub() {
 
       await supabase
         .from("investigation_sessions")
-        .update({
-          group_id: null,
-          group_code: null,
-          is_group_creator: false,
-        })
+        .update({ group_id: null, group_code: null, is_group_creator: false })
         .eq("id", session.id);
 
       setUserSessions((prev) => ({
         ...prev,
-        [groupModal.invId]: {
-          ...prev[groupModal.invId],
-          group_id: null,
-          group_code: null,
-          is_group_creator: false,
-        },
+        [groupModal.invId]: { ...prev[groupModal.invId], group_id: null, group_code: null, is_group_creator: false },
       }));
 
       setGroupModal(null);
@@ -453,7 +442,6 @@ export default function InvestigationsHub() {
     }
   };
 
-  // ── Copier le lien ──
   const handleCopyLink = () => {
     if (!groupModal) return;
     const url = `${window.location.origin}/investigations/${groupModal.invId}?code=${groupModal.groupCode}`;
@@ -463,23 +451,17 @@ export default function InvestigationsHub() {
     });
   };
 
-  // ── Supprimer la partie ──
   const handleDeleteSession = async () => {
     if (!deleteModal || !userId) return;
     setIsDeleting(true);
 
     try {
-      await supabase
-        .from("investigation_sessions")
-        .delete()
-        .eq("id", deleteModal.sessionId);
-
+      await supabase.from("investigation_sessions").delete().eq("id", deleteModal.sessionId);
       setUserSessions((prev) => {
         const next = { ...prev };
         delete next[deleteModal.invId];
         return next;
       });
-
       setDeleteModal(null);
     } catch (err) {
       console.error("Delete session error:", err);
@@ -488,7 +470,6 @@ export default function InvestigationsHub() {
     }
   };
 
-  // ✅ NOUVEAU : Formater le temps restant
   const formatTrialTime = (minutes: number): string => {
     if (minutes >= 60) {
       const h = Math.floor(minutes / 60);
@@ -501,10 +482,7 @@ export default function InvestigationsHub() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#121110] flex flex-col items-center justify-center font-mono text-[#D4AF37]">
-        <motion.div
-          animate={{ opacity: [0.3, 1, 0.3] }}
-          transition={{ duration: 1.5, repeat: Infinity }}
-        >
+        <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.5, repeat: Infinity }}>
           <CaurisIcon className="w-12 h-12 mb-4 drop-shadow-[0_0_10px_rgba(212,175,55,0.5)]" />
         </motion.div>
         <p className="text-[10px] tracking-widest uppercase">
@@ -525,58 +503,36 @@ export default function InvestigationsHub() {
 
       <nav className="relative z-10 border-b border-black/50 bg-[#1A1817] shadow-md px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between relative">
-          {/* GAUCHE : Retour */}
-          <Link
-            href="/explore"
-            className="flex items-center gap-2 text-gray-400 hover:text-[#D4AF37] transition-colors text-xs font-mono tracking-widest"
-          >
+          <Link href="/explore" className="flex items-center gap-2 text-gray-400 hover:text-[#D4AF37] transition-colors text-xs font-mono tracking-widest">
             <ChevronLeft size={16} />
             <span>{lang === "fr" ? "RETOUR" : "BACK"}</span>
           </Link>
 
-          {/* CENTRE : Logo + Lukeni */}
           <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
             <CaurisIcon className="w-5 h-5 text-[#D4AF37]" />
-            <p className="font-serif tracking-[0.2em] text-sm text-[#D4AF37] uppercase font-bold">
-              Lukeni
-            </p>
+            <p className="font-serif tracking-[0.2em] text-sm text-[#D4AF37] uppercase font-bold">Lukeni</p>
           </div>
 
-          {/* DROITE : Titre section + Cauris + Avatar cliquable */}
           <div className="flex items-center gap-3 sm:gap-4">
             <p className="hidden sm:block font-mono text-[10px] sm:text-xs tracking-widest text-gray-400 uppercase">
-              {lang === "fr"
-                ? "Enquêtes Historiques"
-                : "Historical Investigations"}
+              {lang === "fr" ? "Enquêtes Historiques" : "Historical Investigations"}
             </p>
 
-            {/* ✅ SOLDE CAURIS */}
             {userId && userProfile && (
               <div className="flex items-center gap-1.5 px-2.5 py-1 bg-black/40 border border-[#D4AF37]/30 rounded-full">
                 <CaurisIcon className="w-3.5 h-3.5 text-[#D4AF37]" />
-                <span className="font-mono text-xs font-bold text-[#D4AF37]">
-                  {userProfile?.cauris ?? 0}
-                </span>
+                <span className="font-mono text-xs font-bold text-[#D4AF37]">{userProfile?.cauris ?? 0}</span>
               </div>
             )}
 
-            {/* Avatar cliquable → Profil */}
             {userId && (
               <Link
                 href="/profil"
                 title={lang === "fr" ? "Voir mon profil" : "View my profile"}
                 className="w-8 h-8 rounded-full overflow-hidden border border-[#D4AF37]/30 hover:border-[#D4AF37] transition-all hover:shadow-[0_0_10px_rgba(212,175,55,0.3)] flex-shrink-0 bg-gray-800 flex items-center justify-center"
               >
-                {userProfile?.avatar_url &&
-                userProfile.avatar_url.startsWith("http") ? (
-                  <img
-                    src={userProfile.avatar_url}
-                    alt="Avatar"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
-                    }}
-                  />
+                {userProfile?.avatar_url && userProfile.avatar_url.startsWith("http") ? (
+                  <img src={userProfile.avatar_url} alt="Avatar" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                 ) : (
                   <User size={14} className="text-gray-400" />
                 )}
@@ -598,28 +554,15 @@ export default function InvestigationsHub() {
 
           <div className="absolute top-4 left-4 md:left-16 flex items-center gap-3 z-10">
             <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
-            <span className="font-mono text-[9px] text-gray-500 tracking-widest">
-              REC / MEMORY_BANK
-            </span>
+            <span className="font-mono text-[9px] text-gray-500 tracking-widest">REC / MEMORY_BANK</span>
           </div>
-          <div className="absolute top-4 right-4 md:right-16 font-mono text-[9px] text-gray-500 tracking-widest z-10">
-            kindoki 2080
-          </div>
+          <div className="absolute top-4 right-4 md:right-16 font-mono text-[9px] text-gray-500 tracking-widest z-10">kindoki 2080</div>
 
           <div className="relative w-full h-[450px] md:h-[550px] bg-[#0A0D0F] rounded-lg overflow-hidden border-4 border-[#111] shadow-[inset_0_0_40px_rgba(0,0,0,0.9)] mt-6">
             <CRTScanlines />
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_40%,rgba(0,0,0,0.7)_100%)] pointer-events-none z-30" />
 
-            <motion.div
-              drag
-              dragConstraints={{
-                left: -1000,
-                right: 1000,
-                top: -1000,
-                bottom: 1000,
-              }}
-              className="relative w-[3000px] h-[3000px] cursor-grab active:cursor-grabbing"
-            >
+            <motion.div drag dragConstraints={{ left: -1000, right: 1000, top: -1000, bottom: 1000 }} className="relative w-[3000px] h-[3000px] cursor-grab active:cursor-grabbing">
               <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
                 {boardNodes.map((node) =>
                   node.linked_to?.map((targetId: string) => {
@@ -646,28 +589,16 @@ export default function InvestigationsHub() {
                 <div
                   key={node.id}
                   className="absolute z-10 w-[140px] bg-[#E8E6DF] p-2 pb-6 rounded-sm shadow-[0_10px_20px_rgba(0,0,0,0.6)] select-none border border-[#D0CDBF]"
-                  style={{
-                    left: node.pos_x,
-                    top: node.pos_y,
-                    rotate: `${node.rotation * 0.8}deg`,
-                  }}
+                  style={{ left: node.pos_x, top: node.pos_y, rotate: `${node.rotation * 0.8}deg` }}
                 >
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)] z-20">
                     <CaurisIcon className="w-5 h-5 text-[#D4AF37]" />
                   </div>
                   <div className="w-full h-[110px] bg-black overflow-hidden border border-black/10 relative">
-                    <img
-                      src={node.image_url}
-                      alt=""
-                      className={`w-full h-full object-cover pointer-events-none ${getAdminFilterClass(
-                        node.filter_type
-                      )}`}
-                    />
+                    <img src={node.image_url} alt="" className={`w-full h-full object-cover pointer-events-none ${getAdminFilterClass(node.filter_type)}`} />
                     <div className="absolute inset-0 bg-white/5 pointer-events-none mix-blend-overlay" />
                   </div>
-                  <p className="text-[10px] text-black font-mono font-bold text-center mt-3 truncate tracking-widest uppercase opacity-80">
-                    {node.title}
-                  </p>
+                  <p className="text-[10px] text-black font-mono font-bold text-center mt-3 truncate tracking-widest uppercase opacity-80">{node.title}</p>
                 </div>
               ))}
             </motion.div>
@@ -686,14 +617,10 @@ export default function InvestigationsHub() {
         <div className="mb-8 flex items-center justify-center md:justify-between border-b border-white/10 pb-4">
           <div className="flex items-center gap-4 text-gray-300">
             <MaskLeftIcon className="w-6 h-8 text-[#D4AF37] opacity-60" />
-            <h2 className="text-xl font-serif uppercase tracking-widest">
-              {lang === "fr" ? "Dossiers Classifiés" : "Classified Files"}
-            </h2>
+            <h2 className="text-xl font-serif uppercase tracking-widest">{lang === "fr" ? "Dossiers Classifiés" : "Classified Files"}</h2>
             <MaskRightIcon className="w-6 h-8 text-[#D4AF37] opacity-60 md:hidden" />
           </div>
-          <div className="hidden md:block">
-            <MaskRightIcon className="w-6 h-8 text-[#D4AF37] opacity-60" />
-          </div>
+          <div className="hidden md:block"><MaskRightIcon className="w-6 h-8 text-[#D4AF37] opacity-60" /></div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -701,19 +628,8 @@ export default function InvestigationsHub() {
             const userSession = userSessions[inv.id];
             const hasSession = !!userSession;
             const hasActiveGroup = hasSession && !!userSession.group_code;
-            const invTitle =
-              lang === "fr"
-                ? inv.title_fr
-                : inv.title_en || inv.title_fr;
-
-            // ✅ NOUVEAU : Récupérer les infos d'accès
-            const access = accessMap[inv.id] || {
-              isFree: true,
-              hasFullAccess: false,
-              trialStatus: "none",
-              trialTimeRemaining: 0,
-            };
-
+            const invTitle = lang === "fr" ? inv.title_fr : inv.title_en || inv.title_fr;
+            const access = accessMap[inv.id] || { isFree: true, hasFullAccess: false, trialStatus: "none", trialTimeRemaining: 0 };
             const isFree = access.isFree;
             const hasFullAccess = access.hasFullAccess;
             const trialStatus = access.trialStatus;
@@ -721,16 +637,12 @@ export default function InvestigationsHub() {
             const priceEur = access.priceEur;
 
             return (
-              <div
-                key={inv.id}
-                className="group relative bg-[#1E1C1A] border border-white/5 hover:border-[#D4AF37]/50 transition-all duration-300 flex flex-col shadow-xl rounded-b-md rounded-tr-md"
-              >
+              <div key={inv.id} className="group relative bg-[#1E1C1A] border border-white/5 hover:border-[#D4AF37]/50 transition-all duration-300 flex flex-col shadow-xl rounded-b-md rounded-tr-md">
                 <div className="absolute -top-[18px] left-[-1px] bg-[#1E1C1A] border-t border-l border-r border-white/5 px-4 py-0.5 rounded-t-md text-[9px] font-mono text-gray-500 group-hover:border-[#D4AF37]/50 group-hover:text-[#D4AF37] transition-colors flex items-center gap-2">
                   ID: {inv.id.slice(0, 6).toUpperCase()}
                   {hasFullAccess && (
                     <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-[8px] font-bold flex items-center gap-1">
-                      <ShieldCheck size={8} />{" "}
-                      {lang === "fr" ? "PREMIUM" : "PREMIUM"}
+                      <ShieldCheck size={8} /> {lang === "fr" ? "PREMIUM" : "PREMIUM"}
                     </span>
                   )}
                   {hasSession && !hasFullAccess && (
@@ -740,26 +652,16 @@ export default function InvestigationsHub() {
                   )}
                   {hasActiveGroup && (
                     <span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 rounded text-[8px] font-bold flex items-center gap-1">
-                      <Users size={8} />{" "}
-                      {lang === "fr" ? "Groupe" : "Group"}
+                      <Users size={8} /> {lang === "fr" ? "Groupe" : "Group"}
                     </span>
                   )}
                 </div>
 
                 <div className="h-40 relative overflow-hidden bg-[#0A0A0A]">
-                  <img
-                    src={
-                      inv.cover_url ||
-                      "https://images.unsplash.com/photo-1614036417651-1d4b6dbbc608?w=800&q=80"
-                    }
-                    alt=""
-                    className="w-full h-full object-cover opacity-60 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-500"
-                  />
-                  {/* ✅ Badge Premium sur l'image */}
+                  <img src={inv.cover_url || "https://images.unsplash.com/photo-1614036417651-1d4b6dbbc608?w=800&q=80"} alt="" className="w-full h-full object-cover opacity-60 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-500" />
                   {hasFullAccess && (
                     <div className="absolute top-2 right-2 bg-[#D4AF37] text-black px-2 py-1 rounded text-[9px] font-bold font-mono flex items-center gap-1 shadow-lg">
-                      <ShieldCheck size={10} />{" "}
-                      {lang === "fr" ? "ACCÈS ILLIMITÉ" : "UNLIMITED"}
+                      <ShieldCheck size={10} /> {lang === "fr" ? "ACCÈS ILLIMITÉ" : "UNLIMITED"}
                     </div>
                   )}
                 </div>
@@ -768,172 +670,77 @@ export default function InvestigationsHub() {
                   <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center gap-2 text-[10px] text-gray-400 font-mono">
                       <Search size={12} />
-                      <span>
-                        {lang === "fr" ? "ENQUÊTE" : "INVESTIGATION"}
-                      </span>
+                      <span>{lang === "fr" ? "ENQUÊTE" : "INVESTIGATION"}</span>
                     </div>
                     <span className="flex items-center gap-1.5 text-xs text-[#D4AF37] font-mono font-bold">
-                      <CaurisIcon className="w-3.5 h-3.5" />{" "}
-                      {inv.reward_cauris || 0}
+                      <CaurisIcon className="w-3.5 h-3.5" /> {inv.reward_cauris || 0}
                     </span>
                   </div>
 
-                  <h3 className="text-lg font-serif font-bold mb-2 text-white group-hover:text-[#D4AF37] transition-colors tracking-wide leading-tight">
-                    {invTitle}
-                  </h3>
-
+                  <h3 className="text-lg font-serif font-bold mb-2 text-white group-hover:text-[#D4AF37] transition-colors tracking-wide leading-tight">{invTitle}</h3>
                   <p className="text-xs text-gray-400 line-clamp-3 mb-4 flex-1 font-sans leading-relaxed">
-                    {lang === "fr"
-                      ? inv.description_fr
-                      : inv.description_en || inv.description_fr}
+                    {lang === "fr" ? inv.description_fr : inv.description_en || inv.description_fr}
                   </p>
 
-                  {/* ✅ NOUVEAU : BOUTONS DYNAMIQUES SELON L'ACCÈS */}
                   <div className="space-y-2">
-                    {/* ÉTAT 5 : ACCÈS COMPLET (Achat ou Admin) */}
+                    {/* ÉTAT 1 : ACCÈS COMPLET */}
                     {hasFullAccess && (
-                      <Link
-                        href={`/investigations/${inv.id}`}
-                        className="flex items-center justify-center gap-2 w-full py-2.5 bg-[#D4AF37] hover:bg-white border border-[#D4AF37] text-center text-xs font-bold tracking-[0.2em] font-mono text-black transition-all duration-300 rounded shadow-sm"
-                      >
-                        <ShieldCheck size={12} />
-                        {lang === "fr"
-                          ? "ACCÈS ILLIMITÉ"
-                          : "UNLIMITED ACCESS"}
+                      <Link href={`/investigations/${inv.id}`} className="flex items-center justify-center gap-2 w-full py-2.5 bg-[#D4AF37] hover:bg-white border border-[#D4AF37] text-center text-xs font-bold tracking-[0.2em] font-mono text-black transition-all duration-300 rounded shadow-sm">
+                        <ShieldCheck size={12} /> {lang === "fr" ? "ACCÈS ILLIMITÉ" : "UNLIMITED ACCESS"}
                       </Link>
                     )}
 
-                    {/* ÉTAT 1 : ENQUÊTE GRATUITE */}
+                    {/* ÉTAT 2 : GRATUIT */}
                     {!hasFullAccess && isFree && (
-                      <Link
-                        href={`/investigations/${inv.id}`}
-                        className="flex items-center justify-center gap-2 w-full py-2.5 bg-[#2A2726] hover:bg-[#D4AF37] border border-white/10 hover:border-[#D4AF37] text-center text-xs font-bold tracking-[0.2em] font-mono text-gray-300 hover:text-black transition-all duration-300 rounded shadow-sm"
-                      >
-                        <Play size={12} />
-                        {hasSession
-                          ? lang === "fr"
-                            ? "REPRENDRE"
-                            : "RESUME"
-                          : lang === "fr"
-                            ? "JOUER"
-                            : "PLAY"}
+                      <Link href={`/investigations/${inv.id}`} className="flex items-center justify-center gap-2 w-full py-2.5 bg-[#2A2726] hover:bg-[#D4AF37] border border-white/10 hover:border-[#D4AF37] text-center text-xs font-bold tracking-[0.2em] font-mono text-gray-300 hover:text-black transition-all duration-300 rounded shadow-sm">
+                        <Play size={12} /> {hasSession ? (lang === "fr" ? "REPRENDRE" : "RESUME") : (lang === "fr" ? "JOUER" : "PLAY")}
                       </Link>
                     )}
 
-                    {/* ÉTAT 3 : ESSAI EN COURS (ACTIF) */}
-                    {!hasFullAccess &&
-                      !isFree &&
-                      trialStatus === "active" && (
-                        <>
-                          <Link
-                            href={`/investigations/${inv.id}`}
-                            className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 text-center text-xs font-bold tracking-wider font-mono transition-all duration-300 rounded"
-                          >
-                            <Clock size={12} />
-                            {lang === "fr"
-                              ? `CONTINUER L'ESSAI (${formatTrialTime(trialTimeRemaining)})`
-                              : `CONTINUE TRIAL (${formatTrialTime(trialTimeRemaining)})`}
-                          </Link>
-                          <Link
-                            href={`/investigations/${inv.id}`}
-                            className="flex items-center justify-center gap-2 w-full py-2 bg-[#2A2726] hover:bg-[#D4AF37] border border-white/10 hover:border-[#D4AF37] text-center text-[10px] font-bold tracking-wider font-mono text-gray-500 hover:text-black transition-all duration-300 rounded"
-                          >
-                            <CreditCard size={10} />
-                            {lang === "fr"
-                              ? `ACHETER (${priceEur?.toFixed(2)} €)`
-                              : `BUY (${priceEur?.toFixed(2)} €)`}
-                          </Link>
-                        </>
-                      )}
+                    {/* ÉTAT 3 : ESSAI EN COURS */}
+                    {!hasFullAccess && !isFree && trialStatus === "active" && trialTimeRemaining > 0 && (
+                      <>
+                        <Link href={`/investigations/${inv.id}`} className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 text-center text-xs font-bold tracking-wider font-mono transition-all duration-300 rounded">
+                          <Play size={12} className="text-blue-400" /> {lang === "fr" ? `CONTINUER (${formatTrialTime(trialTimeRemaining)})` : `CONTINUE (${formatTrialTime(trialTimeRemaining)})`}
+                        </Link>
+                        <Link href={`/investigations/${inv.id}`} className="flex items-center justify-center gap-2 w-full py-2 bg-[#2A2726] hover:bg-[#D4AF37] border border-white/10 hover:border-[#D4AF37] text-center text-[10px] font-bold tracking-wider font-mono text-gray-500 hover:text-black transition-all duration-300 rounded">
+                          <CreditCard size={10} /> {lang === "fr" ? `ACHETER (${priceEur?.toFixed(2)} €)` : `BUY (${priceEur?.toFixed(2)} €)`}
+                        </Link>
+                      </>
+                    )}
 
                     {/* ÉTAT 4 : ESSAI EXPIRÉ */}
-                    {!hasFullAccess &&
-                      !isFree &&
-                      trialStatus === "expired" && (
-                        <>
-                          <Link
-                            href={`/investigations/${inv.id}`}
-                            className="flex items-center justify-center gap-2 w-full py-2.5 bg-[#D4AF37] hover:bg-white border border-[#D4AF37] text-center text-xs font-bold tracking-[0.2em] font-mono text-black transition-all duration-300 rounded shadow-sm"
-                          >
-                            <CreditCard size={12} />
-                            {lang === "fr"
-                              ? `ACHETER L'ACCÈS (${priceEur?.toFixed(2)} €)`
-                              : `BUY ACCESS (${priceEur?.toFixed(2)} €)`}
-                          </Link>
-                          <p className="text-[10px] text-gray-600 text-center font-mono flex items-center justify-center gap-1">
-                            <Clock size={10} className="text-red-400" />
-                            {lang === "fr"
-                              ? "Essai expiré"
-                              : "Trial expired"}
-                          </p>
-                        </>
-                      )}
+                    {!hasFullAccess && !isFree && trialStatus === "expired" && (
+                      <>
+                        <Link href={`/investigations/${inv.id}`} className="flex items-center justify-center gap-2 w-full py-2.5 bg-[#D4AF37] hover:bg-white border border-[#D4AF37] text-center text-xs font-bold tracking-[0.2em] font-mono text-black transition-all duration-300 rounded shadow-sm">
+                          <CreditCard size={12} /> {lang === "fr" ? `ACHETER L'ACCÈS (${priceEur?.toFixed(2)} €)` : `BUY ACCESS (${priceEur?.toFixed(2)} €)`}
+                        </Link>
+                        <p className="text-[10px] text-gray-600 text-center font-mono flex items-center justify-center gap-1">
+                          <Clock size={10} className="text-red-400" /> {lang === "fr" ? "Essai expiré" : "Trial expired"}
+                        </p>
+                      </>
+                    )}
 
-                    {/* ÉTAT 2 : PAYANT, AUCUN ESSAI */}
-                    {!hasFullAccess &&
-                      !isFree &&
-                      trialStatus === "none" && (
-                        <>
-                          <Link
-                            href={`/investigations/${inv.id}`}
-                            className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 text-center text-xs font-bold tracking-wider font-mono transition-all duration-300 rounded"
-                          >
-                            <Clock size={12} />
-                            {lang === "fr"
-                              ? "ESSAI GRATUIT (30 min)"
-                              : "FREE TRIAL (30 min)"}
-                          </Link>
-                          <Link
-                            href={`/investigations/${inv.id}`}
-                            className="flex items-center justify-center gap-2 w-full py-2 bg-transparent hover:bg-[#D4AF37]/10 border border-[#D4AF37]/30 hover:border-[#D4AF37] text-center text-[10px] font-bold tracking-wider font-mono text-[#D4AF37] transition-all duration-300 rounded"
-                          >
-                            <CreditCard size={10} />
-                            {lang === "fr"
-                              ? `ACHETER (${priceEur?.toFixed(2)} €)`
-                              : `BUY (${priceEur?.toFixed(2)} €)`}
-                          </Link>
-                        </>
-                      )}
+                    {/* ÉTAT 5 : PAYANT, AUCUN ESSAI */}
+                    {!hasFullAccess && !isFree && trialStatus === "none" && (
+                      <>
+                        <Link href={`/investigations/${inv.id}?autoStartTrial=true`} className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 text-center text-xs font-bold tracking-wider font-mono transition-all duration-300 rounded">
+                          <Clock size={12} /> {lang === "fr" ? `ESSAI GRATUIT (${trialConfigDuration} min)` : `FREE TRIAL (${trialConfigDuration} min)`}
+                        </Link>
+                        <Link href={`/investigations/${inv.id}`} className="flex items-center justify-center gap-2 w-full py-2 bg-transparent hover:bg-[#D4AF37]/10 border border-[#D4AF37]/30 hover:border-[#D4AF37] text-center text-[10px] font-bold tracking-wider font-mono text-[#D4AF37] transition-all duration-300 rounded">
+                          <CreditCard size={10} /> {lang === "fr" ? `ACHETER (${priceEur?.toFixed(2)} €)` : `BUY (${priceEur?.toFixed(2)} €)`}
+                        </Link>
+                      </>
+                    )}
 
-                    {/* Boutons secondaires (Groupe / Supprimer) */}
+                    {/* Boutons secondaires */}
                     <div className="flex gap-2 pt-1">
-                      {/* Bouton Inviter */}
-                      <button
-                        onClick={() => handleCreateGroup(inv)}
-                        disabled={isCreatingGroup === inv.id}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-purple-600/10 hover:bg-purple-600/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-400 text-[10px] font-bold font-mono tracking-wider rounded transition-all"
-                      >
-                        {isCreatingGroup === inv.id ? (
-                          <Loader2 size={10} className="animate-spin" />
-                        ) : (
-                          <UserPlus size={10} />
-                        )}
-                        {hasActiveGroup
-                          ? lang === "fr"
-                            ? "GROUPE"
-                            : "GROUP"
-                          : lang === "fr"
-                            ? "INVITER"
-                            : "INVITE"}
+                      <button onClick={() => handleCreateGroup(inv)} disabled={isCreatingGroup === inv.id} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-purple-600/10 hover:bg-purple-600/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-400 text-[10px] font-bold font-mono tracking-wider rounded transition-all">
+                        {isCreatingGroup === inv.id ? <Loader2 size={10} className="animate-spin" /> : <UserPlus size={10} />}
+                        {hasActiveGroup ? (lang === "fr" ? "GROUPE" : "GROUP") : (lang === "fr" ? "INVITER" : "INVITE")}
                       </button>
-
-                      {/* Bouton Supprimer partie */}
                       {hasSession && (
-                        <button
-                          onClick={() =>
-                            setDeleteModal({
-                              invId: inv.id,
-                              invTitle,
-                              sessionId: userSession.id,
-                            })
-                          }
-                          className="flex items-center justify-center gap-1.5 py-2 px-3 bg-red-600/10 hover:bg-red-600/20 border border-red-500/20 hover:border-red-500/40 text-red-400 text-[10px] font-bold font-mono rounded transition-all"
-                          title={
-                            lang === "fr"
-                              ? "Supprimer ma partie"
-                              : "Delete my game"
-                          }
-                        >
+                        <button onClick={() => setDeleteModal({ invId: inv.id, invTitle, sessionId: userSession.id })} className="flex items-center justify-center gap-1.5 py-2 px-3 bg-red-600/10 hover:bg-red-600/20 border border-red-500/20 hover:border-red-500/40 text-red-400 text-[10px] font-bold font-mono rounded transition-all" title={lang === "fr" ? "Supprimer ma partie" : "Delete my game"}>
                           <Trash2 size={10} />
                         </button>
                       )}
@@ -949,118 +756,42 @@ export default function InvestigationsHub() {
           <div className="text-center py-20 bg-[#1E1C1A] border border-dashed border-white/10 rounded-md relative overflow-hidden">
             <MaskRightIcon className="mx-auto text-gray-700 mb-4 w-12 h-16 opacity-50" />
             <p className="text-xs text-gray-400 font-mono tracking-widest uppercase relative z-10">
-              {lang === "fr"
-                ? "Le tiroir des mystères est vide"
-                : "The mystery drawer is empty"}
+              {lang === "fr" ? "Le tiroir des mystères est vide" : "The mystery drawer is empty"}
             </p>
           </div>
         )}
       </main>
 
-      {/* ════════════════════════════════════════════════════
-          MODAL GROUPE (CRÉATEUR)
-      ════════════════════════════════════════════════════ */}
+      {/* MODAL GROUPE */}
       <AnimatePresence>
         {groupModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/80 backdrop-blur-sm p-4"
-            onClick={() => setGroupModal(null)}
-          >
-            <motion.div
-              initial={{ y: 50, scale: 0.95 }}
-              animate={{ y: 0, scale: 1 }}
-              exit={{ y: 50, scale: 0.95 }}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm bg-[#111] border border-purple-500/30 rounded-2xl overflow-hidden shadow-2xl"
-            >
-              {/* Header */}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => setGroupModal(null)}>
+            <motion.div initial={{ y: 50, scale: 0.95 }} animate={{ y: 0, scale: 1 }} exit={{ y: 50, scale: 0.95 }} onClick={(e) => e.stopPropagation()} className="w-full max-w-sm bg-[#111] border border-purple-500/30 rounded-2xl overflow-hidden shadow-2xl">
               <div className="bg-purple-500/10 px-5 py-4 flex items-center justify-between border-b border-purple-500/20">
                 <div className="flex items-center gap-2">
                   <Users size={16} className="text-purple-400" />
-                  <span className="font-bold text-white text-sm">
-                    {lang === "fr" ? "Jouer en Groupe" : "Play in Group"}
-                  </span>
+                  <span className="font-bold text-white text-sm">{lang === "fr" ? "Jouer en Groupe" : "Play in Group"}</span>
                 </div>
-                <button
-                  onClick={() => setGroupModal(null)}
-                  className="text-gray-500 hover:text-white"
-                >
-                  <X size={16} />
-                </button>
+                <button onClick={() => setGroupModal(null)} className="text-gray-500 hover:text-white"><X size={16} /></button>
               </div>
-
               <div className="p-5 space-y-5">
-                {/* Titre de l'investigation */}
-                <p className="text-gray-400 text-xs font-mono">
-                  {lang === "fr" ? "Enquête :" : "Investigation:"}{" "}
-                  <span className="text-white font-bold">
-                    {groupModal.invTitle}
-                  </span>
-                </p>
-
-                {/* Code */}
+                <p className="text-gray-400 text-xs font-mono">{lang === "fr" ? "Enquête :" : "Investigation:"} <span className="text-white font-bold">{groupModal.invTitle}</span></p>
                 <div>
-                  <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-2">
-                    {lang === "fr" ? "Code de la partie" : "Game code"}
-                  </p>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-2">{lang === "fr" ? "Code de la partie" : "Game code"}</p>
                   <div className="flex items-center gap-3 p-4 bg-black/50 border border-purple-500/20 rounded-xl">
-                    <span className="font-mono font-black text-2xl text-purple-300 tracking-[0.2em] flex-1 text-center">
-                      {groupModal.groupCode}
-                    </span>
+                    <span className="font-mono font-black text-2xl text-purple-300 tracking-[0.2em] flex-1 text-center">{groupModal.groupCode}</span>
                   </div>
                 </div>
-
-                {/* Bouton copier le lien */}
-                <button
-                  onClick={handleCopyLink}
-                  className="w-full flex items-center justify-center gap-2 py-3 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 rounded-xl text-purple-300 text-sm font-bold transition-all"
-                >
-                  {isCopied ? (
-                    <>
-                      <Check size={14} className="text-green-400" />
-                      <span className="text-green-400">
-                        {lang === "fr" ? "Lien copié !" : "Link copied!"}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={14} />
-                      {lang === "fr"
-                        ? "Copier le lien d'invitation"
-                        : "Copy invitation link"}
-                    </>
-                  )}
+                <button onClick={handleCopyLink} className="w-full flex items-center justify-center gap-2 py-3 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 rounded-xl text-purple-300 text-sm font-bold transition-all">
+                  {isCopied ? (<><Check size={14} className="text-green-400" /><span className="text-green-400">{lang === "fr" ? "Lien copié !" : "Link copied!"}</span></>) : (<><Copy size={14} />{lang === "fr" ? "Copier le lien d'invitation" : "Copy invitation link"}</>)}
                 </button>
-
-                <p className="text-[10px] text-gray-600 text-center">
-                  {lang === "fr"
-                    ? "Vos coéquipiers devront taper ce code pour rejoindre la partie."
-                    : "Your teammates will need to type this code to join the game."}
-                </p>
-
-                {/* Actions */}
+                <p className="text-[10px] text-gray-600 text-center">{lang === "fr" ? "Vos coéquipiers devront taper ce code pour rejoindre la partie." : "Your teammates will need to type this code to join the game."}</p>
                 <div className="flex gap-3 pt-2 border-t border-white/10">
-                  <button
-                    onClick={handleDisableGroup}
-                    disabled={isDisablingGroup}
-                    className="flex-1 py-2.5 bg-red-600/10 hover:bg-red-600/20 border border-red-500/20 text-red-400 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
-                  >
-                    {isDisablingGroup ? (
-                      <Loader2 size={12} className="animate-spin" />
-                    ) : (
-                      <X size={12} />
-                    )}
-                    {lang === "fr" ? "Désactiver" : "Disable"}
+                  <button onClick={handleDisableGroup} disabled={isDisablingGroup} className="flex-1 py-2.5 bg-red-600/10 hover:bg-red-600/20 border border-red-500/20 text-red-400 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2">
+                    {isDisablingGroup ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />} {lang === "fr" ? "Désactiver" : "Disable"}
                   </button>
-                  <Link
-                    href={`/investigations/${groupModal.invId}`}
-                    className="flex-1 py-2.5 bg-[#D4AF37] hover:bg-white text-black rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
-                  >
-                    <Play size={12} />
-                    {lang === "fr" ? "Jouer maintenant" : "Play now"}
+                  <Link href={`/investigations/${groupModal.invId}`} className="flex-1 py-2.5 bg-[#D4AF37] hover:bg-white text-black rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2">
+                    <Play size={12} /> {lang === "fr" ? "Jouer maintenant" : "Play now"}
                   </Link>
                 </div>
               </div>
@@ -1069,79 +800,28 @@ export default function InvestigationsHub() {
         )}
       </AnimatePresence>
 
-      {/* ════════════════════════════════════════════════════
-          MODAL SUPPRESSION PARTIE
-      ════════════════════════════════════════════════════ */}
+      {/* MODAL SUPPRESSION */}
       <AnimatePresence>
         {deleteModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/80 backdrop-blur-sm p-4"
-            onClick={() => !isDeleting && setDeleteModal(null)}
-          >
-            <motion.div
-              initial={{ y: 50, scale: 0.95 }}
-              animate={{ y: 0, scale: 1 }}
-              exit={{ y: 50, scale: 0.95 }}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm bg-[#111] border border-red-500/30 rounded-2xl overflow-hidden shadow-2xl"
-            >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={() => !isDeleting && setDeleteModal(null)}>
+            <motion.div initial={{ y: 50, scale: 0.95 }} animate={{ y: 0, scale: 1 }} exit={{ y: 50, scale: 0.95 }} onClick={(e) => e.stopPropagation()} className="w-full max-w-sm bg-[#111] border border-red-500/30 rounded-2xl overflow-hidden shadow-2xl">
               <div className="bg-red-500/10 px-5 py-4 flex items-center justify-between border-b border-red-500/20">
                 <div className="flex items-center gap-2">
                   <AlertTriangle size={16} className="text-red-400" />
-                  <span className="font-bold text-white text-sm">
-                    {lang === "fr"
-                      ? "Supprimer ma partie"
-                      : "Delete my game"}
-                  </span>
+                  <span className="font-bold text-white text-sm">{lang === "fr" ? "Supprimer ma partie" : "Delete my game"}</span>
                 </div>
-                <button
-                  onClick={() => !isDeleting && setDeleteModal(null)}
-                  className="text-gray-500 hover:text-white"
-                >
-                  <X size={16} />
-                </button>
+                <button onClick={() => !isDeleting && setDeleteModal(null)} className="text-gray-500 hover:text-white"><X size={16} /></button>
               </div>
-
               <div className="p-5 space-y-4">
-                <p className="text-gray-400 text-sm">
-                  {lang === "fr"
-                    ? "Vous allez supprimer votre progression pour :"
-                    : "You are about to delete your progress for:"}
-                </p>
-                <p className="text-white font-bold font-serif">
-                  {deleteModal.invTitle}
-                </p>
-
+                <p className="text-gray-400 text-sm">{lang === "fr" ? "Vous allez supprimer votre progression pour :" : "You are about to delete your progress for:"}</p>
+                <p className="text-white font-bold font-serif">{deleteModal.invTitle}</p>
                 <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-                  <p className="text-amber-300 text-xs">
-                    {lang === "fr"
-                      ? "⚠️ Énigmes résolues, preuves collectées et Cauris gagnés seront perdus. Les autres joueurs de votre groupe ne seront pas affectés."
-                      : "⚠️ Solved enigmas, collected evidence and earned Cauris will be lost. Other players in your group will not be affected."}
-                  </p>
+                  <p className="text-amber-300 text-xs">{lang === "fr" ? "⚠️ Énigmes résolues, preuves collectées et Cauris gagnés seront perdus. Les autres joueurs de votre groupe ne seront pas affectés." : "⚠️ Solved enigmas, collected evidence and earned Cauris will be lost. Other players in your group will not be affected."}</p>
                 </div>
-
                 <div className="flex gap-3 pt-2">
-                  <button
-                    onClick={() => setDeleteModal(null)}
-                    disabled={isDeleting}
-                    className="flex-1 py-3 bg-white/5 border border-white/10 text-white rounded-xl text-sm font-bold hover:bg-white/10 transition-colors disabled:opacity-50"
-                  >
-                    {lang === "fr" ? "Annuler" : "Cancel"}
-                  </button>
-                  <button
-                    onClick={handleDeleteSession}
-                    disabled={isDeleting}
-                    className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {isDeleting ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Trash2 size={14} />
-                    )}
-                    {lang === "fr" ? "Supprimer" : "Delete"}
+                  <button onClick={() => setDeleteModal(null)} disabled={isDeleting} className="flex-1 py-3 bg-white/5 border border-white/10 text-white rounded-xl text-sm font-bold hover:bg-white/10 transition-colors disabled:opacity-50">{lang === "fr" ? "Annuler" : "Cancel"}</button>
+                  <button onClick={handleDeleteSession} disabled={isDeleting} className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white rounded-xl text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                    {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />} {lang === "fr" ? "Supprimer" : "Delete"}
                   </button>
                 </div>
               </div>

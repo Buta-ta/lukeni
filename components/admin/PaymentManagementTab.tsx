@@ -7,7 +7,7 @@ import {
   Loader2, CreditCard, Clock, BookOpen, Search, User as UserIcon, Star, AlertCircle,
   CheckCircle, Trash2, PlusCircle, ChevronRight, Filter, X, Download,
   TrendingUp, Users, Eye, EyeOff, Copy, Check, ArrowUpDown, Calendar,
-  Briefcase, Fingerprint // ✅ AJOUT
+  Briefcase, Fingerprint,  RotateCcw
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -756,6 +756,7 @@ function AccessSection({
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [isLoadingGrants, setIsLoadingGrants] = useState(true);
+  const [isResettingTrial, setIsResettingTrial] = useState(false);
 
   // Charger les utilisateurs
   useEffect(() => {
@@ -859,6 +860,27 @@ function AccessSection({
 
     setIsSavingGrant(false);
   };
+
+
+  const handleResetTrial = async () => {
+  if (!selectedUser || !selectedProduct) return;
+  setIsResettingTrial(true);
+
+  const { error } = await supabase
+    .from('trial_sessions')
+    .delete()
+    .eq('user_id', selectedUser.id)
+    .eq('target_id', selectedProduct.id)
+    .eq('target_type', selectedProduct.type);
+
+  if (error) {
+    showMsg('error', lang === 'fr' ? 'Erreur lors de la réinitialisation' : 'Error resetting trial');
+  } else {
+    showMsg('success', lang === 'fr' ? `Essai réinitialisé pour ${selectedUser.full_name}` : `Trial reset for ${selectedUser.full_name}`);
+  }
+
+  setIsResettingTrial(false);
+};
 
   const handleDeleteGrant = async () => {
     if (!deleteTarget) return;
@@ -1075,7 +1097,7 @@ function AccessSection({
         )}
       </div>
 
-      {/* SECTION 3 : PORTÉE + BOUTON */}
+           {/* SECTION 3 : ACTIONS (Accorder / Réinitialiser) */}
       {selectedUser && selectedProduct && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -1091,10 +1113,11 @@ function AccessSection({
                 <button
                   key={scope}
                   onClick={() => setGrantScope(scope)}
-                  className={`flex-1 px-4 py-3 rounded-lg font-bold text-sm transition-all ${grantScope === scope
-                    ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.3)]'
-                    : 'bg-white/5 text-gray-500 hover:bg-white/10 border border-white/10'
-                    }`}
+                  className={`flex-1 px-4 py-3 rounded-lg font-bold text-sm transition-all ${
+                    grantScope === scope
+                      ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.3)]'
+                      : 'bg-white/5 text-gray-500 hover:bg-white/10 border border-white/10'
+                  }`}
                 >
                   {scope === 'single' ? t.single : t.all}
                 </button>
@@ -1102,24 +1125,49 @@ function AccessSection({
             </div>
           </div>
 
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleGrantAccess}
-            disabled={isSavingGrant}
-            className="w-full bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white px-6 py-3 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(168,85,247,0.3)]"
-          >
-            {isSavingGrant ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <PlusCircle size={16} />
-            )}
-            {isSavingGrant
-              ? lang === 'fr'
-                ? 'Accordage en cours...'
-                : 'Granting...'
-              : t.grantAccess}
-          </motion.button>
+          <div className="space-y-3">
+            {/* Bouton Accorder l'accès */}
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleGrantAccess}
+              disabled={isSavingGrant}
+              className="w-full bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white px-6 py-3 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(168,85,247,0.3)]"
+            >
+              {isSavingGrant ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <PlusCircle size={16} />
+              )}
+              {isSavingGrant
+                ? lang === 'fr'
+                  ? 'Accordage en cours...'
+                  : 'Granting...'
+                : t.grantAccess}
+            </motion.button>
+
+            {/* ✅ Bouton Réinitialiser l'essai */}
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleResetTrial}
+              disabled={isResettingTrial}
+              className="w-full bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/30 hover:border-amber-500/50 text-amber-400 px-6 py-3 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2"
+            >
+              {isResettingTrial ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <RotateCcw size={16} /> // ✅ N'oublie pas d'ajouter RotateCcw dans les imports lucide-react en haut du fichier
+              )}
+              {isResettingTrial
+                ? lang === 'fr'
+                  ? 'Réinitialisation...'
+                  : 'Resetting...'
+                : lang === 'fr'
+                  ? '🔄 Réinitialiser l\'essai gratuit'
+                  : '🔄 Reset free trial'}
+            </motion.button>
+          </div>
         </motion.div>
       )}
 

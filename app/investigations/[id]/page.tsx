@@ -300,7 +300,11 @@ export default function InvestigationGame(props: {
   const [showOutro, setShowOutro] = useState(false);
 
   const [hasPaymentAccess, setHasPaymentAccess] = useState(false);
-  const [showPaywall, setShowPaywall] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(true);
+
+
+
+  const [hasFullAccess, setHasFullAccess] = useState(false);
   const [pricingData, setPricingData] = useState<any>(null);
   const [gameIntroConfig, setGameIntroConfig] = useState<any | null>(null);
 
@@ -493,22 +497,52 @@ export default function InvestigationGame(props: {
 
 
   // ✅ TRIAL SESSION HOOK
-  const { timeRemaining, isExpired } = useTrialSession(
+  const { timeRemaining, isExpired, trial, startTrial, pauseTimer } = useTrialSession(
     user?.id || null,
     invId,
     'investigation'
   );
 
+  // DEBUG
+  useEffect(() => {
+    console.log('🎮 [PAGE] Trial state:', { trial, timeRemaining, isExpired, hasPaymentAccess });
+  }, [trial, timeRemaining, isExpired, hasPaymentAccess]);
+
   const [showTrialExpiredModal, setShowTrialExpiredModal] = useState(false);
 
-  // ✅ Déclencher le modal quand le trial expire UNIQUEMENT si pas d'accès complet
+  // ✅ Déclencher le modal quand le trial expire
   useEffect(() => {
-    if (isExpired && session && !hasPaymentAccess) {
+    console.log('⏰ [PAGE] Vérification expiration:', { timeRemaining, isExpired, hasPaymentAccess });
+    if (timeRemaining === 0 && !hasPaymentAccess && session) {
+      console.log('🚨 [PAGE] Trial expiré, affichage du modal');
       setShowTrialExpiredModal(true);
     }
-  }, [isExpired, session, hasPaymentAccess]);
+  }, [timeRemaining, hasPaymentAccess, session]);
 
-  // ✅ Si l'utilisateur obtient l'accès (admin grant ou paiement), fermer le modal d'expiration
+
+  // ✅ PAUSE DU TIMER QUAND LE MENU ABANDON EST OUVERT
+  useEffect(() => {
+    if (showAbortMenu) {
+      pauseTimer(true);
+    } else {
+      pauseTimer(false);
+    }
+  }, [showAbortMenu, pauseTimer]);
+
+  // ✅ PAUSE DU TIMER QUAND ON QUITTE LA PAGE
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      pauseTimer(true);
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [pauseTimer]);
+
+  // ✅ Si l'utilisateur obtient l'accès complet, fermer le modal d'expiration
   useEffect(() => {
     if (hasPaymentAccess && showTrialExpiredModal) {
       setShowTrialExpiredModal(false);
@@ -2403,11 +2437,14 @@ export default function InvestigationGame(props: {
     return (
       <InvestigationPaywall
         investigationId={invId}
-        investigationTitle={lang === "fr" ? investigation?.title_fr : investigation?.title_en || ""}
+        investigationTitle={investigationTitle}
         lang={lang}
-        onAccessGranted={() => {
-          setHasPaymentAccess(true);
+        onAccessGranted={(isTrial) => {
+          console.log('🎟️ [PAGE] onAccessGranted:', { isTrial });
           setShowPaywall(false);
+          if (!isTrial) {
+            setHasPaymentAccess(true);
+          }
         }}
       />
     );
@@ -2842,16 +2879,16 @@ export default function InvestigationGame(props: {
           </div>
         </div>
 
-        {/* ✅ TIMER TRIAL GRATUIT - Uniquement si PAS d'accès complet */}
-        {timeRemaining !== null && !hasPaymentAccess && (
+        {/* ✅ TIMER TRIAL GRATUIT - Visible si trial actif (et non chargé) */}
+        {!isLoading && timeRemaining !== null && timeRemaining > 0 && (
           <motion.div
             animate={{ scale: timeRemaining <= 60 ? [1, 1.05, 1] : 1 }}
             transition={{ repeat: timeRemaining <= 60 ? Infinity : 0, duration: 0.5 }}
             className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-mono text-xs font-bold border ${timeRemaining <= 60
-                ? 'bg-red-500/20 border-red-500/50 text-red-400'
-                : timeRemaining <= 300
-                  ? 'bg-amber-500/20 border-amber-500/30 text-amber-400'
-                  : 'bg-black/50 border-white/20 text-white'
+              ? 'bg-red-500/20 border-red-500/50 text-red-400'
+              : timeRemaining <= 300
+                ? 'bg-amber-500/20 border-amber-500/30 text-amber-400'
+                : 'bg-black/50 border-white/20 text-white'
               }`}
           >
             <Clock size={12} />
