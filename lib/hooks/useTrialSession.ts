@@ -82,11 +82,18 @@ export function useTrialSession(
 
   // Créer une nouvelle session d'essai
   const startTrial = async (maxMinutes: number = 30) => {
-    if (!userId || !targetId || !targetType) return false;
+    console.log('📍 startTrial appelé avec:', { userId, targetId, targetType, maxMinutes });
+
+    if (!userId || !targetId || !targetType) {
+      console.log('❌ Paramètres manquants:', { userId, targetId, targetType });
+      return false;
+    }
 
     try {
       const now = new Date();
       const expiredAt = new Date(now.getTime() + maxMinutes * 60000);
+
+      console.log('📤 Envoi de l\'insert trial_sessions...');
 
       const { data, error } = await supabase
         .from('trial_sessions')
@@ -103,12 +110,18 @@ export function useTrialSession(
         .select()
         .single();
 
-      if (error) throw error;
+      console.log('📥 Réponse reçue:', { data, error });
 
+      if (error) {
+        console.error('❌ Erreur insert:', error.message);
+        return false;
+      }
+
+      console.log('✅ Trial créée avec succès:', data.id);
       setTrial(data);
       return true;
-    } catch (err) {
-      console.error('Trial start error:', err);
+    } catch (err: any) {
+      console.error('💥 Exception catch:', err);
       return false;
     }
   };
