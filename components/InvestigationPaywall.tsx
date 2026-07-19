@@ -58,6 +58,7 @@ export default function InvestigationPaywall({
   useEffect(() => {
     const getUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      console.log('🔍 Session récupérée:', session?.user?.id || 'NULLE');
       setUserId(session?.user?.id || null);
     };
     getUser();
