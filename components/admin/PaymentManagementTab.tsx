@@ -9,7 +9,7 @@ import { motion } from 'framer-motion';
 
 export default function PaymentManagementTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: string) => void }) {
   const [activeTab, setActiveTab] = useState<'trial' | 'investigations' | 'books' | 'grants' | 'history'>('trial');
-  
+
   // Trial Config
   const [trialMinutes, setTrialMinutes] = useState(30);
   const [trialEnabled, setTrialEnabled] = useState(true);
@@ -40,7 +40,7 @@ export default function PaymentManagementTab({ showMsg }: { showMsg: (type: 'suc
   }, []);
 
   const fetchTrialConfig = async () => {
-    const { data } = await supabase.from('site_settings').select('*').eq('id', 1).single();
+    const { data } = await supabase.from('trial_config').select('*').eq('id', 1).single();
     if (data) {
       setTrialMinutes(data.trial_duration_minutes || 30);
       setTrialEnabled(data.is_trial_enabled ?? true);
@@ -69,8 +69,31 @@ export default function PaymentManagementTab({ showMsg }: { showMsg: (type: 'suc
   };
 
   const fetchGrants = async () => {
-    const { data } = await supabase.from('admin_user_access_grants').select('*, profiles:user_id(full_name, email)').order('granted_at', { ascending: false });
-    setGrants(data || []);
+    // Étape 1 : Récupérer tous les grants
+    const { data: grantsData } = await supabase
+      .from('admin_user_access_grants')
+      .select('*')
+      .order('granted_at', { ascending: false });
+
+    if (!grantsData || grantsData.length === 0) {
+      setGrants([]);
+      return;
+    }
+
+    // Étape 2 : Récupérer les profils correspondants
+    const userIds = grantsData.map(g => g.user_id);
+    const { data: profilesData } = await supabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .in('id', userIds);
+
+    // Étape 3 : Fusionner les données
+    const merged = grantsData.map(grant => ({
+      ...grant,
+      profiles: profilesData?.find(p => p.id === grant.user_id) || null
+    }));
+
+    setGrants(merged);
   };
 
   const fetchTransactions = async () => {
@@ -80,7 +103,7 @@ export default function PaymentManagementTab({ showMsg }: { showMsg: (type: 'suc
 
   const handleSaveTrial = async () => {
     setIsSavingTrial(true);
-    const { error } = await supabase.from('site_settings').update({
+    const { error } = await supabase.from('trial_config').update({
       trial_duration_minutes: trialMinutes,
       is_trial_enabled: trialEnabled
     }).eq('id', 1);
@@ -145,9 +168,17 @@ export default function PaymentManagementTab({ showMsg }: { showMsg: (type: 'suc
     if (!grantUserId.trim()) return showMsg('error', 'ID Utilisateur requis');
     setIsSavingGrant(true);
 
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) {
+      showMsg('error', 'Session admin introuvable');
+      setIsSavingGrant(false);
+      return;
+    }
+
     const targetIds = grantScope === 'all' ? [] : [grantTargetId];
 
     const { error } = await supabase.from('admin_user_access_grants').insert({
+      admin_id: session.user.id,
       user_id: grantUserId,
       access_type: grantAccessType,
       access_scope: grantScope,
