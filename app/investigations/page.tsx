@@ -21,8 +21,12 @@ import {
   AlertTriangle,
   Fingerprint,
   User,
+  Clock,
+  CreditCard,
+  ShieldCheck,
 } from "lucide-react";
 import { User as UserIcon } from "lucide-react";
+
 // --- LOGO LUKENI (CAURIS DORÉ) ---
 const CaurisIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 100 100" className={className} fill="currentColor">
@@ -113,10 +117,20 @@ const generateGroupCode = (): string => {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const code = Array.from(
     { length: 6 },
-    () => chars[Math.floor(Math.random() * chars.length)],
+    () => chars[Math.floor(Math.random() * chars.length)]
   ).join("");
   return `LUKENI-${code}`;
 };
+
+// ── Types d'accès ──
+interface AccessInfo {
+  isFree: boolean;
+  priceEur?: number;
+  priceCfa?: number;
+  hasFullAccess: boolean;
+  trialStatus: "none" | "active" | "expired";
+  trialTimeRemaining: number; // en minutes
+}
 
 export default function InvestigationsHub() {
   const router = useRouter();
@@ -129,6 +143,9 @@ export default function InvestigationsHub() {
 
   // Sessions utilisateur par investigation
   const [userSessions, setUserSessions] = useState<Record<string, any>>({});
+
+  // ✅ NOUVEAU : Map des accès (prix, trial, etc.)
+  const [accessMap, setAccessMap] = useState<Record<string, AccessInfo>>({});
 
   // Modal groupe (créateur)
   const [groupModal, setGroupModal] = useState<{
@@ -164,10 +181,10 @@ export default function InvestigationsHub() {
       // ✅ NOUVEAU : Récupérer le profil utilisateur
       let profileData: any = null;
       if (currentUserId) {
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', currentUserId)
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", currentUserId)
           .single();
 
         if (profile) {
@@ -190,12 +207,97 @@ export default function InvestigationsHub() {
       // Charger les sessions de l'utilisateur
       if (currentUserId && invRes.data) {
         const invIds = invRes.data.map((i: any) => i.id);
-        const { data: sessions } = await supabase
-          .from("investigation_sessions")
-          .select("*")
-          .eq("user_id", currentUserId)
-          .in("investigation_id", invIds);
 
+        // ✅ NOUVEAU : Requêtes parallèles pour les accès
+        const [
+          sessionsRes,
+          pricingRes,
+          userAccessRes,
+          adminGrantsRes,
+          trialRes,
+        ] = await Promise.all([
+          supabase
+            .from("investigation_sessions")
+            .select("*")
+            .eq("user_id", currentUserId)
+            .in("investigation_id", invIds),
+          supabase
+            .from("product_pricing")
+            .select("*")
+            .in("product_id", invIds),
+          supabase
+            .from("user_access")
+            .select("target_id")
+            .eq("user_id", currentUserId)
+            .eq("status", "completed"),
+          supabase
+            .from("admin_user_access_grants")
+            .select("access_scope, target_ids, access_type")
+            .eq("user_id", currentUserId),
+          supabase
+            .from("trial_sessions")
+            .select("*")
+            .eq("user_id", currentUserId)
+            .in("target_id", invIds),
+        ]);
+
+        const sessions = sessionsRes.data || [];
+        const pricingData = pricingRes.data || [];
+        const userAccessData = userAccessRes.data || [];
+        const adminGrants = adminGrantsRes.data || [];
+        const trialData = trialRes.data || [];
+
+        // ✅ NOUVEAU : Calculer la map d'accès pour chaque enquête
+        const map: Record<string, AccessInfo> = {};
+        for (const inv of invRes.data) {
+          const pricing = pricingData.find(
+            (p) => p.product_id === inv.id && p.product_type === "investigation"
+          );
+          const isFree = !pricing;
+
+          const hasBought = userAccessData.some((a) => a.target_id === inv.id);
+          const hasGrant = adminGrants.some(
+            (g) =>
+              g.access_type === "investigation" &&
+              (g.access_scope === "all" ||
+                (g.target_ids && g.target_ids.includes(inv.id)))
+          );
+          const hasFullAccess = hasBought || hasGrant;
+
+          const trial = trialData.find((t) => t.target_id === inv.id);
+          let trialStatus: "none" | "active" | "expired" = "none";
+          let trialTimeRemaining = 0;
+
+          if (trial) {
+            if (trial.status === "active") {
+              const expiredAt = new Date(trial.expired_at).getTime();
+              const now = Date.now();
+              if (now < expiredAt) {
+                trialStatus = "active";
+                trialTimeRemaining = Math.max(
+                  0,
+                  Math.floor((expiredAt - now) / 1000 / 60)
+                );
+              } else {
+                trialStatus = "expired";
+              }
+            } else {
+              trialStatus = "expired";
+            }
+          }
+
+          map[inv.id] = {
+            isFree,
+            priceEur: pricing?.price_eur,
+            priceCfa: pricing?.price_xof_cfa,
+            hasFullAccess,
+            trialStatus,
+            trialTimeRemaining,
+          };
+        }
+        setAccessMap(map);
+
+        // Sessions map
         if (sessions) {
           const sessionsMap: Record<string, any> = {};
           sessions.forEach((s: any) => {
@@ -206,8 +308,11 @@ export default function InvestigationsHub() {
           // ✅ Calculer les Cauris réels : profil + sessions actives
           if (profileData) {
             const activeSessionCauris = sessions
-              .filter((s: any) => s.status === 'active')
-              .reduce((sum: number, s: any) => sum + (s.current_cauris || 0), 0);
+              .filter((s: any) => s.status === "active")
+              .reduce(
+                (sum: number, s: any) => sum + (s.current_cauris || 0),
+                0
+              );
 
             const totalCauris = (profileData.cauris || 0) + activeSessionCauris;
 
@@ -225,7 +330,6 @@ export default function InvestigationsHub() {
   }, []);
 
   // ── Créer un groupe ──
-   // ── Créer un groupe ──
   const handleCreateGroup = async (inv: any) => {
     if (!userId) return;
     setIsCreatingGroup(inv.id);
@@ -237,7 +341,8 @@ export default function InvestigationsHub() {
       if (existingSession?.group_code && existingSession?.group_id) {
         setGroupModal({
           invId: inv.id,
-          invTitle: lang === "fr" ? inv.title_fr : inv.title_en || inv.title_fr,
+          invTitle:
+            lang === "fr" ? inv.title_fr : inv.title_en || inv.title_fr,
           groupCode: existingSession.group_code,
           groupId: existingSession.group_id,
         });
@@ -248,7 +353,7 @@ export default function InvestigationsHub() {
       const newGroupCode = generateGroupCode();
       const newGroupId = crypto.randomUUID();
 
-      // 1️⃣ NOUVEAU : CRÉER LE GROUPE DANS LA BASE DE DONNÉES !
+      // 1️⃣ CRÉER LE GROUPE DANS LA BASE DE DONNÉES
       const { error: groupErr } = await supabase
         .from("investigation_groups")
         .insert({
@@ -256,7 +361,7 @@ export default function InvestigationsHub() {
           investigation_id: inv.id,
           created_by: userId,
           invite_code: newGroupCode,
-          status: "waiting", 
+          status: "waiting",
         });
 
       if (groupErr) {
@@ -300,7 +405,8 @@ export default function InvestigationsHub() {
 
       setGroupModal({
         invId: inv.id,
-        invTitle: lang === "fr" ? inv.title_fr : inv.title_en || inv.title_fr,
+        invTitle:
+          lang === "fr" ? inv.title_fr : inv.title_en || inv.title_fr,
         groupCode: newGroupCode,
         groupId: newGroupId,
       });
@@ -382,6 +488,16 @@ export default function InvestigationsHub() {
     }
   };
 
+  // ✅ NOUVEAU : Formater le temps restant
+  const formatTrialTime = (minutes: number): string => {
+    if (minutes >= 60) {
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
+      return `${h}h${m.toString().padStart(2, "0")}`;
+    }
+    return `${minutes} min`;
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#121110] flex flex-col items-center justify-center font-mono text-[#D4AF37]">
@@ -426,7 +542,6 @@ export default function InvestigationsHub() {
             </p>
           </div>
 
-          {/* DROITE : Titre section + Avatar cliquable */}
           {/* DROITE : Titre section + Cauris + Avatar cliquable */}
           <div className="flex items-center gap-3 sm:gap-4">
             <p className="hidden sm:block font-mono text-[10px] sm:text-xs tracking-widest text-gray-400 uppercase">
@@ -453,13 +568,12 @@ export default function InvestigationsHub() {
                 className="w-8 h-8 rounded-full overflow-hidden border border-[#D4AF37]/30 hover:border-[#D4AF37] transition-all hover:shadow-[0_0_10px_rgba(212,175,55,0.3)] flex-shrink-0 bg-gray-800 flex items-center justify-center"
               >
                 {userProfile?.avatar_url &&
-                  userProfile.avatar_url.startsWith("http") ? (
+                userProfile.avatar_url.startsWith("http") ? (
                   <img
                     src={userProfile.avatar_url}
                     alt="Avatar"
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      // Si l'image échoue à charger, afficher l'icône
                       (e.target as HTMLImageElement).style.display = "none";
                     }}
                   />
@@ -524,7 +638,7 @@ export default function InvestigationsHub() {
                         className="opacity-70 drop-shadow-[0_0_3px_rgba(239,68,68,0.5)]"
                       />
                     );
-                  }),
+                  })
                 )}
               </svg>
 
@@ -545,7 +659,9 @@ export default function InvestigationsHub() {
                     <img
                       src={node.image_url}
                       alt=""
-                      className={`w-full h-full object-cover pointer-events-none ${getAdminFilterClass(node.filter_type)}`}
+                      className={`w-full h-full object-cover pointer-events-none ${getAdminFilterClass(
+                        node.filter_type
+                      )}`}
                     />
                     <div className="absolute inset-0 bg-white/5 pointer-events-none mix-blend-overlay" />
                   </div>
@@ -586,7 +702,23 @@ export default function InvestigationsHub() {
             const hasSession = !!userSession;
             const hasActiveGroup = hasSession && !!userSession.group_code;
             const invTitle =
-              lang === "fr" ? inv.title_fr : inv.title_en || inv.title_fr;
+              lang === "fr"
+                ? inv.title_fr
+                : inv.title_en || inv.title_fr;
+
+            // ✅ NOUVEAU : Récupérer les infos d'accès
+            const access = accessMap[inv.id] || {
+              isFree: true,
+              hasFullAccess: false,
+              trialStatus: "none",
+              trialTimeRemaining: 0,
+            };
+
+            const isFree = access.isFree;
+            const hasFullAccess = access.hasFullAccess;
+            const trialStatus = access.trialStatus;
+            const trialTimeRemaining = access.trialTimeRemaining;
+            const priceEur = access.priceEur;
 
             return (
               <div
@@ -595,7 +727,13 @@ export default function InvestigationsHub() {
               >
                 <div className="absolute -top-[18px] left-[-1px] bg-[#1E1C1A] border-t border-l border-r border-white/5 px-4 py-0.5 rounded-t-md text-[9px] font-mono text-gray-500 group-hover:border-[#D4AF37]/50 group-hover:text-[#D4AF37] transition-colors flex items-center gap-2">
                   ID: {inv.id.slice(0, 6).toUpperCase()}
-                  {hasSession && (
+                  {hasFullAccess && (
+                    <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-[8px] font-bold flex items-center gap-1">
+                      <ShieldCheck size={8} />{" "}
+                      {lang === "fr" ? "PREMIUM" : "PREMIUM"}
+                    </span>
+                  )}
+                  {hasSession && !hasFullAccess && (
                     <span className="px-1.5 py-0.5 bg-cyan-500/20 text-cyan-400 rounded text-[8px] font-bold">
                       {lang === "fr" ? "En cours" : "In progress"}
                     </span>
@@ -603,7 +741,7 @@ export default function InvestigationsHub() {
                   {hasActiveGroup && (
                     <span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 rounded text-[8px] font-bold flex items-center gap-1">
                       <Users size={8} />{" "}
-                      {lang === "fr" ? "Groupe actif" : "Active group"}
+                      {lang === "fr" ? "Groupe" : "Group"}
                     </span>
                   )}
                 </div>
@@ -617,13 +755,22 @@ export default function InvestigationsHub() {
                     alt=""
                     className="w-full h-full object-cover opacity-60 grayscale group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-500"
                   />
+                  {/* ✅ Badge Premium sur l'image */}
+                  {hasFullAccess && (
+                    <div className="absolute top-2 right-2 bg-[#D4AF37] text-black px-2 py-1 rounded text-[9px] font-bold font-mono flex items-center gap-1 shadow-lg">
+                      <ShieldCheck size={10} />{" "}
+                      {lang === "fr" ? "ACCÈS ILLIMITÉ" : "UNLIMITED"}
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-5 flex-1 flex flex-col border-t border-black/50">
                   <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center gap-2 text-[10px] text-gray-400 font-mono">
                       <Search size={12} />
-                      <span>{lang === "fr" ? "ENQUÊTE" : "INVESTIGATION"}</span>
+                      <span>
+                        {lang === "fr" ? "ENQUÊTE" : "INVESTIGATION"}
+                      </span>
                     </div>
                     <span className="flex items-center gap-1.5 text-xs text-[#D4AF37] font-mono font-bold">
                       <CaurisIcon className="w-3.5 h-3.5" />{" "}
@@ -641,25 +788,115 @@ export default function InvestigationsHub() {
                       : inv.description_en || inv.description_fr}
                   </p>
 
-                  {/* ✅ BOUTONS D'ACTION */}
+                  {/* ✅ NOUVEAU : BOUTONS DYNAMIQUES SELON L'ACCÈS */}
                   <div className="space-y-2">
-                    {/* Bouton principal : Jouer */}
-                    <Link
-                      href={`/investigations/${inv.id}`}
-                      className="flex items-center justify-center gap-2 w-full py-2.5 bg-[#2A2726] hover:bg-[#D4AF37] border border-white/10 hover:border-[#D4AF37] text-center text-xs font-bold tracking-[0.2em] font-mono text-gray-300 hover:text-black transition-all duration-300 rounded shadow-sm"
-                    >
-                      <Play size={12} />
-                      {hasSession
-                        ? lang === "fr"
-                          ? "REPRENDRE L'ARCHIVE"
-                          : "RESUME ARCHIVE"
-                        : lang === "fr"
-                          ? "OUVRIR L'ARCHIVE"
-                          : "OPEN ARCHIVE"}
-                    </Link>
+                    {/* ÉTAT 5 : ACCÈS COMPLET (Achat ou Admin) */}
+                    {hasFullAccess && (
+                      <Link
+                        href={`/investigations/${inv.id}`}
+                        className="flex items-center justify-center gap-2 w-full py-2.5 bg-[#D4AF37] hover:bg-white border border-[#D4AF37] text-center text-xs font-bold tracking-[0.2em] font-mono text-black transition-all duration-300 rounded shadow-sm"
+                      >
+                        <ShieldCheck size={12} />
+                        {lang === "fr"
+                          ? "ACCÈS ILLIMITÉ"
+                          : "UNLIMITED ACCESS"}
+                      </Link>
+                    )}
 
-                    {/* Boutons secondaires */}
-                    <div className="flex gap-2">
+                    {/* ÉTAT 1 : ENQUÊTE GRATUITE */}
+                    {!hasFullAccess && isFree && (
+                      <Link
+                        href={`/investigations/${inv.id}`}
+                        className="flex items-center justify-center gap-2 w-full py-2.5 bg-[#2A2726] hover:bg-[#D4AF37] border border-white/10 hover:border-[#D4AF37] text-center text-xs font-bold tracking-[0.2em] font-mono text-gray-300 hover:text-black transition-all duration-300 rounded shadow-sm"
+                      >
+                        <Play size={12} />
+                        {hasSession
+                          ? lang === "fr"
+                            ? "REPRENDRE"
+                            : "RESUME"
+                          : lang === "fr"
+                            ? "JOUER"
+                            : "PLAY"}
+                      </Link>
+                    )}
+
+                    {/* ÉTAT 3 : ESSAI EN COURS (ACTIF) */}
+                    {!hasFullAccess &&
+                      !isFree &&
+                      trialStatus === "active" && (
+                        <>
+                          <Link
+                            href={`/investigations/${inv.id}`}
+                            className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 text-center text-xs font-bold tracking-wider font-mono transition-all duration-300 rounded"
+                          >
+                            <Clock size={12} />
+                            {lang === "fr"
+                              ? `CONTINUER L'ESSAI (${formatTrialTime(trialTimeRemaining)})`
+                              : `CONTINUE TRIAL (${formatTrialTime(trialTimeRemaining)})`}
+                          </Link>
+                          <Link
+                            href={`/investigations/${inv.id}`}
+                            className="flex items-center justify-center gap-2 w-full py-2 bg-[#2A2726] hover:bg-[#D4AF37] border border-white/10 hover:border-[#D4AF37] text-center text-[10px] font-bold tracking-wider font-mono text-gray-500 hover:text-black transition-all duration-300 rounded"
+                          >
+                            <CreditCard size={10} />
+                            {lang === "fr"
+                              ? `ACHETER (${priceEur?.toFixed(2)} €)`
+                              : `BUY (${priceEur?.toFixed(2)} €)`}
+                          </Link>
+                        </>
+                      )}
+
+                    {/* ÉTAT 4 : ESSAI EXPIRÉ */}
+                    {!hasFullAccess &&
+                      !isFree &&
+                      trialStatus === "expired" && (
+                        <>
+                          <Link
+                            href={`/investigations/${inv.id}`}
+                            className="flex items-center justify-center gap-2 w-full py-2.5 bg-[#D4AF37] hover:bg-white border border-[#D4AF37] text-center text-xs font-bold tracking-[0.2em] font-mono text-black transition-all duration-300 rounded shadow-sm"
+                          >
+                            <CreditCard size={12} />
+                            {lang === "fr"
+                              ? `ACHETER L'ACCÈS (${priceEur?.toFixed(2)} €)`
+                              : `BUY ACCESS (${priceEur?.toFixed(2)} €)`}
+                          </Link>
+                          <p className="text-[10px] text-gray-600 text-center font-mono flex items-center justify-center gap-1">
+                            <Clock size={10} className="text-red-400" />
+                            {lang === "fr"
+                              ? "Essai expiré"
+                              : "Trial expired"}
+                          </p>
+                        </>
+                      )}
+
+                    {/* ÉTAT 2 : PAYANT, AUCUN ESSAI */}
+                    {!hasFullAccess &&
+                      !isFree &&
+                      trialStatus === "none" && (
+                        <>
+                          <Link
+                            href={`/investigations/${inv.id}`}
+                            className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 text-center text-xs font-bold tracking-wider font-mono transition-all duration-300 rounded"
+                          >
+                            <Clock size={12} />
+                            {lang === "fr"
+                              ? "ESSAI GRATUIT (30 min)"
+                              : "FREE TRIAL (30 min)"}
+                          </Link>
+                          <Link
+                            href={`/investigations/${inv.id}`}
+                            className="flex items-center justify-center gap-2 w-full py-2 bg-transparent hover:bg-[#D4AF37]/10 border border-[#D4AF37]/30 hover:border-[#D4AF37] text-center text-[10px] font-bold tracking-wider font-mono text-[#D4AF37] transition-all duration-300 rounded"
+                          >
+                            <CreditCard size={10} />
+                            {lang === "fr"
+                              ? `ACHETER (${priceEur?.toFixed(2)} €)`
+                              : `BUY (${priceEur?.toFixed(2)} €)`}
+                          </Link>
+                        </>
+                      )}
+
+                    {/* Boutons secondaires (Groupe / Supprimer) */}
+                    <div className="flex gap-2 pt-1">
                       {/* Bouton Inviter */}
                       <button
                         onClick={() => handleCreateGroup(inv)}
@@ -680,7 +917,7 @@ export default function InvestigationsHub() {
                             : "INVITE"}
                       </button>
 
-                      {/* Bouton Supprimer partie (seulement si session existe) */}
+                      {/* Bouton Supprimer partie */}
                       {hasSession && (
                         <button
                           onClick={() =>
@@ -855,7 +1092,9 @@ export default function InvestigationsHub() {
                 <div className="flex items-center gap-2">
                   <AlertTriangle size={16} className="text-red-400" />
                   <span className="font-bold text-white text-sm">
-                    {lang === "fr" ? "Supprimer ma partie" : "Delete my game"}
+                    {lang === "fr"
+                      ? "Supprimer ma partie"
+                      : "Delete my game"}
                   </span>
                 </div>
                 <button

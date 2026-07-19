@@ -38,8 +38,10 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { Hotspot } from "@/types/panorama";
+import { useTrialSession } from "@/lib/hooks/useTrialSession";
 import EvidenceModal from "@/components/game/EvidenceModal";
 import DialogueBubble from "@/components/game/DialogueBubble";
+import TrialExpiredModal from "@/components/TrialExpiredModal";
 import { useInvestigationSession } from "@/lib/hooks/useInvestigationSession";
 import { useInvestigationChat } from "@/lib/hooks/useInvestigationChat";
 import { useInvestigationPresence } from "@/lib/hooks/useInvestigationPresence";
@@ -231,6 +233,32 @@ export default function InvestigationGame(props: {
   const [investigation, setInvestigation] = useState<Investigation | null>(
     null,
   );
+
+
+  // ✅ Extraire le titre de l'investigation
+  const investigationTitle = lang === 'fr'
+    ? investigation?.title_fr
+    : investigation?.title_en || investigation?.title_fr;
+
+  // ✅ État pour le prix
+  const [pricing, setPricing] = useState<any>(null);
+
+  // ✅ Charger le prix au montage
+  useEffect(() => {
+    if (!invId) return;
+    const fetchPricing = async () => {
+      const { data } = await supabase
+        .from('product_pricing')
+        .select('*')
+        .eq('product_type', 'investigation')
+        .eq('product_id', invId)
+        .maybeSingle();
+      setPricing(data);
+    };
+    fetchPricing();
+  }, [invId]);
+
+
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [outroConfig, setOutroConfig] = useState<any | null>(null);
 
@@ -462,6 +490,30 @@ export default function InvestigationGame(props: {
     session?.group_id || null,
     user?.id,
   );
+
+
+  // ✅ TRIAL SESSION HOOK
+  const { timeRemaining, isExpired } = useTrialSession(
+    user?.id || null,
+    invId,
+    'investigation'
+  );
+
+  const [showTrialExpiredModal, setShowTrialExpiredModal] = useState(false);
+
+  // ✅ Déclencher le modal quand le trial expire UNIQUEMENT si pas d'accès complet
+  useEffect(() => {
+    if (isExpired && session && !hasPaymentAccess) {
+      setShowTrialExpiredModal(true);
+    }
+  }, [isExpired, session, hasPaymentAccess]);
+
+  // ✅ Si l'utilisateur obtient l'accès (admin grant ou paiement), fermer le modal d'expiration
+  useEffect(() => {
+    if (hasPaymentAccess && showTrialExpiredModal) {
+      setShowTrialExpiredModal(false);
+    }
+  }, [hasPaymentAccess, showTrialExpiredModal]);
 
   const currentChapter = chapters[currentChapterIndex] || null;
   const currentScene = currentChapter?.scenes?.[currentSceneIndex] || null;
@@ -2789,6 +2841,23 @@ export default function InvestigationGame(props: {
             )}
           </div>
         </div>
+
+        {/* ✅ TIMER TRIAL GRATUIT - Uniquement si PAS d'accès complet */}
+        {timeRemaining !== null && !hasPaymentAccess && (
+          <motion.div
+            animate={{ scale: timeRemaining <= 60 ? [1, 1.05, 1] : 1 }}
+            transition={{ repeat: timeRemaining <= 60 ? Infinity : 0, duration: 0.5 }}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-mono text-xs font-bold border ${timeRemaining <= 60
+                ? 'bg-red-500/20 border-red-500/50 text-red-400'
+                : timeRemaining <= 300
+                  ? 'bg-amber-500/20 border-amber-500/30 text-amber-400'
+                  : 'bg-black/50 border-white/20 text-white'
+              }`}
+          >
+            <Clock size={12} />
+            ⏱️ TRIAL: {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}
+          </motion.div>
+        )}
       </div>
 
       {/* ── INSTRUCTION NOTIFICATIONS (Superposées dynamiquement) ── */}
@@ -5804,6 +5873,16 @@ export default function InvestigationGame(props: {
 
 
 
+
+      {/* ✅ MODAL EXPIRATION TRIAL */}
+      <TrialExpiredModal
+        isOpen={showTrialExpiredModal}
+        investigationId={invId}
+        investigationTitle={investigationTitle}
+        pricing={pricing}
+        lang={lang}
+        onClose={() => setShowTrialExpiredModal(false)}
+      />
 
       {/* ── MODALE DE VISUALISATION DES PREUVES ── */}
       <EvidenceModal

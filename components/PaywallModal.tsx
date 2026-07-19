@@ -81,7 +81,7 @@ export default function PaywallModal({
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (!session?.user) {
         alert(lang === 'fr' ? 'Connectez-vous pour payer.' : 'Log in to pay.');
         setIsProcessing(false);
@@ -91,12 +91,12 @@ export default function PaywallModal({
       const response = await fetch('/api/payments/create-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          productType, 
-          productId, 
-          currency, 
-          userId: session.user.id, 
-          userEmail: session.user.email 
+        body: JSON.stringify({
+          productType,
+          productId,
+          currency,
+          userId: session.user.id,
+          userEmail: session.user.email
         }),
       });
 
@@ -131,7 +131,7 @@ export default function PaywallModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"
+        className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"
         onClick={onClose}
       >
         <motion.div
@@ -161,17 +161,15 @@ export default function PaywallModal({
           <div className="flex bg-black p-1 rounded-lg border border-white/10 mb-4">
             <button
               onClick={() => setCurrency('XOF')}
-              className={`flex-1 py-1.5 rounded text-[11px] font-bold transition-all ${
-                currency === 'XOF' ? 'bg-[#D4AF37] text-black' : 'text-gray-400'
-              }`}
+              className={`flex-1 py-1.5 rounded text-[11px] font-bold transition-all ${currency === 'XOF' ? 'bg-[#D4AF37] text-black' : 'text-gray-400'
+                }`}
             >
               CFA
             </button>
             <button
               onClick={() => setCurrency('EUR')}
-              className={`flex-1 py-1.5 rounded text-[11px] font-bold transition-all ${
-                currency === 'EUR' ? 'bg-[#D4AF37] text-black' : 'text-gray-400'
-              }`}
+              className={`flex-1 py-1.5 rounded text-[11px] font-bold transition-all ${currency === 'EUR' ? 'bg-[#D4AF37] text-black' : 'text-gray-400'
+                }`}
             >
               EUR
             </button>
