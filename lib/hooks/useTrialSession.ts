@@ -24,8 +24,9 @@ export function useTrialSession(
   const [trial, setTrial] = useState<TrialSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Charger la session d'essai
+  // 1. Charger la session d'essai au montage
   useEffect(() => {
     if (!userId || !targetId || !targetType) {
       setIsLoading(false);
@@ -34,17 +35,22 @@ export function useTrialSession(
 
     const fetchTrial = async () => {
       try {
-        const { data } = await supabase
+        const { data, error: fetchError } = await supabase
           .from('trial_sessions')
           .select('*')
           .eq('user_id', userId)
           .eq('target_id', targetId)
           .eq('target_type', targetType)
+          .order('created_at', { ascending: false })
           .maybeSingle();
 
+        if (fetchError) throw fetchError;
+
         setTrial(data);
+        setError(null);
       } catch (err) {
         console.error('Trial fetch error:', err);
+        setError(err instanceof Error ? err.message : 'Unknown error');
       } finally {
         setIsLoading(false);
       }
@@ -53,7 +59,7 @@ export function useTrialSession(
     fetchTrial();
   }, [userId, targetId, targetType]);
 
-  // Calculer le temps restant
+  // 2. Calculer et mettre à jour le temps restant CHAQUE SECONDE
   useEffect(() => {
     if (!trial || trial.status === 'expired') {
       setTimeRemaining(null);
@@ -63,7 +69,8 @@ export function useTrialSession(
     const updateTimeRemaining = () => {
       const expiredAt = new Date(trial.expired_at).getTime();
       const now = Date.now();
-      const remaining = Math.max(0, Math.floor((expiredAt - now) / 1000 / 60));
+      const remainingMs = expiredAt - now;
+      const remaining = Math.max(0, Math.floor(remainingMs / 1000)); // En secondes
 
       setTimeRemaining(remaining);
 
@@ -74,18 +81,19 @@ export function useTrialSession(
       }
     };
 
+    // Mise à jour immédiate
     updateTimeRemaining();
-    const interval = setInterval(updateTimeRemaining, 60000); // Update toutes les minutes
+
+    // Mise à jour chaque seconde (1000ms)
+    const interval = setInterval(updateTimeRemaining, 1000);
 
     return () => clearInterval(interval);
   }, [trial]);
 
-  // Créer une nouvelle session d'essai
+  // 3. Créer une nouvelle session d'essai
   const startTrial = async (maxMinutes: number = 30) => {
-    console.log('📍 startTrial appelé avec:', { userId, targetId, targetType, maxMinutes });
-
     if (!userId || !targetId || !targetType) {
-      console.log('❌ Paramètres manquants:', { userId, targetId, targetType });
+      setError('Missing user or target information');
       return false;
     }
 
@@ -93,9 +101,7 @@ export function useTrialSession(
       const now = new Date();
       const expiredAt = new Date(now.getTime() + maxMinutes * 60000);
 
-      console.log('📤 Envoi de l\'insert trial_sessions...');
-
-      const { data, error } = await supabase
+      const { data, error: insertError } = await supabase
         .from('trial_sessions')
         .insert({
           user_id: userId,
@@ -110,23 +116,20 @@ export function useTrialSession(
         .select()
         .single();
 
-      console.log('📥 Réponse reçue:', { data, error });
+      if (insertError) throw insertError;
 
-      if (error) {
-        console.error('❌ Erreur insert:', error.message);
-        return false;
-      }
-
-      console.log('✅ Trial créée avec succès:', data.id);
       setTrial(data);
+      setError(null);
       return true;
     } catch (err: any) {
-      console.error('💥 Exception catch:', err);
+      const errorMsg = err.message || 'Failed to start trial';
+      setError(errorMsg);
+      console.error('Trial start error:', err);
       return false;
     }
   };
 
-  // Vérifier si peut réessayer
+  // 4. Vérifier si peut réessayer
   const canRetry = (): boolean => {
     if (!trial || trial.status !== 'expired') return false;
     if (!trial.can_retry_at) return true;
@@ -135,7 +138,7 @@ export function useTrialSession(
     return Date.now() >= retryAt;
   };
 
-  // Temps avant prochain essai
+  // 5. Temps avant prochain essai (en minutes)
   const timeBeforeRetry = (): number | null => {
     if (!trial || trial.status !== 'expired' || !trial.can_retry_at) return null;
 
@@ -149,9 +152,10 @@ export function useTrialSession(
   return {
     trial,
     isLoading,
-    timeRemaining,
+    timeRemaining, // En secondes maintenant (plus granulaire)
     startTrial,
     canRetry: canRetry(),
     timeBeforeRetry: timeBeforeRetry(),
+    error,
   };
 }
