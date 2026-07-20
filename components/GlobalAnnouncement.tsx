@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase-browser';
 import AwaleGame from './AwaleGame';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Info, ArrowUpCircle, Settings, X } from 'lucide-react';
+import { Info, ArrowUpCircle, Settings, X, AlertTriangle } from 'lucide-react';
+import { usePathname } from 'next/navigation'; // 👈 IMPORT AJOUTÉ
 
 interface Announcement {
   id: string;
@@ -23,6 +24,8 @@ export default function GlobalAnnouncement({ children }: { children: React.React
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
   
   const supabase = createClient();
+  const pathname = usePathname(); // 👈 Récupère l'URL actuelle
+  const isAdminRoute = pathname?.startsWith('/admin'); // 👈 Vérifie si on est côté Admin
 
   useEffect(() => {
     const storedLang = localStorage.getItem('lukeni_lang') as 'fr' | 'en' | null;
@@ -47,12 +50,14 @@ export default function GlobalAnnouncement({ children }: { children: React.React
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  if (announcement?.is_blocking) {
+  // SCÉNARIO 1 : L'annonce est BLOQUANTE et ce N'EST PAS l'admin
+  if (announcement?.is_blocking && !isAdminRoute) {
     const message = lang === 'en' && announcement.message_en ? announcement.message_en : announcement.message_fr;
     return <AwaleGame message={message} />;
   }
 
-  const getIcon = (type: string) => {
+  const getIcon = (type: string, isBlocking: boolean) => {
+    if (isBlocking) return <AlertTriangle size={18} className="text-white shrink-0" />;
     switch (type) {
       case 'maintenance': return <Settings size={18} className="text-white shrink-0" />;
       case 'update': return <ArrowUpCircle size={18} className="text-white shrink-0" />;
@@ -60,13 +65,17 @@ export default function GlobalAnnouncement({ children }: { children: React.React
     }
   };
 
-  const isVisible = announcement && !announcement.is_blocking && dismissedId !== announcement.id;
+  // SCÉNARIO 2 : Visibilité de la bannière
+  // On l'affiche si c'est pas bloquant OU si c'est l'admin (pour lui rappeler que le site est bloqué)
+  const isVisible = announcement && (!announcement.is_blocking || isAdminRoute) && dismissedId !== announcement.id;
+  
   const messageText = announcement ? (lang === 'en' && announcement.message_en ? announcement.message_en : announcement.message_fr) : '';
-  const bgColor = announcement?.bg_color || '#2563eb'; // Couleur de secours (Bleu)
+  
+  // Si c'est bloquant et qu'on est sur l'admin, on force la couleur en rouge pour bien alerter.
+  const bgColor = (announcement?.is_blocking && isAdminRoute) ? '#dc2626' : (announcement?.bg_color || '#2563eb');
 
   return (
     <>
-      {/* INJECTION DU CSS POUR L'ANIMATION MARQUEE */}
       <style>{`
         @keyframes custom-marquee {
           0% { transform: translateX(100%); }
@@ -83,7 +92,7 @@ export default function GlobalAnnouncement({ children }: { children: React.React
       `}</style>
 
       <AnimatePresence>
-        {isVisible && (
+        {isVisible && announcement && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
@@ -94,22 +103,19 @@ export default function GlobalAnnouncement({ children }: { children: React.React
             <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center gap-4">
               
               <div className="animate-pulse shrink-0">
-                {getIcon(announcement.type)}
+                {getIcon(announcement.type, announcement.is_blocking)}
               </div>
               
-              {/* ZONE DE TEXTE (Fixe ou Défilante) */}
               <div className="flex-1 overflow-hidden flex items-center relative">
-                {announcement.is_scrolling ? (
-                  // Effet Marquee
+                {announcement.is_scrolling && !announcement.is_blocking ? (
                   <div className="w-full overflow-hidden mask-edges">
                     <p className="text-white text-sm font-bold tracking-wide animate-custom-marquee pr-12 cursor-default">
                       {messageText}
                     </p>
                   </div>
                 ) : (
-                  // Texte fixe classique
                   <p className="text-white text-sm font-medium leading-tight">
-                    {messageText}
+                    {announcement.is_blocking ? `⚠️ SITE BLOQUÉ POUR LES UTILISATEURS : ${messageText}` : messageText}
                   </p>
                 )}
               </div>
