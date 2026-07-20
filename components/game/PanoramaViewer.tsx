@@ -412,33 +412,40 @@ export default function PanoramaViewer({
   }, [userVolume, isMuted]);
 
   // ✅ COUPURE PROPRE entre les scènes : Fade out → change → fade in
-  // ✅ COUPURE PROPRE entre les scènes : Fade out → change → fade in
   useEffect(() => {
     setIsTransitioning(false);
 
-    if (audioRef.current && ambientAudioUrl) {
-      // Petit fondu d'entrée
-      audioRef.current.volume = 0;
+    // ✅ FIX : on capture le NŒUD DOM réel maintenant, pendant que le ref est encore valide.
+    // Même si React remet audioRef.current à null lors du démontage,
+    // cette constante continuera de pointer vers le véritable élément <audio>,
+    // ce qui nous permet de le mettre en pause même après le démontage du composant.
+    const audioEl = audioRef.current;
 
-      // ✅ FORCE LA LECTURE DU SON ET ATTRAPE L'ERREUR DE BLOCAGE DU NAVIGATEUR
+    if (audioEl && ambientAudioUrl) {
+      audioEl.volume = 0;
 
-      audioRef.current.play().catch((err) => {
+      audioEl.play().catch((err) => {
         console.warn("🔇 Autoplay bloqué par le navigateur.");
-        setAudioBlocked(true); // ✅ On signale que c'est bloqué
+        setAudioBlocked(true);
       });
 
       const fadeInInterval = setInterval(() => {
-        if (audioRef.current) {
-          const target = isMuted ? 0 : ambientAudioVolume * userVolume;
-          if (audioRef.current.volume < target - 0.05) {
-            audioRef.current.volume = Math.min(target, audioRef.current.volume + 0.05);
-          } else {
-            audioRef.current.volume = target;
-            clearInterval(fadeInInterval);
-          }
+        const target = isMuted ? 0 : ambientAudioVolume * userVolume;
+        if (audioEl.volume < target - 0.05) {
+          audioEl.volume = Math.min(target, audioEl.volume + 0.05);
+        } else {
+          audioEl.volume = target;
+          clearInterval(fadeInInterval);
         }
       }, 80);
-      return () => clearInterval(fadeInInterval);
+
+      // ✅ NETTOYAGE : Stopper l'audio via la référence capturée (fonctionne même après démontage)
+      return () => {
+        clearInterval(fadeInInterval);
+        audioEl.pause();
+        audioEl.currentTime = 0;
+        console.log('🔇 [PANORAMA] Audio stoppé (via référence capturée)');
+      };
     }
   }, [panoramaUrl, ambientAudioUrl, ambientAudioVolume, userVolume, isMuted]);
 

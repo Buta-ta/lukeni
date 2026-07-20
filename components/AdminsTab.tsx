@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 
 const ALL_TABS = [
-  { id: 'payments', label: 'Paiements', icon: '💳' }, // 👈 AJOUT ICI
+  
   { id: 'hero', label: 'Background', icon: '🖼️' },
   { id: 'suggestions', label: 'Recherche', icon: '🔍' },
   { id: 'constellation', label: 'Constellation', icon: '⭐' },
@@ -28,9 +28,12 @@ const ALL_TABS = [
   { id: 'investigations', label: 'Enquêtes', icon: '🕵️' }, 
   { id: 'investigation_board', label: 'Mur Enquêtes', icon: '🗺️' },
   { id: 'investigation_analytics', label: 'Stats Enquêtes', icon: '📊' },
+  { id: 'macro', label: 'Chiffres & Macro', icon: '📈' },
+  { id: 'payments', label: 'Paiements', icon: '💳' }, // 👈 AJOUT ICI
   { id: 'ads', label: 'Publicités', icon: '📣' },
   { id: 'visitors', label: 'Visiteurs', icon: '👁️' },
   { id: 'notifications', label: 'Notifications', icon: '🔔' },
+  { id: 'announcements', label: 'Annonces', icon: '📢' },
   { id: 'about', label: 'À Propos', icon: '📖' },
   { id: 'admins', label: 'Admins', icon: '👑' },
 ];

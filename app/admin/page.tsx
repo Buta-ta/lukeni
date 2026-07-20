@@ -9,7 +9,7 @@ import {
   Tag, Lightbulb, FileText, CalendarDays, Music, FileAudio,
   Newspaper, Library, ShieldCheck, X, Loader2, AlertTriangle,
   Crown, LayoutDashboard, Inbox, Clock, Globe,Link2,Eye,Bell, 
-  BookOpen, Users,Search, Map, LucideIcon,BarChart3, CreditCard // 👈 AJOUT DE CreditCard
+  BookOpen, Users,Search, Map, LucideIcon,BarChart3, CreditCard, TrendingUp, Megaphone
 } from "lucide-react";
 import { autoTranslate } from "@/lib/lingua";
 import type { User } from "@supabase/supabase-js";
@@ -46,7 +46,8 @@ import InvestigationAnalyticsTab from "@/components/admin/InvestigationAnalytics
 // 👈 AJOUT DE L'IMPORT DU TAB PAIEMENT
 import PaymentManagementTab from "@/components/admin/PaymentManagementTab"; 
 import { useActivityTimeout } from '@/lib/hooks/useActivityTimeout';
-
+import MacroAdminTab from "@/components/admin/MacroAdminTab";
+import AnnouncementsTab from "@/components/admin/AnnouncementsTab"; 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type TabType =
@@ -75,11 +76,13 @@ type TabType =
   | "ads"  
   | "visitors"
   | "investigation_analytics"
-  | "payments"; // 👈 AJOUT ICI
+  | "payments" // 👈 AJOUT ICI
+  | "macro"
+  | "announcements";
 
 const ALL_TABS: { id: TabType; label: string; icon: LucideIcon }[] =  [
   { id: "dashboard",         label: "Dashboard",       icon: LayoutDashboard  },
-  { id: "payments",          label: "Paiements 💳",     icon: CreditCard       }, // 👈 AJOUT ICI
+  
   { id: "contributions",     label: "Contributions",   icon: Inbox            },
   { id: "hero",              label: "Background",      icon: ImagePlus        },
   { id: "suggestions",       label: "Recherche",       icon: MessageSquareText},
@@ -94,13 +97,16 @@ const ALL_TABS: { id: TabType; label: string; icon: LucideIcon }[] =  [
   { id: "music_tracks",      label: "Tracks 🧨",       icon: FileAudio        },
   { id: "social_media",      label: "Réseaux 🌐",      icon: Globe            },
   { id: "press",             label: "Presse 📰",        icon: Newspaper        },
+  { id: "macro", label: "Chiffres & Macro 📈", icon: TrendingUp },
   { id: "notifications",     label: "Notifications 🔔", icon: Bell            }, 
+  { id: "announcements", label: "Annonces 📢", icon: Megaphone },
   { id: "ads",               label: "Publicités 📣",    icon: Star },
   { id: "library",           label: "Bibliothèque 📚", icon: Library          },
   { id: "reading_circles",   label: "Clubs Lecture 👥",icon: Users            },
   { id: "investigations",    label: "Enquêtes 🕵️",      icon: Search           },
   { id: "investigation_board", label: "Mur Enquêtes 🗺️",icon: Map              },
   { id: "investigation_analytics", label: "Stats Enquêtes 📊", icon: BarChart3 },
+  { id: "payments",          label: "Paiements 💳",     icon: CreditCard       }, // 👈 AJOUT ICI
   { id: "visitors",          label: "Visiteurs 👁️",    icon: Eye },
   { id: "admins",            label: "Admins 👑",        icon: ShieldCheck      },
   { id: "about",             label: "À Propos 📖",      icon: BookOpen },
@@ -229,7 +235,7 @@ export default function AdminDashboard() {
 
     switch (activeTab) {
       case "dashboard":         return <DashboardTab showMsg={showMsg} />;
-      case "payments":          return <PaymentManagementTab showMsg={showMsg} />; // 👈 AJOUT ICI
+      
       case "contributions":     return <ContributionsTab showMsg={showMsg} />;
       case "hero":              return <HeroTab showMsg={showMsg} />;
       case "suggestions":       return <SuggestionsTab showMsg={showMsg} translateText={translateText} />;
@@ -245,7 +251,9 @@ export default function AdminDashboard() {
       case "music_tracks":      return <MusicTracksTab showMsg={showMsg} />;
       case "social_media":      return <SocialMediaTab showMsg={showMsg} />;
       case "press":             return <PressTab showMsg={showMsg} />;
+      case "macro": return <MacroAdminTab showMsg={showMsg} />;
       case "notifications":     return <NotificationsTab showMsg={showMsg} />;
+      case "announcements":     return <AnnouncementsTab showMsg={showMsg} />;
       case "ads":               return <AdsTab showMsg={showMsg} />;  
       case "library":           return <LibraryTab showMsg={showMsg} />;
       case "reading_circles":   return <ReadingCirclesAdminTab showMsg={showMsg} />;
@@ -253,6 +261,7 @@ export default function AdminDashboard() {
       case "investigation_board": return <InvestigationBoardAdminTab showMsg={showMsg} />;  
       case "visitors":          return <VisitorsTab showMsg={showMsg} />;
       case "investigation_analytics": return <InvestigationAnalyticsTab showMsg={showMsg} />;
+      case "payments":          return <PaymentManagementTab showMsg={showMsg} />; // 👈 AJOUT ICI
       case "admins":            return <AdminsTab showMsg={showMsg} />;
       default:                  return null;
     }

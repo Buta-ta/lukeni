@@ -258,6 +258,23 @@ export default function InvestigationGame(props: {
     fetchPricing();
   }, [invId]);
 
+  // ✅ Charger la durée du trial configurée par l'admin
+  useEffect(() => {
+    const fetchTrialConfig = async () => {
+      const { data, error } = await supabase
+        .from('trial_config')
+        .select('trial_duration_minutes')
+        .eq('id', 1)
+        .maybeSingle();
+      console.log('⚙️ [PAGE] Trial config:', data, 'error:', error);
+      if (data) {
+        console.log('⚙️ [PAGE] Durée trial configurée:', data.trial_duration_minutes, 'minutes');
+        setTrialDurationMinutes(data.trial_duration_minutes || 30);
+      }
+    };
+    fetchTrialConfig();
+  }, []);
+
 
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [outroConfig, setOutroConfig] = useState<any | null>(null);
@@ -497,18 +514,51 @@ export default function InvestigationGame(props: {
 
 
   // ✅ TRIAL SESSION HOOK
+  // ✅ TRIAL SESSION HOOK - Désactivé si enquête gratuite (pricing = null)
   const { timeRemaining, isExpired, trial, startTrial, pauseTimer } = useTrialSession(
     user?.id || null,
-    invId,
+    pricing ? invId : null, // ← null si enquête gratuite → hook inactif
     'investigation'
   );
 
+
+
+
+  // ✅ NOUVEAU : Rafraîchir les données du trial chaque 10 secondes
+  // (pour détecter si un admin a réinitialisé le trial)
+  useEffect(() => {
+    if (!user?.id || !invId) return;
+
+    const refreshTrialData = async () => {
+      const { data } = await supabase
+        .from('trial_sessions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('target_id', invId)
+        .eq('target_type', 'investigation')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // Si la requête trouvait un trial avant, mais plus maintenant = admin l'a supprimé
+      if (!data && trial) {
+        console.log('🔄 [PAGE] Trial réinitialisé par l\'admin, rechargement...');
+        // Force le hook useTrialSession à refetcher en changeant la clé
+        window.location.reload();
+      }
+    };
+
+    // Vérifier toutes les 10 secondes
+    const interval = setInterval(refreshTrialData, 10000);
+    return () => clearInterval(interval);
+  }, [user?.id, invId, trial]);
   // DEBUG
   useEffect(() => {
     console.log('🎮 [PAGE] Trial state:', { trial, timeRemaining, isExpired, hasPaymentAccess });
   }, [trial, timeRemaining, isExpired, hasPaymentAccess]);
 
   const [showTrialExpiredModal, setShowTrialExpiredModal] = useState(false);
+  const [trialDurationMinutes, setTrialDurationMinutes] = useState(30);
 
   // ✅ Déclencher le modal quand le trial expire
   useEffect(() => {
@@ -520,27 +570,7 @@ export default function InvestigationGame(props: {
   }, [timeRemaining, hasPaymentAccess, session]);
 
 
-  // ✅ PAUSE DU TIMER QUAND LE MENU ABANDON EST OUVERT
-  useEffect(() => {
-    if (showAbortMenu) {
-      pauseTimer(true);
-    } else {
-      pauseTimer(false);
-    }
-  }, [showAbortMenu, pauseTimer]);
 
-  // ✅ PAUSE DU TIMER QUAND ON QUITTE LA PAGE
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      pauseTimer(true);
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [pauseTimer]);
 
   // ✅ Si l'utilisateur obtient l'accès complet, fermer le modal d'expiration
   useEffect(() => {
@@ -548,6 +578,32 @@ export default function InvestigationGame(props: {
       setShowTrialExpiredModal(false);
     }
   }, [hasPaymentAccess, showTrialExpiredModal]);
+
+
+
+  // ✅ Refs pour éviter les boucles
+  const pauseTimerRef = useRef(pauseTimer);
+  useEffect(() => { pauseTimerRef.current = pauseTimer; }, [pauseTimer]);
+
+  const trialIdRef = useRef<string | null>(null);
+  useEffect(() => { trialIdRef.current = trial?.id || null; }, [trial?.id]);
+
+  // ✅ PAUSE DU TIMER : NO-OP (le timer continue toujours)
+
+
+  // ✅ CLEANUP : Arrêt audio uniquement
+  // ✅ CLEANUP : Arrêt audio uniquement (pas de pause du timer)
+  useEffect(() => {
+    return () => {
+      console.log('🛑 [PAGE] Nettoyage - arrêt de l\'audio');
+      const audios = document.querySelectorAll('audio');
+      audios.forEach(audio => {
+        audio.pause();
+        audio.currentTime = 0;
+      });
+    };
+  }, []);
+
 
   const currentChapter = chapters[currentChapterIndex] || null;
   const currentScene = currentChapter?.scenes?.[currentSceneIndex] || null;
@@ -2432,13 +2488,15 @@ export default function InvestigationGame(props: {
 
 
 
-  // ✅ PAYWALL SI PAS D'ACCÈS
   if (showPaywall && pricingData && !hasPaymentAccess) {
     return (
       <InvestigationPaywall
         investigationId={invId}
         investigationTitle={investigationTitle}
         lang={lang}
+        trial={trial}
+        startTrial={startTrial}
+        trialDurationMinutes={trialDurationMinutes}
         onAccessGranted={(isTrial) => {
           console.log('🎟️ [PAGE] onAccessGranted:', { isTrial });
           setShowPaywall(false);
@@ -2746,6 +2804,9 @@ export default function InvestigationGame(props: {
         </div>
       )}
 
+
+
+
       <AnimatePresence>
         {activeUI && (
           <motion.div
@@ -2879,8 +2940,9 @@ export default function InvestigationGame(props: {
           </div>
         </div>
 
-        {/* ✅ TIMER TRIAL GRATUIT - Visible si trial actif (et non chargé) */}
-        {!isLoading && timeRemaining !== null && timeRemaining > 0 && (
+
+        {/* ✅ TIMER TRIAL GRATUIT - Visible UNIQUEMENT si enquête payante ET trial actif */}
+        {pricing && timeRemaining !== null && timeRemaining > 0 && !hasPaymentAccess && (
           <motion.div
             animate={{ scale: timeRemaining <= 60 ? [1, 1.05, 1] : 1 }}
             transition={{ repeat: timeRemaining <= 60 ? Infinity : 0, duration: 0.5 }}

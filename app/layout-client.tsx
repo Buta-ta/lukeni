@@ -9,6 +9,7 @@ import { TrackingProvider } from '@/components/TrackingProvider';
 import { PWARegister } from '@/components/PWARegister';
 import { PWAInstallButton } from '@/components/PWAInstallButton';
 import Footer from '@/components/Footer';
+import GlobalAnnouncement from '@/components/GlobalAnnouncement'; // 👈 IMPORT ICI
 
 export function LayoutClient({
   children,
@@ -23,11 +24,9 @@ export function LayoutClient({
     pathname?.startsWith('/investigations/') && pathname !== '/investigations';
 
   useEffect(() => {
-    // Lecture de la langue dans localStorage
     const stored = localStorage.getItem('lukeni_lang') as 'fr' | 'en' | null;
     if (stored === 'fr' || stored === 'en') setLang(stored);
 
-    // Auth
     supabase.auth.getSession().then(({ data: { session } }) => {
       setIsAuthenticated(!!session);
     });
@@ -54,12 +53,14 @@ export function LayoutClient({
       <PWARegister />
 
       <TrackingProvider>
-        <div className="flex-1 flex flex-col">
-          {children}
-        </div>
+        {/* 👈 ON ENVELOPPE TOUTE L'APP ICI */}
+        <GlobalAnnouncement>
+          <div className="flex-1 flex flex-col">
+            {children}
+          </div>
+          {!isGamePage && <Footer />}
+        </GlobalAnnouncement>
       </TrackingProvider>
-
-      {!isGamePage && <Footer />}
 
       <PWAInstallButton lang={lang} />
     </>

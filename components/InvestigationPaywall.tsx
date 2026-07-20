@@ -5,7 +5,7 @@
 import React, { useEffect, useState } from 'react';
 import { Lock, Loader2 } from 'lucide-react';
 import PaywallModal from '@/components/PaywallModal';
-import { useTrialSession } from '@/lib/hooks/useTrialSession';
+
 import { supabase } from '@/lib/supabase';
 
 interface InvestigationPaywallProps {
@@ -13,6 +13,9 @@ interface InvestigationPaywallProps {
   investigationTitle: string;
   lang: 'fr' | 'en';
   onAccessGranted: (isTrial?: boolean) => void;
+  trial: any;
+  startTrial: (maxMinutes: number) => Promise<boolean>;
+  trialDurationMinutes?: number;
 }
 
 const translations = {
@@ -33,6 +36,9 @@ export default function InvestigationPaywall({
   investigationTitle,
   lang = 'fr',
   onAccessGranted,
+  trial,
+  startTrial,
+  trialDurationMinutes = 30,
 }: InvestigationPaywallProps) {
   const t = translations[lang];
   const [showPaywall, setShowPaywall] = useState(true);
@@ -41,9 +47,6 @@ export default function InvestigationPaywall({
   const [userId, setUserId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [isStartingTrial, setIsStartingTrial] = useState(false);
-  const [trialDuration, setTrialDuration] = useState(30);
-
-  const { trial, startTrial } = useTrialSession(userId, investigationId, 'investigation');
 
   // 1. Récupération de l'utilisateur
   useEffect(() => {
@@ -114,9 +117,9 @@ export default function InvestigationPaywall({
   }, [trial, onAccessGranted]);
 
   // 4. Charger le prix et la durée du trial
+  // 4. Charger le prix
   useEffect(() => {
-    const fetchPricingAndConfig = async () => {
-      // Charger le prix
+    const fetchPricing = async () => {
       const { data } = await supabase
         .from('product_pricing')
         .select('*')
@@ -124,18 +127,8 @@ export default function InvestigationPaywall({
         .eq('product_id', investigationId)
         .maybeSingle();
       setPricing(data);
-
-      // ✅ Charger la durée du trial configurée par l'admin
-      const { data: trialConfig } = await supabase
-        .from('trial_config')
-        .select('trial_duration_minutes')
-        .eq('id', 1)
-        .maybeSingle();
-      if (trialConfig) {
-        setTrialDuration(trialConfig.trial_duration_minutes || 30);
-      }
     };
-    fetchPricingAndConfig();
+    fetchPricing();
   }, [investigationId]);
 
   // 5. Auto-démarrer l'essai si l'utilisateur vient de la page liste
@@ -151,13 +144,18 @@ export default function InvestigationPaywall({
   // 6. Gestionnaire pour démarrer l'essai
   const handleStartTrial = async () => {
     setIsStartingTrial(true);
-    const success = await startTrial(trialDuration); // ✅ Utilise la durée de l'admin
+    console.log('🎟️ [PAYWALL] trialDurationMinutes reçu en prop:', trialDurationMinutes);
+    console.log('🎟️ [PAYWALL] Démarrage NOUVEAU trial avec durée:', trialDurationMinutes, 'minutes');
+    
+    // ✅ TOUJOURS créer un nouveau trial (supprime l'ancien automatiquement)
+    const success = await startTrial(trialDurationMinutes);
+    console.log('🎟️ [PAYWALL] startTrial résultat:', success);
     setIsStartingTrial(false);
 
     if (success) {
       setHasAccess(true);
       setShowPaywall(false);
-      onAccessGranted(true); // ✅ Indique que c'est un trial
+      onAccessGranted(true);
     }
   };
 
@@ -182,17 +180,17 @@ export default function InvestigationPaywall({
           </div>
 
           <div className="flex flex-col gap-3">
-            <button
-              onClick={handleStartTrial}
-              disabled={isStartingTrial}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {isStartingTrial ? (
-                <><Loader2 size={16} className="animate-spin" /> {lang === 'fr' ? 'Chargement...' : 'Loading...'}</>
-              ) : (
-                `⏱️ ${t.tryFree} (${trialDuration} min)`
-              )}
-            </button>
+           <button
+  onClick={handleStartTrial}
+  disabled={isStartingTrial}
+  className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+>
+  {isStartingTrial ? (
+    <><Loader2 size={16} className="animate-spin" /> {lang === 'fr' ? 'Chargement...' : 'Loading...'}</>
+  ) : (
+    `⏱️ ${t.tryFree} (${trialDurationMinutes} min)`
+  )}
+</button>
 
             {pricing && (
               <button

@@ -11,14 +11,21 @@ import {
   Music, ScrollText, BookMarked, Home, ChevronLeft,
   MessageCircle, Filter, Radio, FileAudio, Mic,
   Video, TrendingUp, ImageIcon, X, Upload, PlusCircle,
-  Send, ThumbsUp
+  Send, ThumbsUp, BarChart3, Maximize2, Info,
 } from 'lucide-react';
 import Link from 'next/link';
+
+import {
+  BarChart, Bar, LineChart as ReLineChart, Line, PieChart as RePieChart,
+  Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
+} from 'recharts';
+
 import SuggestButton from '@/components/SuggestButton';
 import FavoriteButton from '@/components/FavoriteButton';
 import SubscribeButton from '@/components/SubscribeButton';
 import SubscribeModal from '@/components/SubscribeModal';
 import { NotesplitContainer } from '@/components/NotesplitContainer';
+import RenderChartPublic from '@/lib/charts/renderChartPublic';
 
 // --- CUSTOM ICONS ---
 const InstagramIcon = ({ size = 24, className = "" }) => (
@@ -39,6 +46,46 @@ interface MediaItem {
 
 interface Source {
   title: string; url: string; author?: string; date?: string;
+}
+
+interface MacroChartData {
+  id: string;
+  chart_id: string;
+  series_id: string | null;
+  label_fr: string;
+  label_en: string;
+  period?: string | null;
+  value: number | null;
+  x_value?: number | null;
+  y_value?: number | null;
+  size_value?: number | null;
+  color: string;
+  sort_order: number;
+  is_total?: boolean;
+  data_status?: string | null;
+  annotation_fr?: string | null;
+  annotation_en?: string | null;
+}
+interface MacroChart {
+  id: string;
+  category_id: string;
+  title_fr: string;
+  title_en: string;
+  description_fr: string;
+  description_en: string;
+  chart_type: 'bar' | 'line' | 'pie' | 'donut' | 'stacked_bar' | 'stacked_bar_100' | 'multi_line' | 'combo' | 'radar' | 'scatter' | 'bubble' | 'population_pyramid' | 'waterfall';
+  unit_fr: string;
+  unit_en: string;
+  secondary_unit_fr?: string;   // ⬅️ ajouté
+  secondary_unit_en?: string;   // ⬅️ ajouté
+  source_fr: string;
+  source_en: string;
+  is_active: boolean;
+  workflow_status?: string;
+  data_status?: string;
+  dataPoints: MacroChartData[];
+  macro_chart_series?: any[];
+  macro_chart_annotations?: any[];
 }
 
 type UnifiedItem = {
@@ -73,6 +120,8 @@ type UnifiedItem = {
   sources?: Source[];
   reading_time_minutes?: number;
   related_articles_ids?: string[];
+  related_charts_ids?: string[];
+
   status?: string;
 };
 
@@ -273,8 +322,8 @@ const ViewSwitcher = ({ current, onChange, lang }: {
           whileTap={{ scale: 0.95 }}
           onClick={() => onChange(key)}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all ${current === key
-              ? 'bg-[#0466c8] text-white shadow-[0_0_20px_rgba(4,102,200,0.4)]'
-              : 'text-[#90e0ef]/50 hover:text-[#90e0ef]'
+            ? 'bg-[#0466c8] text-white shadow-[0_0_20px_rgba(4,102,200,0.4)]'
+            : 'text-[#90e0ef]/50 hover:text-[#90e0ef]'
             }`}
         >
           <Icon size={11} />
@@ -758,8 +807,8 @@ const CommentsSection = ({ articleId, lang, user, userProfile }: {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
                 className={`flex gap-3 p-4 rounded-2xl border transition-all ${isOwn
-                    ? 'bg-[#001233]/80 border-[#0466c8]/30'
-                    : 'bg-[#000d1a]/60 border-[#0466c8]/10'
+                  ? 'bg-[#001233]/80 border-[#0466c8]/30'
+                  : 'bg-[#000d1a]/60 border-[#0466c8]/10'
                   }`}
               >
                 {/* Avatar */}
@@ -859,9 +908,9 @@ const AnnouncementsCarousel = ({ announcements, lang }: {
         {/* Image petite + Content */}
         <div className="relative rounded-2xl overflow-hidden border border-[#0466c8]/20 bg-[#000d1a]"
           style={{ boxShadow: '0 0 30px rgba(4,102,200,0.08)' }}>
-          
+
           <div className="flex flex-col md:flex-row gap-4 p-4 md:p-5">
-            
+
             {/* Image — RÉDUITE */}
             <motion.div
               key={currentIndex}
@@ -926,7 +975,7 @@ const AnnouncementsCarousel = ({ announcements, lang }: {
               >
                 <ChevronLeft size={16} />
               </motion.button>
-              
+
               <motion.button
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
@@ -951,11 +1000,10 @@ const AnnouncementsCarousel = ({ announcements, lang }: {
                     setCurrentIndex(prev => (prev + 1) % announcements.length);
                   }, 30000);
                 }}
-                className={`rounded-full transition-all ${
-                  index === currentIndex
-                    ? 'w-6 h-1.5 bg-[#0466c8]'
-                    : 'w-1.5 h-1.5 bg-white/20 hover:bg-white/40'
-                }`}
+                className={`rounded-full transition-all ${index === currentIndex
+                  ? 'w-6 h-1.5 bg-[#0466c8]'
+                  : 'w-1.5 h-1.5 bg-white/20 hover:bg-white/40'
+                  }`}
                 whileHover={{ scale: 1.15 }}
               />
             ))}
@@ -978,12 +1026,126 @@ const AnnouncementsCarousel = ({ announcements, lang }: {
   );
 };
 
+const ChartCard = ({ chart, lang, onClick }: { chart: MacroChart; lang: 'fr' | 'en'; onClick: () => void; }) => {
+  const title = lang === 'fr' ? chart.title_fr : (chart.title_en || chart.title_fr);
+  const desc = lang === 'fr' ? chart.description_fr : (chart.description_en || chart.description_fr);
+  const unit = lang === 'fr' ? chart.unit_fr : (chart.unit_en || chart.unit_fr);
+  const secondaryUnit = lang === 'fr' ? chart.secondary_unit_fr : (chart.secondary_unit_en || chart.secondary_unit_fr);
+
+  return (
+    <div onClick={onClick} className="flex flex-col h-[380px] bg-gradient-to-br from-[#001233] to-[#000814] border border-[#0466c8]/30 rounded-2xl p-5 hover:border-[#0466c8] hover:shadow-[0_0_20px_rgba(4,102,200,0.2)] transition-all cursor-pointer group">
+      <div className="flex justify-between items-start mb-4">
+        <h4 className="text-white font-serif font-bold leading-tight group-hover:text-[#90e0ef] transition-colors">{title}</h4>
+        <div className="p-2 bg-[#0466c8]/20 rounded-full group-hover:bg-[#0466c8] transition-colors"><Maximize2 size={14} className="text-[#90e0ef] group-hover:text-white" /></div>
+      </div>
+      <div className="h-[160px] w-full min-h-[160px] shrink-0 mb-4 opacity-80 group-hover:opacity-100 transition-opacity pointer-events-none">
+        {/* ⬇️ FIX : on passe les points TELS QUELS (spread), sans écraser
+            series_id / period / x_value / y_value / size_value / is_total.
+            On ne complète que les champs potentiellement absents. */}
+        <RenderChartPublic
+          chartType={chart.chart_type as any}
+          dataPoints={(chart.dataPoints || []).map((dp: any) => ({
+            ...dp,
+            color: dp.color || '#14b8a6',
+            period: dp.period ?? '',
+            x_value: dp.x_value ?? null,
+            y_value: dp.y_value ?? null,
+            size_value: dp.size_value ?? null,
+            is_total: dp.is_total ?? false,
+            data_status: dp.data_status ?? null,
+            annotation_fr: dp.annotation_fr ?? '',
+            annotation_en: dp.annotation_en ?? '',
+          }))}
+          series={chart.macro_chart_series || []}
+          annotations={chart.macro_chart_annotations || []}
+          unit={unit}
+          secondaryUnit={secondaryUnit}
+          lang={lang}
+          isLarge={false}
+        />
+      </div>
+      <div className="flex-1 overflow-hidden"><p className="text-[#90e0ef]/60 text-xs leading-relaxed line-clamp-3">{desc}</p></div>
+      <div className="mt-4 pt-3 border-t border-[#0466c8]/20 text-[10px] text-[#90e0ef]/40 font-mono flex justify-between"><span>{lang === 'fr' ? 'Unité' : 'Unit'} : {unit}</span><span className="text-[#0466c8] group-hover:text-[#90e0ef]">{lang === 'fr' ? 'Agrandir' : 'Expand'}</span></div>
+    </div>
+  );
+};
+
+const ChartModal = ({ chart, lang, onClose }: { chart: MacroChart; lang: 'fr' | 'en'; onClose: () => void; }) => {
+  const title = lang === 'fr' ? chart.title_fr : (chart.title_en || chart.title_fr);
+  const desc = lang === 'fr' ? chart.description_fr : (chart.description_en || chart.description_fr);
+  const unit = lang === 'fr' ? chart.unit_fr : (chart.unit_en || chart.unit_fr);
+  const secondaryUnit = lang === 'fr' ? chart.secondary_unit_fr : (chart.secondary_unit_en || chart.secondary_unit_fr);
+  const source = lang === 'fr' ? chart.source_fr : (chart.source_en || chart.source_fr);
+
+  return (
+    <div className="fixed inset-0 z-[9999] bg-[#000814]/90 backdrop-blur-md flex items-center justify-center p-4 md:p-10" onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        onClick={e => e.stopPropagation()}
+        className="bg-gradient-to-br from-[#001233] to-[#000814] border border-[#0466c8]/40 rounded-3xl w-full max-w-5xl h-[85vh] flex flex-col shadow-[0_0_50px_rgba(4,102,200,0.2)] overflow-hidden">
+
+        {/* Header */}
+        <div className="flex items-start justify-between p-6 border-b border-[#0466c8]/20 bg-white/[0.02]">
+          <div>
+            <h2 className="text-2xl md:text-3xl font-serif text-white mb-2">{title}</h2>
+            <div className="flex gap-4 text-[#90e0ef]/50 text-xs font-mono uppercase tracking-widest">
+              <span>{lang === 'fr' ? 'Source' : 'Source'} : {source}</span>
+              <span>{lang === 'fr' ? 'Unité' : 'Unit'} : {unit}</span>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 bg-white/5 hover:bg-[#0466c8] text-white rounded-full transition-colors">
+            <X size={24} />
+          </button>
+        </div>
+
+        {/* Graphique avec RenderChartPublic */}
+        <div className="flex-1 p-6 min-h-[300px]">
+          {/* ⬇️ FIX : même correctif que ChartCard, on ne détruit plus
+              les champs nécessaires aux modes multi-séries / point / waterfall */}
+          <RenderChartPublic
+            chartType={chart.chart_type}
+            dataPoints={(chart.dataPoints || []).map((dp: any) => ({
+              ...dp,
+              color: dp.color || '#14b8a6',
+              period: dp.period ?? '',
+              x_value: dp.x_value ?? null,
+              y_value: dp.y_value ?? null,
+              size_value: dp.size_value ?? null,
+              is_total: dp.is_total ?? false,
+              data_status: dp.data_status ?? null,
+              annotation_fr: dp.annotation_fr ?? '',
+              annotation_en: dp.annotation_en ?? '',
+            }))}
+            series={chart.macro_chart_series || []}
+            annotations={chart.macro_chart_annotations || []}
+            unit={unit}
+            secondaryUnit={secondaryUnit}
+            lang={lang}
+            isLarge={true}
+          />
+        </div>
+
+        {/* Description */}
+        <div className="p-6 bg-[#000814]/50 border-t border-[#0466c8]/20 max-h-[30vh] overflow-y-auto">
+          <div className="flex gap-3">
+            <Info className="text-[#0466c8] shrink-0 mt-1" size={20} />
+            <p className="text-[#90e0ef]/80 text-sm md:text-base leading-relaxed">{desc}</p>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
 // ─── Article View ─────────────────────────────────────────────────────────────
 
-const ArticleView = ({ article, lang, onClose, mousePos, feedItems, user, userProfile, announcements }: {
+const ArticleView = ({ article, lang, onClose, mousePos, feedItems, user, userProfile, announcements, allCharts }: {
   article: UnifiedItem; lang: 'fr' | 'en'; onClose: () => void;
   mousePos: { x: number; y: number }; feedItems: UnifiedItem[];
   user: any; userProfile: UserProfile | null; announcements: PressAnnouncement[];
+  allCharts: MacroChart[];
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
@@ -992,6 +1154,12 @@ const ArticleView = ({ article, lang, onClose, mousePos, feedItems, user, userPr
   const [shareCopied, setShareCopied] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const [selectedChartModal, setSelectedChartModal] = useState<MacroChart | null>(null);
+  const linkedCharts = useMemo(() => {
+    if (!article.related_charts_ids || article.related_charts_ids.length === 0) return [];
+    return allCharts.filter(c => article.related_charts_ids!.includes(c.id));
+  }, [article.related_charts_ids, allCharts]);
 
   const title = lang === 'fr' ? article.title_fr : article.title_en;
   const summary = lang === 'fr' ? article.summary_fr : article.summary_en;
@@ -1072,7 +1240,7 @@ const ArticleView = ({ article, lang, onClose, mousePos, feedItems, user, userPr
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }}>
       <ReadingProgressBar />
 
-            {/* COVER */}
+      {/* COVER */}
       <div className="relative h-[50vh] min-h-[400px] overflow-hidden -mx-4 md:-mx-6 bg-[#000814]">
         {article.cover_url ? (
           <motion.img
@@ -1163,8 +1331,8 @@ const ArticleView = ({ article, lang, onClose, mousePos, feedItems, user, userPr
           {(article.reading_audio_url || isAudio) && (
             <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={toggleAudio}
               className={`flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${isPlaying
-                  ? 'bg-[#0466c8] text-white border-[#0466c8]'
-                  : 'bg-[#001233] text-[#90e0ef] border-[#0466c8]/30 hover:bg-[#0466c8] hover:text-white'
+                ? 'bg-[#0466c8] text-white border-[#0466c8]'
+                : 'bg-[#001233] text-[#90e0ef] border-[#0466c8]/30 hover:bg-[#0466c8] hover:text-white'
                 }`}>
               {isPlaying ? <Pause size={14} /> : <Play size={14} />}
               {isAudio
@@ -1175,8 +1343,8 @@ const ArticleView = ({ article, lang, onClose, mousePos, feedItems, user, userPr
 
           <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={toggleTTS}
             className={`flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all border ${isSpeaking
-                ? 'bg-[#023e8a] text-[#90e0ef] border-[#0466c8]'
-                : 'bg-[#000d1a] border-[#0466c8]/20 text-[#90e0ef]/40 hover:text-[#90e0ef] hover:border-[#0466c8]/40'
+              ? 'bg-[#023e8a] text-[#90e0ef] border-[#0466c8]'
+              : 'bg-[#000d1a] border-[#0466c8]/20 text-[#90e0ef]/40 hover:text-[#90e0ef] hover:border-[#0466c8]/40'
               }`}>
             {isSpeaking ? <VolumeX size={14} /> : <Volume2 size={14} />}
             {lang === 'fr' ? 'Lire' : 'Read'}
@@ -1258,7 +1426,7 @@ const ArticleView = ({ article, lang, onClose, mousePos, feedItems, user, userPr
         )}
 
 
-         
+
 
         <div className="flex items-center gap-4 mb-10">
           <div className="flex-1 h-px bg-[#0466c8]/15" />
@@ -1268,61 +1436,63 @@ const ArticleView = ({ article, lang, onClose, mousePos, feedItems, user, userPr
           <div className="flex-1 h-px bg-[#0466c8]/15" />
         </div>
 
-                {/* MAIN CONTENT — PREMIÈRE MOITIÉ */}
-                {/* MAIN CONTENT — AVEC ANNONCE AU MILIEU D'UN PARAGRAPHE */}
-        {content && announcements.length > 0 ? (
-          <>
-            {/* Découper le contenu par paragraphes */}
-            {(() => {
-              // Diviser le contenu par "\n\n" (paragraphes)
-              const paragraphs = (content || '').split('\n\n').filter(p => p.trim());
-              const midPoint = Math.ceil(paragraphs.length / 2);
-              const firstHalf = paragraphs.slice(0, midPoint).join('\n\n');
-              const secondHalf = paragraphs.slice(midPoint).join('\n\n');
+        {/* MAIN CONTENT — PREMIÈRE MOITIÉ */}
+        {/* MAIN CONTENT AFFECTATION INTELLIGENTE */}
+        {(() => {
+          const paragraphs = (content || '').split('\n\n').filter(p => p.trim());
 
-              return (
-                <>
-                  {/* Première moitié (paragraphes complets) */}
-                  {firstHalf && (
-                    <motion.div 
-                      initial={{ opacity: 0 }} 
-                      animate={{ opacity: 1 }} 
-                      transition={{ delay: 0.6 }} 
-                      className="prose prose-invert max-w-none mb-12"
-                      dangerouslySetInnerHTML={{ 
-                        __html: renderContentWithMedia(firstHalf, article.media_items) 
-                      }} 
-                    />
-                  )}
+          // Calculer les points d'insertion
+          const chartsIndex = paragraphs.length > 2 ? 2 : 1; // Graphiques après le 2e paragraphe (environ 30% du début)
+          const announcementsIndex = Math.ceil(paragraphs.length / 2); // Annonces au milieu
 
-                  {/* CAROUSEL D'ANNONCES — AU MILIEU */}
-                  <AnnouncementsCarousel announcements={announcements} lang={lang} />
+          const introPart = paragraphs.slice(0, chartsIndex).join('\n\n');
+          const middlePart = paragraphs.slice(chartsIndex, announcementsIndex).join('\n\n');
+          const endPart = paragraphs.slice(announcementsIndex).join('\n\n');
 
-                  {/* Deuxième moitié (paragraphes complets) */}
-                  {secondHalf && (
-                    <motion.div 
-                      initial={{ opacity: 0 }} 
-                      animate={{ opacity: 1 }} 
-                      transition={{ delay: 0.8 }} 
-                      className="prose prose-invert max-w-none mb-16"
-                      dangerouslySetInnerHTML={{ 
-                        __html: renderContentWithMedia(secondHalf, article.media_items) 
-                      }} 
-                    />
-                  )}
-                </>
-              );
-            })()}
-          </>
-        ) : (
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            transition={{ delay: 0.6 }} 
-            className="prose prose-invert max-w-none mb-16"
-            dangerouslySetInnerHTML={{ __html: renderContentWithMedia(content || '', article.media_items) }} 
-          />
-        )}
+          return (
+            <>
+              {/* Introduction */}
+              {introPart && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
+                  className="prose prose-invert max-w-none mb-12" dangerouslySetInnerHTML={{ __html: renderContentWithMedia(introPart, article.media_items) }} />
+              )}
+
+              {/* GRAPHIQUES (Après les premiers paragraphes) */}
+              {linkedCharts.length > 0 && (
+                <motion.section initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="mb-12 py-8 border-y border-[#0466c8]/20">
+                  <h3 className="flex items-center gap-2 text-xl font-serif italic text-white mb-6"><BarChart3 size={24} className="text-[#0466c8]" /> {lang === 'fr' ? 'Chiffres & Données Clés' : 'Key Figures & Data'}</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {linkedCharts.map((chart: MacroChart) => (
+                      <ChartCard key={chart.id} chart={chart} lang={lang} onClick={() => setSelectedChartModal(chart)} />
+                    ))}
+                  </div>
+                </motion.section>
+              )}
+
+              {/* Milieu */}
+              {middlePart && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}
+                  className="prose prose-invert max-w-none mb-12" dangerouslySetInnerHTML={{ __html: renderContentWithMedia(middlePart, article.media_items) }} />
+              )}
+
+              {/* ANNONCES (Au centre) */}
+              {announcements.length > 0 && (
+                <AnnouncementsCarousel announcements={announcements} lang={lang} />
+              )}
+
+              {/* Fin de l'article */}
+              {endPart && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
+                  className="prose prose-invert max-w-none mb-16" dangerouslySetInnerHTML={{ __html: renderContentWithMedia(endPart, article.media_items) }} />
+              )}
+            </>
+          );
+        })()}
+
+        {/* MODALE GRAPHIQUE */}
+        <AnimatePresence>
+          {selectedChartModal && <ChartModal chart={selectedChartModal} lang={lang} onClose={() => setSelectedChartModal(null)} />}
+        </AnimatePresence>
 
         {/* SOURCES */}
         {article.sources && article.sources.length > 0 && (
@@ -1473,6 +1643,8 @@ export default function PressePage() {
   const [feedItems, setFeedItems] = useState<UnifiedItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [socialSettings, setSocialSettings] = useState<SocialSettings | null>(null);
+
+  const [allMacroCharts, setAllMacroCharts] = useState<MacroChart[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -1541,17 +1713,31 @@ export default function PressePage() {
     const id = setInterval(() => setPlaceholderIdx(p => (p + 1) % smartSuggestions.length), 3500);
     return () => clearInterval(id);
   }, [searchTerm, isFocused, smartSuggestions.length]);
-
   async function fetchData() {
-  setIsLoading(true);
-  const [artRes, arcRes, catRes, sugRes, socRes, annRes] = await Promise.all([
-    supabase.from('press_articles').select('*, categories(*)').in('status', ['published', 'scheduled']),
-    supabase.from('press_archives').select('*').eq('status', 'published'),
-    supabase.from('categories').select('*').eq('show_presse', true).eq('is_active', true),
-    supabase.from('search_suggestions').select('*').eq('is_active', true).or('target_space.eq.all,target_space.eq.presse'),
-    supabase.from('social_settings').select('*').eq('id', 1).single(),
-    supabase.from('press_announcements').select('*').eq('status', 'active').order('created_at', { ascending: false })
-  ]);
+    setIsLoading(true);
+    const [artRes, arcRes, catRes, sugRes, socRes, annRes, chartRes, chartDataRes, chartSeriesRes, chartAnnotRes] = await Promise.all([
+
+      supabase.from('press_articles').select('*, categories(*)').in('status', ['published', 'scheduled']),
+      supabase.from('press_archives').select('*').eq('status', 'published'),
+      supabase.from('categories').select('*').eq('show_presse', true).eq('is_active', true),
+      supabase.from('search_suggestions').select('*').eq('is_active', true).or('target_space.eq.all,target_space.eq.presse'),
+      supabase.from('social_settings').select('*').eq('id', 1).single(),
+      supabase.from('press_announcements').select('*').eq('status', 'active').order('created_at', { ascending: false }),
+      supabase.from('macro_charts').select('*').eq('workflow_status', 'published'), // ✅ CHANGÉ
+      supabase.from('macro_chart_data').select('*').order('sort_order', { ascending: true }),
+      supabase.from('macro_chart_series').select('*'), // ✅ NOUVEAU
+      supabase.from('macro_chart_annotations').select('*') // ✅ NOUVEAU
+    ]);
+
+    if (chartRes.data && chartDataRes.data && chartSeriesRes.data && chartAnnotRes.data) {
+      const chartsWithData = chartRes.data.map((c: any) => ({
+        ...c,
+        dataPoints: chartDataRes.data.filter((d: any) => d.chart_id === c.id),
+        macro_chart_series: chartSeriesRes.data.filter((s: any) => s.chart_id === c.id),
+        macro_chart_annotations: chartAnnotRes.data.filter((a: any) => a.chart_id === c.id)
+      }));
+      setAllMacroCharts(chartsWithData);
+    }
 
     const items: UnifiedItem[] = [];
 
@@ -1586,7 +1772,9 @@ export default function PressePage() {
           media_items: a.media_items,
           sources: a.sources,
           reading_time_minutes: a.reading_time_minutes,
+
           related_articles_ids: a.related_articles_ids,
+          related_charts_ids: a.related_charts_ids,
           status: a.status,
         };
         // Filtrer selon l'heure locale du navigateur
@@ -1626,8 +1814,8 @@ export default function PressePage() {
     setFeedItems(items);
     if (catRes.data) setCategories(catRes.data as any);
     if (sugRes.data) setSmartSuggestions(sugRes.data);
-        if (socRes.data) setSocialSettings(socRes.data);
-        if (annRes.data) {
+    if (socRes.data) setSocialSettings(socRes.data);
+    if (annRes.data) {
       const activeAnnouncements = annRes.data.filter((a: any) => a.status === 'active');
       setAnnouncements(activeAnnouncements as PressAnnouncement[]);
     }
@@ -1776,8 +1964,8 @@ export default function PressePage() {
                 {/* SEARCH */}
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.7 }} className="max-w-2xl mx-auto relative">
                   <div className={`relative flex items-center border rounded-full p-2.5 backdrop-blur-3xl transition-all duration-500 ${isFocused
-                      ? 'ring-2 ring-[#0466c8]/50 scale-[1.02] border-[#0466c8]/40 shadow-[0_0_80px_rgba(4,102,200,0.2)]'
-                      : 'border-[#0466c8]/15 shadow-[0_0_30px_rgba(4,102,200,0.03)]'
+                    ? 'ring-2 ring-[#0466c8]/50 scale-[1.02] border-[#0466c8]/40 shadow-[0_0_80px_rgba(4,102,200,0.2)]'
+                    : 'border-[#0466c8]/15 shadow-[0_0_30px_rgba(4,102,200,0.03)]'
                     }`} style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
 
 
@@ -1835,8 +2023,8 @@ export default function PressePage() {
                   <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                     onClick={() => setActiveCategory('all')}
                     className={`flex-shrink-0 px-4 md:px-5 py-2 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap ${activeCategory === 'all'
-                        ? 'bg-[#0466c8] text-white shadow-[0_0_20px_rgba(4,102,200,0.3)]'
-                        : 'border border-[#0466c8]/15 text-[#90e0ef]/40 hover:text-[#90e0ef]'
+                      ? 'bg-[#0466c8] text-white shadow-[0_0_20px_rgba(4,102,200,0.3)]'
+                      : 'border border-[#0466c8]/15 text-[#90e0ef]/40 hover:text-[#90e0ef]'
                       }`} style={{ backgroundColor: activeCategory === 'all' ? undefined : 'rgba(0,0,0,0.5)' }}>
                     {lang === 'fr' ? 'Tout' : 'All'}
                   </motion.button>
@@ -1929,7 +2117,7 @@ export default function PressePage() {
           <motion.div key={`article-${selectedArticle.id}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.5 }}>
             <NotesplitContainer itemId={selectedArticle.id} itemType="press" userId={user?.id} catColor={selectedArticle.category_color} lang={lang}>
               <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-6">
-                                <ArticleView
+                <ArticleView
                   article={selectedArticle}
                   lang={lang}
                   onClose={() => setSelectedArticle(null)}
@@ -1938,6 +2126,7 @@ export default function PressePage() {
                   user={user}
                   userProfile={userProfile}
                   announcements={announcements}
+                  allCharts={allMacroCharts}
                 />
               </div>
             </NotesplitContainer>

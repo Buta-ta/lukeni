@@ -637,7 +637,7 @@ const SearchBar = memo(({ lang }: { lang: 'fr' | 'en' }) => {
               <div className="p-2">
                 {dbSuggestions.length > 0 && (
                   <>
-                    {dbSuggestions.filter(s => ['encyclopedia', 'press', 'musical', 'library'].includes(s.target_space)).length > 0 && (
+                    {dbSuggestions.filter(s => ['encyclopedia', 'press', 'musical', 'library', 'macro'].includes(s.target_space)).length > 0 && (
                       <>
                         <div className="px-3 py-1.5 mb-1">
                           <span className="text-[9px] font-black uppercase tracking-widest text-[#D4AF37]/60">
@@ -655,7 +655,11 @@ const SearchBar = memo(({ lang }: { lang: 'fr' | 'en' }) => {
                               'press': '📰',
                               'musical': '🎵',
                               'library': '📚',
+                              'macro': '📈',
                             };
+
+
+
 
                             return (
                               <button
@@ -1179,6 +1183,15 @@ const PortalsGrid = memo(({ lang, stats, portalImages }: {
       desc_fr: 'Manuscrits & Archives', desc_en: 'Manuscripts & Archives',
       href: '/bibliotheque', color: '#67E8F9',
       bgImage: portalImages['library'] || 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=600&q=75',
+    },
+
+
+    {
+      id: 'macro', icon: TrendingUp,
+      title_fr: 'Chiffres', title_en: 'Data & Macro',
+      desc_fr: 'Économie & Géopolitique', desc_en: 'Economy & Geopolitics',
+      href: '/chiffres', color: '#10B981', // Un beau vert émeraude "finance"
+      bgImage: portalImages['macro'] || 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=600&q=75',
     },
   ];
 
@@ -1962,9 +1975,10 @@ export default function ExplorePage() {
         library: bookCount.count || 0,
       });
 
+      // ⬇️ APRÈS — remplacer par ceci
       const { data: settings } = await supabase
         .from('site_settings')
-        .select('portal_img_encyclopedia, portal_img_press, portal_img_musical, portal_img_library')
+        .select('portal_img_encyclopedia, portal_img_press, portal_img_musical, portal_img_library, portal_img_macro')
         .eq('id', 1)
         .single();
 
@@ -1974,6 +1988,7 @@ export default function ExplorePage() {
           press: settings.portal_img_press || '',
           musical: settings.portal_img_musical || '',
           library: settings.portal_img_library || '',
+          macro: settings.portal_img_macro || '', // ⬅️ AJOUT : image configurée pour "Chiffres"
         });
       }
 

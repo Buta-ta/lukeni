@@ -1,23 +1,25 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Loader2, PlusCircle, Trash2, Tag, ToggleLeft, ToggleRight, Languages, Edit2, Search, X, AlertTriangle, Palette, BookOpen, Music, Newspaper, Library } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, Tag, ToggleLeft, ToggleRight, Languages, Edit2, Search, X, AlertTriangle, Palette, BookOpen, Music, Newspaper, Library, TrendingUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const ICON_OPTIONS = ['Globe', 'Music', 'BookOpen', 'Zap', 'Users', 'Tag', 'Star', 'MapPin', 'Heart', 'Palette'];
+const ICON_OPTIONS = ['Globe', 'Music', 'BookOpen', 'Zap', 'Users', 'Tag', 'Star', 'MapPin', 'Heart', 'Palette', 'TrendingUp'];
 const COLOR_PRESETS = ['#D4AF37', '#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#6B7280'];
 
+// 👇 AJOUT DE L'ESPACE CHIFFRES ICI
 const SPACES = [
   { key: 'show_encyclopedie', label: 'Encyclopédie', Icon: BookOpen, color: 'text-[#D4AF37]' },
   { key: 'show_voyage_musical', label: 'Voyage Musical', Icon: Music, color: 'text-purple-400' },
   { key: 'show_presse', label: 'Presse', Icon: Newspaper, color: 'text-blue-400' },
   { key: 'show_bibliotheque', label: 'Bibliothèque', Icon: Library, color: 'text-emerald-400' },
+  { key: 'show_macro', label: 'Chiffres (Stats)', Icon: TrendingUp, color: 'text-teal-400' }, // Nouveau !
 ];
 
 interface Category { 
   id: string; name_fr: string; name_en: string; slug: string; icon: string; color: string; is_active: boolean; 
-  show_encyclopedie: boolean; show_voyage_musical: boolean; show_presse: boolean; show_bibliotheque: boolean; created_at: string;
+  show_encyclopedie: boolean; show_voyage_musical: boolean; show_presse: boolean; show_bibliotheque: boolean; show_macro: boolean; created_at: string;
 }
 
 export default function CategoriesTab({ showMsg, translateText }: { showMsg: (type: 'success' | 'error', text: string) => void; translateText: (text: string, lang: 'fr' | 'en') => Promise<string>; }) {
@@ -29,7 +31,12 @@ export default function CategoriesTab({ showMsg, translateText }: { showMsg: (ty
   const [slug, setSlug] = useState('');
   const [icon, setIcon] = useState('Tag');
   const [color, setColor] = useState('#D4AF37');
-  const [spaces, setSpaces] = useState({ show_encyclopedie: true, show_voyage_musical: true, show_presse: true, show_bibliotheque: true });
+  
+  // 👇 Ajout de show_macro dans le state
+  const [spaces, setSpaces] = useState({ 
+    show_encyclopedie: true, show_voyage_musical: true, show_presse: true, show_bibliotheque: true, show_macro: true 
+  });
+  
   const [isAdding, setIsAdding] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -64,7 +71,7 @@ export default function CategoriesTab({ showMsg, translateText }: { showMsg: (ty
 
   const resetForm = useCallback(() => {
     setNameFr(''); setNameEn(''); setSlug(''); setIcon('Tag'); setColor('#D4AF37');
-    setSpaces({ show_encyclopedie: true, show_voyage_musical: true, show_presse: true, show_bibliotheque: true });
+    setSpaces({ show_encyclopedie: true, show_voyage_musical: true, show_presse: true, show_bibliotheque: true, show_macro: true });
     setEditingId(null);
   }, []);
 
@@ -99,7 +106,13 @@ export default function CategoriesTab({ showMsg, translateText }: { showMsg: (ty
 
   const handleEdit = useCallback((cat: Category) => {
     setEditingId(cat.id); setNameFr(cat.name_fr); setNameEn(cat.name_en); setSlug(cat.slug); setIcon(cat.icon || 'Tag'); setColor(cat.color || '#D4AF37');
-    setSpaces({ show_encyclopedie: cat.show_encyclopedie, show_voyage_musical: cat.show_voyage_musical, show_presse: cat.show_presse, show_bibliotheque: cat.show_bibliotheque });
+    setSpaces({ 
+      show_encyclopedie: cat.show_encyclopedie, 
+      show_voyage_musical: cat.show_voyage_musical, 
+      show_presse: cat.show_presse, 
+      show_bibliotheque: cat.show_bibliotheque,
+      show_macro: cat.show_macro ?? false // Fallback si les anciennes catégories n'ont pas la valeur
+    });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
@@ -189,14 +202,14 @@ export default function CategoriesTab({ showMsg, translateText }: { showMsg: (ty
             </div>
           </div>
 
-          {/* Spaces Toggles */}
+          {/* Spaces Toggles (Désormais avec 5 boutons) */}
           <div className="mb-4 p-4 bg-[#1a1a1a] rounded-lg border border-white/10">
             <p className="text-[10px] text-gray-500 mb-3 font-mono uppercase tracking-wider">🎯 Espaces d'affichage</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               {SPACES.map(space => (
-                <button key={space.key} onClick={() => setSpaces({ ...spaces, [space.key]: !spaces[space.key as keyof typeof spaces] })} className={`flex items-center gap-2 p-2 rounded-lg border transition-all text-xs font-medium ${spaces[space.key as keyof typeof spaces] ? 'border-white/20 bg-white/10 text-white' : 'border-white/5 bg-white/[0.02] text-gray-600 line-through'}`}>
+                <button key={space.key} onClick={() => setSpaces({ ...spaces, [space.key]: !spaces[space.key as keyof typeof spaces] })} className={`flex items-center justify-center gap-2 p-2 rounded-lg border transition-all text-xs font-medium ${spaces[space.key as keyof typeof spaces] ? 'border-white/20 bg-white/10 text-white' : 'border-white/5 bg-white/[0.02] text-gray-600 line-through'}`}>
                   <space.Icon size={14} className={spaces[space.key as keyof typeof spaces] ? space.color : ''} />
-                  {space.label}
+                  <span className="truncate">{space.label}</span>
                 </button>
               ))}
             </div>
@@ -209,7 +222,7 @@ export default function CategoriesTab({ showMsg, translateText }: { showMsg: (ty
               <span className="px-3 py-1 rounded-full text-xs font-bold text-white" style={{ backgroundColor: color }}>{nameFr || 'Catégorie'}</span>
               <span className="text-gray-500 text-xs font-mono">/{slug || 'slug'}</span>
               <div className="flex gap-1 ml-2">
-                {SPACES.map(s => spaces[s.key as keyof typeof spaces] ? <s.Icon key={s.key} size={12} className={s.color} /> : null)}
+                {SPACES.map(s => spaces[s.key as keyof typeof spaces] ? <span key={s.key} title={s.label}><s.Icon size={12} className={s.color} /></span> : null)}
               </div>
             </div>
           </div>
@@ -229,7 +242,7 @@ export default function CategoriesTab({ showMsg, translateText }: { showMsg: (ty
         </div>
 
         {/* List */}
-        <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+        <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1 custom-scrollbar">
           <AnimatePresence>
             {filteredCategories.map(cat => (
               <motion.div key={cat.id} layout initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border gap-3 transition-all ${cat.is_active ? 'bg-white/5 border-white/10 hover:border-[#D4AF37]/40' : 'bg-white/[0.02] border-white/5 opacity-60'}`}>
@@ -239,7 +252,7 @@ export default function CategoriesTab({ showMsg, translateText }: { showMsg: (ty
                     <p className="text-sm font-medium text-white truncate">{cat.name_fr} <span className="text-gray-500">/ {cat.name_en}</span></p>
                     <p className="text-xs text-gray-500 font-mono truncate">/{cat.slug}</p>
                     <div className="flex gap-2 mt-1">
-                      {SPACES.map(s => cat[s.key as keyof Category] ? <s.Icon key={s.key} size={11} className={`${s.color} opacity-70`} /> : null)}
+                      {SPACES.map(s => cat[s.key as keyof Category] ? <span key={s.key} title={s.label}><s.Icon size={11} className={`${s.color} opacity-70`} /></span> : null)}
                     </div>
                   </div>
                 </div>

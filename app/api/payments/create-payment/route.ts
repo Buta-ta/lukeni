@@ -10,7 +10,7 @@ export async function POST(req: Request) {
 
     const bodyText = await req.text();
     const body = JSON.parse(bodyText);
-    const { productType, productId, currency, userId, userEmail } = body; 
+    const { productType, productId, currency, userId, userEmail } = body;
 
     const { data: pricing, error: pricingError } = await supabaseAdmin
       .from('product_pricing')
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     const finalAmount = pricing.price_xof_cfa;
     const finalCurrency = 'XOF';
     const description = productType === 'investigation' ? `Investigation - ${productId}` : `Livre - ${productId}`;
-    
+
     const secretKey = process.env.FEDAPAY_SECRET_KEY || '';
     const isLive = secretKey.startsWith('sk_live');
     const fedapayBaseUrl = isLive ? 'https://api.fedapay.com/v1' : 'https://sandbox-api.fedapay.com/v1';
@@ -36,10 +36,11 @@ export async function POST(req: Request) {
     const fedapayPayload = {
       description,
       amount: finalAmount,
-      currency: { iso: finalCurrency }, 
+      currency: { iso: finalCurrency },
       customer: { email: userEmail || 'joueur@lukeni.com' },
-      // 💥 ON AJOUTE LE PRODUCT_ID DANS L'URL DE RETOUR ICI :
       callback_url: `${appUrl}/api/webhooks/fedapay?product_id=${productId}`,
+      // ✅ NOUVEAU : URL de retour utilisateur après paiement
+      return_url: `${appUrl}/investigations?payment_success=${productId}&product_type=${productType}`,
       metadata: { userId, productType, productId }
     };
 
@@ -63,7 +64,7 @@ export async function POST(req: Request) {
 
     const tokenData = await tokenRes.json();
     const transactionToken = tokenData?.['v1/token']?.token || tokenData?.token;
-    
+
     const paymentUrl = tokenData?.['v1/token']?.url || tokenData?.url;
 
     if (!transactionToken || !paymentUrl) {

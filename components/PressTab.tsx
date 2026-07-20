@@ -9,7 +9,7 @@ import {
   List, ListOrdered, Quote, Bold, Italic, Heading, Save, Mic, Play,
   MapPin, Globe, Map, Navigation, AlertTriangle, Archive, Settings,
   MessageCircle, Filter, Radio, Headphones, AlignLeft, Info, ChevronDown, ChevronRight,
-  Ban, Shield, MessageSquare, Users
+  Ban, Shield, MessageSquare, Users, BarChart3
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { autoTranslate, autoCorrect } from '@/lib/lingua';
@@ -67,6 +67,7 @@ interface PressArticle {
   location_longitude?: number;
   reading_time_minutes?: number;
   related_articles_ids?: string[];
+  related_charts_ids?: string[];
   categories: Category;
 }
 
@@ -287,6 +288,7 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
   const [comments, setComments] = useState<PressComment[]>([]);
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+   const [macroCharts, setMacroCharts] = useState<{id: string; title_fr: string}[]>([]);
   const [socialSettings, setSocialSettings] = useState<SocialSettings>({
     id: 1, whatsapp_number: '', whatsapp_message: '', instagram_url: '', facebook_url: '',
     wa_active: false, ig_active: false, fb_active: false
@@ -312,6 +314,7 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
   const [audioHost, setAudioHost] = useState('');
   const [readingTimeMinutes, setReadingTimeMinutes] = useState<number>(1);
   const [relatedArticlesIds, setRelatedArticlesIds] = useState<string[]>([]);
+  const [relatedChartsIds, setRelatedChartsIds] = useState<string[]>([]);
   const [authorName, setAuthorName] = useState('Rédaction Lukeni');
   const [categoryId, setCategoryId] = useState('');
   const [status, setStatus] = useState('draft');
@@ -405,8 +408,11 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
     const { data: blockedUsersData } = await supabase.from('blocked_users').select('*').order('blocked_at', { ascending: false });
     if (blockedUsersData) setBlockedUsers(blockedUsersData);
 
-    const { data: settingsData } = await supabase.from('social_settings').select('*').eq('id', 1).single();
+        const { data: settingsData } = await supabase.from('social_settings').select('*').eq('id', 1).single();
     if (settingsData) setSocialSettings(settingsData);
+
+    const { data: chartData } = await supabase.from('macro_charts').select('id, title_fr').eq('is_active', true);
+    if (chartData) setMacroCharts(chartData);
 
     setIsLoading(false);
   }
@@ -428,6 +434,7 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
     setReadingTimeMinutes(1);
     setRelatedArticlesIds([]);
     setAuthorName('Rédaction Lukeni');
+    setRelatedChartsIds([]);
     setCategoryId('');
     setStatus('draft');
     setMediaItems([]);
@@ -458,6 +465,7 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
     setAudioHost(a.audio_host || '');
     setReadingTimeMinutes(a.reading_time_minutes || 1);
     setRelatedArticlesIds(a.related_articles_ids || []);
+    setRelatedChartsIds(a.related_charts_ids || []);
     setAuthorName(a.author_name || 'Rédaction Lukeni');
     setCategoryId(a.category_id || '');
     setStatus(a.status);
@@ -497,6 +505,7 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
       audio_host: articleType === 'audio' ? (audioHost || null) : null,
       reading_time_minutes: readingTimeMinutes || 1,
       related_articles_ids: relatedArticlesIds.length > 0 ? relatedArticlesIds : null,
+      related_charts_ids: relatedChartsIds.length > 0 ? relatedChartsIds : null,
       author_name: authorName,
       category_id: categoryId || null,
       status: finalStatus,
@@ -1479,6 +1488,13 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
                             {articles.filter(a => a.id !== editingId).map(a => (
                               <option key={a.id} value={a.id}>{a.title_fr}</option>
                             ))}
+                          </select>
+                                                 <p className="text-xs text-gray-500 mt-1">Ctrl/Cmd + clic pour sélectionner plusieurs</p>
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-gray-400 mb-2 flex items-center gap-2"><BarChart3 size={14} className="text-[#D4AF37]" /> Graphiques Macroéconomiques</label>
+                          <select multiple value={relatedChartsIds} onChange={e => setRelatedChartsIds(Array.from(e.target.selectedOptions, option => option.value))} className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm" size={3}>
+                            {macroCharts.map(c => <option key={c.id} value={c.id}>📊 {c.title_fr}</option>)}
                           </select>
                           <p className="text-xs text-gray-500 mt-1">Ctrl/Cmd + clic pour sélectionner plusieurs</p>
                         </div>

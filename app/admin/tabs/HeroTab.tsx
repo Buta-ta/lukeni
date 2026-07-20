@@ -18,6 +18,7 @@ export default function HeroTab({ showMsg }: { showMsg: (type: 'success' | 'erro
   const [portalPress, setPortalPress] = useState<string>('');
   const [portalMusical, setPortalMusical] = useState<string>('');
   const [portalLibrary, setPortalLibrary] = useState<string>('');
+  const [portalMacro, setPortalMacro] = useState<string>(''); // ⬅️ AJOUT : image du portail "Chiffres"
 
   useEffect(() => {
     async function fetchSettings() {
@@ -29,6 +30,7 @@ export default function HeroTab({ showMsg }: { showMsg: (type: 'success' | 'erro
         setPortalPress(data.portal_img_press || '');
         setPortalMusical(data.portal_img_musical || '');
         setPortalLibrary(data.portal_img_library || '');
+        setPortalMacro(data.portal_img_macro || ''); // ⬅️ AJOUT
       }
       setIsLoading(false);
     }
@@ -44,6 +46,7 @@ export default function HeroTab({ showMsg }: { showMsg: (type: 'success' | 'erro
       portal_img_press: portalPress,
       portal_img_musical: portalMusical,
       portal_img_library: portalLibrary,
+      portal_img_macro: portalMacro, // ⬅️ AJOUT
       updated_at: new Date().toISOString(),
     }).eq('id', 1);
     
@@ -149,12 +152,13 @@ export default function HeroTab({ showMsg }: { showMsg: (type: 'success' | 'erro
           <h3 className="text-lg font-bold text-white">Images des Espaces</h3>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {[
             { key: 'encyclopedia', label: 'Encyclopédie', state: portalEncyclopedia, setter: setPortalEncyclopedia },
             { key: 'press', label: 'Presse', state: portalPress, setter: setPortalPress },
             { key: 'musical', label: 'Voyage Musical', state: portalMusical, setter: setPortalMusical },
             { key: 'library', label: 'Bibliothèque', state: portalLibrary, setter: setPortalLibrary },
+            { key: 'macro', label: 'Chiffres', state: portalMacro, setter: setPortalMacro }, // ⬅️ AJOUT
           ].map((portal) => (
             <div key={portal.key} className="space-y-2">
               <label className="block text-xs text-gray-400 font-mono">{portal.label}</label>

@@ -26,6 +26,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { User as UserIcon } from "lucide-react";
+import PaywallModal from "@/components/PaywallModal";
+
 
 // --- LOGO LUKENI (CAURIS DORÉ) ---
 const CaurisIcon = ({ className }: { className?: string }) => (
@@ -144,13 +146,98 @@ export default function InvestigationsHub() {
   const [trialConfigDuration, setTrialConfigDuration] = useState(30);
   const [accessMap, setAccessMap] = useState<Record<string, AccessInfo>>({});
 
+  const [pricingData, setPricingData] = useState<any[]>([]);
+  const [buyModal, setBuyModal] = useState<{
+    invId: string;
+    invTitle: string;
+    pricing: any;
+  } | null>(null);
+
 
 
 
   // ✅ NOUVEAU : Pour rafraîchir les données trial
   const [trialRefreshKey, setTrialRefreshKey] = useState(0);
+  const [paymentSuccessMessage, setPaymentSuccessMessage] = useState<string | null>(null);
 
-  // ✅ NOUVEAU : Fonction pour rafraîchir les trials
+
+  // ✅ Détecter le retour après paiement FedaPay
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const params = new URLSearchParams(window.location.search);
+    const paymentSuccess = params.get('payment_success');
+    const productType = params.get('product_type');
+
+    if (paymentSuccess && productType === 'investigation') {
+      console.log('✅ [LISTE] Paiement détecté, rafraîchissement des accès...');
+
+      // Nettoyer l'URL
+      window.history.replaceState({}, '', '/investigations');
+
+      // Rafraîchir les données d'accès
+      refreshAccessData();
+
+      // Rediriger vers le jeu après 1.5 secondes
+      setTimeout(() => {
+        console.log('🚀 [LISTE] Redirection vers le jeu...');
+        router.push(`/investigations/${paymentSuccess}`);
+      }, 1500);
+    }
+
+
+    if (paymentSuccess && productType === 'investigation') {
+      console.log('✅ [LISTE] Paiement détecté, rafraîchissement des accès...');
+
+      // Afficher un message de succès
+      setPaymentSuccessMessage(
+        lang === 'fr'
+          ? '✅ Paiement réussi ! Redirection vers le jeu...'
+          : '✅ Payment successful! Redirecting to the game...'
+      );
+
+      // Nettoyer l'URL
+      window.history.replaceState({}, '', '/investigations');
+
+      // Rafraîchir les données d'accès
+      refreshAccessData();
+
+      // Rediriger vers le jeu après 2 secondes
+      setTimeout(() => {
+        console.log('🚀 [LISTE] Redirection vers le jeu...');
+        router.push(`/investigations/${paymentSuccess}`);
+      }, 2000);
+    }
+  }, []);
+
+
+  // ✅ Fonction pour rafraîchir les données d'accès après paiement
+  // ✅ Fonction pour rafraîchir les données d'accès après paiement
+  const refreshAccessData = useCallback(async () => {
+    if (!userId) return;
+
+    const { data: userAccess } = await supabase
+      .from('user_access')
+      .select('target_id')
+      .eq('user_id', userId)
+      .eq('status', 'completed');
+
+    if (userAccess) {
+      setAccessMap(prev => {
+        const updated = { ...prev };
+        userAccess.forEach(access => {
+          if (updated[access.target_id]) {
+            updated[access.target_id] = {
+              ...updated[access.target_id],
+              hasFullAccess: true,
+            };
+          }
+        });
+        return updated;
+      });
+    }
+  }, [userId]);
+
   const refreshTrialData = useCallback(async () => {
     if (!userId || !investigations.length) return;
 
@@ -165,24 +252,40 @@ export default function InvestigationsHub() {
     setAccessMap(prev => {
       const updated = { ...prev };
       for (const inv of investigations) {
-        const trial = trialData?.find((t: any) => t.target_id === inv.id);
-        if (trial && trial.status === 'active') {
+        // ✅ Récupérer pricing pour cette investigation
+        const pricing = pricingData.find((p: any) => p.product_id === inv.id && p.product_type === "investigation");
+        
+        // ✅ Prendre le trial le plus RÉCENT
+        const invTrials = (trialData || [])
+          .filter((t: any) => t.target_id === inv.id)
+          .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        const trial = invTrials[0];
+        
+        // ✅ Calculer le trial UNIQUEMENT si enquête payante
+        if (pricing && trial && trial.status === 'active') {
           const expiredAt = new Date(trial.expired_at).getTime();
           const now = Date.now();
-          const TIME_OFFSET_MS = 60 * 60 * 1000;
-          const remainingMs = expiredAt - now + TIME_OFFSET_MS;
+          const remainingMs = expiredAt - now;
           if (remainingMs > 0) {
+            const remainingMinutes = Math.max(0, Math.floor(remainingMs / 1000 / 60));
             updated[inv.id] = {
               ...updated[inv.id],
               trialStatus: 'active',
-              trialTimeRemaining: Math.max(0, Math.floor(remainingMs / 1000 / 60)),
+              trialTimeRemaining: remainingMinutes,
+            };
+            console.log(`⏰ [LISTE] Trial ${inv.id}: ${remainingMinutes} min restantes`);
+          } else {
+            updated[inv.id] = {
+              ...updated[inv.id],
+              trialStatus: 'expired',
+              trialTimeRemaining: 0,
             };
           }
         }
       }
       return updated;
     });
-  }, [userId, investigations]);
+  }, [userId, investigations, pricingData]);
 
   // ✅ NOUVEAU : Écouter le focus de la page pour rafraîchir
   useEffect(() => {
@@ -278,14 +381,26 @@ export default function InvestigationsHub() {
 
         const sessions = sessionsRes.data || [];
         const pricingData = pricingRes.data || [];
+        setPricingData(pricingData);
         const userAccessData = userAccessRes.data || [];
         const adminGrants = adminGrantsRes.data || [];
         const trialData = trialRes.data || [];
 
         const map: Record<string, AccessInfo> = {};
         for (const inv of invRes.data) {
+          // ✅ Déclarer pricing AU DÉBUT de la boucle
           const pricing = pricingData.find((p) => p.product_id === inv.id && p.product_type === "investigation");
           const isFree = !pricing;
+
+          // ✅ Prendre le trial le plus RÉCENT (pas le premier)
+          const invTrials = trialData
+            .filter((t) => t.target_id === inv.id)
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          const trial = invTrials[0];
+          
+          if (invTrials.length > 1) {
+            console.log(`⚠️ [LISTE] Plusieurs trials pour ${inv.id}, on prend le plus récent`);
+          }
 
           const hasBought = userAccessData.some((a) => a.target_id === inv.id);
           const hasGrant = adminGrants.some(
@@ -293,26 +408,23 @@ export default function InvestigationsHub() {
           );
           const hasFullAccess = hasBought || hasGrant;
 
-          const trial = trialData.find((t) => t.target_id === inv.id);
+          // ✅ Calculer le trial UNIQUEMENT si enquête payante
           let trialStatus: "none" | "active" | "expired" = "none";
           let trialTimeRemaining = 0;
 
-          if (trial) {
-            if (trial.status === "active") {
-              const expiredAt = new Date(trial.expired_at).getTime();
-              const now = Date.now();
-              // ✅ BUFFER DE 60 MINUTES (MÊME QUE LE JEU)
-              const TIME_OFFSET_MS = 60 * 60 * 1000;
-              const remainingMs = expiredAt - now + TIME_OFFSET_MS;
-              if (remainingMs > 0) {
-                trialStatus = "active";
-                trialTimeRemaining = Math.max(0, Math.floor(remainingMs / 1000 / 60));
-              } else {
-                trialStatus = "expired";
-              }
+          if (pricing && trial && trial.status === 'active') {
+            const expiredAt = new Date(trial.expired_at).getTime();
+            const now = Date.now();
+            const remainingMs = expiredAt - now;
+            if (remainingMs > 0) {
+              trialStatus = "active";
+              trialTimeRemaining = Math.max(0, Math.floor(remainingMs / 1000 / 60));
+              console.log(`⏰ [LISTE] Trial ${inv.id}: ${trialTimeRemaining} min restantes`);
             } else {
               trialStatus = "expired";
             }
+          } else if (pricing && trial && trial.status === 'expired') {
+            trialStatus = "expired";
           }
 
           map[inv.id] = {
@@ -696,25 +808,48 @@ export default function InvestigationsHub() {
                         <Play size={12} /> {hasSession ? (lang === "fr" ? "REPRENDRE" : "RESUME") : (lang === "fr" ? "JOUER" : "PLAY")}
                       </Link>
                     )}
-
                     {/* ÉTAT 3 : ESSAI EN COURS */}
                     {!hasFullAccess && !isFree && trialStatus === "active" && trialTimeRemaining > 0 && (
                       <>
                         <Link href={`/investigations/${inv.id}`} className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 text-center text-xs font-bold tracking-wider font-mono transition-all duration-300 rounded">
                           <Play size={12} className="text-blue-400" /> {lang === "fr" ? `CONTINUER (${formatTrialTime(trialTimeRemaining)})` : `CONTINUE (${formatTrialTime(trialTimeRemaining)})`}
                         </Link>
-                        <Link href={`/investigations/${inv.id}`} className="flex items-center justify-center gap-2 w-full py-2 bg-[#2A2726] hover:bg-[#D4AF37] border border-white/10 hover:border-[#D4AF37] text-center text-[10px] font-bold tracking-wider font-mono text-gray-500 hover:text-black transition-all duration-300 rounded">
+                        <button
+                          onClick={() => {
+                            const pricing = pricingData.find((p: any) => p.product_id === inv.id && p.product_type === "investigation");
+                            if (pricing) {
+                              setBuyModal({
+                                invId: inv.id,
+                                invTitle: lang === "fr" ? inv.title_fr : inv.title_en || inv.title_fr,
+                                pricing,
+                              });
+                            }
+                          }}
+                          className="flex items-center justify-center gap-2 w-full py-2 bg-[#2A2726] hover:bg-[#D4AF37] border border-white/10 hover:border-[#D4AF37] text-center text-[10px] font-bold tracking-wider font-mono text-gray-500 hover:text-black transition-all duration-300 rounded"
+                        >
                           <CreditCard size={10} /> {lang === "fr" ? `ACHETER (${priceEur?.toFixed(2)} €)` : `BUY (${priceEur?.toFixed(2)} €)`}
-                        </Link>
+                        </button>
                       </>
                     )}
 
                     {/* ÉTAT 4 : ESSAI EXPIRÉ */}
                     {!hasFullAccess && !isFree && trialStatus === "expired" && (
                       <>
-                        <Link href={`/investigations/${inv.id}`} className="flex items-center justify-center gap-2 w-full py-2.5 bg-[#D4AF37] hover:bg-white border border-[#D4AF37] text-center text-xs font-bold tracking-[0.2em] font-mono text-black transition-all duration-300 rounded shadow-sm">
+                        <button
+                          onClick={() => {
+                            const pricing = pricingData.find((p: any) => p.product_id === inv.id && p.product_type === "investigation");
+                            if (pricing) {
+                              setBuyModal({
+                                invId: inv.id,
+                                invTitle: lang === "fr" ? inv.title_fr : inv.title_en || inv.title_fr,
+                                pricing,
+                              });
+                            }
+                          }}
+                          className="flex items-center justify-center gap-2 w-full py-2.5 bg-[#D4AF37] hover:bg-white border border-[#D4AF37] text-center text-xs font-bold tracking-[0.2em] font-mono text-black transition-all duration-300 rounded shadow-sm"
+                        >
                           <CreditCard size={12} /> {lang === "fr" ? `ACHETER L'ACCÈS (${priceEur?.toFixed(2)} €)` : `BUY ACCESS (${priceEur?.toFixed(2)} €)`}
-                        </Link>
+                        </button>
                         <p className="text-[10px] text-gray-600 text-center font-mono flex items-center justify-center gap-1">
                           <Clock size={10} className="text-red-400" /> {lang === "fr" ? "Essai expiré" : "Trial expired"}
                         </p>
@@ -727,9 +862,21 @@ export default function InvestigationsHub() {
                         <Link href={`/investigations/${inv.id}?autoStartTrial=true`} className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-300 text-center text-xs font-bold tracking-wider font-mono transition-all duration-300 rounded">
                           <Clock size={12} /> {lang === "fr" ? `ESSAI GRATUIT (${trialConfigDuration} min)` : `FREE TRIAL (${trialConfigDuration} min)`}
                         </Link>
-                        <Link href={`/investigations/${inv.id}`} className="flex items-center justify-center gap-2 w-full py-2 bg-transparent hover:bg-[#D4AF37]/10 border border-[#D4AF37]/30 hover:border-[#D4AF37] text-center text-[10px] font-bold tracking-wider font-mono text-[#D4AF37] transition-all duration-300 rounded">
+                        <button
+                          onClick={() => {
+                            const pricing = pricingData.find((p: any) => p.product_id === inv.id && p.product_type === "investigation");
+                            if (pricing) {
+                              setBuyModal({
+                                invId: inv.id,
+                                invTitle: lang === "fr" ? inv.title_fr : inv.title_en || inv.title_fr,
+                                pricing,
+                              });
+                            }
+                          }}
+                          className="flex items-center justify-center gap-2 w-full py-2 bg-transparent hover:bg-[#D4AF37]/10 border border-[#D4AF37]/30 hover:border-[#D4AF37] text-center text-[10px] font-bold tracking-wider font-mono text-[#D4AF37] transition-all duration-300 rounded"
+                        >
                           <CreditCard size={10} /> {lang === "fr" ? `ACHETER (${priceEur?.toFixed(2)} €)` : `BUY (${priceEur?.toFixed(2)} €)`}
-                        </Link>
+                        </button>
                       </>
                     )}
 
@@ -826,6 +973,35 @@ export default function InvestigationsHub() {
                 </div>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ✅ MODAL D'ACHAT */}
+      {buyModal && (
+        <PaywallModal
+          isOpen={!!buyModal}
+          onClose={() => setBuyModal(null)}
+          productType="investigation"
+          productId={buyModal.invId}
+          productTitle={buyModal.invTitle}
+          pricing={buyModal.pricing}
+          lang={lang}
+        />
+      )}
+
+
+      {/* ✅ MESSAGE DE SUCCÈS PAIEMENT */}
+      <AnimatePresence>
+        {paymentSuccessMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-[9999] bg-green-500/90 text-white px-6 py-3 rounded-xl font-bold shadow-2xl flex items-center gap-3"
+          >
+            <ShieldCheck size={20} />
+            <span>{paymentSuccessMessage}</span>
           </motion.div>
         )}
       </AnimatePresence>
