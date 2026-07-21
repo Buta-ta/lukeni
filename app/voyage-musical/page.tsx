@@ -16,6 +16,7 @@ import {
   CheckCircle, Download, ExternalLink,
 } from 'lucide-react';
 import ContributeModal from '@/components/ContributeModal';
+import { useAudio } from '@/lib/contexts/AudioContext';
 
 
 
@@ -312,7 +313,7 @@ const CountryPanel = ({
 
               if (!track) return null;
 
-               console.log("🎵 Track:", track.title_fr, "allow_download:", track.allow_download);  // ✅ DEBUG
+              console.log("🎵 Track:", track.title_fr, "allow_download:", track.allow_download);  // ✅ DEBUG
 
 
               const isCurrentTrack = currentTrack?.id === track.id;
@@ -426,8 +427,8 @@ const CountryPanel = ({
                       )}
 
                       {/* Download button in AudioPlayer */}
-                      
-                      
+
+
                     </div>
                   </div>
 
@@ -460,205 +461,7 @@ const CountryPanel = ({
 
 // ─── Lecteur audio (fichiers uploadés) ────────────────────────────────────────
 
-const AudioPlayer = ({
-  track, lang, isPlaying, onTogglePlay, onNext, onClose,
-  isLiked, onToggleLike,
-}: {
-  track: Track;
-  lang: 'fr' | 'en';
-  isPlaying: boolean;
-  onTogglePlay: () => void;
-  onNext: () => void;
-  onClose: () => void;
-  isLiked: boolean;
-  onToggleLike: () => void;
-}) => {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [isMuted, setIsMuted] = useState(false);
-  const [showDescription, setShowDescription] = useState(false);
 
-  const description = lang === 'fr'
-    ? (track.description_fr || track.description_en)
-    : (track.description_en || track.description_fr);
-
-  const countryName = lang === 'fr'
-    ? (track.country_name_fr || track.country_code)
-    : (track.country_name_en || track.country_code);
-
-  useEffect(() => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio(track.audio_url);
-    } else {
-      audioRef.current.src = track.audio_url;
-    }
-    const audio = audioRef.current;
-    const onTimeUpdate = () => setProgress(audio.currentTime);
-    const onLoadedMeta = () => setDuration(audio.duration);
-    const onEnded = () => onNext();
-
-    audio.addEventListener('timeupdate', onTimeUpdate);
-    audio.addEventListener('loadedmetadata', onLoadedMeta);
-    audio.addEventListener('ended', onEnded);
-
-    return () => {
-      audio.removeEventListener('timeupdate', onTimeUpdate);
-      audio.removeEventListener('loadedmetadata', onLoadedMeta);
-      audio.removeEventListener('ended', onEnded);
-    };
-  }, [track.audio_url, onNext]);
-
-  useEffect(() => {
-    if (!audioRef.current) return;
-    isPlaying ? audioRef.current.play().catch(() => { }) : audioRef.current.pause();
-  }, [isPlaying]);
-
-  useEffect(() => {
-    if (!audioRef.current) return;
-    audioRef.current.muted = isMuted;
-  }, [isMuted]);
-
-  useEffect(() => {
-    return () => { if (audioRef.current) audioRef.current.pause(); };
-  }, []);
-
-  const formatTime = (s: number) =>
-    isNaN(s) ? '0:00' : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-
-  const seekTo = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (audioRef.current && duration) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      audioRef.current.currentTime = ((e.clientX - rect.left) / rect.width) * duration;
-    }
-  };
-
-  return (
-    <motion.div
-      initial={{ y: 100 }}
-      animate={{ y: 0 }}
-      exit={{ y: 100 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      className="fixed bottom-0 left-0 right-0 z-[60] bg-[#020111]/98 backdrop-blur-2xl border-t border-white/8"
-      style={{ boxShadow: `0 -10px 40px ${GOLD}15` }}
-    >
-      {/* Progress bar */}
-      <div className="w-full h-1 cursor-pointer" style={{ background: 'rgba(255,255,255,0.08)' }} onClick={seekTo}>
-        <div className="h-full transition-none" style={{
-          width: `${duration ? (progress / duration) * 100 : 0}%`,
-          background: GOLD,
-        }} />
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
-        {/* Cover */}
-        <div className="relative w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 bg-white/5">
-          {track.cover_url ? (
-            <img src={track.cover_url} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center" style={{ background: `${GOLD}20` }}>
-              <Music size={16} style={{ color: GOLD }} />
-            </div>
-          )}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <p className="text-white text-sm font-medium truncate">
-            {lang === 'fr' ? track.title_fr : track.title_en}
-          </p>
-          <div className="flex items-center gap-2 text-white/40 text-xs">
-            <span className="truncate">{lang === 'fr' ? track.artist_fr : track.artist_en}</span>
-            {track.era_decade && (<><span>•</span><span className="font-mono">{track.era_decade}s</span></>)}
-            {countryName && (<><span>•</span><span className="flex items-center gap-0.5 flex-shrink-0"><MapPin size={8} /> {countryName}</span></>)}
-          </div>
-          <div className="flex items-center gap-3 mt-1">
-            {description && (
-              <button
-                onClick={() => setShowDescription(!showDescription)}
-                className="text-[10px] text-[#D4AF37] hover:text-white transition-colors flex items-center gap-1"
-              >
-                <Info size={10} />
-                {lang === 'fr' ? 'Description' : 'Description'}
-              </button>
-            )}
-            <div
-              onClick={onToggleLike}
-              className={`text-[10px] transition-colors flex items-center gap-1 cursor-pointer ${isLiked ? 'text-red-400' : 'text-white/30 hover:text-red-400'
-                }`}
-            >
-              <Heart size={10} fill={isLiked ? 'currentColor' : 'none'} />
-              {track.likes_count ?? 0}
-            </div>
-            {track.allow_download === true && (
-  <a
-    href={track.audio_url}
-    download
-    target="_blank"
-    rel="noopener noreferrer"
-    className="text-[10px] text-white/30 hover:text-green-400 transition-colors flex items-center gap-1"
-  >
-    <Download size={10} />
-    {lang === 'fr' ? 'Télécharger' : 'Download'}
-  </a>
-)}
-          </div>
-        </div>
-
-        {/* Duration */}
-        <span className="hidden sm:block text-[9px] text-white/30 font-mono tabular-nums flex-shrink-0">
-          {formatTime(progress)} / {formatTime(duration)}
-        </span>
-
-        {/* Controls */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <button onClick={() => setIsMuted(!isMuted)} className="p-2 text-white/30 hover:text-white transition-colors">
-            {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-          </button>
-          <motion.button
-            whileHover={{ scale: 1.08 }} whileTap={{ scale: 0.92 }}
-            onClick={onTogglePlay}
-            className="w-10 h-10 rounded-full flex items-center justify-center text-black transition-colors"
-            style={{ backgroundColor: GOLD, boxShadow: `0 0 16px ${GOLD}50` }}
-          >
-            {isPlaying
-              ? <Pause size={16} fill="currentColor" />
-              : <Play size={16} fill="currentColor" className="ml-0.5" />}
-          </motion.button>
-          <button onClick={onNext} className="p-2 text-white/30 hover:text-white transition-colors">
-            <SkipForward size={16} />
-          </button>
-        </div>
-
-        <button onClick={onClose} className="p-2 text-white/20 hover:text-white/60 transition-colors flex-shrink-0">
-          <X size={14} />
-        </button>
-      </div>
-
-      {/* Description */}
-      <AnimatePresence>
-        {showDescription && description && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden"
-          >
-            <div className="max-w-7xl mx-auto px-4 pb-4">
-              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                <div className="flex items-start justify-between mb-2">
-                  <p className="text-white/70 text-sm">{description}</p>
-                  <button onClick={() => setShowDescription(false)} className="text-white/30 hover:text-white ml-2 flex-shrink-0">
-                    <X size={14} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
-};
 
 // ─── Lecteur YouTube (iframe) ────────────────────────────────────────────────
 
@@ -758,7 +561,7 @@ const YouTubePlayer = ({
 
 export default function VoyageMusicalPage() {
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
-    // ✅ Appliquer l'attribut data-landing-page au HTML
+  // ✅ Appliquer l'attribut data-landing-page au HTML
   useEffect(() => {
     document.documentElement.setAttribute('data-landing-page', 'true');
     return () => {
@@ -774,9 +577,8 @@ export default function VoyageMusicalPage() {
   const [isLoadingTracks, setIsLoadingTracks] = useState(false);
   const [activeEra, setActiveEra] = useState<number | null>(null);
 
-  const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [queue, setQueue] = useState<Track[]>([]);
+  const { currentTrack: globalTrack, isPlaying: globalIsPlaying, playTrack: playGlobalTrack, closePlayer: closeGlobalPlayer } = useAudio();
+  const [currentYTTrack, setCurrentYTTrack] = useState<Track | null>(null);
 
   const [viewMode, setViewMode] = useState<'africa' | 'world'>('africa');
   const [showContribute, setShowContribute] = useState(false);
@@ -1045,39 +847,27 @@ export default function VoyageMusicalPage() {
   }, []);
 
   // ── Modify handlePlayTrack pour tracker l'écoute ──
+  // ── Moteur de lecture (Fusion Local YouTube / Global Audio) ──
   const handlePlayTrack = useCallback((track: Track) => {
-
-    console.log("🎵 Playing track:", {
-      id: track.id, title: track.title_fr,
-      audio_source: track.audio_source,
-      audio_url: track.audio_url,
-      youtube_url: track.youtube_url,
-      isYT: isYouTubeTrack(track),
-    });
-
-    // ✅ Tracker l'écoute
     trackPlayCount(track.id);
 
-    if (currentTrack?.id === track.id) { setIsPlaying(p => !p); return; }
-    setCurrentTrack(track);
-    setIsPlaying(true);
-    setQueue(countryTracks.filter(t => t.id !== track.id));
-  }, [currentTrack, countryTracks, trackPlayCount]);
+    if (isYouTubeTrack(track)) {
+      // Si on lance YouTube, on coupe la musique globale
+      closeGlobalPlayer();
+      if (currentYTTrack?.id === track.id) {
+        setCurrentYTTrack(null); // Met en pause/ferme si on reclique
+      } else {
+        setCurrentYTTrack(track);
+      }
+    } else {
+      // Si on lance un MP3, on ferme la vidéo YouTube locale
+      setCurrentYTTrack(null);
+            playGlobalTrack(track as any, countryTracks as any);
+    }
+  }, [countryTracks, playGlobalTrack, closeGlobalPlayer, currentYTTrack, trackPlayCount]);
 
-
-  const handleNext = useCallback(() => {
-    if (queue.length === 0) { setIsPlaying(false); return; }
-    const [next, ...rest] = queue;
-    setCurrentTrack(next);
-    setQueue(rest);
-    setIsPlaying(true);
-  }, [queue]);
-
-  const handleClosePlayer = useCallback(() => {
-    setCurrentTrack(null);
-    setIsPlaying(false);
-    setQueue([]);
-  }, []);
+  const activeTrack = currentYTTrack || globalTrack;
+  const isPlayingActive = currentYTTrack ? true : globalIsPlaying;
 
   const handleOpenContribute = useCallback((countryCode?: string) => {
     setContributeCountry(countryCode);
@@ -1098,7 +888,7 @@ export default function VoyageMusicalPage() {
 
 
 
-  const currentIsYT = currentTrack ? isYouTubeTrack(currentTrack) : false;
+
 
   return (
     <div className="h-screen bg-[#020111] text-white flex flex-col overflow-hidden">
@@ -1185,7 +975,7 @@ export default function VoyageMusicalPage() {
       </div>
 
       {/* Zone carte + panneau */}
-      <div className="flex-1 relative overflow-hidden" style={{ paddingBottom: currentTrack ? (currentIsYT ? '0' : '68px') : '0' }}>
+      <div className="flex-1 relative overflow-hidden" style={{ paddingBottom: currentYTTrack ? '350px' : (globalTrack ? '70px' : '0') }}>
         <div className="absolute inset-0">
           {isMounted && (
             <MusicMap
@@ -1194,7 +984,7 @@ export default function VoyageMusicalPage() {
               activeEra={activeEra}
               lang={lang}
               onCountrySelect={handleCountrySelect}
-              playingCountry={currentTrack?.country_code || null}
+              playingCountry={activeTrack?.country_code || null}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
               theme={mapTheme}
@@ -1251,8 +1041,8 @@ export default function VoyageMusicalPage() {
                   lang={lang}
                   onClose={() => setSelectedCountry(null)}
                   onPlayTrack={handlePlayTrack}
-                  currentTrack={currentTrack}
-                  isPlaying={isPlaying}
+                  currentTrack={activeTrack as any}
+                  isPlaying={isPlayingActive}
                   activeEra={activeEra}
                   onEraChange={setActiveEra}
                   onContribute={handleOpenContribute}
@@ -1265,28 +1055,16 @@ export default function VoyageMusicalPage() {
         </AnimatePresence>
       </div>
 
-      {/* Lecteur */}
+      {/* Lecteur YouTube (Uniquement local) */}
       <AnimatePresence>
-        {currentTrack && currentIsYT && (
+        {currentYTTrack && (
           <YouTubePlayer
-            track={currentTrack}
+            track={currentYTTrack}
             lang={lang}
-            onClose={handleClosePlayer}
-            onNext={handleNext}
-            isLiked={likedTracks.has(currentTrack.id)}
-            onToggleLike={() => handleToggleLike(currentTrack.id)}
-          />
-        )}
-        {currentTrack && !currentIsYT && (
-          <AudioPlayer
-            track={currentTrack}
-            lang={lang}
-            isPlaying={isPlaying}
-            onTogglePlay={() => setIsPlaying(p => !p)}
-            onNext={handleNext}
-            onClose={handleClosePlayer}
-            isLiked={likedTracks.has(currentTrack.id)}
-            onToggleLike={() => handleToggleLike(currentTrack.id)}
+            onClose={() => setCurrentYTTrack(null)}
+            onNext={() => setCurrentYTTrack(null)}
+            isLiked={likedTracks.has(currentYTTrack.id)}
+            onToggleLike={() => handleToggleLike(currentYTTrack.id)}
           />
         )}
       </AnimatePresence>

@@ -5,16 +5,20 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Send, Clock, Lightbulb, Unlock, FileQuestion } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
+// Template à appliquer à chaque mini-jeu :
 interface Props {
   miniGame: any;
+  miniGameSessionId?: string;        // Ajout
+  initialState?: any;                // Ajout
   onComplete: (score: number, caurisEarned: number) => void;
   onFail: (caurisLost: number) => void;
   onClose: () => void;
-  onProgressUpdate?: (budgetCauris: number, caurisLost: number) => void;
   budgetCauris: number;
   lang: "fr" | "en";
-  sessionId: string;
-  userId: string;
+  onStateChange?: (state: any) => void;  // Ajout
+  onProgressUpdate?: (budgetCauris: number, caurisLost: number) => void;  // Ajout
+  sessionId?: string;                // Ajout
+  userId?: string;                   // Ajout
 }
 
 export default function PuzzleGame({

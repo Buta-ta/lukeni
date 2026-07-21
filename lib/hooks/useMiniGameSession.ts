@@ -153,7 +153,7 @@ export function useMiniGameSession(
       );
 
       if (investigationSessionId) {
-        // Ajouter le mini-jeu aux "complétés"
+        // ✅ Ajouter le mini-jeu aux "complétés"
         const { data: session } = await supabase
           .from("investigation_sessions")
           .select("completed_mini_games")
@@ -184,15 +184,23 @@ export function useMiniGameSession(
   );
 
   // ── ÉCHOUER UN MINI-JEU ──
-  const failMiniGame = useCallback(
-    async (sessionId: string, caurisLost: number) => {
-      return updateMiniGameSession(sessionId, {
-        status: "failed",
-        cauris_lost: caurisLost,
-      });
-    },
-    [updateMiniGameSession],
-  );
+ // ── ÉCHOUER UN MINI-JEU ──
+const failMiniGame = useCallback(
+  async (sessionId: string, caurisLost: number) => {
+    // ✅ Récupérer la session du mini-jeu pour additionner les pénalités
+    const miniGameSession = miniGameSessions.find((mg) => mg.id === sessionId);
+    if (!miniGameSession) return false;
+
+    const currentCaurisLost = miniGameSession.cauris_lost || 0;
+    const totalCaurisLost = currentCaurisLost + caurisLost;
+
+    return updateMiniGameSession(sessionId, {
+      status: "failed",
+      cauris_lost: totalCaurisLost,
+    });
+  },
+  [miniGameSessions, updateMiniGameSession],
+);
 
   // ── TIMEOUT ──
   const timeoutMiniGame = useCallback(
@@ -228,6 +236,9 @@ export function useMiniGameSession(
     [miniGameSessions],
   );
 
+
+ 
+
   return {
     miniGameSessions,
     isLoading,
@@ -239,5 +250,6 @@ export function useMiniGameSession(
     timeoutMiniGame,
     revealClue,
     getMiniGameById,
+    
   };
 }

@@ -9,7 +9,11 @@ import { TrackingProvider } from '@/components/TrackingProvider';
 import { PWARegister } from '@/components/PWARegister';
 import { PWAInstallButton } from '@/components/PWAInstallButton';
 import Footer from '@/components/Footer';
-import GlobalAnnouncement from '@/components/GlobalAnnouncement'; // 👈 IMPORT ICI
+import GlobalAnnouncement from '@/components/GlobalAnnouncement';
+
+// 👈 NOUVEAUX IMPORTS POUR L'AUDIO
+import { AudioProvider } from '@/lib/contexts/AudioContext'; 
+import GlobalAudioPlayer from '@/components/GlobalAudioPlayer'; 
 
 export function LayoutClient({
   children,
@@ -53,12 +57,19 @@ export function LayoutClient({
       <PWARegister />
 
       <TrackingProvider>
-        {/* 👈 ON ENVELOPPE TOUTE L'APP ICI */}
         <GlobalAnnouncement>
-          <div className="flex-1 flex flex-col">
-            {children}
-          </div>
-          {!isGamePage && <Footer />}
+          {/* 👈 ON ENGOLOBE L'APP AVEC AUDIOPROVIDER */}
+          <AudioProvider>
+            
+            <div className="flex-1 flex flex-col">
+              {children}
+            </div>
+            {!isGamePage && <Footer />}
+            
+            {/* 👈 LE LECTEUR GLOBAL EST PLACÉ ICI */}
+            <GlobalAudioPlayer />
+            
+          </AudioProvider>
         </GlobalAnnouncement>
       </TrackingProvider>
 

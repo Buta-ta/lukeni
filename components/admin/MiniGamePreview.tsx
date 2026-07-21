@@ -52,6 +52,44 @@ export default function MiniGamePreview({
         fr: "L'admin sélectionne un échantillon et l'analyse. L'échantillon marqué comme 'correct' doit avoir une similarité ≥ au seuil.",
         en: "Admin selects a sample and analyzes it. The sample marked as 'correct' must have similarity ≥ threshold.",
       },
+
+      counterfeit: {
+        fr: "L'admin analyse un billet au microscope. Il doit ajuster la netteté et le filtre lumineux, puis détecter les marqueurs de sécurité (fil, filigrane, etc.) pour authentifier ou rejeter le billet.",
+        en: "Admin analyzes a banknote under a microscope. Must adjust focus and light filter, then detect security markers to authenticate or reject the note.",
+      },
+      exchange_rate: {
+        fr: "L'admin compare des taux de change avec un graphique de référence. L'objectif est de détecter les taux falsifiés parmi une liste de taux officiels et frauduleux.",
+        en: "Admin compares exchange rates with a reference chart. Goal is to detect fraudulent rates among a list of official and manipulated rates.",
+      },
+      banking_flow: {
+        fr: "L'admin trace un réseau financier par Drag & Drop. Il relie les entités (sociétés écrans, banques, comptes) pour exposer le réseau de blanchiment. Les bonnes connexions sont identifiées, les suspectes en rouge.",
+        en: "Admin traces a financial network by Drag & Drop. Links entities (shell companies, banks, accounts) to expose the money laundering network. Correct connections in green, suspicious in red.",
+      },
+      treasury_calcul: {
+        fr: "L'admin examine des cartes (bordereaux de virement) qui se retournent au clic. Il doit sélectionner les bons documents et additionner leurs montants pour reconstituer le total détourné.",
+        en: "Admin examines flip cards (transfer statements). Must select the correct documents and sum their amounts to reconstruct the embezzled total.",
+      },
+      anomaly_detector: {
+        fr: "L'admin inspecte un grand livre comptable. Il doit cliquer sur les anomalies (doublons, mauvaises sommes, ratures, montants suspects) pour démasquer la fraude comptable.",
+        en: "Admin inspects an accounting ledger. Must click on anomalies (duplicates, wrong sums, crossed-out entries, suspicious amounts) to expose accounting fraud.",
+      },
+
+      customs_contraband: {
+        fr: "L'admin compare deux cargaisons (déclarée vs réelle) pour détecter la contrebande. Selon le mode, il doit cliquer sur les différences, comparer des tableaux numériques, ou inspecter des containers.",
+        en: "Admin compares two shipments (declared vs actual) to detect contraband. Depending on mode, must click on differences, compare numeric tables, or inspect containers.",
+      },
+      signature_analysis: {
+        fr: "L'admin analyse des signatures manuscrites pour identifier un faux. Il peut cliquer sur la fausse signature, zoomer pour repérer les différences subtiles, ou apparier signatures aux contrats.",
+        en: "Admin analyzes handwritten signatures to identify a forgery. Can click on fake signature, zoom in to spot subtle differences, or match signatures to contracts.",
+      },
+      contract_clauses: {
+        fr: "L'admin lit les clauses d'un contrat minier et identifie celles réellement désavantageuses pour le pays. Certaines semblent suspectes mais sont légitimes.",
+        en: "Admin reads mining contract clauses and identifies those truly disadvantageous to the country. Some may seem suspicious but are legitimate.",
+      },
+      stock_manipulation: {
+        fr: "L'admin détecte une manipulation boursière en identifiant le graphique avec un point d'inflexion suspect, ou en associant des événements aux graphiques correspondants.",
+        en: "Admin detects stock manipulation by identifying the chart with a suspicious inflection point, or by matching events to corresponding charts.",
+      },
     };
 
     return descriptions[type] || { fr: "", en: "" };

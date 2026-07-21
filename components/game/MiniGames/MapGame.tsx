@@ -75,10 +75,11 @@ export default function MapGame({
   };
 
   const handleReset = () => {
-    if (feedback) return;
-    setSelectedPath([]);
-    setFeedback(null);
-  };
+  // ✅ On peut reset même après une erreur, mais pas pendant la soumission
+  if (isSubmitting) return;
+  setSelectedPath([]);
+  setFeedback(null);
+};
 
   // ✅ CORRECTION : Toujours appeler onFail en cas de mauvaise réponse
   const handleSubmit = () => {

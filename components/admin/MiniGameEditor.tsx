@@ -335,6 +335,80 @@ export default function MiniGameEditor({
           reveal_type: currentConfig?.reveal_type || "uv",
           reveal_radius: currentConfig?.reveal_radius || 80,
         };
+
+
+
+      case "counterfeit":
+        return {
+          banknote_image_url_fr: currentConfig?.banknote_image_url_fr || "",
+          banknote_image_url_en: currentConfig?.banknote_image_url_en || "",
+          focus_target: currentConfig?.focus_target || 85,
+          light_target: currentConfig?.light_target || "uv",
+          markers_to_find: currentConfig?.markers_to_find || [],
+        };
+      case "exchange_rate":
+        return {
+          reference_chart_url_fr: currentConfig?.reference_chart_url_fr || "",
+          reference_chart_url_en: currentConfig?.reference_chart_url_en || "",
+          exchange_rates: currentConfig?.exchange_rates || [],
+          similarity_threshold: currentConfig?.similarity_threshold || 90,
+        };
+      case "banking_flow":
+        return {
+          entities: currentConfig?.entities || [],
+          all_connections: currentConfig?.all_connections || [],
+          target_sequence: currentConfig?.target_sequence || [],
+          background_url_fr: currentConfig?.background_url_fr || "",
+          background_url_en: currentConfig?.background_url_en || "",
+        };
+      case "treasury_calcul":
+        return {
+          documents: currentConfig?.documents || [],
+          target_total_fr: currentConfig?.target_total_fr || "",
+          target_total_en: currentConfig?.target_total_en || "",
+          target_amount: currentConfig?.target_amount || 0,
+          tolerance: currentConfig?.tolerance || 10000,
+        };
+      case "anomaly_detector":
+        return {
+          ledger_image_url_fr: currentConfig?.ledger_image_url_fr || "",
+          ledger_image_url_en: currentConfig?.ledger_image_url_en || "",
+          anomalies: currentConfig?.anomalies || [],
+          min_anomalies_to_find: currentConfig?.min_anomalies_to_find || 3,
+        };
+
+
+      case "customs_contraband":
+        return {
+          comparison_mode: currentConfig?.comparison_mode || "visual",
+          declared_image_url: currentConfig?.declared_image_url || "",
+          actual_image_url: currentConfig?.actual_image_url || "",
+          declared_items: currentConfig?.declared_items || [],
+          actual_items: currentConfig?.actual_items || [],
+          containers: currentConfig?.containers || [],
+          discrepancies: currentConfig?.discrepancies || [],
+        };
+      case "signature_analysis":
+        return {
+          analysis_mode: currentConfig?.analysis_mode || "simple",
+          signatures: currentConfig?.signatures || [],
+          counterfeit_signature_id: currentConfig?.counterfeit_signature_id || "",
+          contracts: currentConfig?.contracts || [],
+          visual_differences: currentConfig?.visual_differences || [],
+        };
+      case "contract_clauses":
+        return {
+          clauses: currentConfig?.clauses || [],
+          required_disadvantageous_count: currentConfig?.required_disadvantageous_count || 3,
+        };
+      case "stock_manipulation":
+        return {
+          market_mode: currentConfig?.market_mode || "single",
+          stocks: currentConfig?.stocks || [],
+          events: currentConfig?.events || [],
+        };
+
+
       default:
         return {};
     }
@@ -554,6 +628,15 @@ export default function MiniGameEditor({
                 <option value="teletype">📻 Téléscripteur (Morse)</option>
                 <option value="translation">🌍 Langue Africaine (Lingala)</option>
                 <option value="redacted">📄 Document Classifié (UV)</option>
+                <option value="counterfeit">💵 Fausse Monnaie / Billet</option>
+                <option value="exchange_rate">💹 Taux de Change Falsifié</option>
+                <option value="banking_flow">🏦 Réseau de Blanchiment</option>
+                <option value="treasury_calcul">💰 Caisse Noire (Cartes)</option>
+                <option value="anomaly_detector">📋 Grand Livre Truqué</option>
+                <option value="customs_contraband">🚢 Douanes & Contrebande</option>
+                <option value="signature_analysis">✍️ Signature de Contrat</option>
+                <option value="contract_clauses">📜 Marché Colonial / Contrat Inégal</option>
+                <option value="stock_manipulation">📈 Manipulation Boursière</option>
               </select>
             </div>
             <div>
@@ -1717,6 +1800,1178 @@ export default function MiniGameEditor({
                       className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none"
                     />
                   </div>
+                </div>
+              </div>
+            )}
+
+
+
+            {/* COUNTERFEIT (Fausse Monnaie) */}
+            {formData.type === "counterfeit" && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <MediaUploader
+                    label="Image du Billet (FR)"
+                    url={formData.config?.banknote_image_url_fr}
+                    onUpload={(url) =>
+                      setFormData((prev: any) => ({
+                        ...prev,
+                        config: { ...prev.config, banknote_image_url_fr: url },
+                      }))
+                    }
+                    icon={<ImagePlus size={12} />}
+                  />
+                  <MediaUploader
+                    label="Image du Billet (EN - Optionnel)"
+                    url={formData.config?.banknote_image_url_en}
+                    onUpload={(url) =>
+                      setFormData((prev: any) => ({
+                        ...prev,
+                        config: { ...prev.config, banknote_image_url_en: url },
+                      }))
+                    }
+                    icon={<ImagePlus size={12} />}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 border-t border-white/10 pt-4">
+                  <div>
+                    <label className="text-[10px] text-gray-300 font-bold uppercase mb-1 block">
+                      Netteté Cible (Focus 0-100)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.config?.focus_target || 85}
+                      onChange={(e) =>
+                        setFormData((prev: any) => ({
+                          ...prev,
+                          config: {
+                            ...prev.config,
+                            focus_target: Number(e.target.value),
+                          },
+                        }))
+                      }
+                      className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-300 font-bold uppercase mb-1 block">
+                      Filtre Lumineux Cible
+                    </label>
+                    <select
+                      value={formData.config?.light_target || "uv"}
+                      onChange={(e) =>
+                        setFormData((prev: any) => ({
+                          ...prev,
+                          config: {
+                            ...prev.config,
+                            light_target: e.target.value,
+                          },
+                        }))
+                      }
+                      className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white"
+                    >
+                      <option value="white">⚪ Lumière Blanche</option>
+                      <option value="uv">🟣 Ultra-Violet (UV)</option>
+                      <option value="ir">🔴 Infrarouge (IR)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="border-t border-white/10 pt-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] text-gray-300 font-bold uppercase">
+                      Marqueurs à Détecter
+                    </label>
+                    <button
+                      onClick={() => {
+                        const markers = [...(formData.config?.markers_to_find || [])];
+                        markers.push({
+                          id: `marker_${Date.now()}`,
+                          x_percent: 50,
+                          y_percent: 50,
+                          description_fr: "Nouveau Marqueur",
+                          description_en: "New Marker",
+                        });
+                        setFormData((prev: any) => ({
+                          ...prev,
+                          config: { ...prev.config, markers_to_find: markers },
+                        }));
+                      }}
+                      className="text-[10px] text-amber-400 font-bold bg-amber-500/10 px-2 py-1 rounded flex items-center gap-1"
+                    >
+                      <Plus size={10} /> Ajouter
+                    </button>
+                  </div>
+
+                  {(formData.config?.markers_to_find || []).map(
+                    (marker: any, idx: number) => (
+                      <div
+                        key={marker.id}
+                        className="bg-black/30 p-3 rounded border border-amber-500/20 space-y-2"
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] text-amber-400 font-bold">
+                            Marqueur {idx + 1}
+                          </span>
+                          <button
+                            onClick={() => {
+                              const markers = [
+                                ...(formData.config?.markers_to_find || []),
+                              ];
+                              markers.splice(idx, 1);
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: { ...prev.config, markers_to_find: markers },
+                              }));
+                            }}
+                            className="p-1 text-red-500"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <input
+                            type="text"
+                            value={marker.description_fr || ""}
+                            onChange={(e) => {
+                              const markers = [
+                                ...(formData.config?.markers_to_find || []),
+                              ];
+                              markers[idx].description_fr = e.target.value;
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: { ...prev.config, markers_to_find: markers },
+                              }));
+                            }}
+                            placeholder="Description FR (ex: Fil de Sécurité)"
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                          />
+                          <div className="flex gap-1">
+                            <input
+                              type="text"
+                              value={marker.description_en || ""}
+                              onChange={(e) => {
+                                const markers = [
+                                  ...(formData.config?.markers_to_find || []),
+                                ];
+                                markers[idx].description_en = e.target.value;
+                                setFormData((prev: any) => ({
+                                  ...prev,
+                                  config: { ...prev.config, markers_to_find: markers },
+                                }));
+                              }}
+                              placeholder="Description EN"
+                              className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                            />
+                            <button
+                              onClick={async () => {
+                                if (!marker.description_fr?.trim()) return;
+                                setIsTranslating(true);
+                                const t = await autoTranslate(
+                                  marker.description_fr,
+                                  "fr",
+                                );
+                                const markers = [
+                                  ...(formData.config?.markers_to_find || []),
+                                ];
+                                markers[idx].description_en = t;
+                                setFormData((prev: any) => ({
+                                  ...prev,
+                                  config: { ...prev.config, markers_to_find: markers },
+                                }));
+                                setIsTranslating(false);
+                              }}
+                              className="p-1 bg-white/5 rounded text-gray-400 hover:text-white flex-shrink-0 disabled:opacity-50"
+                              disabled={isTranslating}
+                            >
+                              {isTranslating ? (
+                                <Loader2 size={12} className="animate-spin" />
+                              ) : (
+                                <Languages size={12} />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[9px] text-gray-500 block mb-1">
+                              Position X (%)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={marker.x_percent || 50}
+                              onChange={(e) => {
+                                const markers = [
+                                  ...(formData.config?.markers_to_find || []),
+                                ];
+                                markers[idx].x_percent = Number(e.target.value);
+                                setFormData((prev: any) => ({
+                                  ...prev,
+                                  config: { ...prev.config, markers_to_find: markers },
+                                }));
+                              }}
+                              className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1 text-xs text-white outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] text-gray-500 block mb-1">
+                              Position Y (%)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={marker.y_percent || 50}
+                              onChange={(e) => {
+                                const markers = [
+                                  ...(formData.config?.markers_to_find || []),
+                                ];
+                                markers[idx].y_percent = Number(e.target.value);
+                                setFormData((prev: any) => ({
+                                  ...prev,
+                                  config: { ...prev.config, markers_to_find: markers },
+                                }));
+                              }}
+                              className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1 text-xs text-white outline-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ),
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* EXCHANGE_RATE (Taux de Change) */}
+            {formData.type === "exchange_rate" && (
+              <div className="space-y-4">
+                <MediaUploader
+                  label="Graphique de Référence (FR)"
+                  url={formData.config?.reference_chart_url_fr}
+                  onUpload={(url) =>
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      config: { ...prev.config, reference_chart_url_fr: url },
+                    }))
+                  }
+                  icon={<ImagePlus size={12} />}
+                />
+                <MediaUploader
+                  label="Graphique de Référence (EN - Optionnel)"
+                  url={formData.config?.reference_chart_url_en}
+                  onUpload={(url) =>
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      config: { ...prev.config, reference_chart_url_en: url },
+                    }))
+                  }
+                  icon={<ImagePlus size={12} />}
+                />
+
+                <div className="border-t border-white/10 pt-4">
+                  <label className="text-[10px] text-gray-300 font-bold uppercase mb-1 block">
+                    Seuil de Similarité (%)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.config?.similarity_threshold || 90}
+                    onChange={(e) =>
+                      setFormData((prev: any) => ({
+                        ...prev,
+                        config: {
+                          ...prev.config,
+                          similarity_threshold: Number(e.target.value),
+                        },
+                      }))
+                    }
+                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none"
+                  />
+                </div>
+
+                <div className="border-t border-white/10 pt-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] text-gray-300 font-bold uppercase">
+                      Taux de Change
+                    </label>
+                    <button
+                      onClick={() => {
+                        const rates = [...(formData.config?.exchange_rates || [])];
+                        rates.push({
+                          currency_pair: "EUR/USD",
+                          correct_rate: 1.1,
+                          wrong_rates: [1.0, 1.2, 1.3],
+                          date: new Date().toISOString().split("T")[0],
+                          official_rate: 1.1,
+                          deviation_fr: "Déviation suspecte détectée",
+                          deviation_en: "Suspicious deviation detected",
+                        });
+                        setFormData((prev: any) => ({
+                          ...prev,
+                          config: { ...prev.config, exchange_rates: rates },
+                        }));
+                      }}
+                      className="text-[10px] text-amber-400 font-bold bg-amber-500/10 px-2 py-1 rounded flex items-center gap-1"
+                    >
+                      <Plus size={10} /> Ajouter Taux
+                    </button>
+                  </div>
+
+                  {(formData.config?.exchange_rates || []).map(
+                    (rate: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className="bg-black/30 p-3 rounded border border-amber-500/20 space-y-2"
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] text-amber-400 font-bold">
+                            Taux {idx + 1}
+                          </span>
+                          <button
+                            onClick={() => {
+                              const rates = [
+                                ...(formData.config?.exchange_rates || []),
+                              ];
+                              rates.splice(idx, 1);
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: { ...prev.config, exchange_rates: rates },
+                              }));
+                            }}
+                            className="p-1 text-red-500"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="text"
+                            value={rate.currency_pair || ""}
+                            onChange={(e) => {
+                              const rates = [
+                                ...(formData.config?.exchange_rates || []),
+                              ];
+                              rates[idx].currency_pair = e.target.value;
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: { ...prev.config, exchange_rates: rates },
+                              }));
+                            }}
+                            placeholder="Ex: USD/XOF"
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                          />
+                          <input
+                            type="date"
+                            value={rate.date || ""}
+                            onChange={(e) => {
+                              const rates = [
+                                ...(formData.config?.exchange_rates || []),
+                              ];
+                              rates[idx].date = e.target.value;
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: { ...prev.config, exchange_rates: rates },
+                              }));
+                            }}
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[9px] text-gray-500 block mb-1">
+                              Taux Correct
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={rate.correct_rate || ""}
+                              onChange={(e) => {
+                                const rates = [
+                                  ...(formData.config?.exchange_rates || []),
+                                ];
+                                rates[idx].correct_rate = Number(e.target.value);
+                                setFormData((prev: any) => ({
+                                  ...prev,
+                                  config: { ...prev.config, exchange_rates: rates },
+                                }));
+                              }}
+                              className="w-full bg-[#1a1a1a] border border-green-500/30 rounded px-2 py-1 text-xs text-white outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] text-gray-500 block mb-1">
+                              Taux Officiel
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={rate.official_rate || ""}
+                              onChange={(e) => {
+                                const rates = [
+                                  ...(formData.config?.exchange_rates || []),
+                                ];
+                                rates[idx].official_rate = Number(e.target.value);
+                                setFormData((prev: any) => ({
+                                  ...prev,
+                                  config: { ...prev.config, exchange_rates: rates },
+                                }));
+                              }}
+                              className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1 text-xs text-white outline-none"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[9px] text-gray-500 block mb-1">
+                            Description (FR)
+                          </label>
+                          <input
+                            type="text"
+                            value={rate.deviation_fr || ""}
+                            onChange={(e) => {
+                              const rates = [
+                                ...(formData.config?.exchange_rates || []),
+                              ];
+                              rates[idx].deviation_fr = e.target.value;
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: { ...prev.config, exchange_rates: rates },
+                              }));
+                            }}
+                            placeholder="Ex: Écart frauduleux détecté"
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1 text-xs text-white outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] text-gray-500 block mb-1">
+                            Description (EN)
+                          </label>
+                          <input
+                            type="text"
+                            value={rate.deviation_en || ""}
+                            onChange={(e) => {
+                              const rates = [
+                                ...(formData.config?.exchange_rates || []),
+                              ];
+                              rates[idx].deviation_en = e.target.value;
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: { ...prev.config, exchange_rates: rates },
+                              }));
+                            }}
+                            placeholder="Ex: Fraudulent deviation detected"
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1 text-xs text-white outline-none"
+                          />
+                        </div>
+                      </div>
+                    ),
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* BANKING_FLOW (Réseau de Blanchiment) */}
+            {formData.type === "banking_flow" && (
+              <div className="space-y-4">
+                {/* Fond de carte */}
+                <div className="bg-amber-500/10 p-3 rounded-lg border border-amber-500/30">
+                  <label className="text-[10px] text-amber-400 font-bold uppercase mb-2 block">
+                    🗺️ Fond de carte (optionnel)
+                  </label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <MediaUploader
+                      label="Fond (FR)"
+                      url={formData.config?.background_url_fr}
+                      onUpload={(url) =>
+                        setFormData((prev: any) => ({
+                          ...prev,
+                          config: { ...prev.config, background_url_fr: url },
+                        }))
+                      }
+                      icon={<ImagePlus size={12} />}
+                    />
+                    <MediaUploader
+                      label="Fond (EN - Optionnel)"
+                      url={formData.config?.background_url_en}
+                      onUpload={(url) =>
+                        setFormData((prev: any) => ({
+                          ...prev,
+                          config: { ...prev.config, background_url_en: url },
+                        }))
+                      }
+                      icon={<ImagePlus size={12} />}
+                    />
+                  </div>
+                </div>
+
+                {/* ── LISTE DES ENTITÉS ── */}
+                <div className="bg-purple-950/20 p-4 rounded-xl border border-purple-500/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] text-purple-400 font-bold uppercase tracking-wider flex items-center gap-2">
+                      🏢 Entités du réseau
+                    </label>
+                    <button
+                      onClick={() => {
+                        const entities = [...(formData.config?.entities || [])];
+                        entities.push({
+                          id: `entity_${Date.now()}`,
+                          type: "shell_company",
+                          name_fr: "Nouvelle entité",
+                          name_en: "New entity",
+                          x_percent: 20 + entities.length * 15,
+                          y_percent: 30 + (entities.length % 2) * 30,
+                          avatar_url: "",
+                        });
+                        setFormData((prev: any) => ({
+                          ...prev,
+                          config: { ...prev.config, entities },
+                        }));
+                      }}
+                      className="text-[10px] text-purple-400 font-bold bg-purple-500/10 px-2 py-1 rounded flex items-center gap-1 hover:bg-purple-500/20"
+                    >
+                      <Plus size={10} /> Ajouter entité
+                    </button>
+                  </div>
+
+                  <p className="text-[9px] text-gray-500 italic">
+                    💡 Chaque entité représente une société, banque ou compte. Positionnez-les en ajustant X% et Y% (0-100).
+                  </p>
+
+                  {(formData.config?.entities || []).map((entity: any, idx: number) => (
+                    <div
+                      key={entity.id}
+                      className="bg-black/40 p-3 rounded-lg border border-purple-500/20 space-y-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-purple-400 font-bold">
+                          Entité {idx + 1}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] text-gray-500 font-mono">
+                            ID: {entity.id.slice(0, 12)}
+                          </span>
+                          <button
+                            onClick={() => {
+                              const entities = formData.config.entities.filter(
+                                (e: any) => e.id !== entity.id
+                              );
+                              // Supprimer aussi les connexions liées
+                              const connections = (formData.config?.all_connections || []).filter(
+                                (c: any) => c.from_id !== entity.id && c.to_id !== entity.id
+                              );
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: {
+                                  ...prev.config,
+                                  entities,
+                                  all_connections: connections,
+                                },
+                              }));
+                            }}
+                            className="p-1 text-red-500 hover:bg-red-500/10 rounded"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Type d'entité */}
+                      <div>
+                        <label className="text-[9px] text-gray-500 block mb-1">Type</label>
+                        <select
+                          value={entity.type}
+                          onChange={(e) => {
+                            const entities = [...formData.config.entities];
+                            entities[idx].type = e.target.value;
+                            setFormData((prev: any) => ({
+                              ...prev,
+                              config: { ...prev.config, entities },
+                            }));
+                          }}
+                          className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                        >
+                          <option value="shell_company">🏢 Société Écran</option>
+                          <option value="offshore_bank">🏦 Banque Offshore</option>
+                          <option value="personal_account">👤 Compte Personnel</option>
+                          <option value="government">🏛️ Institution Gouvernementale</option>
+                          <option value="business">💼 Entreprise Légitime</option>
+                        </select>
+                      </div>
+
+                      {/* Noms FR/EN */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[9px] text-gray-500 block mb-1">Nom FR</label>
+                          <input
+                            type="text"
+                            value={entity.name_fr}
+                            onChange={(e) => {
+                              const entities = [...formData.config.entities];
+                              entities[idx].name_fr = e.target.value;
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: { ...prev.config, entities },
+                              }));
+                            }}
+                            placeholder="Ex: Lukeni Holdings"
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] text-gray-500 block mb-1">
+                            Nom EN
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (!entity.name_fr?.trim()) return;
+                                setIsTranslating(true);
+                                const t = await autoTranslate(entity.name_fr, "fr");
+                                const entities = [...formData.config.entities];
+                                entities[idx].name_en = t;
+                                setFormData((prev: any) => ({
+                                  ...prev,
+                                  config: { ...prev.config, entities },
+                                }));
+                                setIsTranslating(false);
+                              }}
+                              disabled={isTranslating}
+                              className="ml-1 text-purple-400 hover:text-white disabled:opacity-50"
+                            >
+                              {isTranslating ? (
+                                <Loader2 size={10} className="animate-spin inline" />
+                              ) : (
+                                <Languages size={10} className="inline" />
+                              )}
+                            </button>
+                          </label>
+                          <input
+                            type="text"
+                            value={entity.name_en || ""}
+                            onChange={(e) => {
+                              const entities = [...formData.config.entities];
+                              entities[idx].name_en = e.target.value;
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: { ...prev.config, entities },
+                              }));
+                            }}
+                            placeholder="Ex: Lukeni Holdings"
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Position */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[9px] text-gray-500 block mb-1">
+                            Position X (%) : {entity.x_percent}%
+                          </label>
+                          <input
+                            type="range"
+                            min="5"
+                            max="95"
+                            value={entity.x_percent}
+                            onChange={(e) => {
+                              const entities = [...formData.config.entities];
+                              entities[idx].x_percent = Number(e.target.value);
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: { ...prev.config, entities },
+                              }));
+                            }}
+                            className="w-full accent-purple-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] text-gray-500 block mb-1">
+                            Position Y (%) : {entity.y_percent}%
+                          </label>
+                          <input
+                            type="range"
+                            min="5"
+                            max="95"
+                            value={entity.y_percent}
+                            onChange={(e) => {
+                              const entities = [...formData.config.entities];
+                              entities[idx].y_percent = Number(e.target.value);
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: { ...prev.config, entities },
+                              }));
+                            }}
+                            className="w-full accent-purple-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Avatar */}
+                      <MediaUploader
+                        label="Avatar (optionnel)"
+                        url={entity.avatar_url}
+                        onUpload={(url) => {
+                          const entities = [...formData.config.entities];
+                          entities[idx].avatar_url = url;
+                          setFormData((prev: any) => ({
+                            ...prev,
+                            config: { ...prev.config, entities },
+                          }));
+                        }}
+                        icon={<ImagePlus size={10} />}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                {/* ── LISTE DES CONNEXIONS ── */}
+                <div className="bg-green-950/20 p-4 rounded-xl border border-green-500/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] text-green-400 font-bold uppercase tracking-wider flex items-center gap-2">
+                      🔗 Connexions entre entités
+                    </label>
+                    <button
+                      onClick={() => {
+                        if (!formData.config?.entities || formData.config.entities.length < 2) {
+                          alert("Ajoutez au moins 2 entités avant de créer une connexion");
+                          return;
+                        }
+                        const connections = [...(formData.config?.all_connections || [])];
+                        connections.push({
+                          id: `conn_${Date.now()}`,
+                          from_id: formData.config.entities[0].id,
+                          to_id: formData.config.entities[1].id,
+                          is_correct: true,
+                          amount_fr: "0 USD",
+                          amount_en: "0 USD",
+                        });
+                        setFormData((prev: any) => ({
+                          ...prev,
+                          config: { ...prev.config, all_connections: connections },
+                        }));
+                      }}
+                      className="text-[10px] text-green-400 font-bold bg-green-500/10 px-2 py-1 rounded flex items-center gap-1 hover:bg-green-500/20"
+                    >
+                      <Plus size={10} /> Ajouter connexion
+                    </button>
+                  </div>
+
+                  <p className="text-[9px] text-gray-500 italic">
+                    💡 Les connexions "Correctes" sont les vrais liens frauduleux à découvrir. Les autres sont des pièges.
+                  </p>
+
+                  {(formData.config?.all_connections || []).map((conn: any, idx: number) => (
+                    <div
+                      key={conn.id}
+                      className={`p-3 rounded-lg border space-y-3 ${conn.is_correct
+                          ? "bg-green-900/20 border-green-500/30"
+                          : "bg-red-900/20 border-red-500/30"
+                        }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold flex items-center gap-2">
+                          {conn.is_correct ? (
+                            <span className="text-green-400">✅ Vrai lien frauduleux</span>
+                          ) : (
+                            <span className="text-red-400">❌ Piège / Lien suspect</span>
+                          )}
+                        </span>
+                        <button
+                          onClick={() => {
+                            const connections = formData.config.all_connections.filter(
+                              (c: any) => c.id !== conn.id
+                            );
+                            setFormData((prev: any) => ({
+                              ...prev,
+                              config: { ...prev.config, all_connections: connections },
+                            }));
+                          }}
+                          className="p-1 text-red-500 hover:bg-red-500/10 rounded"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+
+                      {/* Source → Destination */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[9px] text-gray-500 block mb-1">
+                            De (Source)
+                          </label>
+                          <select
+                            value={conn.from_id}
+                            onChange={(e) => {
+                              const connections = [...formData.config.all_connections];
+                              connections[idx].from_id = e.target.value;
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: { ...prev.config, all_connections: connections },
+                              }));
+                            }}
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                          >
+                            {(formData.config?.entities || []).map((e: any) => (
+                              <option key={e.id} value={e.id}>
+                                {e.name_fr}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[9px] text-gray-500 block mb-1">
+                            Vers (Destination)
+                          </label>
+                          <select
+                            value={conn.to_id}
+                            onChange={(e) => {
+                              const connections = [...formData.config.all_connections];
+                              connections[idx].to_id = e.target.value;
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: { ...prev.config, all_connections: connections },
+                              }));
+                            }}
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                          >
+                            {(formData.config?.entities || []).map((e: any) => (
+                              <option key={e.id} value={e.id}>
+                                {e.name_fr}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Type de connexion */}
+                      <div>
+                        <label className="text-[9px] text-gray-500 block mb-1">
+                          Type de connexion
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => {
+                              const connections = [...formData.config.all_connections];
+                              connections[idx].is_correct = true;
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: { ...prev.config, all_connections: connections },
+                              }));
+                            }}
+                            className={`py-2 rounded text-xs font-bold transition-all ${conn.is_correct
+                                ? "bg-green-600 text-white"
+                                : "bg-white/5 text-gray-400 hover:bg-white/10"
+                              }`}
+                          >
+                            ✅ Vrai lien (à découvrir)
+                          </button>
+                          <button
+                            onClick={() => {
+                              const connections = [...formData.config.all_connections];
+                              connections[idx].is_correct = false;
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: { ...prev.config, all_connections: connections },
+                              }));
+                            }}
+                            className={`py-2 rounded text-xs font-bold transition-all ${!conn.is_correct
+                                ? "bg-red-600 text-white"
+                                : "bg-white/5 text-gray-400 hover:bg-white/10"
+                              }`}
+                          >
+                            ❌ Piège (à éviter)
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Montants */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[9px] text-gray-500 block mb-1">
+                            Montant FR
+                          </label>
+                          <input
+                            type="text"
+                            value={conn.amount_fr}
+                            onChange={(e) => {
+                              const connections = [...formData.config.all_connections];
+                              connections[idx].amount_fr = e.target.value;
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: { ...prev.config, all_connections: connections },
+                              }));
+                            }}
+                            placeholder="Ex: 500 000 USD"
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] text-gray-500 block mb-1">
+                            Montant EN
+                          </label>
+                          <input
+                            type="text"
+                            value={conn.amount_en || ""}
+                            onChange={(e) => {
+                              const connections = [...formData.config.all_connections];
+                              connections[idx].amount_en = e.target.value;
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: { ...prev.config, all_connections: connections },
+                              }));
+                            }}
+                            placeholder="Ex: 500,000 USD"
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* ── PREVIEW VISUEL ── */}
+                {(formData.config?.entities || []).length > 0 && (
+                  <div className="bg-black/50 p-4 rounded-xl border border-white/10 space-y-3">
+                    <label className="text-[10px] text-white font-bold uppercase tracking-wider flex items-center gap-2">
+                      👁️ Aperçu du réseau
+                    </label>
+                    <div className="relative bg-gradient-to-br from-gray-900 to-black rounded-lg border border-gray-700 overflow-hidden" style={{ height: "400px" }}>
+                      {/* Lignes de connexion */}
+                      <svg className="absolute inset-0 w-full h-full pointer-events-none">
+                        {(formData.config?.all_connections || []).map((conn: any) => {
+                          const from = formData.config.entities.find((e: any) => e.id === conn.from_id);
+                          const to = formData.config.entities.find((e: any) => e.id === conn.to_id);
+                          if (!from || !to) return null;
+                          return (
+                            <line
+                              key={conn.id}
+                              x1={`${from.x_percent}%`}
+                              y1={`${from.y_percent}%`}
+                              x2={`${to.x_percent}%`}
+                              y2={`${to.y_percent}%`}
+                              stroke={conn.is_correct ? "#22c55e" : "#ef4444"}
+                              strokeWidth="2"
+                              strokeDasharray={conn.is_correct ? "0" : "4,4"}
+                              opacity="0.6"
+                            />
+                          );
+                        })}
+                      </svg>
+
+                      {/* Entités */}
+                      {(formData.config?.entities || []).map((entity: any) => (
+                        <div
+                          key={entity.id}
+                          className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
+                          style={{ left: `${entity.x_percent}%`, top: `${entity.y_percent}%` }}
+                        >
+                          <div className="w-12 h-12 rounded-full bg-gray-800 border-2 border-purple-500 flex items-center justify-center text-xl shadow-lg">
+                            {entity.type === "shell_company"
+                              ? "🏢"
+                              : entity.type === "offshore_bank"
+                                ? "🏦"
+                                : entity.type === "personal_account"
+                                  ? "👤"
+                                  : entity.type === "government"
+                                    ? "🏛️"
+                                    : "💼"}
+                          </div>
+                          <span className="mt-1 text-[9px] text-white bg-black/70 px-1.5 py-0.5 rounded whitespace-nowrap">
+                            {entity.name_fr}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[9px] text-gray-500 italic">
+                      🟢 Lignes continues = vrais liens frauduleux | 🔴 Lignes pointillées = pièges
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TREASURY_CALCUL (Caisse Noire) */}
+            {formData.type === "treasury_calcul" && (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] text-gray-300 font-bold uppercase mb-1 block">
+                    Objectif (FR)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.config?.target_total_fr || ""}
+                    onChange={(e) =>
+                      setFormData((prev: any) => ({
+                        ...prev,
+                        config: { ...prev.config, target_total_fr: e.target.value },
+                      }))
+                    }
+                    placeholder="Ex: Reconstituer le total détourné : 500 000 USD"
+                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-300 font-bold uppercase mb-1 block">
+                    Objectif (EN)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.config?.target_total_en || ""}
+                    onChange={(e) =>
+                      setFormData((prev: any) => ({
+                        ...prev,
+                        config: { ...prev.config, target_total_en: e.target.value },
+                      }))
+                    }
+                    placeholder="Ex: Reconstruct embezzled total: 500,000 USD"
+                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-gray-300 font-bold uppercase mb-1 block">
+                      Montant Cible (USD)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.config?.target_amount || 0}
+                      onChange={(e) =>
+                        setFormData((prev: any) => ({
+                          ...prev,
+                          config: {
+                            ...prev.config,
+                            target_amount: Number(e.target.value),
+                          },
+                        }))
+                      }
+                      className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-300 font-bold uppercase mb-1 block">
+                      Tolérance (±)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.config?.tolerance || 10000}
+                      onChange={(e) =>
+                        setFormData((prev: any) => ({
+                          ...prev,
+                          config: {
+                            ...prev.config,
+                            tolerance: Number(e.target.value),
+                          },
+                        }))
+                      }
+                      className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none"
+                    />
+                  </div>
+                </div>
+                <div className="border-t border-white/10 pt-4 text-center p-4 bg-amber-950/20 border border-amber-500/20 rounded">
+                  <p className="text-amber-400 text-sm font-bold">
+                    ⚠️ Configuration avancée
+                  </p>
+                  <p className="text-gray-400 text-xs">
+                    Les documents se configurent via JSON. Utilisez l'interface de prévisualisation pour tester.
+                  </p>
+                  <textarea
+                    value={JSON.stringify(formData.config?.documents || [], null, 2)}
+                    onChange={(e) => {
+                      try {
+                        const parsed = JSON.parse(e.target.value);
+                        setFormData((prev: any) => ({
+                          ...prev,
+                          config: {
+                            ...prev.config,
+                            documents: parsed,
+                          },
+                        }));
+                      } catch {
+                        // Ignorer erreurs JSON
+                      }
+                    }}
+                    rows={8}
+                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white font-mono outline-none focus:border-amber-500 mt-2"
+                    placeholder='[{"id": "doc_1", "amount": 150000, ...}]'
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* ANOMALY_DETECTOR (Grand Livre Truqué) */}
+            {formData.type === "anomaly_detector" && (
+              <div className="space-y-4">
+                <MediaUploader
+                  label="Image du Grand Livre (FR)"
+                  url={formData.config?.ledger_image_url_fr}
+                  onUpload={(url) =>
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      config: { ...prev.config, ledger_image_url_fr: url },
+                    }))
+                  }
+                  icon={<ImagePlus size={12} />}
+                />
+                <MediaUploader
+                  label="Image du Grand Livre (EN - Optionnel)"
+                  url={formData.config?.ledger_image_url_en}
+                  onUpload={(url) =>
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      config: { ...prev.config, ledger_image_url_en: url },
+                    }))
+                  }
+                  icon={<ImagePlus size={12} />}
+                />
+
+                <div className="border-t border-white/10 pt-4">
+                  <label className="text-[10px] text-gray-300 font-bold uppercase mb-1 block">
+                    Minimum d'Anomalies à Trouver
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={formData.config?.min_anomalies_to_find || 3}
+                    onChange={(e) =>
+                      setFormData((prev: any) => ({
+                        ...prev,
+                        config: {
+                          ...prev.config,
+                          min_anomalies_to_find: Number(e.target.value),
+                        },
+                      }))
+                    }
+                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none"
+                  />
+                </div>
+
+                <div className="border-t border-white/10 pt-4 text-center p-4 bg-red-950/20 border border-red-500/20 rounded">
+                  <p className="text-red-400 text-sm font-bold">
+                    ⚠️ Configuration avancée
+                  </p>
+                  <p className="text-gray-400 text-xs mb-2">
+                    Les anomalies se configurent via JSON. Coordonnées en pourcentages (0-100).
+                  </p>
+                  <textarea
+                    value={JSON.stringify(formData.config?.anomalies || [], null, 2)}
+                    onChange={(e) => {
+                      try {
+                        const parsed = JSON.parse(e.target.value);
+                        setFormData((prev: any) => ({
+                          ...prev,
+                          config: {
+                            ...prev.config,
+                            anomalies: parsed,
+                          },
+                        }));
+                      } catch {
+                        // Ignorer erreurs JSON
+                      }
+                    }}
+                    rows={8}
+                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white font-mono outline-none focus:border-red-500 mt-2"
+                    placeholder='[{"id": "anom_1", "type": "duplicate_entry", "x_percent": 25, ...}]'
+                  />
                 </div>
               </div>
             )}
