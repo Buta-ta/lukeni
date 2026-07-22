@@ -86,6 +86,10 @@ export async function middleware(req: NextRequest) {
       '/explore',
       '/encyclopedie',
       '/voyage-musical',
+      '/investigations',
+      '/admin',
+      '/chiffres',
+      '/jeux',
     ];
 
     const isProtected = protectedPrefixes.some(prefix => pathname.startsWith(prefix));

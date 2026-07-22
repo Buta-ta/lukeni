@@ -2572,7 +2572,7 @@ export default function InvestigationGame(props: {
 
 
 
-    // ── MOTEUR D'ÉVÉNEMENTS NARRATIFS ──
+  // ── MOTEUR D'ÉVÉNEMENTS NARRATIFS ──
   // ── MOTEUR D'ÉVÉNEMENTS NARRATIFS ──
   const triggerNarrativeEvent = (eventId: string) => {
     if (!outroConfig?.narrative_events) return;
@@ -3327,8 +3327,8 @@ export default function InvestigationGame(props: {
                       <button
                         onClick={() => setShowMiniGamesDropdown(!showMiniGamesDropdown)}
                         className={`flex items-center gap-2 px-3 py-2 rounded-full transition-colors relative ${activeMiniGame
-                            ? "bg-purple-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.5)]"
-                            : "hover:bg-white/10 text-gray-300"
+                          ? "bg-purple-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.5)]"
+                          : "hover:bg-white/10 text-gray-300"
                           }`}
                       >
                         <span className="text-base">📻</span>
@@ -5886,6 +5886,9 @@ export default function InvestigationGame(props: {
         hasBoard={!!board}
         timerActive={timerActive}
         hasGroup={!!session?.group_id}
+        hasMiniGames={availableMiniGames.length > 0}  // ✅ NOUVEAU
+        hasWordSearch={!!currentWordSearch}            // ✅ NOUVEAU
+        hasDialogues={allDialogues.length > 0}         // ✅ NOUVEAU
       />
 
       {/* ── Toast "Groupe rejoint" ── */}
