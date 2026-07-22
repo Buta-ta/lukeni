@@ -8,13 +8,15 @@ import Link from 'next/link';
 import { ArrowLeft, Share2, Check, Loader2, Info, Download, Database, AlertTriangle, Table2, BarChart2, CalendarDays } from 'lucide-react';
 import RenderChartPublic from '@/lib/charts/renderChartPublic';
 import { MacroChart } from '@/components/admin/macro/types';
-import { useStoredState } from '@/lib/hooks/useStoredState';
+
 import { toCSV, downloadCSV } from '@/lib/macroHelpers';
+import { useLanguage } from '@/lib/contexts/LanguageContext';
+
 
 export default function ChartDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const [lang] = useStoredState<'fr' | 'en'>('lukeni_lang', 'fr');
+  const { lang } = useLanguage();
   const slug = params.slug as string;
 
   const [chart, setChart] = useState<MacroChart | null>(null);

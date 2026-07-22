@@ -363,11 +363,26 @@ export default function MiniGameEditor({
         };
       case "treasury_calcul":
         return {
-          documents: currentConfig?.documents || [],
-          target_total_fr: currentConfig?.target_total_fr || "",
-          target_total_en: currentConfig?.target_total_en || "",
+          mode: currentConfig?.mode || "black_box",
+          // Mode 1 : Caisse Noire
           target_amount: currentConfig?.target_amount || 0,
           tolerance: currentConfig?.tolerance || 10000,
+          target_total_fr: currentConfig?.target_total_fr || "",
+          target_total_en: currentConfig?.target_total_en || "",
+          documents: currentConfig?.documents || [],
+          // Mode 2 : Audit
+          reference: currentConfig?.reference || {
+            description_fr: "",
+            description_en: "",
+            quantity: 0,
+            unit: "km",
+            budget: 0,
+            currency: "XOF",
+          },
+          contracts: currentConfig?.contracts || [],
+          // Commun
+          background_url_fr: currentConfig?.background_url_fr || "",
+          background_url_en: currentConfig?.background_url_en || "",
         };
       case "anomaly_detector":
         return {
@@ -378,16 +393,7 @@ export default function MiniGameEditor({
         };
 
 
-      case "customs_contraband":
-        return {
-          comparison_mode: currentConfig?.comparison_mode || "visual",
-          declared_image_url: currentConfig?.declared_image_url || "",
-          actual_image_url: currentConfig?.actual_image_url || "",
-          declared_items: currentConfig?.declared_items || [],
-          actual_items: currentConfig?.actual_items || [],
-          containers: currentConfig?.containers || [],
-          discrepancies: currentConfig?.discrepancies || [],
-        };
+      
       case "signature_analysis":
         return {
           analysis_mode: currentConfig?.analysis_mode || "simple",
@@ -395,18 +401,25 @@ export default function MiniGameEditor({
           counterfeit_signature_id: currentConfig?.counterfeit_signature_id || "",
           contracts: currentConfig?.contracts || [],
           visual_differences: currentConfig?.visual_differences || [],
+          feedback_mode: currentConfig?.feedback_mode || "end",
         };
       case "contract_clauses":
         return {
+          title_fr: currentConfig?.title_fr || "",
+          title_en: currentConfig?.title_en || "",
+          state_name_fr: currentConfig?.state_name_fr || "",
+          state_name_en: currentConfig?.state_name_en || "",
+          company_name_fr: currentConfig?.company_name_fr || "",
+          company_name_en: currentConfig?.company_name_en || "",
+          date: currentConfig?.date || "",
+          reference: currentConfig?.reference || "",
+          object_fr: currentConfig?.object_fr || "",
+          object_en: currentConfig?.object_en || "",
+          contract_image_url: currentConfig?.contract_image_url || "",
           clauses: currentConfig?.clauses || [],
-          required_disadvantageous_count: currentConfig?.required_disadvantageous_count || 3,
+          minimum_abusive_count: currentConfig?.minimum_abusive_count || 3,
         };
-      case "stock_manipulation":
-        return {
-          market_mode: currentConfig?.market_mode || "single",
-          stocks: currentConfig?.stocks || [],
-          events: currentConfig?.events || [],
-        };
+      
 
 
       default:
@@ -632,11 +645,11 @@ export default function MiniGameEditor({
                 <option value="exchange_rate">💹 Taux de Change Falsifié</option>
                 <option value="banking_flow">🏦 Réseau de Blanchiment</option>
                 <option value="treasury_calcul">💰 Caisse Noire (Cartes)</option>
-                <option value="anomaly_detector">📋 Grand Livre Truqué</option>
-                <option value="customs_contraband">🚢 Douanes & Contrebande</option>
+                
+                
                 <option value="signature_analysis">✍️ Signature de Contrat</option>
                 <option value="contract_clauses">📜 Marché Colonial / Contrat Inégal</option>
-                <option value="stock_manipulation">📈 Manipulation Boursière</option>
+                
               </select>
             </div>
             <div>
@@ -2565,8 +2578,8 @@ export default function MiniGameEditor({
                     <div
                       key={conn.id}
                       className={`p-3 rounded-lg border space-y-3 ${conn.is_correct
-                          ? "bg-green-900/20 border-green-500/30"
-                          : "bg-red-900/20 border-red-500/30"
+                        ? "bg-green-900/20 border-green-500/30"
+                        : "bg-red-900/20 border-red-500/30"
                         }`}
                     >
                       <div className="flex items-center justify-between">
@@ -2659,8 +2672,8 @@ export default function MiniGameEditor({
                               }));
                             }}
                             className={`py-2 rounded text-xs font-bold transition-all ${conn.is_correct
-                                ? "bg-green-600 text-white"
-                                : "bg-white/5 text-gray-400 hover:bg-white/10"
+                              ? "bg-green-600 text-white"
+                              : "bg-white/5 text-gray-400 hover:bg-white/10"
                               }`}
                           >
                             ✅ Vrai lien (à découvrir)
@@ -2675,8 +2688,8 @@ export default function MiniGameEditor({
                               }));
                             }}
                             className={`py-2 rounded text-xs font-bold transition-all ${!conn.is_correct
-                                ? "bg-red-600 text-white"
-                                : "bg-white/5 text-gray-400 hover:bg-white/10"
+                              ? "bg-red-600 text-white"
+                              : "bg-white/5 text-gray-400 hover:bg-white/10"
                               }`}
                           >
                             ❌ Piège (à éviter)
@@ -2790,191 +2803,2370 @@ export default function MiniGameEditor({
               </div>
             )}
 
-            {/* TREASURY_CALCUL (Caisse Noire) */}
+            {/* TREASURY_CALCUL (Caisse Noire / Audit) */}
             {formData.type === "treasury_calcul" && (
               <div className="space-y-4">
-                <div>
-                  <label className="text-[10px] text-gray-300 font-bold uppercase mb-1 block">
-                    Objectif (FR)
+                {/* SÉLECTEUR DE MODE */}
+                <div className="bg-purple-950/20 p-4 rounded-xl border border-purple-500/30">
+                  <label className="text-[10px] text-purple-400 font-bold uppercase mb-3 block">
+                    💰 Mode de jeu
                   </label>
-                  <input
-                    type="text"
-                    value={formData.config?.target_total_fr || ""}
-                    onChange={(e) =>
-                      setFormData((prev: any) => ({
-                        ...prev,
-                        config: { ...prev.config, target_total_fr: e.target.value },
-                      }))
-                    }
-                    placeholder="Ex: Reconstituer le total détourné : 500 000 USD"
-                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-amber-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-gray-300 font-bold uppercase mb-1 block">
-                    Objectif (EN)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.config?.target_total_en || ""}
-                    onChange={(e) =>
-                      setFormData((prev: any) => ({
-                        ...prev,
-                        config: { ...prev.config, target_total_en: e.target.value },
-                      }))
-                    }
-                    placeholder="Ex: Reconstruct embezzled total: 500,000 USD"
-                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] text-gray-300 font-bold uppercase mb-1 block">
-                      Montant Cible (USD)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.config?.target_amount || 0}
-                      onChange={(e) =>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <button
+                      onClick={() =>
                         setFormData((prev: any) => ({
                           ...prev,
-                          config: {
-                            ...prev.config,
-                            target_amount: Number(e.target.value),
-                          },
+                          config: { ...prev.config, mode: "black_box" },
                         }))
                       }
-                      className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-gray-300 font-bold uppercase mb-1 block">
-                      Tolérance (±)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.config?.tolerance || 10000}
-                      onChange={(e) =>
+                      className={`p-4 rounded-lg border-2 text-left transition-all ${formData.config?.mode === "black_box"
+                        ? "bg-purple-600/20 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]"
+                        : "bg-white/5 border-white/10 hover:border-purple-500/50"
+                        }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-2xl">📦</span>
+                        <span className="font-bold text-white">Caisse Noire</span>
+                      </div>
+                      <p className="text-[10px] text-gray-400">
+                        Le joueur doit retrouver le montant total détourné en sélectionnant les bons bordereaux.
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() =>
                         setFormData((prev: any) => ({
                           ...prev,
-                          config: {
-                            ...prev.config,
-                            tolerance: Number(e.target.value),
-                          },
+                          config: { ...prev.config, mode: "overpricing" },
                         }))
                       }
-                      className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none"
-                    />
+                      className={`p-4 rounded-lg border-2 text-left transition-all ${formData.config?.mode === "overpricing"
+                        ? "bg-amber-600/20 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)]"
+                        : "bg-white/5 border-white/10 hover:border-amber-500/50"
+                        }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-2xl">📊</span>
+                        <span className="font-bold text-white">Audit de Surfactualisation</span>
+                      </div>
+                      <p className="text-[10px] text-gray-400">
+                        Le joueur compare les prix unitaires avec une référence pour identifier les contrats gonflés.
+                      </p>
+                    </button>
                   </div>
                 </div>
-                <div className="border-t border-white/10 pt-4 text-center p-4 bg-amber-950/20 border border-amber-500/20 rounded">
-                  <p className="text-amber-400 text-sm font-bold">
-                    ⚠️ Configuration avancée
-                  </p>
-                  <p className="text-gray-400 text-xs">
-                    Les documents se configurent via JSON. Utilisez l'interface de prévisualisation pour tester.
-                  </p>
-                  <textarea
-                    value={JSON.stringify(formData.config?.documents || [], null, 2)}
-                    onChange={(e) => {
-                      try {
-                        const parsed = JSON.parse(e.target.value);
-                        setFormData((prev: any) => ({
-                          ...prev,
-                          config: {
-                            ...prev.config,
-                            documents: parsed,
-                          },
-                        }));
-                      } catch {
-                        // Ignorer erreurs JSON
-                      }
-                    }}
-                    rows={8}
-                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white font-mono outline-none focus:border-amber-500 mt-2"
-                    placeholder='[{"id": "doc_1", "amount": 150000, ...}]'
-                  />
-                </div>
+
+                {/* ════════════════════════════════════════════════════
+        MODE 1 : CAISSE NOIRE
+    ════════════════════════════════════════════════════ */}
+                {(!formData.config?.mode || formData.config.mode === "black_box") && (
+                  <div className="space-y-4">
+                    {/* Objectif */}
+                    <div className="bg-purple-950/20 p-4 rounded-xl border border-purple-500/30 space-y-3">
+                      <label className="text-[10px] text-purple-400 font-bold uppercase block">
+                        🎯 Objectif de reconstitution
+                      </label>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[9px] text-gray-500 block mb-1">
+                            Montant cible
+                          </label>
+                          <input
+                            type="number"
+                            value={formData.config?.target_amount || 0}
+                            onChange={(e) =>
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: {
+                                  ...prev.config,
+                                  target_amount: Number(e.target.value),
+                                },
+                              }))
+                            }
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-purple-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[9px] text-gray-500 block mb-1">
+                            Tolérance (±)
+                          </label>
+                          <input
+                            type="number"
+                            value={formData.config?.tolerance || 10000}
+                            onChange={(e) =>
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: {
+                                  ...prev.config,
+                                  tolerance: Number(e.target.value),
+                                },
+                              }))
+                            }
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-purple-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[9px] text-gray-500 block mb-1">
+                            Description FR
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.config?.target_total_fr || ""}
+                            onChange={(e) =>
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: {
+                                  ...prev.config,
+                                  target_total_fr: e.target.value,
+                                },
+                              }))
+                            }
+                            placeholder="Ex: Reconstituez le montant détourné"
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-purple-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[9px] text-gray-500 block mb-1">
+                            Description EN
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (!formData.config?.target_total_fr?.trim()) return;
+                                setIsTranslating(true);
+                                const t = await autoTranslate(
+                                  formData.config.target_total_fr,
+                                  "fr"
+                                );
+                                setFormData((prev: any) => ({
+                                  ...prev,
+                                  config: { ...prev.config, target_total_en: t },
+                                }));
+                                setIsTranslating(false);
+                              }}
+                              disabled={isTranslating}
+                              className="ml-1 text-purple-400 hover:text-white disabled:opacity-50"
+                            >
+                              {isTranslating ? (
+                                <Loader2 size={10} className="animate-spin inline" />
+                              ) : (
+                                <Languages size={10} className="inline" />
+                              )}
+                            </button>
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.config?.target_total_en || ""}
+                            onChange={(e) =>
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: {
+                                  ...prev.config,
+                                  target_total_en: e.target.value,
+                                },
+                              }))
+                            }
+                            placeholder="Ex: Reconstruct the embezzled amount"
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-purple-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Documents */}
+                    <div className="bg-purple-950/20 p-4 rounded-xl border border-purple-500/30 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] text-purple-400 font-bold uppercase">
+                          📄 Bordereaux de virement
+                        </label>
+                        <button
+                          onClick={() => {
+                            const docs = [...(formData.config?.documents || [])];
+                            docs.push({
+                              id: `doc_${Date.now()}`,
+                              type: "transfer",
+                              amount: 0,
+                              currency: "XOF",
+                              date: new Date().toISOString().split("T")[0],
+                              description_fr: "Nouveau bordereau",
+                              description_en: "New statement",
+                              is_correct: false,
+                              image_url: "",
+                              details_fr: [""],
+                              details_en: [""],
+                            });
+                            setFormData((prev: any) => ({
+                              ...prev,
+                              config: { ...prev.config, documents: docs },
+                            }));
+                          }}
+                          className="text-[10px] text-purple-400 font-bold bg-purple-500/10 px-2 py-1 rounded flex items-center gap-1 hover:bg-purple-500/20"
+                        >
+                          <Plus size={10} /> Ajouter
+                        </button>
+                      </div>
+
+                      {(formData.config?.documents || []).map((doc: any, idx: number) => (
+                        <div
+                          key={doc.id}
+                          className={`p-3 rounded-lg border space-y-3 ${doc.is_correct
+                            ? "bg-green-900/20 border-green-500/30"
+                            : "bg-red-900/20 border-red-500/30"
+                            }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold">
+                              Document {idx + 1}
+                            </span>
+                            <button
+                              onClick={() => {
+                                const docs = formData.config.documents.filter(
+                                  (d: any) => d.id !== doc.id
+                                );
+                                setFormData((prev: any) => ({
+                                  ...prev,
+                                  config: { ...prev.config, documents: docs },
+                                }));
+                              }}
+                              className="p-1 text-red-500 hover:bg-red-500/10 rounded"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                            <div>
+                              <label className="text-[9px] text-gray-500 block mb-1">
+                                Montant
+                              </label>
+                              <input
+                                type="number"
+                                value={doc.amount || 0}
+                                onChange={(e) => {
+                                  const docs = [...formData.config.documents];
+                                  docs[idx].amount = Number(e.target.value);
+                                  setFormData((prev: any) => ({
+                                    ...prev,
+                                    config: { ...prev.config, documents: docs },
+                                  }));
+                                }}
+                                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[9px] text-gray-500 block mb-1">
+                                Devise
+                              </label>
+                              <select
+                                value={doc.currency || "XOF"}
+                                onChange={(e) => {
+                                  const docs = [...formData.config.documents];
+                                  docs[idx].currency = e.target.value;
+                                  setFormData((prev: any) => ({
+                                    ...prev,
+                                    config: { ...prev.config, documents: docs },
+                                  }));
+                                }}
+                                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                              >
+                                <option value="XOF">XOF</option>
+                                <option value="EUR">EUR</option>
+                                <option value="USD">USD</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="text-[9px] text-gray-500 block mb-1">
+                                Date
+                              </label>
+                              <input
+                                type="date"
+                                value={doc.date || ""}
+                                onChange={(e) => {
+                                  const docs = [...formData.config.documents];
+                                  docs[idx].date = e.target.value;
+                                  setFormData((prev: any) => ({
+                                    ...prev,
+                                    config: { ...prev.config, documents: docs },
+                                  }));
+                                }}
+                                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[9px] text-gray-500 block mb-1">
+                                Description FR
+                              </label>
+                              <input
+                                type="text"
+                                value={doc.description_fr || ""}
+                                onChange={(e) => {
+                                  const docs = [...formData.config.documents];
+                                  docs[idx].description_fr = e.target.value;
+                                  setFormData((prev: any) => ({
+                                    ...prev,
+                                    config: { ...prev.config, documents: docs },
+                                  }));
+                                }}
+                                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[9px] text-gray-500 block mb-1">
+                                Description EN
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (!doc.description_fr?.trim()) return;
+                                    setIsTranslating(true);
+                                    const t = await autoTranslate(doc.description_fr, "fr");
+                                    const docs = [...formData.config.documents];
+                                    docs[idx].description_en = t;
+                                    setFormData((prev: any) => ({
+                                      ...prev,
+                                      config: { ...prev.config, documents: docs },
+                                    }));
+                                    setIsTranslating(false);
+                                  }}
+                                  disabled={isTranslating}
+                                  className="ml-1 text-purple-400 hover:text-white disabled:opacity-50"
+                                >
+                                  {isTranslating ? (
+                                    <Loader2 size={10} className="animate-spin inline" />
+                                  ) : (
+                                    <Languages size={10} className="inline" />
+                                  )}
+                                </button>
+                              </label>
+                              <input
+                                type="text"
+                                value={doc.description_en || ""}
+                                onChange={(e) => {
+                                  const docs = [...formData.config.documents];
+                                  docs[idx].description_en = e.target.value;
+                                  setFormData((prev: any) => ({
+                                    ...prev,
+                                    config: { ...prev.config, documents: docs },
+                                  }));
+                                }}
+                                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          <MediaUploader
+                            label="Image du document (optionnel)"
+                            url={doc.image_url}
+                            onUpload={(url) => {
+                              const docs = [...formData.config.documents];
+                              docs[idx].image_url = url;
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: { ...prev.config, documents: docs },
+                              }));
+                            }}
+                            icon={<ImagePlus size={10} />}
+                          />
+
+                          {/* Type */}
+                          <div>
+                            <label className="text-[9px] text-gray-500 block mb-1">
+                              Type de document
+                            </label>
+                            <select
+                              value={doc.type || "transfer"}
+                              onChange={(e) => {
+                                const docs = [...formData.config.documents];
+                                docs[idx].type = e.target.value;
+                                setFormData((prev: any) => ({
+                                  ...prev,
+                                  config: { ...prev.config, documents: docs },
+                                }));
+                              }}
+                              className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                            >
+                              <option value="transfer">Virement</option>
+                              <option value="invoice">Facture</option>
+                              <option value="receipt">Reçu</option>
+                              <option value="contract">Contrat</option>
+                            </select>
+                          </div>
+
+                          {/* Marquage correct/piège */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => {
+                                const docs = [...formData.config.documents];
+                                docs[idx].is_correct = true;
+                                setFormData((prev: any) => ({
+                                  ...prev,
+                                  config: { ...prev.config, documents: docs },
+                                }));
+                              }}
+                              className={`py-2 rounded text-xs font-bold transition-all ${doc.is_correct
+                                ? "bg-green-600 text-white"
+                                : "bg-white/5 text-gray-400 hover:bg-white/10"
+                                }`}
+                            >
+                              ✅ Fait partie du détournement
+                            </button>
+                            <button
+                              onClick={() => {
+                                const docs = [...formData.config.documents];
+                                docs[idx].is_correct = false;
+                                setFormData((prev: any) => ({
+                                  ...prev,
+                                  config: { ...prev.config, documents: docs },
+                                }));
+                              }}
+                              className={`py-2 rounded text-xs font-bold transition-all ${!doc.is_correct
+                                ? "bg-red-600 text-white"
+                                : "bg-white/5 text-gray-400 hover:bg-white/10"
+                                }`}
+                            >
+                              ❌ Paiement légitime (piège)
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ════════════════════════════════════════════════════
+        MODE 2 : AUDIT DE SURFACTUALISATION
+    ════════════════════════════════════════════════════ */}
+                {formData.config?.mode === "overpricing" && (
+                  <div className="space-y-4">
+                    {/* Référence de marché */}
+                    <div className="bg-amber-950/20 p-4 rounded-xl border border-amber-500/30 space-y-3">
+                      <label className="text-[10px] text-amber-400 font-bold uppercase block">
+                        📊 Référence de marché
+                      </label>
+                      <p className="text-[9px] text-gray-500 italic">
+                        Cette référence servira de base de comparaison pour les contrats.
+                      </p>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[9px] text-gray-500 block mb-1">
+                            Description FR
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.config?.reference?.description_fr || ""}
+                            onChange={(e) =>
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: {
+                                  ...prev.config,
+                                  reference: {
+                                    ...prev.config.reference,
+                                    description_fr: e.target.value,
+                                  },
+                                },
+                              }))
+                            }
+                            placeholder="Ex: Construction route standard en plaine"
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[9px] text-gray-500 block mb-1">
+                            Description EN
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (!formData.config?.reference?.description_fr?.trim())
+                                  return;
+                                setIsTranslating(true);
+                                const t = await autoTranslate(
+                                  formData.config.reference.description_fr,
+                                  "fr"
+                                );
+                                setFormData((prev: any) => ({
+                                  ...prev,
+                                  config: {
+                                    ...prev.config,
+                                    reference: {
+                                      ...prev.config.reference,
+                                      description_en: t,
+                                    },
+                                  },
+                                }));
+                                setIsTranslating(false);
+                              }}
+                              disabled={isTranslating}
+                              className="ml-1 text-amber-400 hover:text-white disabled:opacity-50"
+                            >
+                              {isTranslating ? (
+                                <Loader2 size={10} className="animate-spin inline" />
+                              ) : (
+                                <Languages size={10} className="inline" />
+                              )}
+                            </button>
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.config?.reference?.description_en || ""}
+                            onChange={(e) =>
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: {
+                                  ...prev.config,
+                                  reference: {
+                                    ...prev.config.reference,
+                                    description_en: e.target.value,
+                                  },
+                                },
+                              }))
+                            }
+                            placeholder="Ex: Standard road construction on flat terrain"
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <div>
+                          <label className="text-[9px] text-gray-500 block mb-1">
+                            Quantité
+                          </label>
+                          <input
+                            type="number"
+                            value={formData.config?.reference?.quantity || 0}
+                            onChange={(e) =>
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: {
+                                  ...prev.config,
+                                  reference: {
+                                    ...prev.config.reference,
+                                    quantity: Number(e.target.value),
+                                  },
+                                },
+                              }))
+                            }
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[9px] text-gray-500 block mb-1">
+                            Unité
+                          </label>
+                          <select
+                            value={formData.config?.reference?.unit || "km"}
+                            onChange={(e) =>
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: {
+                                  ...prev.config,
+                                  reference: {
+                                    ...prev.config.reference,
+                                    unit: e.target.value,
+                                  },
+                                },
+                              }))
+                            }
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                          >
+                            <option value="km">km</option>
+                            <option value="m²">m²</option>
+                            <option value="unité">unité</option>
+                            <option value="tonne">tonne</option>
+                            <option value="litre">litre</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[9px] text-gray-500 block mb-1">
+                            Budget référence
+                          </label>
+                          <input
+                            type="number"
+                            value={formData.config?.reference?.budget || 0}
+                            onChange={(e) =>
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: {
+                                  ...prev.config,
+                                  reference: {
+                                    ...prev.config.reference,
+                                    budget: Number(e.target.value),
+                                  },
+                                },
+                              }))
+                            }
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[9px] text-gray-500 block mb-1">
+                          Devise
+                        </label>
+                        <select
+                          value={formData.config?.reference?.currency || "XOF"}
+                          onChange={(e) =>
+                            setFormData((prev: any) => ({
+                              ...prev,
+                              config: {
+                                ...prev.config,
+                                reference: {
+                                  ...prev.config.reference,
+                                  currency: e.target.value,
+                                },
+                              },
+                            }))
+                          }
+                          className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                        >
+                          <option value="XOF">XOF</option>
+                          <option value="EUR">EUR</option>
+                          <option value="USD">USD</option>
+                        </select>
+                      </div>
+
+                      {/* Calcul automatique */}
+                      {formData.config?.reference?.quantity > 0 && (
+                        <div className="bg-black/30 p-3 rounded border border-amber-500/20">
+                          <p className="text-[9px] text-gray-500 mb-1">
+                            Prix unitaire calculé automatiquement :
+                          </p>
+                          <p className="text-amber-400 font-bold font-mono">
+                            {(
+                              (formData.config.reference.budget || 0) /
+                              (formData.config.reference.quantity || 1)
+                            ).toLocaleString()}{" "}
+                            {formData.config.reference.currency}/{formData.config.reference.unit}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Contrats à analyser */}
+                    <div className="bg-amber-950/20 p-4 rounded-xl border border-amber-500/30 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] text-amber-400 font-bold uppercase">
+                          📋 Contrats à analyser
+                        </label>
+                        <button
+                          onClick={() => {
+                            const contracts = [...(formData.config?.contracts || [])];
+                            contracts.push({
+                              id: `contract_${Date.now()}`,
+                              description_fr: "Nouveau contrat",
+                              description_en: "New contract",
+                              quantity: 0,
+                              unit: formData.config?.reference?.unit || "km",
+                              budget: 0,
+                              currency: formData.config?.reference?.currency || "XOF",
+                              year: new Date().getFullYear(),
+                              image_url: "",
+                              is_correct: false,
+                            });
+                            setFormData((prev: any) => ({
+                              ...prev,
+                              config: { ...prev.config, contracts },
+                            }));
+                          }}
+                          className="text-[10px] text-amber-400 font-bold bg-amber-500/10 px-2 py-1 rounded flex items-center gap-1 hover:bg-amber-500/20"
+                        >
+                          <Plus size={10} /> Ajouter
+                        </button>
+                      </div>
+
+                      {(formData.config?.contracts || []).map(
+                        (contract: any, idx: number) => (
+                          <div
+                            key={contract.id}
+                            className={`p-3 rounded-lg border space-y-3 ${contract.is_correct
+                              ? "bg-red-900/20 border-red-500/30"
+                              : "bg-green-900/20 border-green-500/30"
+                              }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-bold">
+                                Contrat {idx + 1}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  const contracts = formData.config.contracts.filter(
+                                    (c: any) => c.id !== contract.id
+                                  );
+                                  setFormData((prev: any) => ({
+                                    ...prev,
+                                    config: { ...prev.config, contracts },
+                                  }));
+                                }}
+                                className="p-1 text-red-500 hover:bg-red-500/10 rounded"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-[9px] text-gray-500 block mb-1">
+                                  Description FR
+                                </label>
+                                <input
+                                  type="text"
+                                  value={contract.description_fr || ""}
+                                  onChange={(e) => {
+                                    const contracts = [...formData.config.contracts];
+                                    contracts[idx].description_fr = e.target.value;
+                                    setFormData((prev: any) => ({
+                                      ...prev,
+                                      config: { ...prev.config, contracts },
+                                    }));
+                                  }}
+                                  className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="text-[9px] text-gray-500 block mb-1">
+                                  Description EN
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      if (!contract.description_fr?.trim()) return;
+                                      setIsTranslating(true);
+                                      const t = await autoTranslate(
+                                        contract.description_fr,
+                                        "fr"
+                                      );
+                                      const contracts = [...formData.config.contracts];
+                                      contracts[idx].description_en = t;
+                                      setFormData((prev: any) => ({
+                                        ...prev,
+                                        config: { ...prev.config, contracts },
+                                      }));
+                                      setIsTranslating(false);
+                                    }}
+                                    disabled={isTranslating}
+                                    className="ml-1 text-amber-400 hover:text-white disabled:opacity-50"
+                                  >
+                                    {isTranslating ? (
+                                      <Loader2
+                                        size={10}
+                                        className="animate-spin inline"
+                                      />
+                                    ) : (
+                                      <Languages size={10} className="inline" />
+                                    )}
+                                  </button>
+                                </label>
+                                <input
+                                  type="text"
+                                  value={contract.description_en || ""}
+                                  onChange={(e) => {
+                                    const contracts = [...formData.config.contracts];
+                                    contracts[idx].description_en = e.target.value;
+                                    setFormData((prev: any) => ({
+                                      ...prev,
+                                      config: { ...prev.config, contracts },
+                                    }));
+                                  }}
+                                  className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                              <div>
+                                <label className="text-[9px] text-gray-500 block mb-1">
+                                  Quantité
+                                </label>
+                                <input
+                                  type="number"
+                                  value={contract.quantity || 0}
+                                  onChange={(e) => {
+                                    const contracts = [...formData.config.contracts];
+                                    contracts[idx].quantity = Number(e.target.value);
+                                    setFormData((prev: any) => ({
+                                      ...prev,
+                                      config: { ...prev.config, contracts },
+                                    }));
+                                  }}
+                                  className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="text-[9px] text-gray-500 block mb-1">
+                                  Unité
+                                </label>
+                                <select
+                                  value={contract.unit || "km"}
+                                  onChange={(e) => {
+                                    const contracts = [...formData.config.contracts];
+                                    contracts[idx].unit = e.target.value;
+                                    setFormData((prev: any) => ({
+                                      ...prev,
+                                      config: { ...prev.config, contracts },
+                                    }));
+                                  }}
+                                  className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                                >
+                                  <option value="km">km</option>
+                                  <option value="m²">m²</option>
+                                  <option value="unité">unité</option>
+                                  <option value="tonne">tonne</option>
+                                  <option value="litre">litre</option>
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="text-[9px] text-gray-500 block mb-1">
+                                  Budget
+                                </label>
+                                <input
+                                  type="number"
+                                  value={contract.budget || 0}
+                                  onChange={(e) => {
+                                    const contracts = [...formData.config.contracts];
+                                    contracts[idx].budget = Number(e.target.value);
+                                    setFormData((prev: any) => ({
+                                      ...prev,
+                                      config: { ...prev.config, contracts },
+                                    }));
+                                  }}
+                                  className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="text-[9px] text-gray-500 block mb-1">
+                                  Année
+                                </label>
+                                <input
+                                  type="number"
+                                  value={contract.year || new Date().getFullYear()}
+                                  onChange={(e) => {
+                                    const contracts = [...formData.config.contracts];
+                                    contracts[idx].year = Number(e.target.value);
+                                    setFormData((prev: any) => ({
+                                      ...prev,
+                                      config: { ...prev.config, contracts },
+                                    }));
+                                  }}
+                                  className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Calcul prix unitaire */}
+                            {contract.quantity > 0 && (
+                              <div className="bg-black/30 p-2 rounded border border-amber-500/20">
+                                <p className="text-[9px] text-gray-500">
+                                  Prix unitaire :{" "}
+                                  <span className="text-amber-400 font-bold font-mono">
+                                    {(
+                                      (contract.budget || 0) / (contract.quantity || 1)
+                                    ).toLocaleString()}{" "}
+                                    {contract.currency}/{contract.unit}
+                                  </span>
+                                </p>
+                              </div>
+                            )}
+
+                            <MediaUploader
+                              label="Image du contrat (optionnel)"
+                              url={contract.image_url}
+                              onUpload={(url) => {
+                                const contracts = [...formData.config.contracts];
+                                contracts[idx].image_url = url;
+                                setFormData((prev: any) => ({
+                                  ...prev,
+                                  config: { ...prev.config, contracts },
+                                }));
+                              }}
+                              icon={<ImagePlus size={10} />}
+                            />
+
+                            {/* Marquage fraude/normal */}
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                onClick={() => {
+                                  const contracts = [...formData.config.contracts];
+                                  contracts[idx].is_correct = true;
+                                  setFormData((prev: any) => ({
+                                    ...prev,
+                                    config: { ...prev.config, contracts },
+                                  }));
+                                }}
+                                className={`py-2 rounded text-xs font-bold transition-all ${contract.is_correct
+                                  ? "bg-red-600 text-white"
+                                  : "bg-white/5 text-gray-400 hover:bg-white/10"
+                                  }`}
+                              >
+                                ❌ Contrat frauduleux (surfactualisé)
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const contracts = [...formData.config.contracts];
+                                  contracts[idx].is_correct = false;
+                                  setFormData((prev: any) => ({
+                                    ...prev,
+                                    config: { ...prev.config, contracts },
+                                  }));
+                                }}
+                                className={`py-2 rounded text-xs font-bold transition-all ${!contract.is_correct
+                                  ? "bg-green-600 text-white"
+                                  : "bg-white/5 text-gray-400 hover:bg-white/10"
+                                  }`}
+                              >
+                                ✅ Contrat légitime
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* ANOMALY_DETECTOR (Grand Livre Truqué) */}
-            {formData.type === "anomaly_detector" && (
+       
+
+
+
+
+
+            {/* SIGNATURE_ANALYSIS (Analyse de Signature) */}
+            {formData.type === "signature_analysis" && (
               <div className="space-y-4">
-                <MediaUploader
-                  label="Image du Grand Livre (FR)"
-                  url={formData.config?.ledger_image_url_fr}
-                  onUpload={(url) =>
-                    setFormData((prev: any) => ({
-                      ...prev,
-                      config: { ...prev.config, ledger_image_url_fr: url },
-                    }))
-                  }
-                  icon={<ImagePlus size={12} />}
-                />
-                <MediaUploader
-                  label="Image du Grand Livre (EN - Optionnel)"
-                  url={formData.config?.ledger_image_url_en}
-                  onUpload={(url) =>
-                    setFormData((prev: any) => ({
-                      ...prev,
-                      config: { ...prev.config, ledger_image_url_en: url },
-                    }))
-                  }
-                  icon={<ImagePlus size={12} />}
-                />
-
-                <div className="border-t border-white/10 pt-4">
-                  <label className="text-[10px] text-gray-300 font-bold uppercase mb-1 block">
-                    Minimum d'Anomalies à Trouver
+                {/* SÉLECTEUR DE MODE */}
+                <div className="bg-purple-950/20 p-4 rounded-xl border border-purple-500/30">
+                  <label className="text-[10px] text-purple-400 font-bold uppercase mb-3 block">
+                    🎯 Mode d'analyse
                   </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={formData.config?.min_anomalies_to_find || 3}
-                    onChange={(e) =>
-                      setFormData((prev: any) => ({
-                        ...prev,
-                        config: {
-                          ...prev.config,
-                          min_anomalies_to_find: Number(e.target.value),
-                        },
-                      }))
-                    }
-                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none"
-                  />
-                </div>
-
-                <div className="border-t border-white/10 pt-4 text-center p-4 bg-red-950/20 border border-red-500/20 rounded">
-                  <p className="text-red-400 text-sm font-bold">
-                    ⚠️ Configuration avancée
-                  </p>
-                  <p className="text-gray-400 text-xs mb-2">
-                    Les anomalies se configurent via JSON. Coordonnées en pourcentages (0-100).
-                  </p>
-                  <textarea
-                    value={JSON.stringify(formData.config?.anomalies || [], null, 2)}
-                    onChange={(e) => {
-                      try {
-                        const parsed = JSON.parse(e.target.value);
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <button
+                      onClick={() =>
                         setFormData((prev: any) => ({
                           ...prev,
-                          config: {
-                            ...prev.config,
-                            anomalies: parsed,
-                          },
-                        }));
-                      } catch {
-                        // Ignorer erreurs JSON
+                          config: { ...prev.config, analysis_mode: "simple" },
+                        }))
                       }
-                    }}
-                    rows={8}
-                    className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white font-mono outline-none focus:border-red-500 mt-2"
-                    placeholder='[{"id": "anom_1", "type": "duplicate_entry", "x_percent": 25, ...}]'
-                  />
+                      className={`p-4 rounded-lg border-2 text-left transition-all ${formData.config?.analysis_mode === "simple"
+                        ? "bg-purple-600/20 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]"
+                        : "bg-white/5 border-white/10 hover:border-purple-500/50"
+                        }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-2xl">🔍</span>
+                        <span className="font-bold text-white">Simple</span>
+                      </div>
+                      <p className="text-[10px] text-gray-400">
+                        Le joueur doit identifier la fausse signature parmi plusieurs exemples.
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        setFormData((prev: any) => ({
+                          ...prev,
+                          config: { ...prev.config, analysis_mode: "matching" },
+                        }))
+                      }
+                      className={`p-4 rounded-lg border-2 text-left transition-all ${formData.config?.analysis_mode === "matching"
+                        ? "bg-amber-600/20 border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.3)]"
+                        : "bg-white/5 border-white/10 hover:border-amber-500/50"
+                        }`}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-2xl">🔗</span>
+                        <span className="font-bold text-white">Matching</span>
+                      </div>
+                      <p className="text-[10px] text-gray-400">
+                        Le joueur doit apparier chaque signature au bon contrat.
+                      </p>
+                    </button>
+                  </div>
                 </div>
+
+                {/* ════════════════════════════════════════════════════
+        MODE SIMPLE : TROUVER LA FAUSSE SIGNATURE
+    ════════════════════════════════════════════════════ */}
+                {(!formData.config?.analysis_mode || formData.config.analysis_mode === "simple") && (
+                  <div className="space-y-4">
+                    {/* Signatures */}
+                    <div className="bg-purple-950/20 p-4 rounded-xl border border-purple-500/30 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] text-purple-400 font-bold uppercase">
+                          🖋️ Signatures à présenter
+                        </label>
+                        <button
+                          onClick={() => {
+                            const sigs = [...(formData.config?.signatures || [])];
+                            sigs.push({
+                              id: `sig_${Date.now()}`,
+                              name_fr: "Nouvelle signature",
+                              name_en: "New signature",
+                              image_url: "",
+                            });
+                            setFormData((prev: any) => ({
+                              ...prev,
+                              config: { ...prev.config, signatures: sigs },
+                            }));
+                          }}
+                          className="text-[10px] text-purple-400 font-bold bg-purple-500/10 px-2 py-1 rounded flex items-center gap-1 hover:bg-purple-500/20"
+                        >
+                          <Plus size={10} /> Ajouter signature
+                        </button>
+                      </div>
+
+                      <p className="text-[9px] text-gray-500 italic">
+                        💡 Ajoutez au moins 3 signatures. Marquez UNE comme étant la fausse.
+                      </p>
+
+                      {(formData.config?.signatures || []).map((sig: any, idx: number) => (
+                        <div
+                          key={sig.id}
+                          className={`p-3 rounded-lg border space-y-3 ${formData.config?.counterfeit_signature_id === sig.id
+                            ? "bg-red-900/20 border-red-500/30"
+                            : "bg-green-900/20 border-green-500/30"
+                            }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold">
+                              Signature {idx + 1}
+                            </span>
+                            <button
+                              onClick={() => {
+                                const sigs = formData.config.signatures.filter(
+                                  (s: any) => s.id !== sig.id
+                                );
+                                setFormData((prev: any) => ({
+                                  ...prev,
+                                  config: { ...prev.config, signatures: sigs },
+                                }));
+                              }}
+                              className="p-1 text-red-500 hover:bg-red-500/10 rounded"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[9px] text-gray-500 block mb-1">
+                                Nom FR
+                              </label>
+                              <input
+                                type="text"
+                                value={sig.name_fr || ""}
+                                onChange={(e) => {
+                                  const sigs = [...formData.config.signatures];
+                                  sigs[idx].name_fr = e.target.value;
+                                  setFormData((prev: any) => ({
+                                    ...prev,
+                                    config: { ...prev.config, signatures: sigs },
+                                  }));
+                                }}
+                                placeholder="Ex: Jean Moko - Original"
+                                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[9px] text-gray-500 block mb-1">
+                                Nom EN
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (!sig.name_fr?.trim()) return;
+                                    setIsTranslating(true);
+                                    const t = await autoTranslate(sig.name_fr, "fr");
+                                    const sigs = [...formData.config.signatures];
+                                    sigs[idx].name_en = t;
+                                    setFormData((prev: any) => ({
+                                      ...prev,
+                                      config: { ...prev.config, signatures: sigs },
+                                    }));
+                                    setIsTranslating(false);
+                                  }}
+                                  disabled={isTranslating}
+                                  className="ml-1 text-purple-400 hover:text-white disabled:opacity-50"
+                                >
+                                  {isTranslating ? (
+                                    <Loader2 size={10} className="animate-spin inline" />
+                                  ) : (
+                                    <Languages size={10} className="inline" />
+                                  )}
+                                </button>
+                              </label>
+                              <input
+                                type="text"
+                                value={sig.name_en || ""}
+                                onChange={(e) => {
+                                  const sigs = [...formData.config.signatures];
+                                  sigs[idx].name_en = e.target.value;
+                                  setFormData((prev: any) => ({
+                                    ...prev,
+                                    config: { ...prev.config, signatures: sigs },
+                                  }));
+                                }}
+                                placeholder="Ex: Jean Moko - Original"
+                                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          <MediaUploader
+                            label="Image de la signature"
+                            url={sig.image_url}
+                            onUpload={(url) => {
+                              const sigs = [...formData.config.signatures];
+                              sigs[idx].image_url = url;
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: { ...prev.config, signatures: sigs },
+                              }));
+                            }}
+                            icon={<ImagePlus size={10} />}
+                          />
+
+                          {/* Aperçu */}
+                          {sig.image_url && (
+                            <div className="bg-gray-900 rounded p-2 h-24 flex items-center justify-center overflow-hidden border border-white/10">
+                              <img
+                                src={sig.image_url}
+                                alt="Signature"
+                                className="max-h-full max-w-full object-contain"
+                              />
+                            </div>
+                          )}
+
+                          {/* Marquage fausse signature */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => {
+                                setFormData((prev: any) => ({
+                                  ...prev,
+                                  config: {
+                                    ...prev.config,
+                                    counterfeit_signature_id: sig.id,
+                                  },
+                                }));
+                              }}
+                              className={`py-2 rounded text-xs font-bold transition-all ${formData.config?.counterfeit_signature_id === sig.id
+                                ? "bg-red-600 text-white"
+                                : "bg-white/5 text-gray-400 hover:bg-white/10"
+                                }`}
+                            >
+                              ❌ C'est la FAUSSE signature
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (formData.config?.counterfeit_signature_id === sig.id) {
+                                  setFormData((prev: any) => ({
+                                    ...prev,
+                                    config: {
+                                      ...prev.config,
+                                      counterfeit_signature_id: "",
+                                    },
+                                  }));
+                                }
+                              }}
+                              className={`py-2 rounded text-xs font-bold transition-all ${formData.config?.counterfeit_signature_id !== sig.id
+                                ? "bg-green-600 text-white"
+                                : "bg-white/5 text-gray-400 hover:bg-white/10"
+                                }`}
+                            >
+                              ✅ Signature authentique
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ════════════════════════════════════════════════════
+        MODE MATCHING : APPARIER SIGNATURES/CONTRATS
+    ════════════════════════════════════════════════════ */}
+                {formData.config?.analysis_mode === "matching" && (
+                  <div className="space-y-4">
+                    {/* Mode de feedback */}
+                    <div className="bg-amber-950/20 p-4 rounded-xl border border-amber-500/30">
+                      <label className="text-[10px] text-amber-400 font-bold uppercase mb-3 block">
+                        🎯 Mode de feedback
+                      </label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          onClick={() =>
+                            setFormData((prev: any) => ({
+                              ...prev,
+                              config: { ...prev.config, feedback_mode: "immediate" },
+                            }))
+                          }
+                          className={`p-3 rounded-lg border-2 text-left transition-all ${formData.config?.feedback_mode === "immediate"
+                            ? "bg-green-600/20 border-green-500"
+                            : "bg-white/5 border-white/10 hover:border-green-500/50"
+                            }`}
+                        >
+                          <p className="text-xs font-bold text-white mb-1">
+                            ⚡ Immédiat
+                          </p>
+                          <p className="text-[9px] text-gray-400">
+                            Le joueur voit tout de suite si un appariement est correct
+                          </p>
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            setFormData((prev: any) => ({
+                              ...prev,
+                              config: { ...prev.config, feedback_mode: "end" },
+                            }))
+                          }
+                          className={`p-3 rounded-lg border-2 text-left transition-all ${formData.config?.feedback_mode === "end"
+                            ? "bg-amber-600/20 border-amber-500"
+                            : "bg-white/5 border-white/10 hover:border-amber-500/50"
+                            }`}
+                        >
+                          <p className="text-xs font-bold text-white mb-1">
+                            🏁 À la fin
+                          </p>
+                          <p className="text-[9px] text-gray-400">
+                            Les résultats sont révélés uniquement à la validation (plus challengeant)
+                          </p>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Contrats */}
+                    <div className="bg-amber-950/20 p-4 rounded-xl border border-amber-500/30 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] text-amber-400 font-bold uppercase">
+                          📄 Contrats à apparier
+                        </label>
+                        <button
+                          onClick={() => {
+                            const contracts = [...(formData.config?.contracts || [])];
+                            contracts.push({
+                              id: `contract_${Date.now()}`,
+                              name_fr: "Nouveau contrat",
+                              name_en: "New contract",
+                              description_fr: "",
+                              description_en: "",
+                              image_url: "",
+                              correct_signature_id: "",
+                            });
+                            setFormData((prev: any) => ({
+                              ...prev,
+                              config: { ...prev.config, contracts },
+                            }));
+                          }}
+                          className="text-[10px] text-amber-400 font-bold bg-amber-500/10 px-2 py-1 rounded flex items-center gap-1 hover:bg-amber-500/20"
+                        >
+                          <Plus size={10} /> Ajouter contrat
+                        </button>
+                      </div>
+
+                      {(formData.config?.contracts || []).map(
+                        (contract: any, idx: number) => (
+                          <div
+                            key={contract.id}
+                            className="p-3 rounded-lg border border-amber-500/20 bg-black/20 space-y-3"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-bold">
+                                Contrat {idx + 1}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  const contracts = formData.config.contracts.filter(
+                                    (c: any) => c.id !== contract.id
+                                  );
+                                  setFormData((prev: any) => ({
+                                    ...prev,
+                                    config: { ...prev.config, contracts },
+                                  }));
+                                }}
+                                className="p-1 text-red-500 hover:bg-red-500/10 rounded"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-[9px] text-gray-500 block mb-1">
+                                  Nom FR
+                                </label>
+                                <input
+                                  type="text"
+                                  value={contract.name_fr || ""}
+                                  onChange={(e) => {
+                                    const contracts = [...formData.config.contracts];
+                                    contracts[idx].name_fr = e.target.value;
+                                    setFormData((prev: any) => ({
+                                      ...prev,
+                                      config: { ...prev.config, contracts },
+                                    }));
+                                  }}
+                                  placeholder="Ex: Mine de Kolwezi"
+                                  className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="text-[9px] text-gray-500 block mb-1">
+                                  Nom EN
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      if (!contract.name_fr?.trim()) return;
+                                      setIsTranslating(true);
+                                      const t = await autoTranslate(
+                                        contract.name_fr,
+                                        "fr"
+                                      );
+                                      const contracts = [...formData.config.contracts];
+                                      contracts[idx].name_en = t;
+                                      setFormData((prev: any) => ({
+                                        ...prev,
+                                        config: { ...prev.config, contracts },
+                                      }));
+                                      setIsTranslating(false);
+                                    }}
+                                    disabled={isTranslating}
+                                    className="ml-1 text-amber-400 hover:text-white disabled:opacity-50"
+                                  >
+                                    {isTranslating ? (
+                                      <Loader2
+                                        size={10}
+                                        className="animate-spin inline"
+                                      />
+                                    ) : (
+                                      <Languages size={10} className="inline" />
+                                    )}
+                                  </button>
+                                </label>
+                                <input
+                                  type="text"
+                                  value={contract.name_en || ""}
+                                  onChange={(e) => {
+                                    const contracts = [...formData.config.contracts];
+                                    contracts[idx].name_en = e.target.value;
+                                    setFormData((prev: any) => ({
+                                      ...prev,
+                                      config: { ...prev.config, contracts },
+                                    }));
+                                  }}
+                                  placeholder="Ex: Kolwezi Mine"
+                                  className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-[9px] text-gray-500 block mb-1">
+                                  Description FR
+                                </label>
+                                <input
+                                  type="text"
+                                  value={contract.description_fr || ""}
+                                  onChange={(e) => {
+                                    const contracts = [...formData.config.contracts];
+                                    contracts[idx].description_fr = e.target.value;
+                                    setFormData((prev: any) => ({
+                                      ...prev,
+                                      config: { ...prev.config, contracts },
+                                    }));
+                                  }}
+                                  placeholder="Ex: Contrat d'exploitation minière"
+                                  className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="text-[9px] text-gray-500 block mb-1">
+                                  Description EN
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      if (!contract.description_fr?.trim()) return;
+                                      setIsTranslating(true);
+                                      const t = await autoTranslate(
+                                        contract.description_fr,
+                                        "fr"
+                                      );
+                                      const contracts = [...formData.config.contracts];
+                                      contracts[idx].description_en = t;
+                                      setFormData((prev: any) => ({
+                                        ...prev,
+                                        config: { ...prev.config, contracts },
+                                      }));
+                                      setIsTranslating(false);
+                                    }}
+                                    disabled={isTranslating}
+                                    className="ml-1 text-amber-400 hover:text-white disabled:opacity-50"
+                                  >
+                                    {isTranslating ? (
+                                      <Loader2
+                                        size={10}
+                                        className="animate-spin inline"
+                                      />
+                                    ) : (
+                                      <Languages size={10} className="inline" />
+                                    )}
+                                  </button>
+                                </label>
+                                <input
+                                  type="text"
+                                  value={contract.description_en || ""}
+                                  onChange={(e) => {
+                                    const contracts = [...formData.config.contracts];
+                                    contracts[idx].description_en = e.target.value;
+                                    setFormData((prev: any) => ({
+                                      ...prev,
+                                      config: { ...prev.config, contracts },
+                                    }));
+                                  }}
+                                  placeholder="Ex: Mining exploitation contract"
+                                  className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                                />
+                              </div>
+                            </div>
+
+                            <MediaUploader
+                              label="Image du contrat (optionnel)"
+                              url={contract.image_url}
+                              onUpload={(url) => {
+                                const contracts = [...formData.config.contracts];
+                                contracts[idx].image_url = url;
+                                setFormData((prev: any) => ({
+                                  ...prev,
+                                  config: { ...prev.config, contracts },
+                                }));
+                              }}
+                              icon={<ImagePlus size={10} />}
+                            />
+
+                            {/* Signature correcte */}
+                            <div>
+                              <label className="text-[9px] text-gray-500 block mb-1">
+                                Signature correcte (celle qui doit être appariée)
+                              </label>
+                              <select
+                                value={contract.correct_signature_id || ""}
+                                onChange={(e) => {
+                                  const contracts = [...formData.config.contracts];
+                                  contracts[idx].correct_signature_id = e.target.value;
+                                  setFormData((prev: any) => ({
+                                    ...prev,
+                                    config: { ...prev.config, contracts },
+                                  }));
+                                }}
+                                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                              >
+                                <option value="">— Sélectionner une signature —</option>
+                                {(formData.config?.signatures || []).map((sig: any) => (
+                                  <option key={sig.id} value={sig.id}>
+                                    {sig.name_fr}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        )
+                      )}
+                    </div>
+
+                    {/* Signatures pour le matching */}
+                    <div className="bg-amber-950/20 p-4 rounded-xl border border-amber-500/30 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] text-amber-400 font-bold uppercase">
+                          🖋️ Signatures disponibles
+                        </label>
+                        <button
+                          onClick={() => {
+                            const sigs = [...(formData.config?.signatures || [])];
+                            sigs.push({
+                              id: `sig_${Date.now()}`,
+                              name_fr: "Nouvelle signature",
+                              name_en: "New signature",
+                              image_url: "",
+                            });
+                            setFormData((prev: any) => ({
+                              ...prev,
+                              config: { ...prev.config, signatures: sigs },
+                            }));
+                          }}
+                          className="text-[10px] text-amber-400 font-bold bg-amber-500/10 px-2 py-1 rounded flex items-center gap-1 hover:bg-amber-500/20"
+                        >
+                          <Plus size={10} /> Ajouter signature
+                        </button>
+                      </div>
+
+                      {(formData.config?.signatures || []).map((sig: any, idx: number) => (
+                        <div
+                          key={sig.id}
+                          className="p-3 rounded-lg border border-amber-500/20 bg-black/20 space-y-3"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold">
+                              Signature {idx + 1}
+                            </span>
+                            <button
+                              onClick={() => {
+                                const sigs = formData.config.signatures.filter(
+                                  (s: any) => s.id !== sig.id
+                                );
+                                setFormData((prev: any) => ({
+                                  ...prev,
+                                  config: { ...prev.config, signatures: sigs },
+                                }));
+                              }}
+                              className="p-1 text-red-500 hover:bg-red-500/10 rounded"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[9px] text-gray-500 block mb-1">
+                                Nom FR
+                              </label>
+                              <input
+                                type="text"
+                                value={sig.name_fr || ""}
+                                onChange={(e) => {
+                                  const sigs = [...formData.config.signatures];
+                                  sigs[idx].name_fr = e.target.value;
+                                  setFormData((prev: any) => ({
+                                    ...prev,
+                                    config: { ...prev.config, signatures: sigs },
+                                  }));
+                                }}
+                                placeholder="Ex: M. Kabila"
+                                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[9px] text-gray-500 block mb-1">
+                                Nom EN
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (!sig.name_fr?.trim()) return;
+                                    setIsTranslating(true);
+                                    const t = await autoTranslate(sig.name_fr, "fr");
+                                    const sigs = [...formData.config.signatures];
+                                    sigs[idx].name_en = t;
+                                    setFormData((prev: any) => ({
+                                      ...prev,
+                                      config: { ...prev.config, signatures: sigs },
+                                    }));
+                                    setIsTranslating(false);
+                                  }}
+                                  disabled={isTranslating}
+                                  className="ml-1 text-amber-400 hover:text-white disabled:opacity-50"
+                                >
+                                  {isTranslating ? (
+                                    <Loader2 size={10} className="animate-spin inline" />
+                                  ) : (
+                                    <Languages size={10} className="inline" />
+                                  )}
+                                </button>
+                              </label>
+                              <input
+                                type="text"
+                                value={sig.name_en || ""}
+                                onChange={(e) => {
+                                  const sigs = [...formData.config.signatures];
+                                  sigs[idx].name_en = e.target.value;
+                                  setFormData((prev: any) => ({
+                                    ...prev,
+                                    config: { ...prev.config, signatures: sigs },
+                                  }));
+                                }}
+                                placeholder="Ex: Mr. Kabila"
+                                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          <MediaUploader
+                            label="Image de la signature"
+                            url={sig.image_url}
+                            onUpload={(url) => {
+                              const sigs = [...formData.config.signatures];
+                              sigs[idx].image_url = url;
+                              setFormData((prev: any) => ({
+                                ...prev,
+                                config: { ...prev.config, signatures: sigs },
+                              }));
+                            }}
+                            icon={<ImagePlus size={10} />}
+                          />
+
+                          {/* Aperçu */}
+                          {sig.image_url && (
+                            <div className="bg-gray-900 rounded p-2 h-20 flex items-center justify-center">
+                              <img
+                                src={sig.image_url}
+                                alt="Signature"
+                                className="h-full object-contain"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
+
+
+
+            {/* CONTRACT_CLAUSES (Analyse de Contrat) */}
+{formData.type === "contract_clauses" && (
+  <div className="space-y-4">
+    {/* Informations du contrat */}
+    <div className="bg-amber-950/20 p-4 rounded-xl border border-amber-500/30 space-y-3">
+      <label className="text-[10px] text-amber-400 font-bold uppercase block">
+        📋 Informations du contrat
+      </label>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label className="text-[9px] text-gray-500 block mb-1">Titre FR</label>
+          <input
+            type="text"
+            value={formData.config?.title_fr || ""}
+            onChange={(e) =>
+              setFormData((prev: any) => ({
+                ...prev,
+                config: { ...prev.config, title_fr: e.target.value },
+              }))
+            }
+            placeholder="Ex: Contrat minier de Kolwezi"
+            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+          />
+        </div>
+
+        <div>
+          <label className="text-[9px] text-gray-500 block mb-1">
+            Titre EN
+            <button
+              type="button"
+              onClick={async () => {
+                if (!formData.config?.title_fr?.trim()) return;
+                setIsTranslating(true);
+                const t = await autoTranslate(formData.config.title_fr, "fr");
+                setFormData((prev: any) => ({
+                  ...prev,
+                  config: { ...prev.config, title_en: t },
+                }));
+                setIsTranslating(false);
+              }}
+              disabled={isTranslating}
+              className="ml-1 text-amber-400 hover:text-white disabled:opacity-50"
+            >
+              {isTranslating ? (
+                <Loader2 size={10} className="animate-spin inline" />
+              ) : (
+                <Languages size={10} className="inline" />
+              )}
+            </button>
+          </label>
+          <input
+            type="text"
+            value={formData.config?.title_en || ""}
+            onChange={(e) =>
+              setFormData((prev: any) => ({
+                ...prev,
+                config: { ...prev.config, title_en: e.target.value },
+              }))
+            }
+            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label className="text-[9px] text-gray-500 block mb-1">Nom de l'État (FR)</label>
+          <input
+            type="text"
+            value={formData.config?.state_name_fr || ""}
+            onChange={(e) =>
+              setFormData((prev: any) => ({
+                ...prev,
+                config: { ...prev.config, state_name_fr: e.target.value },
+              }))
+            }
+            placeholder="Ex: République du Congo"
+            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+          />
+        </div>
+
+        <div>
+          <label className="text-[9px] text-gray-500 block mb-1">
+            Nom de l'État (EN)
+            <button
+              type="button"
+              onClick={async () => {
+                if (!formData.config?.state_name_fr?.trim()) return;
+                setIsTranslating(true);
+                const t = await autoTranslate(formData.config.state_name_fr, "fr");
+                setFormData((prev: any) => ({
+                  ...prev,
+                  config: { ...prev.config, state_name_en: t },
+                }));
+                setIsTranslating(false);
+              }}
+              disabled={isTranslating}
+              className="ml-1 text-amber-400 hover:text-white disabled:opacity-50"
+            >
+              {isTranslating ? (
+                <Loader2 size={10} className="animate-spin inline" />
+              ) : (
+                <Languages size={10} className="inline" />
+              )}
+            </button>
+          </label>
+          <input
+            type="text"
+            value={formData.config?.state_name_en || ""}
+            onChange={(e) =>
+              setFormData((prev: any) => ({
+                ...prev,
+                config: { ...prev.config, state_name_en: e.target.value },
+              }))
+            }
+            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label className="text-[9px] text-gray-500 block mb-1">Nom de l'Entreprise (FR)</label>
+          <input
+            type="text"
+            value={formData.config?.company_name_fr || ""}
+            onChange={(e) =>
+              setFormData((prev: any) => ({
+                ...prev,
+                config: { ...prev.config, company_name_fr: e.target.value },
+              }))
+            }
+            placeholder="Ex: MiningCorp International"
+            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+          />
+        </div>
+
+        <div>
+          <label className="text-[9px] text-gray-500 block mb-1">
+            Nom de l'Entreprise (EN)
+            <button
+              type="button"
+              onClick={async () => {
+                if (!formData.config?.company_name_fr?.trim()) return;
+                setIsTranslating(true);
+                const t = await autoTranslate(formData.config.company_name_fr, "fr");
+                setFormData((prev: any) => ({
+                  ...prev,
+                  config: { ...prev.config, company_name_en: t },
+                }));
+                setIsTranslating(false);
+              }}
+              disabled={isTranslating}
+              className="ml-1 text-amber-400 hover:text-white disabled:opacity-50"
+            >
+              {isTranslating ? (
+                <Loader2 size={10} className="animate-spin inline" />
+              ) : (
+                <Languages size={10} className="inline" />
+              )}
+            </button>
+          </label>
+          <input
+            type="text"
+            value={formData.config?.company_name_en || ""}
+            onChange={(e) =>
+              setFormData((prev: any) => ({
+                ...prev,
+                config: { ...prev.config, company_name_en: e.target.value },
+              }))
+            }
+            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div>
+          <label className="text-[9px] text-gray-500 block mb-1">Date</label>
+          <input
+            type="date"
+            value={formData.config?.date || ""}
+            onChange={(e) =>
+              setFormData((prev: any) => ({
+                ...prev,
+                config: { ...prev.config, date: e.target.value },
+              }))
+            }
+            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+          />
+        </div>
+
+        <div>
+          <label className="text-[9px] text-gray-500 block mb-1">Référence</label>
+          <input
+            type="text"
+            value={formData.config?.reference || ""}
+            onChange={(e) =>
+              setFormData((prev: any) => ({
+                ...prev,
+                config: { ...prev.config, reference: e.target.value },
+              }))
+            }
+            placeholder="Ex: MC-2024-COL-001"
+            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+          />
+        </div>
+
+        <div>
+          <label className="text-[9px] text-gray-500 block mb-1">Minimum à trouver</label>
+          <input
+            type="number"
+            min="1"
+            value={formData.config?.minimum_abusive_count || 3}
+            onChange={(e) =>
+              setFormData((prev: any) => ({
+                ...prev,
+                config: { ...prev.config, minimum_abusive_count: Number(e.target.value) },
+              }))
+            }
+            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label className="text-[9px] text-gray-500 block mb-1">Objet FR</label>
+          <input
+            type="text"
+            value={formData.config?.object_fr || ""}
+            onChange={(e) =>
+              setFormData((prev: any) => ({
+                ...prev,
+                config: { ...prev.config, object_fr: e.target.value },
+              }))
+            }
+            placeholder="Ex: Exploitation de la mine de cuivre de Kolwezi"
+            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+          />
+        </div>
+
+        <div>
+          <label className="text-[9px] text-gray-500 block mb-1">
+            Objet EN
+            <button
+              type="button"
+              onClick={async () => {
+                if (!formData.config?.object_fr?.trim()) return;
+                setIsTranslating(true);
+                const t = await autoTranslate(formData.config.object_fr, "fr");
+                setFormData((prev: any) => ({
+                  ...prev,
+                  config: { ...prev.config, object_en: t },
+                }));
+                setIsTranslating(false);
+              }}
+              disabled={isTranslating}
+              className="ml-1 text-amber-400 hover:text-white disabled:opacity-50"
+            >
+              {isTranslating ? (
+                <Loader2 size={10} className="animate-spin inline" />
+              ) : (
+                <Languages size={10} className="inline" />
+              )}
+            </button>
+          </label>
+          <input
+            type="text"
+            value={formData.config?.object_en || ""}
+            onChange={(e) =>
+              setFormData((prev: any) => ({
+                ...prev,
+                config: { ...prev.config, object_en: e.target.value },
+              }))
+            }
+            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+          />
+        </div>
+      </div>
+
+      <MediaUploader
+        label="Image du contrat (optionnel)"
+        url={formData.config?.contract_image_url}
+        onUpload={(url) =>
+          setFormData((prev: any) => ({
+            ...prev,
+            config: { ...prev.config, contract_image_url: url },
+          }))
+        }
+        icon={<ImagePlus size={10} />}
+      />
+    </div>
+
+    {/* Articles du contrat */}
+    <div className="bg-amber-950/20 p-4 rounded-xl border border-amber-500/30 space-y-3">
+      <div className="flex items-center justify-between">
+        <label className="text-[10px] text-amber-400 font-bold uppercase">
+          📄 Articles du contrat
+        </label>
+        <button
+          onClick={() => {
+            const clauses = [...(formData.config?.clauses || [])];
+            clauses.push({
+              id: `clause_${Date.now()}`,
+              article_number: `Article ${clauses.length + 1}`,
+              title_fr: "Nouvel article",
+              title_en: "New article",
+              text_fr: "",
+              text_en: "",
+              is_abusive: false,
+              justifications: [
+                {
+                  id: `just_${Date.now()}_1`,
+                  text_fr: "Justification correcte",
+                  text_en: "Correct justification",
+                  is_correct: true,
+                },
+                {
+                  id: `just_${Date.now()}_2`,
+                  text_fr: "Justification incorrecte 1",
+                  text_en: "Incorrect justification 1",
+                  is_correct: false,
+                },
+                {
+                  id: `just_${Date.now()}_3`,
+                  text_fr: "Justification incorrecte 2",
+                  text_en: "Incorrect justification 2",
+                  is_correct: false,
+                },
+                {
+                  id: `just_${Date.now()}_4`,
+                  text_fr: "Justification incorrecte 3",
+                  text_en: "Incorrect justification 3",
+                  is_correct: false,
+                },
+              ],
+              explanation_fr: "",
+              explanation_en: "",
+            });
+            setFormData((prev: any) => ({
+              ...prev,
+              config: { ...prev.config, clauses },
+            }));
+          }}
+          className="text-[10px] text-amber-400 font-bold bg-amber-500/10 px-2 py-1 rounded flex items-center gap-1 hover:bg-amber-500/20"
+        >
+          <Plus size={10} /> Ajouter article
+        </button>
+      </div>
+
+      {(formData.config?.clauses || []).map((clause: any, idx: number) => (
+        <div
+          key={clause.id}
+          className={`p-3 rounded-lg border space-y-3 ${
+            clause.is_abusive
+              ? "bg-red-900/20 border-red-500/30"
+              : "bg-green-900/20 border-green-500/30"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold">
+              Article {idx + 1}
+            </span>
+            <button
+              onClick={() => {
+                const clauses = formData.config.clauses.filter(
+                  (c: any) => c.id !== clause.id
+                );
+                setFormData((prev: any) => ({
+                  ...prev,
+                  config: { ...prev.config, clauses },
+                }));
+              }}
+              className="p-1 text-red-500 hover:bg-red-500/10 rounded"
+            >
+              <Trash2 size={12} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div>
+              <label className="text-[9px] text-gray-500 block mb-1">Numéro</label>
+              <input
+                type="text"
+                value={clause.article_number || ""}
+                onChange={(e) => {
+                  const clauses = [...formData.config.clauses];
+                  clauses[idx].article_number = e.target.value;
+                  setFormData((prev: any) => ({
+                    ...prev,
+                    config: { ...prev.config, clauses },
+                  }));
+                }}
+                placeholder="Ex: Article 5"
+                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-[9px] text-gray-500 block mb-1">Titre FR</label>
+              <input
+                type="text"
+                value={clause.title_fr || ""}
+                onChange={(e) => {
+                  const clauses = [...formData.config.clauses];
+                  clauses[idx].title_fr = e.target.value;
+                  setFormData((prev: any) => ({
+                    ...prev,
+                    config: { ...prev.config, clauses },
+                  }));
+                }}
+                placeholder="Ex: Fiscalité"
+                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div>
+              <label className="text-[9px] text-gray-500 block mb-1">
+                Titre EN
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!clause.title_fr?.trim()) return;
+                    setIsTranslating(true);
+                    const t = await autoTranslate(clause.title_fr, "fr");
+                    const clauses = [...formData.config.clauses];
+                    clauses[idx].title_en = t;
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      config: { ...prev.config, clauses },
+                    }));
+                    setIsTranslating(false);
+                  }}
+                  disabled={isTranslating}
+                  className="ml-1 text-amber-400 hover:text-white disabled:opacity-50"
+                >
+                  {isTranslating ? (
+                    <Loader2 size={10} className="animate-spin inline" />
+                  ) : (
+                    <Languages size={10} className="inline" />
+                  )}
+                </button>
+              </label>
+              <input
+                type="text"
+                value={clause.title_en || ""}
+                onChange={(e) => {
+                  const clauses = [...formData.config.clauses];
+                  clauses[idx].title_en = e.target.value;
+                  setFormData((prev: any) => ({
+                    ...prev,
+                    config: { ...prev.config, clauses },
+                  }));
+                }}
+                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div>
+              <label className="text-[9px] text-gray-500 block mb-1">Texte FR (court et impactant)</label>
+              <textarea
+                value={clause.text_fr || ""}
+                onChange={(e) => {
+                  const clauses = [...formData.config.clauses];
+                  clauses[idx].text_fr = e.target.value;
+                  setFormData((prev: any) => ({
+                    ...prev,
+                    config: { ...prev.config, clauses },
+                  }));
+                }}
+                placeholder="Ex: L'Entreprise bénéficie d'une exonération fiscale totale pendant vingt-cinq ans."
+                rows={3}
+                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none resize-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-[9px] text-gray-500 block mb-1">
+                Texte EN
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!clause.text_fr?.trim()) return;
+                    setIsTranslating(true);
+                    const t = await autoTranslate(clause.text_fr, "fr");
+                    const clauses = [...formData.config.clauses];
+                    clauses[idx].text_en = t;
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      config: { ...prev.config, clauses },
+                    }));
+                    setIsTranslating(false);
+                  }}
+                  disabled={isTranslating}
+                  className="ml-1 text-amber-400 hover:text-white disabled:opacity-50"
+                >
+                  {isTranslating ? (
+                    <Loader2 size={10} className="animate-spin inline" />
+                  ) : (
+                    <Languages size={10} className="inline" />
+                  )}
+                </button>
+              </label>
+              <textarea
+                value={clause.text_en || ""}
+                onChange={(e) => {
+                  const clauses = [...formData.config.clauses];
+                  clauses[idx].text_en = e.target.value;
+                  setFormData((prev: any) => ({
+                    ...prev,
+                    config: { ...prev.config, clauses },
+                  }));
+                }}
+                rows={3}
+                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none resize-none"
+              />
+            </div>
+          </div>
+
+          {/* Marquage abusif/acceptable */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => {
+                const clauses = [...formData.config.clauses];
+                clauses[idx].is_abusive = true;
+                setFormData((prev: any) => ({
+                  ...prev,
+                  config: { ...prev.config, clauses },
+                }));
+              }}
+              className={`py-2 rounded text-xs font-bold transition-all ${
+                clause.is_abusive
+                  ? "bg-red-600 text-white"
+                  : "bg-white/5 text-gray-400 hover:bg-white/10"
+              }`}
+            >
+              ❌ Clause ABUSIVE
+            </button>
+            <button
+              onClick={() => {
+                const clauses = [...formData.config.clauses];
+                clauses[idx].is_abusive = false;
+                setFormData((prev: any) => ({
+                  ...prev,
+                  config: { ...prev.config, clauses },
+                }));
+              }}
+              className={`py-2 rounded text-xs font-bold transition-all ${
+                !clause.is_abusive
+                  ? "bg-green-600 text-white"
+                  : "bg-white/5 text-gray-400 hover:bg-white/10"
+              }`}
+            >
+              ✅ Clause acceptable
+            </button>
+          </div>
+
+          {/* Justifications */}
+          <div className="space-y-2 pt-2 border-t border-white/10">
+            <label className="text-[9px] text-gray-500 block font-bold">
+              Justifications possibles (4 choix, 1 correct)
+            </label>
+
+            {(clause.justifications || []).map((just: any, jIdx: number) => (
+              <div key={just.id} className="flex gap-2 items-center">
+                <input
+                  type="radio"
+                  name={`correct_just_${clause.id}`}
+                  checked={just.is_correct}
+                  onChange={() => {
+                    const clauses = [...formData.config.clauses];
+                    clauses[idx].justifications = clauses[idx].justifications.map(
+                      (j: any, i: number) => ({
+                        ...j,
+                        is_correct: i === jIdx,
+                      })
+                    );
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      config: { ...prev.config, clauses },
+                    }));
+                  }}
+                  className="accent-green-500"
+                />
+                <input
+                  type="text"
+                  value={just.text_fr || ""}
+                  onChange={(e) => {
+                    const clauses = [...formData.config.clauses];
+                    clauses[idx].justifications[jIdx].text_fr = e.target.value;
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      config: { ...prev.config, clauses },
+                    }));
+                  }}
+                  placeholder="Justification FR"
+                  className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-2 py-1 text-xs text-white outline-none"
+                />
+                <input
+                  type="text"
+                  value={just.text_en || ""}
+                  onChange={(e) => {
+                    const clauses = [...formData.config.clauses];
+                    clauses[idx].justifications[jIdx].text_en = e.target.value;
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      config: { ...prev.config, clauses },
+                    }));
+                  }}
+                  placeholder="Justification EN"
+                  className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-2 py-1 text-xs text-white outline-none"
+                />
+                <button
+                  onClick={() => {
+                    const clauses = [...formData.config.clauses];
+                    clauses[idx].justifications = clauses[idx].justifications.filter(
+                      (j: any) => j.id !== just.id
+                    );
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      config: { ...prev.config, clauses },
+                    }));
+                  }}
+                  className="p-1 text-red-500 hover:bg-red-500/10 rounded"
+                >
+                  <Trash2 size={10} />
+                </button>
+              </div>
+            ))}
+
+            <button
+              onClick={() => {
+                const clauses = [...formData.config.clauses];
+                clauses[idx].justifications.push({
+                  id: `just_${Date.now()}`,
+                  text_fr: "",
+                  text_en: "",
+                  is_correct: false,
+                });
+                setFormData((prev: any) => ({
+                  ...prev,
+                  config: { ...prev.config, clauses },
+                }));
+              }}
+              className="text-[9px] text-amber-400 font-bold hover:text-amber-300 flex items-center gap-1"
+            >
+              <Plus size={8} /> Ajouter une justification
+            </button>
+          </div>
+
+          {/* Explication pédagogique */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-2 border-t border-white/10">
+            <div>
+              <label className="text-[9px] text-gray-500 block mb-1">Explication pédagogique FR</label>
+              <textarea
+                value={clause.explanation_fr || ""}
+                onChange={(e) => {
+                  const clauses = [...formData.config.clauses];
+                  clauses[idx].explanation_fr = e.target.value;
+                  setFormData((prev: any) => ({
+                    ...prev,
+                    config: { ...prev.config, clauses },
+                  }));
+                }}
+                placeholder="Ex: Une exonération totale de 25 ans prive l'État de milliards..."
+                rows={3}
+                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none resize-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-[9px] text-gray-500 block mb-1">
+                Explication pédagogique EN
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!clause.explanation_fr?.trim()) return;
+                    setIsTranslating(true);
+                    const t = await autoTranslate(clause.explanation_fr, "fr");
+                    const clauses = [...formData.config.clauses];
+                    clauses[idx].explanation_en = t;
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      config: { ...prev.config, clauses },
+                    }));
+                    setIsTranslating(false);
+                  }}
+                  disabled={isTranslating}
+                  className="ml-1 text-amber-400 hover:text-white disabled:opacity-50"
+                >
+                  {isTranslating ? (
+                    <Loader2 size={10} className="animate-spin inline" />
+                  ) : (
+                    <Languages size={10} className="inline" />
+                  )}
+                </button>
+              </label>
+              <textarea
+                value={clause.explanation_en || ""}
+                onChange={(e) => {
+                  const clauses = [...formData.config.clauses];
+                  clauses[idx].explanation_en = e.target.value;
+                  setFormData((prev: any) => ({
+                    ...prev,
+                    config: { ...prev.config, clauses },
+                  }));
+                }}
+                rows={3}
+                className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none resize-none"
+              />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
 
             {/* MAP (Cartographie) */}
             {formData.type === "map" && (

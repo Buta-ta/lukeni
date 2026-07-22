@@ -14,8 +14,8 @@ import { ChartCard } from '@/components/public/ChartCard';
 import { CompareTray } from '@/components/public/CompareTray';
 import { CompareModal } from '@/components/public/CompareModal';
 import { MacroChart, MacroSeries, MacroAnnotation } from '@/components/admin/macro/types';
-import { useStoredState } from '@/lib/hooks/useStoredState';
 
+import { useLanguage } from '@/lib/contexts/LanguageContext';
 interface Category {
   id: string;
   name_fr: string;
@@ -56,7 +56,7 @@ function AnimatedPlaceholder({ lang }: { lang: 'fr' | 'en' }) {
 }
 
 export default function MacroLibraryPage() {
-  const [lang] = useStoredState<'fr' | 'en'>('lukeni_lang', 'fr');
+ const { lang } = useLanguage();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
 

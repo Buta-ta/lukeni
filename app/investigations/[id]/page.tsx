@@ -483,6 +483,7 @@ export default function InvestigationGame(props: {
     resetSession,
     saveWordSearchProgress,
     forceRefreshSession,
+    completeMiniGameInSession,
   } = useInvestigationSession(invId, user);
 
   // ✅ Wrapper pour collectEvidence avec gestion du badge "NOUVEAU"
@@ -713,105 +714,82 @@ export default function InvestigationGame(props: {
     setMiniGameStateDebounceTimer(timer);
   };
 
-  // ✅ HANDLER : Compléter un mini-jeu (succès)
-const handleMiniGameComplete = async (score: number, caurisEarned: number) => {
-  if (!miniGameSessionActive || !activeMiniGame) return;
+  const handleMiniGameComplete = async (score: number, caurisEarned: number) => {
+    console.log("🎮 [1] handleMiniGameComplete APPELÉ", {
+      miniGameSessionActive: miniGameSessionActive?.id,
+      activeMiniGame: activeMiniGame?.id,
+      score,
+      caurisEarned,
+    });
 
-  console.log("🎮 [COMPLETE] Début - miniGameId:", activeMiniGame.id);
-
-  // 1. Ajouter les cauris gagnés au budget
-  const newBudget = budgetCauris + caurisEarned;
-  setBudgetCauris(newBudget);
-  setCaurisDelta(`+${caurisEarned}`);
-  setTimeout(() => setCaurisDelta(null), 1200);
-
-  // 2. Sauvegarder le budget en BDD
-  await supabase
-    .from("investigation_sessions")
-    .update({ current_cauris: newBudget })
-    .eq("id", session?.id);
-
-  // 3. Marquer le mini-jeu comme complété dans le hook
-  await completeMiniGame(miniGameSessionActive.id, score, caurisEarned, 0);
-
-  // 4. ✅ METTRE À JOUR DIRECTEMENT SUPABASE (au cas où completeMiniGame a échoué)
-  if (session && activeMiniGame.id) {
-    const currentCompleted = session.completed_mini_games || [];
-    
-    if (!currentCompleted.includes(activeMiniGame.id)) {
-      const newCompleted = [...currentCompleted, activeMiniGame.id];
-      
-      console.log("🎮 [COMPLETE] Mise à jour completed_mini_games:", {
-        avant: currentCompleted,
-        apres: newCompleted,
-      });
-
-      // Mettre à jour Supabase directement
-      await supabase
-        .from("investigation_sessions")
-        .update({ 
-          completed_mini_games: newCompleted,
-          current_mini_game_id: null 
-        })
-        .eq("id", session.id);
+    if (!miniGameSessionActive || !activeMiniGame) {
+      console.log("⚠️ [2] Sortie précoce - données manquantes");
+      return;
     }
-  }
 
-  // 5. ✅ FORCER LE REFRESH DE LA SESSION (pour synchroniser le state React)
-  if (forceRefreshSession) {
-    console.log("🎮 [COMPLETE] Appel forceRefreshSession");
-    await forceRefreshSession();
-  }
+    console.log("🎮 [3] Début traitement - miniGameId:", activeMiniGame.id);
 
-  // 6. Fermer le mini-jeu
-  setActiveMiniGame(null);
-  setMiniGameSessionActive(null);
+    // 1. Ajouter les cauris gagnés au budget
+    const newBudget = budgetCauris + caurisEarned;
+    setBudgetCauris(newBudget);
+    setCaurisDelta(`+${caurisEarned}`);
+    setTimeout(() => setCaurisDelta(null), 1200);
 
-  // 7. Toast de succès
-  setActiveMilestone({
-    fr: `🎉 Mini-jeu réussi ! +${caurisEarned} Cauris`,
-    en: `🎉 Mini-game completed! +${caurisEarned} Cauris`,
-  });
-  setTimeout(() => setActiveMilestone(null), 4000);
-};
+    console.log("🎮 [4] Budget mis à jour:", newBudget);
+
+    // 2. Marquer le mini-jeu comme complété dans la session mini-jeu
+    console.log("🎮 [5] Appel completeMiniGame...");
+    const result = await completeMiniGame(miniGameSessionActive.id, score, caurisEarned, 0);
+    console.log("🎮 [6] completeMiniGame résultat:", result);
+
+    // 3. Mettre à jour la session d'investigation
+    console.log("🎮 [7] Appel completeMiniGameInSession...");
+    await completeMiniGameInSession(activeMiniGame.id, newBudget);
+    console.log("🎮 [8] completeMiniGameInSession terminé");
+
+    // 4. Fermer le mini-jeu
+    setActiveMiniGame(null);
+    setMiniGameSessionActive(null);
+    console.log("🎮 [9] Mini-jeu fermé");
+
+    // 5. Toast de succès
+    setActiveMilestone({
+      fr: `🎉 Mini-jeu réussi ! +${caurisEarned} Cauris`,
+      en: `🎉 Mini-game completed! +${caurisEarned} Cauris`,
+    });
+    setTimeout(() => setActiveMilestone(null), 4000);
+  };
 
   // ✅ HANDLER : Échouer un mini-jeu
-// ✅ HANDLER : Échouer un mini-jeu
-const handleMiniGameFail = async (caurisLost: number) => {
-  if (!miniGameSessionActive || caurisLost === 0) return;
+  // ✅ HANDLER : Échouer un mini-jeu
+  const handleMiniGameFail = async (caurisLost: number) => {
+    if (!miniGameSessionActive || caurisLost === 0) return;
 
-  // Retirer les cauris du budget
-  const newBudget = Math.max(0, budgetCauris - caurisLost);
-  setBudgetCauris(newBudget);
-  setCaurisDelta(`-${caurisLost}`);
-  setTimeout(() => setCaurisDelta(null), 1200);
+    // Retirer les cauris du budget
+    const newBudget = Math.max(0, budgetCauris - caurisLost);
+    setBudgetCauris(newBudget);
+    setCaurisDelta(`-${caurisLost}`);
+    setTimeout(() => setCaurisDelta(null), 1200);
 
-  // Sauvegarder en session
-  await supabase
-    .from("investigation_sessions")
-    .update({ current_cauris: newBudget })
-    .eq("id", session?.id);
+    // Sauvegarder en session
+    await supabase
+      .from("investigation_sessions")
+      .update({ current_cauris: newBudget })
+      .eq("id", session?.id);
 
-  // Mettre à jour les stats du mini-jeu
-  await failMiniGame(miniGameSessionActive.id, caurisLost);
+    // Mettre à jour les stats du mini-jeu
+    await failMiniGame(miniGameSessionActive.id, caurisLost);
 
-  // ✅ FORCER LE REFRESH ICI AUSSI
-  if (forceRefreshSession) {
-    await forceRefreshSession();
-  }
+    // ✅ FORCER LE REFRESH ICI AUSSI
+    if (forceRefreshSession) {
+      await forceRefreshSession();
+    }
 
-  // Si budget à zéro = faillite
-  if (newBudget <= 0) {
-    setShowContextualEnding({
-      title: lang === "fr" ? "FAILLITE" : "BANKRUPTCY",
-      message:
-        lang === "fr"
-          ? "Vos réserves de Cauris sont à zéro. L'enquête s'arrête ici."
-          : "Your Cauris reserves are empty. The investigation ends here.",
-      type: "abandon",
-    });
-  }
-};
+    // Si budget à zéro = faillite
+    if (newBudget <= 0) {
+      handleBankruptcy();
+    }
+  };
 
   // ✅ HANDLER : Fermer le mini-jeu (sans succès)
   const handleMiniGameClose = async () => {
@@ -2340,14 +2318,7 @@ const handleMiniGameFail = async (caurisLost: number) => {
           triggerNarrativeEvent(enigma.trigger_event_on_failure_id);
         }
 
-        setShowContextualEnding({
-          title: lang === "fr" ? "FAILLITE" : "BANKRUPTCY",
-          message:
-            lang === "fr"
-              ? "Vos réserves de Cauris sont à zéro. L'enquête s'arrête ici."
-              : "Your Cauris reserves are empty. The investigation ends here.",
-          type: "abandon",
-        });
+        handleBankruptcy();
       } else {
       }
     }
@@ -2599,6 +2570,118 @@ const handleMiniGameFail = async (caurisLost: number) => {
   const sceneProgressPercent = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 100;
   const remainingTasksCount = totalTasksCount - completedTasksCount;
 
+
+
+    // ── MOTEUR D'ÉVÉNEMENTS NARRATIFS ──
+  // ── MOTEUR D'ÉVÉNEMENTS NARRATIFS ──
+  const triggerNarrativeEvent = (eventId: string) => {
+    if (!outroConfig?.narrative_events) return;
+    const event = outroConfig.narrative_events.find(
+      (e: any) => e.id === eventId,
+    );
+    if (!event || !event.source_type) return;
+
+    // On attend 1.5 seconde pour éviter la collision avec les modals classiques
+    setTimeout(() => {
+      if (event.source_type === "milestone") {
+        // 💭 TYPE TOAST
+        const milestone = outroConfig.milestones?.find(
+          (m: any) => m.id === event.source_id,
+        );
+        if (milestone) {
+          setActiveMilestone({ fr: milestone.fr, en: milestone.en });
+          setTimeout(() => setActiveMilestone(null), 4000);
+        }
+      } else if (event.source_type === "game_over") {
+        // 💀 TYPE GAME OVER
+        const go = outroConfig.game_overs?.find(
+          (g: any) => g.id === event.source_id,
+        );
+        if (go) {
+          setShowContextualEnding({
+            title: lang === "fr" ? "FIN TRAGIQUE" : "TRAGIC END",
+            message: lang === "fr" ? go.text_fr : go.text_en,
+            type: "alternate",
+          });
+        }
+      } else if (event.source_type === "abandon") {
+        // 🚪 TYPE ABANDON
+        const ab = outroConfig.abandons?.find(
+          (a: any) => a.id === event.source_id,
+        );
+        if (ab) {
+          setShowContextualEnding({
+            title: lang === "fr" ? "SUSPENSION" : "SUSPENSION",
+            message: lang === "fr" ? ab.text_fr : ab.text_en,
+            type: "abandon",
+          });
+        }
+      } else if (event.source_type === "rank") {
+        // 🏆 TYPE VICTOIRE/RANG
+        const rank = outroConfig.ranks?.find(
+          (r: any) => r.id === event.source_id,
+        );
+        if (rank) {
+          const randomMsg =
+            rank.messages?.length > 0
+              ? rank.messages[Math.floor(Math.random() * rank.messages.length)]
+              : null;
+          setShowContextualEnding({
+            title:
+              lang === "fr"
+                ? rank.main_title_fr || "ENQUÊTE TERMINÉE"
+                : rank.main_title_en || "INVESTIGATION COMPLETE",
+            message:
+              lang === "fr"
+                ? randomMsg?.text_fr || rank.title_fr
+                : randomMsg?.text_en || rank.title_en,
+            type: "victory",
+          });
+        }
+      }
+    }, 1500);
+  };
+
+
+  // ✅ NOUVEAU : FONCTION HELPER POUR LA BANQUEROUTE
+  const handleBankruptcy = useCallback(() => {
+    console.log("💀 [BANQUEROUTE] Budget à zéro !");
+
+    if (outroConfig?.bankruptcy_event_id) {
+      console.log("🎯 Déclenchement de l'événement:", outroConfig.bankruptcy_event_id);
+      triggerNarrativeEvent(outroConfig.bankruptcy_event_id);
+    } else {
+      console.log("ℹ️ Aucun événement configuré, message par défaut");
+      setShowContextualEnding({
+        title: lang === "fr" ? "FAILLITE" : "BANKRUPTCY",
+        message:
+          lang === "fr"
+            ? "Vos réserves de Cauris sont à zéro. L'enquête s'arrête ici."
+            : "Your Cauris reserves are empty. The investigation ends here.",
+        type: "abandon",
+      });
+    }
+  }, [outroConfig, lang]);
+
+
+  const reloadDeductionConfig = async () => {
+    if (!currentChapter?.id) return;
+
+    const { data: tlData } = await supabase
+      .from("investigation_timelines")
+      .select("*")
+      .eq("chapter_id", currentChapter.id)
+      .maybeSingle();
+    setChapterTimeline(tlData);
+
+    const { data: bdData } = await supabase
+      .from("investigation_deduction_boards")
+      .select("*")
+      .eq("chapter_id", currentChapter.id)
+      .maybeSingle();
+    setChapterBoard(bdData);
+  };
+
   if (!isMounted) return null;
   if (!invId)
     return (
@@ -2807,94 +2890,7 @@ const handleMiniGameFail = async (caurisLost: number) => {
     hasMiniGameNotif ||
     unreadChatCount > 0;
 
-  // ── MOTEUR D'ÉVÉNEMENTS NARRATIFS ──
-  // ── MOTEUR D'ÉVÉNEMENTS NARRATIFS ──
-  const triggerNarrativeEvent = (eventId: string) => {
-    if (!outroConfig?.narrative_events) return;
-    const event = outroConfig.narrative_events.find(
-      (e: any) => e.id === eventId,
-    );
-    if (!event || !event.source_type) return;
 
-    // On attend 1.5 seconde pour éviter la collision avec les modals classiques
-    setTimeout(() => {
-      if (event.source_type === "milestone") {
-        // 💭 TYPE TOAST
-        const milestone = outroConfig.milestones?.find(
-          (m: any) => m.id === event.source_id,
-        );
-        if (milestone) {
-          setActiveMilestone({ fr: milestone.fr, en: milestone.en });
-          setTimeout(() => setActiveMilestone(null), 4000);
-        }
-      } else if (event.source_type === "game_over") {
-        // 💀 TYPE GAME OVER
-        const go = outroConfig.game_overs?.find(
-          (g: any) => g.id === event.source_id,
-        );
-        if (go) {
-          setShowContextualEnding({
-            title: lang === "fr" ? "FIN TRAGIQUE" : "TRAGIC END",
-            message: lang === "fr" ? go.text_fr : go.text_en,
-            type: "alternate",
-          });
-        }
-      } else if (event.source_type === "abandon") {
-        // 🚪 TYPE ABANDON
-        const ab = outroConfig.abandons?.find(
-          (a: any) => a.id === event.source_id,
-        );
-        if (ab) {
-          setShowContextualEnding({
-            title: lang === "fr" ? "SUSPENSION" : "SUSPENSION",
-            message: lang === "fr" ? ab.text_fr : ab.text_en,
-            type: "abandon",
-          });
-        }
-      } else if (event.source_type === "rank") {
-        // 🏆 TYPE VICTOIRE/RANG
-        const rank = outroConfig.ranks?.find(
-          (r: any) => r.id === event.source_id,
-        );
-        if (rank) {
-          const randomMsg =
-            rank.messages?.length > 0
-              ? rank.messages[Math.floor(Math.random() * rank.messages.length)]
-              : null;
-          setShowContextualEnding({
-            title:
-              lang === "fr"
-                ? rank.main_title_fr || "ENQUÊTE TERMINÉE"
-                : rank.main_title_en || "INVESTIGATION COMPLETE",
-            message:
-              lang === "fr"
-                ? randomMsg?.text_fr || rank.title_fr
-                : randomMsg?.text_en || rank.title_en,
-            type: "victory",
-          });
-        }
-      }
-    }, 1500);
-  };
-
-
-  const reloadDeductionConfig = async () => {
-    if (!currentChapter?.id) return;
-
-    const { data: tlData } = await supabase
-      .from("investigation_timelines")
-      .select("*")
-      .eq("chapter_id", currentChapter.id)
-      .maybeSingle();
-    setChapterTimeline(tlData);
-
-    const { data: bdData } = await supabase
-      .from("investigation_deduction_boards")
-      .select("*")
-      .eq("chapter_id", currentChapter.id)
-      .maybeSingle();
-    setChapterBoard(bdData);
-  };
 
 
 
@@ -3304,17 +3300,25 @@ const handleMiniGameFail = async (caurisLost: number) => {
 
               {/* Mini-Jeux disponibles (Filtrage Contextuel) */}
               {(() => {
-                // ✅ FILTRAGE DIÉGÉTIQUE : Ne garder que les jeux de la scène actuelle
+
+                console.log("🔍 [DROPDOWN] Filtrage mini-jeux...");
+                console.log("🔍 [DROPDOWN] availableMiniGames:", availableMiniGames.length);
+                console.log("🔍 [DROPDOWN] session?.completed_mini_games:", session?.completed_mini_games);
+                // ✅ FILTRAGE : Exclure les mini-jeux déjà complétés
                 const sceneMiniGames = availableMiniGames.filter((mg) => {
+                  // ❌ Cacher les mini-jeux déjà complétés
+                  if (session?.completed_mini_games?.includes(mg.id)) return false;
+
+                  // ✅ Garder uniquement ceux de la scène actuelle
                   if (mg.scene_id) return mg.scene_id === currentScene?.id;
-                  // Si aucun scene_id défini, on peut décider de l'afficher dans tout le chapitre
                   return mg.chapter_id === currentChapter?.id;
                 });
 
-                if (sceneMiniGames.length === 0) return null; // Le bouton disparaît s'il n'y a pas de jeu ici
+                if (sceneMiniGames.length === 0) return null; // Le bouton disparaît
 
                 const completed = session?.completed_mini_games || [];
-                const remaining = sceneMiniGames.filter(mg => !completed.includes(mg.id)).length;
+
+
 
                 return (
                   <>
@@ -3323,8 +3327,8 @@ const handleMiniGameFail = async (caurisLost: number) => {
                       <button
                         onClick={() => setShowMiniGamesDropdown(!showMiniGamesDropdown)}
                         className={`flex items-center gap-2 px-3 py-2 rounded-full transition-colors relative ${activeMiniGame
-                          ? "bg-purple-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.5)]"
-                          : "hover:bg-white/10 text-gray-300"
+                            ? "bg-purple-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.5)]"
+                            : "hover:bg-white/10 text-gray-300"
                           }`}
                       >
                         <span className="text-base">📻</span>
@@ -3332,13 +3336,13 @@ const handleMiniGameFail = async (caurisLost: number) => {
                           {lang === "fr" ? "OUTILS" : "TOOLS"}
                         </span>
                         {/* Badge : nombre de mini-jeux non complétés dans CETTE scène */}
-                        {remaining > 0 && (
+                        {sceneMiniGames.length > 0 && (
                           <motion.span
                             initial={{ scale: 0 }}
                             animate={{ scale: 1 }}
                             className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-purple-500 rounded-full flex items-center justify-center text-[9px] font-bold text-white animate-pulse"
                           >
-                            {remaining}
+                            {sceneMiniGames.length}
                           </motion.span>
                         )}
                       </button>
@@ -3347,7 +3351,6 @@ const handleMiniGameFail = async (caurisLost: number) => {
                       <AnimatePresence>
                         {showMiniGamesDropdown && (
                           <>
-                            {/* Overlay pour fermer au clic dehors (mobile) */}
                             <div className="fixed inset-0 z-[90]" onClick={() => setShowMiniGamesDropdown(false)} />
 
                             <motion.div
@@ -3357,41 +3360,31 @@ const handleMiniGameFail = async (caurisLost: number) => {
                               transition={{ duration: 0.15 }}
                               className="absolute bottom-full mb-2 left-0 md:right-0 md:left-auto bg-[#111] border border-purple-500/30 rounded-xl shadow-2xl overflow-hidden w-64 max-w-[calc(100vw-2rem)] z-[100]"
                             >
-                              {/* Header compact */}
                               <div className="px-3 py-2 bg-purple-500/10 border-b border-purple-500/20 flex items-center justify-between">
                                 <span className="text-[10px] font-bold text-purple-400 font-mono uppercase">
                                   {lang === "fr" ? "Mini-Jeux" : "Mini-Games"}
                                 </span>
                                 <span className="text-[9px] text-gray-500">
-                                  {completed.length}/{sceneMiniGames.length}
+                                  {sceneMiniGames.length} disponibles
                                 </span>
                               </div>
 
-                              {/* Liste scrollable */}
                               <div className="p-2 space-y-1 max-h-[200px] overflow-y-auto">
-                                {sceneMiniGames.map((mg) => {
-                                  const isCompleted = completed.includes(mg.id);
-                                  return (
-                                    <button
-                                      key={mg.id}
-                                      onClick={async () => {  // ← Ajouter async ici
-                                        if (isCompleted) return;
-                                        await handleStartMiniGame(mg);
-                                        setShowMiniGamesDropdown(false);
-                                      }}
-                                      disabled={isCompleted}
-                                      className={`w-full text-left px-2.5 py-2 rounded-lg text-[10px] font-bold transition-all flex items-center gap-2 ${isCompleted
-                                        ? "bg-green-500/5 border border-green-500/20 text-green-600/70 cursor-default opacity-60" // Visuel désactivé
-                                        : "bg-purple-500/10 border border-purple-500/20 text-purple-300 hover:bg-purple-500/20"
-                                        }`}
-                                    >
-                                      <span className="flex-1 truncate">
-                                        {lang === "fr" ? mg.title_fr : mg.title_en || mg.title_fr}
-                                      </span>
-                                      {isCompleted && <span className="flex-shrink-0 text-[10px]">✅</span>}
-                                    </button>
-                                  );
-                                })}
+                                {sceneMiniGames.map((mg) => (
+                                  <button
+                                    key={mg.id}
+                                    onClick={async () => {
+                                      await handleStartMiniGame(mg);
+                                      setShowMiniGamesDropdown(false);
+                                      setActiveUI(null);
+                                    }}
+                                    className="w-full text-left px-2.5 py-2 rounded-lg text-[10px] font-bold transition-all flex items-center gap-2 bg-purple-500/10 border border-purple-500/20 text-purple-300 hover:bg-purple-500/20"
+                                  >
+                                    <span className="flex-1 truncate">
+                                      {lang === "fr" ? mg.title_fr : mg.title_en || mg.title_fr}
+                                    </span>
+                                  </button>
+                                ))}
                               </div>
                             </motion.div>
                           </>
@@ -5660,215 +5653,7 @@ const handleMiniGameFail = async (caurisLost: number) => {
 
 
 
-      {/* ════════════════════════════════════════════════════
-          MODAL MINI-JEU ACTIF
-      ════════════════════════════════════════════════════ */}
-      {activeMiniGame && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
-        >
-          <motion.div
-            initial={{ scale: 0.9 }}
-            animate={{ scale: 1 }}
-            exit={{ scale: 0.9 }}
-            className="relative w-full max-w-2xl max-h-[90vh] bg-black border border-purple-500/30 rounded-2xl overflow-hidden flex flex-col"
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 bg-purple-500/10 border-b border-purple-500/20">
-              <div>
-                <h2 className="text-lg font-bold text-white uppercase tracking-wider">
-                  {lang === "fr" ? activeMiniGame.title_fr : (activeMiniGame.title_en || activeMiniGame.title_fr)}
-                </h2>
 
-                <p className="text-xs text-gray-400 mt-1">
-                  💰 {activeMiniGame.reward_cauris || 10} Cauris
-                  {activeMiniGame.max_attempts > 0 &&
-                    ` • ${activeMiniGame.max_attempts} ${lang === "fr" ? "tentatives" : "attempts"}`}
-                </p>
-              </div>
-              <button
-                onClick={async () => {
-                  // ✅ SAUVEGARDER AVANT DE FERMER
-                  if (session?.id) {
-                    await supabase
-                      .from("investigation_sessions")
-                      .update({ current_cauris: budgetCauris })
-                      .eq("id", session.id);
-                  }
-                  setActiveMiniGame(null);
-                  setMiniGameSessionActive(null);
-                }}
-                className="p-1 text-gray-400 hover:text-white"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Contenu du mini-jeu */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6">
-              {isMounted && (
-                <MiniGameRenderer
-                  miniGame={activeMiniGame}
-                  onComplete={async (score: number, caurisEarned: number) => {
-
-
-                    // ✅ VICTOIRE
-                    if (miniGameSessionActive) {
-                      await completeMiniGame(
-                        miniGameSessionActive.id,
-                        score,
-                        caurisEarned,
-                        0,
-                      );
-                    }
-
-                    const newBudget = budgetCauris + caurisEarned;
-                    setBudgetCauris(newBudget);
-                    setCaurisDelta(`+${caurisEarned}`);
-                    setTimeout(() => setCaurisDelta(null), 1200);
-
-                    const newCompletedGames = [...(session?.completed_mini_games || [])];
-                    if (!newCompletedGames.includes(activeMiniGame.id)) {
-                      newCompletedGames.push(activeMiniGame.id);
-                    }
-
-                    if (session) {
-                      session.completed_mini_games = newCompletedGames;
-                      session.current_cauris = newBudget;
-                    }
-
-                    // ✅ SAUVEGARDER EN BDD
-                    await supabase
-                      .from("investigation_sessions")
-                      .update({
-                        current_cauris: newBudget,
-                        completed_mini_games: newCompletedGames
-                      })
-                      .eq("id", session?.id);
-
-                    setActiveMilestone({
-                      fr: `✅ Mini-jeu réussi ! +${caurisEarned} Cauris`,
-                      en: `✅ Mini-game completed! +${caurisEarned} Cauris`,
-                    });
-                    setTimeout(() => setActiveMilestone(null), 3000);
-
-                    if (activeMiniGame.trigger_event_on_success_id) {
-                      triggerNarrativeEvent(
-                        activeMiniGame.trigger_event_on_success_id,
-                      );
-                    }
-
-                    if (activeMiniGame.success_target_scene_id) {
-                      const newSceneIdx = currentChapter?.scenes?.findIndex(
-                        (s) => s.id === activeMiniGame.success_target_scene_id,
-                      );
-                      if (newSceneIdx !== undefined && newSceneIdx !== -1) {
-                        setCurrentSceneIndex(newSceneIdx);
-                      }
-                    } else if (activeMiniGame.success_target_chapter_id) {
-                      const newChapIdx = chapters.findIndex(
-                        (c) => c.id === activeMiniGame.success_target_chapter_id,
-                      );
-                      if (newChapIdx !== -1) {
-                        setCurrentChapterIndex(newChapIdx);
-                        setCurrentSceneIndex(0);
-                      }
-                    }
-
-                    setTimeout(() => {
-                      setActiveMiniGame(null);
-                      setMiniGameSessionActive(null);
-                    }, 2000);
-                  }}
-                  onFail={async (caurisLost: number) => {
-                    // ❌ ÉCHEC
-                    const newBudget = Math.max(0, budgetCauris - caurisLost);
-                    setBudgetCauris(newBudget);
-                    setCaurisDelta(`-${caurisLost}`);
-                    setTimeout(() => setCaurisDelta(null), 1200);
-
-                    // ✅ SAUVEGARDER EN BDD
-                    await supabase
-                      .from("investigation_sessions")
-                      .update({ current_cauris: newBudget })
-                      .eq("id", session?.id);
-
-                    if (activeMiniGame.trigger_event_on_failure_id) {
-                      triggerNarrativeEvent(
-                        activeMiniGame.trigger_event_on_failure_id,
-                      );
-                    }
-
-                    if (activeMiniGame.failure_target_scene_id) {
-                      const newSceneIdx = currentChapter?.scenes?.findIndex(
-                        (s) => s.id === activeMiniGame.failure_target_scene_id,
-                      );
-                      if (newSceneIdx !== undefined && newSceneIdx !== -1) {
-                        setCurrentSceneIndex(newSceneIdx);
-                      }
-                    } else if (activeMiniGame.failure_target_chapter_id) {
-                      const newChapIdx = chapters.findIndex(
-                        (c) => c.id === activeMiniGame.failure_target_chapter_id,
-                      );
-                      if (newChapIdx !== -1) {
-                        setCurrentChapterIndex(newChapIdx);
-                        setCurrentSceneIndex(0);
-                      }
-                    }
-
-                    if (newBudget <= 0) {
-                      setShowContextualEnding({
-                        title:
-                          lang === "fr" ? "FAILLITE" : "BANKRUPTCY",
-                        message:
-                          lang === "fr"
-                            ? "Vos réserves de Cauris sont épuisées."
-                            : "Your Cauris reserves are empty.",
-                        type: "abandon",
-                      });
-                      setTimeout(() => {
-                        setActiveMiniGame(null);
-                        setMiniGameSessionActive(null);
-                      }, 2000);
-                    }
-                  }}
-                  onClose={async () => {
-                    // ✅ SAUVEGARDER AVANT DE FERMER
-                    if (session?.id) {
-                      await supabase
-                        .from("investigation_sessions")
-                        .update({ current_cauris: budgetCauris })
-                        .eq("id", session.id);
-                    }
-                    setActiveMiniGame(null);
-                    setMiniGameSessionActive(null);
-                  }}
-                  onProgressUpdate={async (newBudget: number, caurisLost: number) => {
-                    // ✅ MISE À JOUR EN TEMPS RÉEL
-                    setBudgetCauris(newBudget);
-
-                    // Sauvegarder en BDD aussi
-                    await supabase
-                      .from("investigation_sessions")
-                      .update({ current_cauris: newBudget })
-                      .eq("id", session?.id)
-                      .then(({ error }) => {
-                        if (error) console.error("Erreur sauvegarde Cauris:", error);
-                      });
-                  }}
-                  budgetCauris={budgetCauris}
-                  lang={lang}
-                  sessionId={session?.id || ""}
-                  userId={user?.id || ""}
-                />
-              )}
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
 
       {/* ════════════════════════════════════════════════════
     MODAL REJOINDRE UN GROUPE
@@ -6148,7 +5933,7 @@ const handleMiniGameFail = async (caurisLost: number) => {
 
 
 
-      {/* ✅ Mini-Jeu Actif (Condition assouplie) */}
+      {/* ✅ Mini-Jeu Actif (UNIQUE BLOC) */}
       <AnimatePresence>
         {activeMiniGame && (
           <motion.div
@@ -6178,7 +5963,6 @@ const handleMiniGameFail = async (caurisLost: number) => {
                 </div>
                 <button
                   onClick={async () => {
-                    // Sauvegarde rapide avant fermeture
                     if (session?.id && budgetCauris !== (session as any)?.current_cauris) {
                       await supabase.from("investigation_sessions").update({ current_cauris: budgetCauris }).eq("id", session.id);
                     }
@@ -6209,75 +5993,18 @@ const handleMiniGameFail = async (caurisLost: number) => {
                         onStateChange={handleMiniGameStateChange}
                       />
                     ) : activeMiniGame.type === "counterfeit" ? (
-                      /* Fallback si session non prête encore */
                       <div className="flex items-center justify-center h-64 text-gray-500">
                         <Loader2 className="animate-spin mr-2" /> Initialisation...
                       </div>
                     ) : (
-                      /* TOUS LES AUTRES JEUX (Radio, Puzzle, etc.) */
+                      /* ✅ TOUS LES AUTRES JEUX utilisent handleMiniGameComplete */
                       <MiniGameRenderer
                         miniGame={activeMiniGame}
-                        onComplete={async (score, cauris) => {
-                          // Gestion générique de victoire
-                          setBudgetCauris(prev => {
-                            const newBudget = prev + cauris;
-
-                            if (session?.id) {
-                              supabase
-                                .from("investigation_sessions")
-                                .update({ current_cauris: newBudget })
-                                .eq("id", session.id);
-                            }
-
-                            return newBudget;
-                          });
-
-                          setCaurisDelta(`+${cauris}`);
-                          setTimeout(() => setCaurisDelta(null), 1200);
-
-                          // Marquer comme complété si possible
-                          if (session && !session.completed_mini_games?.includes(activeMiniGame.id)) {
-                            const updated = [...session.completed_mini_games, activeMiniGame.id];
-                            await supabase
-                              .from("investigation_sessions")
-                              .update({ completed_mini_games: updated })
-                              .eq("id", session.id);
-                          }
-
-                          setActiveMilestone({ fr: `✅ Réussi ! +${cauris} C`, en: `✅ Success! +${cauris} C` });
-                          setTimeout(() => { setActiveMiniGame(null); setActiveMilestone(null); }, 2000);
-                        }}
-                        onFail={async (caurisLost) => {
-                          // ✅ Forme fonctionnelle pour toujours avoir la dernière valeur
-                          setBudgetCauris(prev => {
-                            const newBudget = Math.max(0, prev - caurisLost);
-
-                            if (session?.id) {
-                              supabase
-                                .from("investigation_sessions")
-                                .update({ current_cauris: newBudget })
-                                .eq("id", session.id);
-                            }
-
-                            return newBudget;
-                          });
-
-                          setCaurisDelta(`-${caurisLost}`);
-                          setTimeout(() => setCaurisDelta(null), 1200);
-                        }}
-                        onClose={async () => {
-                          if (session?.id && budgetCauris !== (session as any)?.current_cauris) {
-                            await supabase
-                              .from("investigation_sessions")
-                              .update({ current_cauris: budgetCauris })
-                              .eq("id", session.id);
-                          }
-                          setActiveMiniGame(null);
-                        }}
-                        // ✅ AJOUT : Callback pour mise à jour en temps réel (utilisé par PuzzleGame, etc.)
+                        onComplete={handleMiniGameComplete}
+                        onFail={handleMiniGameFail}
+                        onClose={handleMiniGameClose}
                         onProgressUpdate={async (newBudget: number, caurisLost: number) => {
                           setBudgetCauris(newBudget);
-
                           if (session?.id) {
                             await supabase
                               .from("investigation_sessions")

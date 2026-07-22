@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { autoTranslate } from "@/lib/lingua";
 import type { User } from "@supabase/supabase-js";
+import { Activity } from 'lucide-react';
 
 // Tabs locales
 import HeroTab         from "./tabs/HeroTab";
@@ -48,6 +49,9 @@ import PaymentManagementTab from "@/components/admin/PaymentManagementTab";
 import { useActivityTimeout } from '@/lib/hooks/useActivityTimeout';
 import MacroAdminTab from "@/components/admin/MacroAdminTab";
 import AnnouncementsTab from "@/components/admin/AnnouncementsTab"; 
+
+import LiveSpotsTab from '@/components/admin/LiveSpotsTab'; // 👈 AJOUT
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type TabType =
@@ -78,7 +82,9 @@ type TabType =
   | "investigation_analytics"
   | "payments" // 👈 AJOUT ICI
   | "macro"
-  | "announcements";
+  | "announcements"
+  | "live_spots";
+
 
 const ALL_TABS: { id: TabType; label: string; icon: LucideIcon }[] =  [
   { id: "dashboard",         label: "Dashboard",       icon: LayoutDashboard  },
@@ -108,6 +114,7 @@ const ALL_TABS: { id: TabType; label: string; icon: LucideIcon }[] =  [
   { id: "investigation_analytics", label: "Stats Enquêtes 📊", icon: BarChart3 },
   { id: "payments",          label: "Paiements 💳",     icon: CreditCard       }, // 👈 AJOUT ICI
   { id: "visitors",          label: "Visiteurs 👁️",    icon: Eye },
+   { id: "live_spots",        label: "Live Spots 📊",   icon: Activity         },
   { id: "admins",            label: "Admins 👑",        icon: ShieldCheck      },
   { id: "about",             label: "À Propos 📖",      icon: BookOpen },
 ];
@@ -261,7 +268,8 @@ export default function AdminDashboard() {
       case "investigation_board": return <InvestigationBoardAdminTab showMsg={showMsg} />;  
       case "visitors":          return <VisitorsTab showMsg={showMsg} />;
       case "investigation_analytics": return <InvestigationAnalyticsTab showMsg={showMsg} />;
-      case "payments":          return <PaymentManagementTab showMsg={showMsg} />; // 👈 AJOUT ICI
+      case "payments":          return <PaymentManagementTab showMsg={showMsg} />;
+      case "live_spots":        return <LiveSpotsTab showMsg={showMsg} />;
       case "admins":            return <AdminsTab showMsg={showMsg} />;
       default:                  return null;
     }

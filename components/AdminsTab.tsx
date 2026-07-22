@@ -35,6 +35,7 @@ const ALL_TABS = [
   { id: 'notifications', label: 'Notifications', icon: '🔔' },
   { id: 'announcements', label: 'Annonces', icon: '📢' },
   { id: 'about', label: 'À Propos', icon: '📖' },
+  { id: 'live_spots', label: 'Live Spots', icon: '📊' },
   { id: 'admins', label: 'Admins', icon: '👑' },
 ];
 

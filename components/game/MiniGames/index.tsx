@@ -20,10 +20,10 @@ import BankingFlowGame from "./BankingFlowGame";
 import TreasuryCalculGame from "./TreasuryCalculGame";
 import AnomalyDetectorGame from "./AnomalyDetectorGame";
 
-import CustomsContrabandGame from "./CustomsContrabandGame";
+
 import SignatureAnalysisGame from "./SignatureAnalysisGame";
 import ContractClausesGame from "./ContractClausesGame";
-import StockManipulationGame from "./StockManipulationGame";
+
 
 export {
   CanvasGame,
@@ -44,10 +44,10 @@ export {
   BankingFlowGame,
   TreasuryCalculGame,
   AnomalyDetectorGame,
-  CustomsContrabandGame,
+  
   SignatureAnalysisGame,
   ContractClausesGame,
-  StockManipulationGame,
+  
 };
 
 export interface MiniGameProps {
@@ -106,14 +106,12 @@ export function MiniGameRenderer(props: MiniGameProps) {
       return <AnomalyDetectorGame miniGame={miniGame} {...rest} />;
 
 
-          case "customs_contraband":
-      return <CustomsContrabandGame miniGame={miniGame} {...rest} />;
+          
     case "signature_analysis":
       return <SignatureAnalysisGame miniGame={miniGame} {...rest} />;
     case "contract_clauses":
       return <ContractClausesGame miniGame={miniGame} {...rest} />;
-    case "stock_manipulation":
-      return <StockManipulationGame miniGame={miniGame} {...rest} />;
+    
 
     default:
       return (

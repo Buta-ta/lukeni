@@ -113,24 +113,40 @@ export function useInvestigationSession(
       setIsLoading(false);
       return;
     }
-
     const loadOrCreateSession = async () => {
       try {
+        // ✅ Récupérer le starting_cauris de l'investigation
+        const { data: investigationData, error: invError } = await supabase
+          .from("investigations")
+          .select("starting_cauris")
+          .eq("id", investigationId)
+          .single();
+
+        if (invError) {
+          console.error("Erreur récupération investigation:", invError);
+        }
+
+        const startingCauris = investigationData?.starting_cauris || 50;
+        console.log(`💰 [SESSION] Starting cauris depuis investigation: ${startingCauris}`);
+
         const { data: existing, error: err } = await supabase
-          .from('investigation_sessions')
-          .select('*')
-          .eq('investigation_id', investigationId)
-          .eq('user_id', user.id)
+          .from("investigation_sessions")
+          .select("*")
+          .eq("investigation_id", investigationId)
+          .eq("user_id", user.id)
           .maybeSingle();
 
         if (err) throw err;
 
         if (existing) {
+          // ✅ SIMPLEMENT charger la session existante
+          // Le budget est déjà sauvegardé en BDD, on le charge tel quel
           setSession(serializeSession(existing));
           setError(null);
         } else {
+          // ✅ Créer une nouvelle session avec le bon budget de départ
           const { data: newSession, error: createErr } = await supabase
-            .from('investigation_sessions')
+            .from("investigation_sessions")
             .insert({
               investigation_id: investigationId,
               user_id: user.id,
@@ -142,8 +158,8 @@ export function useInvestigationSession(
               group_id: null,
               group_code: null,
               is_group_creator: false,
-              status: 'active',
-              current_cauris: 50,
+              status: "active",
+              current_cauris: startingCauris,
               enigma_attempts: {},
               revealed_clues: [],
               completed_word_searches: [],
@@ -152,7 +168,6 @@ export function useInvestigationSession(
               completed_mini_games: [],
               current_mini_game_id: null,
               mini_game_progress: {},
-
             })
             .select()
             .single();
@@ -163,7 +178,7 @@ export function useInvestigationSession(
         }
       } catch (err: any) {
         const details = getErrorDetails(err);
-        console.error('Load/create session error:', details, err);
+        console.error("Load/create session error:", details, err);
         setError(details);
       } finally {
         setIsLoading(false);
@@ -172,6 +187,10 @@ export function useInvestigationSession(
 
     loadOrCreateSession();
   }, [investigationId, user?.id]);
+
+
+
+
 
   // ✅ Sauvegarder la progression
   const updateProgress = useCallback(
@@ -700,31 +719,117 @@ export function useInvestigationSession(
 
 
   // ✅ NOUVEAU : Forcer une mise à jour complète depuis la BDD
-// ✅ NOUVEAU : Forcer une mise à jour complète depuis la BDD
-const forceRefreshSession = useCallback(async () => {
-  if (!session) return;
+  // ✅ NOUVEAU : Forcer une mise à jour complète depuis la BDD
+  const forceRefreshSession = useCallback(async () => {
+    if (!session) return;
 
-  try {
-    const { data: freshData, error } = await supabase
-      .from('investigation_sessions')
-      .select('*')
-      .eq('id', session.id)
-      .single();
+    try {
+      const { data: freshData, error } = await supabase
+        .from('investigation_sessions')
+        .select('*')
+        .eq('id', session.id)
+        .single();
 
-    if (error) {
-      console.error('❌ Erreur forceRefreshSession:', error);
-      return;
+      if (error) {
+        console.error('❌ Erreur forceRefreshSession:', error);
+        return;
+      }
+
+      console.log("🔄 FORÇAGE : Session mise à jour dans React:", freshData?.completed_word_searches);
+      setSession(serializeSession(freshData));
+    } catch (err: any) {
+      console.error('Force refresh error:', err);
     }
-
-    console.log("🔄 FORÇAGE : Session mise à jour dans React:", freshData?.completed_word_searches);
-    setSession(serializeSession(freshData));
-  } catch (err: any) {
-    console.error('Force refresh error:', err);
-  }
-}, [session?.id]);
+  }, [session?.id]);
 
 
 
+  // ✅ NOUVEAU : Marquer un mini-jeu comme complété
+  const completeMiniGameInSession = useCallback(
+    async (miniGameId: string, newBudget: number) => {
+
+      console.log("🔄 [HOOK] completeMiniGameInSession APPELÉ", {
+        miniGameId,
+        newBudget,
+        sessionExists: !!session,
+        sessionId: session?.id,
+      });
+      if (!session) return;
+
+      const currentCompleted = session.completed_mini_games || [];
+
+      console.log("🔄 [HOOK] completed_mini_games actuel:", currentCompleted);
+
+      if (currentCompleted.includes(miniGameId)) {
+
+        console.log("ℹ️ [HOOK] Mini-jeu déjà complété, juste budget");
+        // Déjà complété, juste mettre à jour le budget
+        try {
+          const { error } = await supabase
+            .from('investigation_sessions')
+            .update({
+              current_cauris: newBudget,
+              current_mini_game_id: null,
+              last_played_at: new Date().toISOString()
+            })
+            .eq('id', session.id);
+
+          if (error) throw error;
+
+          setSession((prev) =>
+            prev
+              ? serializeSession({
+                ...prev,
+                current_cauris: newBudget,
+                current_mini_game_id: null,
+                last_played_at: new Date().toISOString(),
+              })
+              : null
+          );
+        } catch (err: any) {
+          console.error('Complete mini game (budget only) error:', err);
+        }
+        return;
+      }
+
+      const newCompleted = [...currentCompleted, miniGameId];
+
+      console.log("🔄 [HOOK] Nouveau completed_mini_games:", newCompleted);
+
+      try {
+        console.log("🔄 [HOOK] Mise à jour Supabase...");
+        const { error } = await supabase
+          .from('investigation_sessions')
+          .update({
+            completed_mini_games: newCompleted,
+            current_cauris: newBudget,
+            current_mini_game_id: null,
+            last_played_at: new Date().toISOString(),
+          })
+          .eq('id', session.id);
+
+        if (error) throw error;
+
+        // ✅ Mise à jour locale IMMÉDIATE
+        setSession((prev) =>
+          prev
+            ? serializeSession({
+              ...prev,
+              completed_mini_games: newCompleted,
+              current_cauris: newBudget,
+              current_mini_game_id: null,
+              last_played_at: new Date().toISOString(),
+            })
+            : null
+        );
+
+        console.log("✅ [completeMiniGameInSession] Mini-jeu marqué comme complété:", miniGameId);
+      } catch (err: any) {
+        console.error('Complete mini game error:', err);
+      }
+    },
+    [session]
+  );
 
 
   // ✅ Realtime sync
@@ -771,5 +876,6 @@ const forceRefreshSession = useCallback(async () => {
     saveWordSearchProgress,
     refreshSession,
     forceRefreshSession,
+    completeMiniGameInSession,
   };
 }

@@ -18,6 +18,244 @@ import {
 import type { User } from '@supabase/supabase-js';
 import dynamic from 'next/dynamic';
 import AdBanner from '@/components/AdBanner';
+import { useLanguage } from '@/lib/contexts/LanguageContext';
+
+
+
+
+// ─── Composant 3D Awalé ─────────────────────────────────────────────────────
+
+const AwaleBoard3D = ({ className }: { className?: string }) => (
+  <svg
+    viewBox="0 0 400 300"
+    className={className}
+    xmlns="http://www.w3.org/2000/svg"
+    preserveAspectRatio="xMidYMid meet"
+  >
+    <defs>
+      {/* Dégradé bois 3D */}
+      <linearGradient id="woodGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#8B5A2B" />
+        <stop offset="30%" stopColor="#6B4423" />
+        <stop offset="70%" stopColor="#4A2F1A" />
+        <stop offset="100%" stopColor="#2C1810" />
+      </linearGradient>
+
+      {/* Reflet doré */}
+      <linearGradient id="goldShine" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#D4AF37" stopOpacity="0.4" />
+        <stop offset="50%" stopColor="#F4D03F" stopOpacity="0.6" />
+        <stop offset="100%" stopColor="#D4AF37" stopOpacity="0.3" />
+      </linearGradient>
+
+      {/* Dégradé trou */}
+      <radialGradient id="pitGrad" cx="50%" cy="40%">
+        <stop offset="0%" stopColor="#1a0f08" />
+        <stop offset="60%" stopColor="#0a0502" />
+        <stop offset="100%" stopColor="#000000" />
+      </radialGradient>
+
+      {/* Ombre portée */}
+      <filter id="boardShadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur in="SourceAlpha" stdDeviation="8" />
+        <feOffset dx="0" dy="10" result="offsetblur" />
+        <feComponentTransfer>
+          <feFuncA type="linear" slope="0.5" />
+        </feComponentTransfer>
+        <feMerge>
+          <feMergeNode />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+
+      {/* Ombre interne du trou */}
+      <filter id="pitShadow">
+        <feGaussianBlur in="SourceAlpha" stdDeviation="2" />
+        <feOffset dx="0" dy="2" />
+        <feComposite in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" />
+        <feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.6 0" />
+        <feBlend in2="SourceGraphic" />
+      </filter>
+
+      {/* Cauri (graine) */}
+      <radialGradient id="cauriGrad" cx="40%" cy="35%">
+        <stop offset="0%" stopColor="#fff8e7" />
+        <stop offset="50%" stopColor="#e8dcc4" />
+        <stop offset="100%" stopColor="#a89878" />
+      </radialGradient>
+    </defs>
+
+    {/* Fond sombre */}
+    <rect width="400" height="300" fill="#020111" />
+
+    {/* Halo doré d'ambiance */}
+    <ellipse cx="200" cy="150" rx="180" ry="120" fill="#D4AF37" opacity="0.08" />
+
+    {/* Plateau principal avec perspective 3D */}
+    <g transform="translate(200, 150) rotate(-8) skewX(-5)" filter="url(#boardShadow)">
+
+      {/* Corps du plateau */}
+      <rect
+        x="-160" y="-90"
+        width="320" height="180"
+        rx="40" ry="40"
+        fill="url(#woodGrad)"
+        stroke="#2C1810"
+        strokeWidth="3"
+      />
+
+      {/* Reflet doré sur le bois */}
+      <rect
+        x="-160" y="-90"
+        width="320" height="180"
+        rx="40" ry="40"
+        fill="url(#goldShine)"
+        opacity="0.3"
+      />
+
+      {/* Bordure sculptée */}
+      <rect
+        x="-150" y="-80"
+        width="300" height="160"
+        rx="35" ry="35"
+        fill="none"
+        stroke="#D4AF37"
+        strokeWidth="1.5"
+        opacity="0.4"
+      />
+
+      {/* Ligne de séparation centrale */}
+      <line
+        x1="-140" y1="0"
+        x2="140" y2="0"
+        stroke="#1a0f08"
+        strokeWidth="3"
+        opacity="0.8"
+      />
+      <line
+        x1="-140" y1="1"
+        x2="140" y2="1"
+        stroke="#D4AF37"
+        strokeWidth="0.5"
+        opacity="0.3"
+      />
+
+      {/* RANGÉE DU HAUT (IA) - 6 trous */}
+      {[0, 1, 2, 3, 4, 5].map((i) => {
+        const x = -125 + i * 50;
+        const y = -45;
+        const seedCount = [3, 4, 2, 4, 3, 4][i];
+        return (
+          <g key={`top-${i}`}>
+            {/* Trou */}
+            <ellipse
+              cx={x} cy={y}
+              rx="18" ry="16"
+              fill="url(#pitGrad)"
+              filter="url(#pitShadow)"
+            />
+            {/* Bord du trou */}
+            <ellipse
+              cx={x} cy={y}
+              rx="18" ry="16"
+              fill="none"
+              stroke="#D4AF37"
+              strokeWidth="0.5"
+              opacity="0.3"
+            />
+            {/* Graines (cauris) */}
+            {Array.from({ length: seedCount }).map((_, j) => {
+              const angle = (j / seedCount) * Math.PI * 2;
+              const radius = seedCount > 1 ? 7 : 0;
+              const cx = x + Math.cos(angle) * radius;
+              const cy = y + Math.sin(angle) * radius * 0.7;
+              return (
+                <ellipse
+                  key={j}
+                  cx={cx}
+                  cy={cy}
+                  rx="3.5"
+                  ry="4.5"
+                  fill="url(#cauriGrad)"
+                  transform={`rotate(${angle * 180 / Math.PI + 30}, ${cx}, ${cy})`}
+                />
+              );
+            })}
+          </g>
+        );
+      })}
+
+      {/* RANGÉE DU BAS (Joueur) - 6 trous */}
+      {[0, 1, 2, 3, 4, 5].map((i) => {
+        const x = -125 + i * 50;
+        const y = 45;
+        const seedCount = [4, 4, 3, 4, 2, 4][i];
+        return (
+          <g key={`bottom-${i}`}>
+            {/* Trou */}
+            <ellipse
+              cx={x} cy={y}
+              rx="18" ry="16"
+              fill="url(#pitGrad)"
+              filter="url(#pitShadow)"
+            />
+            {/* Bord du trou */}
+            <ellipse
+              cx={x} cy={y}
+              rx="18" ry="16"
+              fill="none"
+              stroke="#D4AF37"
+              strokeWidth="0.5"
+              opacity="0.3"
+            />
+            {/* Graines (cauris) */}
+            {Array.from({ length: seedCount }).map((_, j) => {
+              const angle = (j / seedCount) * Math.PI * 2;
+              const radius = seedCount > 1 ? 7 : 0;
+              const cx = x + Math.cos(angle) * radius;
+              const cy = y + Math.sin(angle) * radius * 0.7;
+              return (
+                <ellipse
+                  key={j}
+                  cx={cx}
+                  cy={cy}
+                  rx="3.5"
+                  ry="4.5"
+                  fill="url(#cauriGrad)"
+                  transform={`rotate(${angle * 180 / Math.PI + 30}, ${cx}, ${cy})`}
+                />
+              );
+            })}
+          </g>
+        );
+      })}
+
+      {/* Ornement central (cauris décoratif) */}
+      <g transform="translate(0, 0)">
+        <ellipse cx="0" cy="0" rx="6" ry="7" fill="url(#cauriGrad)" />
+        <ellipse cx="0" cy="0" rx="6" ry="7" fill="none" stroke="#D4AF37" strokeWidth="0.5" opacity="0.6" />
+      </g>
+
+      {/* Reflets de lumière */}
+      <ellipse cx="-100" cy="-70" rx="40" ry="15" fill="white" opacity="0.05" />
+      <ellipse cx="80" cy="60" rx="30" ry="10" fill="white" opacity="0.03" />
+    </g>
+
+    {/* Particules dorées flottantes */}
+    <circle cx="50" cy="50" r="1.5" fill="#D4AF37" opacity="0.6">
+      <animate attributeName="opacity" values="0.6;0.2;0.6" dur="3s" repeatCount="indefinite" />
+    </circle>
+    <circle cx="350" cy="80" r="1" fill="#D4AF37" opacity="0.4">
+      <animate attributeName="opacity" values="0.4;0.1;0.4" dur="4s" repeatCount="indefinite" />
+    </circle>
+    <circle cx="320" cy="250" r="1.5" fill="#D4AF37" opacity="0.5">
+      <animate attributeName="opacity" values="0.5;0.15;0.5" dur="3.5s" repeatCount="indefinite" />
+    </circle>
+    <circle cx="80" cy="230" r="1" fill="#D4AF37" opacity="0.4">
+      <animate attributeName="opacity" values="0.4;0.1;0.4" dur="4.5s" repeatCount="indefinite" />
+    </circle>
+  </svg>
+);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -295,7 +533,7 @@ interface SearchResult {
   id: string;
   title_fr: string;
   title_en: string;
-  type: 'article' | 'press' | 'book' | 'music' | 'event' | 'game';
+  type: 'article' | 'press' | 'book' | 'music' | 'event' | 'game' | 'macro';
   image?: string;
   href: string;
   subtitle?: string;
@@ -308,6 +546,7 @@ const TYPE_CONFIG = {
   music: { label_fr: 'Musique', label_en: 'Music', color: '#C084FC', href: '/voyage-musical', emoji: '🎵' },
   event: { label_fr: 'Événement', label_en: 'Event', color: '#F472B6', href: '/encyclopedie', emoji: '✨' },
   game: { label_fr: 'Enquête', label_en: 'Investigation', color: '#06b6d4', href: '/investigations', emoji: '🎮' },
+  macro: { label_fr: 'Chiffres', label_en: 'Figures', color: '#10B981', href: '/chiffres', emoji: '📊' },
 };
 
 const SearchBar = memo(({ lang }: { lang: 'fr' | 'en' }) => {
@@ -407,7 +646,14 @@ const SearchBar = memo(({ lang }: { lang: 'fr' | 'en' }) => {
         .select('id, title_fr, title_en, cover_url, description_fr, description_en')
         .or(`title_fr.ilike.${q},title_en.ilike.${q},description_fr.ilike.${q}`)
         .limit(2),
-    ]).then(([arts, press, books, tracks, events, games]) => {
+
+      supabase
+        .from('macro_charts')
+        .select('id, title_fr, title_en, description_fr, description_en, slug')
+        .eq('workflow_status', 'published')
+        .or(`title_fr.ilike.${q},title_en.ilike.${q},description_fr.ilike.${q}`)
+        .limit(3),
+    ]).then(([arts, press, books, tracks, events, games, macros]) => {
       const combined: SearchResult[] = [];
 
       arts.data?.forEach(a => combined.push({
@@ -457,6 +703,14 @@ const SearchBar = memo(({ lang }: { lang: 'fr' | 'en' }) => {
         image: e.image_url || '',
         href: '/encyclopedie',
         subtitle: String(e.year),
+      }));
+
+      macros.data?.forEach(m => combined.push({
+        id: m.id, type: 'macro',
+        title_fr: m.title_fr, title_en: m.title_en,
+        image: '',
+        href: `/chiffres/${m.slug}`,
+        subtitle: cleanTitle(lang === 'fr' ? (m.description_fr || '') : (m.description_en || '')),
       }));
 
       setResults(combined);
@@ -550,7 +804,7 @@ const SearchBar = memo(({ lang }: { lang: 'fr' | 'en' }) => {
               <>
                 {results.length > 0 ? (
                   <div className="p-2 max-h-80 overflow-y-auto">
-                    {(['game', 'article', 'press', 'book', 'music', 'event'] as const).map(type => {
+                    {(['macro', 'game', 'article', 'press', 'book', 'music', 'event'] as const).map(type => {
                       const typeResults = results.filter(r => r.type === type);
                       if (!typeResults.length) return null;
                       const conf = TYPE_CONFIG[type];
@@ -1707,6 +1961,7 @@ SectionHeader.displayName = 'SectionHeader';
 const AvailableGamesSection = memo(({ games, lang }: {
   games: any[];
   lang: 'fr' | 'en';
+  ref?: string
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canL, setCanL] = useState(false);
@@ -1740,7 +1995,7 @@ const AvailableGamesSection = memo(({ games, lang }: {
             <Play size={15} className="text-[#06b6d4]" />
           </div>
           <h3 className="text-xl font-serif text-white">
-            {lang === 'fr' ? '🎮 Enquêtes Disponibles' : '🎮 Available Investigations'}
+            {lang === 'fr' ? '🎮 Jeux Disponibles' : '🎮 Available Games'}
           </h3>
         </div>
         <Link href="/investigations"
@@ -1803,23 +2058,37 @@ const AvailableGamesSection = memo(({ games, lang }: {
               transition={{ delay: i * 0.05 }}
               className="shrink-0 w-64 snap-start group/card"
             >
-              <Link href="/investigations" className="block">
+              <Link href={game.href || "/investigations"} className="block">
                 <div className="relative h-72 rounded-2xl overflow-hidden mb-3
                   border border-white/6 hover:border-[#06b6d4]/30 transition-all
                   duration-300 hover:-translate-y-1 shadow-lg group/img">
 
-                  <img
-                    src={game.cover}
-                    alt={lang === 'fr' ? game.title_fr : game.title_en}
-                    loading="lazy"
-                    decoding="async"
-                    className="w-full h-full object-cover
-                      group-hover/img:scale-105 transition-transform duration-500"
-                    onError={e => {
-                      (e.target as HTMLImageElement).src =
-                        'https://images.unsplash.com/photo-1511192336575-5a79af67a629?w=600&q=75';
-                    }}
-                  />
+                  {game.id === 'awale-game' ? (
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#2C1810] via-[#4A2F1A] to-[#020111]">
+                      {/* Halo doré */}
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.15),transparent_70%)]" />
+
+                      {/* Plateau 3D */}
+                      <div className="absolute inset-0 flex items-center justify-center p-4">
+                        <AwaleBoard3D className="w-full h-full" />
+                      </div>
+
+                      {/* Reflets */}
+                      <div className="absolute top-0 left-0 w-full h-1/3 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
+                    </div>
+                  ) : (
+                    <img
+                      src={game.cover}
+                      alt={lang === 'fr' ? game.title_fr : game.title_en}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-500"
+                      onError={e => {
+                        (e.target as HTMLImageElement).src =
+                          'https://images.unsplash.com/photo-1511192336575-5a79af67a629?w=600&q=75';
+                      }}
+                    />
+                  )}
 
                   <div className="absolute inset-0 bg-gradient-to-t
                     from-[#020111] via-[#020111]/30 to-transparent" />
@@ -1828,7 +2097,7 @@ const AvailableGamesSection = memo(({ games, lang }: {
                     px-2.5 py-1 bg-black/65 backdrop-blur-md border border-white/10 rounded-full">
                     <span className="text-base">🎮</span>
                     <span className="text-[8px] font-black uppercase tracking-wider text-[#06b6d4]">
-                      {lang === 'fr' ? 'Enquête' : 'Investigation'}
+                      {lang === 'fr' ? 'Jeux' : 'Games'}
                     </span>
                   </div>
 
@@ -1842,13 +2111,16 @@ const AvailableGamesSection = memo(({ games, lang }: {
                     </p>
 
                     <div className="flex items-center justify-between text-[10px]">
-                      <div className="flex items-center gap-1 text-[#D4AF37]">
-                        <CaurisIcon className="w-3 h-3" />
-                        <span className="font-bold">+{game.reward}</span>
-                      </div>
+                      {game.id !== 'awale-game' && (
+                        <div className="flex items-center gap-1 text-[#D4AF37]">
+                          <CaurisIcon className="w-3 h-3" />
+                          <span className="font-bold">+{game.reward}</span>
+                        </div>
+                      )}
+                      {game.id === 'awale-game' && <div />}
                       <button className="px-2.5 py-1 bg-[#06b6d4]/20 hover:bg-[#06b6d4]/40
-                        border border-[#06b6d4]/30 text-[#06b6d4] rounded-full
-                        font-bold transition-colors">
+    border border-[#06b6d4]/30 text-[#06b6d4] rounded-full
+    font-bold transition-colors">
                         {lang === 'fr' ? 'Jouer' : 'Play'}
                       </button>
                     </div>
@@ -1878,7 +2150,7 @@ const GoldDivider = () => (
 
 export default function ExplorePage() {
   const [mounted, setMounted] = useState(false);
-  const [lang, setLang] = useStoredState<'fr' | 'en'>('lukeni_lang', 'fr');
+  const { lang, setLang, toggleLang } = useLanguage();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -2221,6 +2493,22 @@ export default function ExplorePage() {
           reward: inv.reward_cauris || 0,
         })));
       }
+
+      // ✅ Ajouter le jeu Awalé manuellement
+      setAvailableGames(prev => [
+        ...prev,
+        {
+          id: 'awale-game',
+          title_fr: 'Awalé - Jeu de Stratégie',
+          title_en: 'Awalé - Strategy Game',
+          desc_fr: 'Affrontez l\'algorithme dans ce jeu de plateau africain ancestral',
+          desc_en: 'Challenge the algorithm in this ancient African board game',
+          cover: 'https://images.unsplash.com/photo-1611171711912-e0d56041a2f4?w=600&q=75',
+          difficulty: 'NORMAL',
+          reward: 50,
+          href: '/jeux/awale', // 👈 Lien vers la page du jeu
+        }
+      ]);
       setTimeout(() => setIsLoading(false), 300);
     }
     load();
@@ -2284,7 +2572,8 @@ export default function ExplorePage() {
 
           <div className="flex items-center gap-2 shrink-0">
             <button
-              onClick={() => setLang(lang === 'fr' ? 'en' : 'fr')}
+              onClick={toggleLang}
+
               className="flex items-center gap-1 bg-white/5 border border-white/10
                 px-2.5 py-1.5 rounded-full text-white text-[9px] font-black uppercase
                 hover:bg-[#D4AF37] hover:text-black hover:border-[#D4AF37] transition-all">
