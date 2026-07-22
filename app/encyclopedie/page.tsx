@@ -828,7 +828,7 @@ const HeroSection = memo(({ lang, articleCount, eventCount }: {
       </div>
       <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.8, duration: 0.6 }}
         className="text-gray-500 text-sm md:text-base max-w-lg mx-auto tracking-wide mb-10">
-        {lang === 'fr' ? 'La mémoire africaine et diaspora, encodée dans les étoiles.' : 'African and diaspora memory, encoded in the stars.'}
+        {lang === 'fr' ? 'La mémoire africaine et de sa diaspora mondiale.' : 'African memory and of its global diaspora.'}
       </motion.p>
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 2, duration: 0.5 }}
         className="flex items-center justify-center gap-8">

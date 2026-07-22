@@ -1779,7 +1779,7 @@ const HeroSection = memo(({ lang, bookCount }: { lang: 'fr' | 'en'; bookCount: n
       </div>
       <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.5, duration: 0.6 }}
         className="text-gray-500 text-sm md:text-base max-w-lg mx-auto tracking-wide mb-10">
-        {lang === 'fr' ? 'Lectures africaines et diaspora, préservées dans les étoiles.' : 'African and diaspora readings, preserved in the stars.'}
+        {lang === 'fr' ? 'Trouver des livres rares, Créer des cercles de lecture.' : 'Discover rare books, Create reading circles.'}
       </motion.p>
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.8, duration: 0.5 }}
         className="flex items-center justify-center gap-8">

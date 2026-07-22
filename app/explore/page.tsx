@@ -2642,7 +2642,7 @@ export default function ExplorePage() {
           <PortalsGrid lang={lang} stats={stats} portalImages={portalImages} />
         </section>
 
-        // APRÈS
+        
         <GoldDivider />
 
         <section id="section-jeux">
@@ -2667,7 +2667,6 @@ export default function ExplorePage() {
 
         <GoldDivider />
 
-        // APRÈS
         <section id="section-musical" className="relative rounded-3xl overflow-hidden border border-purple-500/10 bg-gradient-to-br from-purple-950/30 to-[#020111]">
           <div className="absolute top-0 left-0 right-0 z-10 p-6 md:p-8 pointer-events-none">
             <div className="flex items-center gap-2 mb-3">
@@ -2726,7 +2725,7 @@ export default function ExplorePage() {
           </div>
         </section>
 
-       // APRÈS
+       
         <section id="section-library">
           <LibraryTeaser lang={lang} teaserData={libraryTeaserData} />
         </section>

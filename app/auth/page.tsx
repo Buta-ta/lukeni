@@ -372,7 +372,7 @@ const handleRegister = async (e: React.FormEvent) => {
             </motion.div>
             <h1 className="text-2xl md:text-3xl font-serif tracking-wider text-white mb-1">LUKENI</h1>
             <p className="text-white/40 text-[8px] md:text-[10px] uppercase tracking-[0.15em] md:tracking-[0.2em]">
-              {lang === 'fr' ? 'Mémoire • Musique • Genèse' : 'Memory • Music • Genesis'}
+              {lang === 'fr' ? 'Peuple • Mémoire • Mission' : 'People • Memory • Mission'}
             </p>
           </motion.div>
 

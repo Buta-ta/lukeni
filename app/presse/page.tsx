@@ -1948,7 +1948,7 @@ export default function PressePage() {
               <header className="text-center mb-16">
                 <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}>
                   <p className="text-[#0466c8] text-[9px] tracking-[0.6em] uppercase font-black mb-6 opacity-60">
-                    {lang === 'fr' ? "Chroniques de l'Héritage" : 'Heritage Chronicles'}
+                    {lang === 'fr' ? "Le Continent" : 'The Continent'}
                   </p>
                   <h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-[90px] xl:text-[110px] font-serif italic text-white tracking-tighter mb-3 leading-none"
                     style={{ textShadow: '0 0 60px #0466c820' }}>
@@ -1957,7 +1957,7 @@ export default function PressePage() {
                   {/* Ligne lumineuse sous le titre */}
                   <div className="mx-auto w-24 h-px mb-8" style={{ background: 'linear-gradient(90deg, transparent, #0466c8, transparent)', boxShadow: '0 0 8px #0466c8' }} />
                   <p className="text-[#90e0ef]/20 text-sm tracking-[0.3em] uppercase mb-12">
-                    {lang === 'fr' ? 'Mémoire • Récits • Archives' : 'Memory • Stories • Archives'}
+                    {lang === 'fr' ? 'Passé • Présent • Futur' : 'Past • Present • Future'}
                   </p>
                 </motion.div>
 

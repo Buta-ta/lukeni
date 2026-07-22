@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Heart, X, Scale, Shield, Info } from 'lucide-react';
 import Link from 'next/link';
+import { useLanguage } from '@/lib/contexts/LanguageContext';
 
 const GOLD = "#D4AF37";
 
@@ -226,32 +227,11 @@ function LegalModal({ isOpen, onClose, type, lang }: LegalModalProps) {
 }
 
 // ─── MAIN FOOTER ──────────────────────────────────────────────────────────
+// ─── MAIN FOOTER ──────────────────────────────────────────────────────────
 
 export default function Footer() {
   const [legalModal, setLegalModal] = useState<LegalModalProps['type'] | null>(null);
-  const [lang, setLang] = useState<'fr' | 'en'>('fr');
-
-  useEffect(() => {
-    // Fonction robuste pour nettoyer et deviner la langue
-    const getCleanLang = (): 'fr' | 'en' => {
-      try {
-        const saved = localStorage.getItem('lukeni_lang');
-        if (!saved) return navigator.language.startsWith('fr') ? 'fr' : 'en';
-
-        // Si la chaîne sauvegardée contient "en" (ex: '"en"', 'en', 'EN'), c'est l'anglais
-        if (saved.toLowerCase().includes('en')) return 'en';
-        return 'fr';
-      } catch (error) {
-        return 'fr'; // Fallback total
-      }
-    };
-
-    setLang(getCleanLang());
-
-    const handleStorageChange = () => setLang(getCleanLang());
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+  const { lang } = useLanguage(); // 👈 UTILISER LE CONTEXTE
 
   // SÉCURITÉ ABSOLUE : Utilisation d'une condition ternaire
   const t = lang === 'en' ? translations.en : translations.fr;

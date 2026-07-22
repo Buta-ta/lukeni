@@ -267,12 +267,12 @@ export default function MacroLibraryPage() {
 
           <div className="space-y-4 relative z-10">
             <h2 className="text-4xl md:text-5xl font-serif italic text-white">
-              {lang === 'fr' ? 'Intelligence Macroéconomique' : 'Macroeconomic Intelligence'}
+              {lang === 'fr' ? 'Intelligence Statistique' : 'Statistical Intelligence'}
             </h2>
             <p className="text-white/50 text-sm md:text-base">
               {lang === 'fr'
-                ? 'Explorez notre base de données dynamique et découvrez les indicateurs qui façonnent l\'Afrique.'
-                : 'Explore our dynamic database and discover the indicators shaping Africa.'}
+                ? 'Découvrez les données sur Notre Monde.'
+                : 'Discover the data about Our World.'}
             </p>
           </div>
 
