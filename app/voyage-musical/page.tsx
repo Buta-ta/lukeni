@@ -18,7 +18,7 @@ import {
 import ContributeModal from '@/components/ContributeModal';
 import { useAudio } from '@/lib/contexts/AudioContext';
 
-
+import { useLanguage } from '@/lib/contexts/LanguageContext';
 
 
 
@@ -560,7 +560,7 @@ const YouTubePlayer = ({
 // ─── Page principale ──────────────────────────────────────────────────────────
 
 export default function VoyageMusicalPage() {
-  const [lang, setLang] = useState<'fr' | 'en'>('fr');
+   const { lang, setLang, toggleLang } = useLanguage();
   // ✅ Appliquer l'attribut data-landing-page au HTML
   useEffect(() => {
     document.documentElement.setAttribute('data-landing-page', 'true');
@@ -1008,7 +1008,7 @@ export default function VoyageMusicalPage() {
                 transition={{ duration: 2, repeat: Infinity }}
               />
               <p className="text-white/60 text-xs">
-                {lang === 'fr' ? 'Cliquez sur un pays pour découvrir sa musique' : 'Click on a country to discover its music'}
+                {lang === 'fr' ? 'Cliquez sur un pays pour découvrir son art' : 'Click on a country to discover its art'}
               </p>
               {isLoading && (
                 <p className="text-white/30 text-[9px] mt-1">{lang === 'fr' ? 'Chargement des données…' : 'Loading data…'}</p>

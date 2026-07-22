@@ -21,7 +21,7 @@ import type { EnrichedOLBook } from '@/lib/hooks/useOpenLibrary';
 import { NotesplitContainer } from '@/components/NotesplitContainer';
 import CloudinaryPDFReader from '@/components/CloudinaryPDFReaderWrapper';
 import BookPaywall from '@/components/BookPaywall';
-
+import { useLanguage } from '@/lib/contexts/LanguageContext';
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -1659,8 +1659,8 @@ const BookDetailModal = memo(({ book, lang, user, onClose, isLocked, onShowPaywa
                   setReaderMode(fileType === 'epub' ? 'epub' : 'pdf');
                 }}
                 className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-colors shadow-[0_0_20px_rgba(16,185,129,0.3)] ${isLocked
-                    ? 'bg-amber-500 text-black hover:bg-amber-400'
-                    : 'bg-emerald-500 text-black hover:bg-white'
+                  ? 'bg-amber-500 text-black hover:bg-amber-400'
+                  : 'bg-emerald-500 text-black hover:bg-white'
                   }`}
               >
                 {isLocked ? <LockIcon size={18} /> : <BookOpen size={18} />}
@@ -1940,7 +1940,7 @@ LibrarySearchDropdown.displayName = 'LibrarySearchDropdown';
 export default function BibliothequePage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const { lang, setLang, toggleLang } = useLanguage();
   const [user, setUser] = useState<User | null>(null);
   const [books, setBooks] = useState<Book[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);

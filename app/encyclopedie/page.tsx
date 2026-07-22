@@ -24,6 +24,7 @@ import { ScholarSection } from '@/components/ScholarSection';
 import { CoreSection } from '@/components/CoreSection';
 import { ArxivSection } from '@/components/ArxivSection';
 import PushSubscribeButton from '@/components/PushSubscribeButton';
+import { useLanguage } from '@/lib/contexts/LanguageContext';
 
 // ============================================================================
 // CONSTANTS
@@ -861,7 +862,7 @@ HeroSection.displayName = 'HeroSection';
 
 export default function EncyclopediePage() {
   const [mounted, setMounted] = useState(false);
-  const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const { lang, setLang, toggleLang } = useLanguage();
   const [user, setUser] = useState<User | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 

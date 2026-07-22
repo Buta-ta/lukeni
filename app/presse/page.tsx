@@ -26,6 +26,8 @@ import SubscribeButton from '@/components/SubscribeButton';
 import SubscribeModal from '@/components/SubscribeModal';
 import { NotesplitContainer } from '@/components/NotesplitContainer';
 import RenderChartPublic from '@/lib/charts/renderChartPublic';
+import { useLanguage } from '@/lib/contexts/LanguageContext';
+
 
 // --- CUSTOM ICONS ---
 const InstagramIcon = ({ size = 24, className = "" }) => (
@@ -1637,7 +1639,7 @@ const FloatingSocials = ({ settings }: { settings: SocialSettings | null }) => {
 // ─── Page Principale ──────────────────────────────────────────────────────────
 
 export default function PressePage() {
-  const [lang, setLang] = useState<'fr' | 'en'>('fr');
+ const { lang, setLang, toggleLang } = useLanguage();
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [feedItems, setFeedItems] = useState<UnifiedItem[]>([]);

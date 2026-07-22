@@ -15,6 +15,7 @@ import FavoriteButton from '@/components/FavoriteButton';
 import { useWordDefinition } from '@/lib/hooks/useWordDefinition';
 import { WordDefinitionPopover } from '@/components/WordDefinitionPopover';
 import { NotesplitContainer } from '@/components/NotesplitContainer';
+import { useLanguage } from '@/lib/contexts/LanguageContext';
 
 // ============================================================================
 // TYPES
@@ -946,7 +947,7 @@ const ShareButton = memo(({ title, lang }: { title: string; lang: 'fr' | 'en' })
   const handleShare = useCallback(async () => {
     const url = window.location.href;
     const cleanTitle = stripFormatting(title);
-    
+
     if (navigator.share) {
       await navigator.share({ title: cleanTitle, url });
     } else {
@@ -1164,8 +1165,8 @@ const AudioPlayer = memo(({ audioUrl, lang, catColor }: {
           {isLoading
             ? (lang === 'fr' ? 'Chargement...' : 'Loading...')
             : isPlaying
-            ? (lang === 'fr' ? 'Lecture en cours...' : 'Playing...')
-            : (lang === 'fr' ? "Écouter l'article" : 'Listen to article')}
+              ? (lang === 'fr' ? 'Lecture en cours...' : 'Playing...')
+              : (lang === 'fr' ? "Écouter l'article" : 'Listen to article')}
         </span>
         <span className="text-[9px] text-gray-600 mt-0.5 font-mono truncate">
           {formatTime(currentTime)} / {formatTime(duration)}
@@ -1223,12 +1224,12 @@ AudioPlayer.displayName = 'AudioPlayer';
 
 export default function ArticleDetailPage() {
   const { slug } = useParams();
-  const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const { lang, setLang, toggleLang } = useLanguage();
   const [article, setArticle] = useState<Article | null>(null);
   const [relatedArticles, setRelatedArticles] = useState<RelatedArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  
+
   const [mounted, setMounted] = useState(false);
   const [heroY, setHeroY] = useState('0%');
   const [heroOpacity, setHeroOpacity] = useState(1);
@@ -1288,18 +1289,18 @@ export default function ArticleDetailPage() {
       if (!slug) return;
       setIsLoading(true);
 
-     const { data, error } = await supabase
-  .from('articles')
-  .select(`
+      const { data, error } = await supabase
+        .from('articles')
+        .select(`
     id, title_fr, title_en, content_fr, content_en,
     summary_fr, summary_en, image_url, category_id,
     created_at, slug, view_count, reading_time, wikipedia_url,
     sources, timeline,audio_url,
     categories(id, name_fr, name_en, color)
   `)
-  .eq('slug', slug)
-  .eq('status', 'published')
-  .single();
+        .eq('slug', slug)
+        .eq('status', 'published')
+        .single();
 
       if (!error && data) {
         setArticle(data as unknown as Article);
@@ -1415,7 +1416,7 @@ export default function ArticleDetailPage() {
       <StarField mousePos={mousePos} />
 
       <header className="sticky top-[2px] z-50 bg-[#020111]/80 backdrop-blur-xl border-b border-white/[0.06] w-full">
-         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-2.5 grid grid-cols-3 items-center gap-4 w-full">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-2.5 grid grid-cols-3 items-center gap-4 w-full">
 
           {/* Gauche : Retour */}
           <div>
@@ -1457,13 +1458,13 @@ export default function ArticleDetailPage() {
 
       {article.image_url && (
         <div ref={heroRef} className="relative w-full h-[55vh] md:h-[70vh] overflow-hidden bg-black flex justify-center items-center">
-          
+
           {/* ✅ ARRIÈRE-PLAN FLOUTÉ : Maintient le Parallax pour un bel effet de profondeur */}
           <img
             src={article.image_url}
             alt=""
             className="absolute inset-0 w-full h-full object-cover opacity-50 blur-3xl scale-125 pointer-events-none"
-            style={{ 
+            style={{
               transform: `translateY(${heroY})`,
             }}
           />
@@ -1478,7 +1479,7 @@ export default function ArticleDetailPage() {
               style={{ filter: 'drop-shadow(0 15px 25px rgba(0,0,0,0.6))' }}
             />
           </div>
-          
+
           {/* Gradients pour le contraste (z-10 pour être entre l'image et le texte) */}
           <div className="absolute inset-0 z-10 bg-gradient-to-t from-[#020111] via-[#020111]/40 to-transparent pointer-events-none" />
           <div className="absolute inset-0 z-10 bg-gradient-to-r from-[#020111]/30 via-transparent to-[#020111]/30 pointer-events-none" />
@@ -1516,11 +1517,10 @@ export default function ArticleDetailPage() {
 
             <button
               onClick={() => setEnrichmentMode(!enrichmentMode)}
-              className={`px-3 sm:px-4 py-2 text-xs font-bold rounded-xl backdrop-blur-md transition-all shadow-xl ${
-                enrichmentMode
+              className={`px-3 sm:px-4 py-2 text-xs font-bold rounded-xl backdrop-blur-md transition-all shadow-xl ${enrichmentMode
                   ? 'bg-[#D4AF37] text-black border-2 border-[#D4AF37]'
                   : 'bg-black/40 border-2 border-white/30 text-white hover:border-[#D4AF37]/70'
-              }`}
+                }`}
               title={lang === 'fr' ? 'Mode dictionnaire — cliquez sur les mots' : 'Dictionary mode — click on words'}
             >
               Dict
@@ -1538,7 +1538,7 @@ export default function ArticleDetailPage() {
           >
             {/* Fond gradient lourd pour garantir que le texte soit lisible */}
             <div className="absolute inset-0 bg-gradient-to-t from-[#020111] via-[#020111]/80 to-transparent pointer-events-none" />
-            
+
             {/* Contenu aligné avec la grille */}
             <div className="relative w-full max-w-[1400px] mx-auto px-4 sm:px-6 pb-8 pt-12">
               <div className="w-full lg:pr-[320px]">
@@ -1548,7 +1548,7 @@ export default function ArticleDetailPage() {
                     <span className="text-[9px] font-bold text-black tracking-[0.2em] uppercase">Lukeni</span>
                   </span>
                 </div>
-                <h1 
+                <h1
                   className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-serif font-bold text-white leading-tight break-words"
                   style={{
                     textShadow: '0 2px 10px rgba(0,0,0,0.95), 0 4px 25px rgba(0,0,0,0.8)'

@@ -15,6 +15,8 @@ import {
   Trash2, ShieldAlert, TriangleAlert, Users, AlertCircle, XCircle, Fingerprint,AlertTriangle
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
+import { useLanguage } from '@/lib/contexts/LanguageContext';
+
 
 // ============================================================================
 // CAURIS ICON
@@ -2356,7 +2358,7 @@ export default function ProfilePage() {
   const [isUploading, setIsUploading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [lang, setLang] = useState<'fr' | 'en'>('fr');
+ const { lang, setLang, toggleLang } = useLanguage();
     const [activeTab, setActiveTab] = useState<'favorites' | 'notes' | 'investigations' | 'subscriptions' | 'circles' | 'settings'>('favorites');
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [fullName, setFullName] = useState('');
