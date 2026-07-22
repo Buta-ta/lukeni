@@ -521,7 +521,7 @@ const NavBar = ({ lang }: { lang: 'fr' | 'en' }) => {
 
         {/* Retour */}
         <Link
-          href="/explorer"
+          href="/explore"
           className="flex items-center gap-2 text-white/50 hover:text-[#D4AF37]
             transition-colors text-sm group"
         >
@@ -668,7 +668,7 @@ export default function QuiSommesNousPage() {
           <p className="text-white/30 text-xs uppercase tracking-widest mb-6">
             {lang === 'fr' ? 'Prêt à explorer ?' : 'Ready to explore?'}
           </p>
-          <Link href="/explorer">
+          <Link href="/explore">
             <motion.button
               whileHover={{ scale: 1.04, boxShadow: '0 0 40px rgba(212,175,55,0.35)' }}
               whileTap={{ scale: 0.96 }}

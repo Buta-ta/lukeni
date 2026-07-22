@@ -15,6 +15,7 @@ const ALL_TABS = [
   { id: 'suggestions', label: 'Recherche', icon: '🔍' },
   { id: 'constellation', label: 'Constellation', icon: '⭐' },
   { id: 'categories', label: 'Catégories', icon: '🏷️' },
+  { id: 'feedback',    label: 'Avis utilisateurs',  icon: '💬' },
   { id: 'topic_suggestions', label: 'Sujets', icon: '💡' },
   { id: 'articles', label: 'Articles', icon: '📄' },
   { id: 'events', label: 'Événements', icon: '📅' },

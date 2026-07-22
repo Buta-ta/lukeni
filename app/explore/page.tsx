@@ -19,6 +19,7 @@ import type { User } from '@supabase/supabase-js';
 import dynamic from 'next/dynamic';
 import AdBanner from '@/components/AdBanner';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
+import FeedbackWidget from '@/components/FeedbackWidget';
 
 
 
@@ -740,6 +741,7 @@ const SearchBar = memo(({ lang }: { lang: 'fr' | 'en' }) => {
   };
 
   const showDropdown = isOpen && (query.length >= 2 || (!query && (dbSuggestions.length > 0 || recent.length > 0)));
+
 
   return (
     <div ref={ref} className="relative max-w-xl w-full">
@@ -2161,6 +2163,7 @@ export default function ExplorePage() {
   const [countriesData, setCountriesData] = useState<any[]>([]);
   const [portalImages, setPortalImages] = useState<Record<string, string>>({});
   const [availableGames, setAvailableGames] = useState<any[]>([]);
+  const [activeSpace, setActiveSpace] = useState('general');
   const [libraryTeaserData, setLibraryTeaserData] = useState({
     image: '',
     titleFr: 'Manuscrits de Tombouctou',
@@ -2190,6 +2193,33 @@ export default function ExplorePage() {
     window.addEventListener('mousemove', h, { passive: true });
     return () => { window.removeEventListener('mousemove', h); if (raf) cancelAnimationFrame(raf); };
   }, []);
+
+
+  // Ajouter JUSTE APRÈS :
+  useEffect(() => {
+    if (!mounted) return;
+    const sections: Record<string, string> = {
+      'portals-section': 'general',
+      'section-encyclopedie': 'encyclopedie',
+      'section-presse': 'presse',
+      'section-musical': 'musical',
+      'section-library': 'library',
+      'section-macro': 'macro',
+      'section-jeux': 'jeux',
+    };
+    const observers: IntersectionObserver[] = [];
+    Object.entries(sections).forEach(([id, space]) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const obs = new IntersectionObserver(
+        ([entry]) => { if (entry.isIntersecting) setActiveSpace(space); },
+        { threshold: 0.3 }
+      );
+      obs.observe(el);
+      observers.push(obs);
+    });
+    return () => observers.forEach(o => o.disconnect());
+  }, [mounted]);
 
   useEffect(() => {
     setMounted(true);
@@ -2612,9 +2642,12 @@ export default function ExplorePage() {
           <PortalsGrid lang={lang} stats={stats} portalImages={portalImages} />
         </section>
 
+        // APRÈS
         <GoldDivider />
 
-        <AvailableGamesSection games={availableGames} lang={lang} />
+        <section id="section-jeux">
+          <AvailableGamesSection games={availableGames} lang={lang} />
+        </section>
 
         <GoldDivider />
 
@@ -2634,7 +2667,8 @@ export default function ExplorePage() {
 
         <GoldDivider />
 
-        <section className="relative rounded-3xl overflow-hidden border border-purple-500/10 bg-gradient-to-br from-purple-950/30 to-[#020111]">
+        // APRÈS
+        <section id="section-musical" className="relative rounded-3xl overflow-hidden border border-purple-500/10 bg-gradient-to-br from-purple-950/30 to-[#020111]">
           <div className="absolute top-0 left-0 right-0 z-10 p-6 md:p-8 pointer-events-none">
             <div className="flex items-center gap-2 mb-3">
               <motion.div
@@ -2692,7 +2726,8 @@ export default function ExplorePage() {
           </div>
         </section>
 
-        <section>
+       // APRÈS
+        <section id="section-library">
           <LibraryTeaser lang={lang} teaserData={libraryTeaserData} />
         </section>
 
@@ -2712,7 +2747,13 @@ export default function ExplorePage() {
           bg-[#D4AF37] text-black flex items-center justify-center
           hover:bg-white transition-colors shadow-lg">
         <ArrowRight size={16} className="-rotate-90" />
+
+
       </motion.button>
+
+
+      {/* Widget Feedback */}
+      <FeedbackWidget lang={lang} defaultSpace={activeSpace} />
     </div>
   );
 }

@@ -49,6 +49,7 @@ import PaymentManagementTab from "@/components/admin/PaymentManagementTab";
 import { useActivityTimeout } from '@/lib/hooks/useActivityTimeout';
 import MacroAdminTab from "@/components/admin/MacroAdminTab";
 import AnnouncementsTab from "@/components/admin/AnnouncementsTab"; 
+import FeedbackTab from "@/components/admin/FeedbackTab";
 
 import LiveSpotsTab from '@/components/admin/LiveSpotsTab'; // 👈 AJOUT
 
@@ -62,7 +63,9 @@ type TabType =
   | "constellation"
   | "about" 
   | "categories"
+  | "feedback" 
   | "topic_suggestions"
+   
   | "articles"
   | "events"
   | "article_events"
@@ -95,6 +98,7 @@ const ALL_TABS: { id: TabType; label: string; icon: LucideIcon }[] =  [
   { id: "constellation",     label: "Constellation",   icon: Star             },
   { id: "categories",        label: "Catégories",      icon: Tag              },
   { id: "topic_suggestions", label: "Sujets 💡",       icon: Lightbulb        },
+  { id: "feedback",     label: "Avis utilisateurs 💬", icon: MessageSquareText },
   { id: "articles",          label: "Articles",        icon: FileText         },
   { id: "events",            label: "Événements",      icon: CalendarDays     },
   { id: "article_events",    label: "Art↔Evt 🔗",      icon: Link2            }, 
@@ -249,6 +253,7 @@ export default function AdminDashboard() {
       case "constellation":     return <ConstellationTab showMsg={showMsg} translateText={translateText} />;
       case "about":             return <AboutTab showMsg={showMsg} />;
       case "categories":        return <CategoriesTab showMsg={showMsg} translateText={translateText} />;
+      case "feedback":          return <FeedbackTab showMsg={showMsg} />;
       case "topic_suggestions": return <TopicSuggestionsTab showMsg={showMsg} />;
       case "articles":          return <ArticlesTab showMsg={showMsg} />;
       case "events":            return <EventsTab showMsg={showMsg} />;

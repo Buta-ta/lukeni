@@ -505,7 +505,7 @@ export default function RealAwaleGame() {
 
         {/* Retour */}
         <Link
-          href="/explorer"
+          href="/explore"
           className="flex items-center gap-2 text-gray-400 hover:text-[#D4AF37]
             transition-colors text-sm group"
         >
@@ -770,7 +770,7 @@ export default function RealAwaleGame() {
                     {t.playAgain}
                   </button>
                   <Link
-                    href="/explorer"
+                    href="/explore"
                     className="flex items-center justify-center gap-2 w-full py-3 rounded-full
                       bg-white/5 hover:bg-white/10 border border-white/10
                       text-white/60 hover:text-white transition-colors text-sm"
