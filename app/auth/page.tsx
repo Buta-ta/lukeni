@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useLanguage } from '@/lib/contexts/LanguageContext';
+
 
 type AuthView = 'login' | 'register' | 'forgot' | 'reset';
 
@@ -62,7 +64,7 @@ function AuthContent() {
   const [success, setSuccess] = useState<string | null>(null);
 
   // ✅ LANGUE LUES DEPUIS LOCALSTORAGE (partagée avec la landing)
-  const [lang, setLang] = useState<'fr' | 'en'>('fr');
+  const { lang, setLang, toggleLang } = useLanguage();
 
   useEffect(() => {
     const stored = localStorage.getItem('lukeni_lang') as 'fr' | 'en' | null;

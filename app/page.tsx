@@ -21,7 +21,7 @@ import { ScholarSection } from '@/components/ScholarSection';
 import { CoreSection } from '@/components/CoreSection';
 import { ArxivSection } from '@/components/ArxivSection';
 import { PWAInstallButton } from '@/components/PWAInstallButton';
-
+import { useLanguage } from '@/lib/contexts/LanguageContext';
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 
 interface Personality {
@@ -125,18 +125,7 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-function useLang() {
-  const [lang, setLangState] = useState<'fr' | 'en'>('fr');
-  useEffect(() => {
-    const stored = localStorage.getItem('lukeni_lang') as 'fr' | 'en' | null;
-    if (stored === 'fr' || stored === 'en') setLangState(stored);
-  }, []);
-  const setLang = useCallback((l: 'fr' | 'en') => {
-    setLangState(l);
-    localStorage.setItem('lukeni_lang', l);
-  }, []);
-  return [lang, setLang] as const;
-}
+
 
 function getMoonPhase(date: Date = new Date()) {
   const year = date.getFullYear();
@@ -624,7 +613,7 @@ const FeaturedEventsBar = ({
 // ─── PAGE PRINCIPALE ──────────────────────────────────────────────────────────
 
 export default function LandingPage() {
-  const [lang, setLang] = useLang();
+  const { lang, setLang } = useLanguage();
 
 
   // ✅ Appliquer l'attribut data-landing-page au HTML
