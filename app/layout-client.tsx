@@ -9,8 +9,8 @@ import { PWARegister } from '@/components/PWARegister';
 import { PWAInstallButton } from '@/components/PWAInstallButton';
 import Footer from '@/components/Footer';
 import GlobalAnnouncement from '@/components/GlobalAnnouncement';
-import { AudioProvider } from '@/lib/contexts/AudioContext'; 
-import GlobalAudioPlayer from '@/components/GlobalAudioPlayer'; 
+import { AudioProvider } from '@/lib/contexts/AudioContext';
+import GlobalAudioPlayer from '@/components/GlobalAudioPlayer';
 import LiveSpotWidget from '@/components/LiveSpotWidget';
 import MacroTicker from '@/components/MacroTicker'; // 👈 NOUVEAU
 import { LanguageProvider, useLanguage } from '@/lib/contexts/LanguageContext';
@@ -44,8 +44,8 @@ function LayoutInner({
   useActivityTimeout(
     isAuthenticated
       ? () => {
-          console.log('⏱️ Session expirée');
-        }
+        console.log('⏱️ Session expirée');
+      }
       : undefined
   );
 
@@ -60,12 +60,12 @@ function LayoutInner({
         <GlobalAnnouncement>
           <AudioProvider>
             {/* Padding top pour compenser le ticker */}
-            <div className="flex-1 flex flex-col pt-10">
+            <div className="flex-1 flex flex-col">
               {children}
             </div>
-            
+
             {!isGamePage && <Footer />}
-            
+
             <GlobalAudioPlayer />
             <LiveSpotWidget />
           </AudioProvider>

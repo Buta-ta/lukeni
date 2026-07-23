@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { X, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { createClient } from '@/lib/supabase-browser';
-import { useLanguage } from '@/lib/contexts/LanguageContext'; // 👈 NOUVEAU
+import { useLanguage } from '@/lib/contexts/LanguageContext';
 
 interface TickerItem {
   id: string;
@@ -48,7 +48,7 @@ function formatValue(value: number, lang: 'fr' | 'en'): string {
 export default function MacroTicker() {
   const router = useRouter();
   const pathname = usePathname();
-  const { lang } = useLanguage(); // 👈 NOUVEAU : récupérer la langue active
+  const { lang } = useLanguage();
   const supabase = createClient();
   const [items, setItems] = useState<TickerItem[]>([]);
   const [enabled, setEnabled] = useState<boolean>(true);
@@ -132,89 +132,96 @@ export default function MacroTicker() {
     }
   };
 
+  // Si pas de données ou conditions de masquage → ne rien afficher
   if (!enabled || isInvestigationRoute || dismissed || isLoading || items.length === 0) {
     return null;
   }
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-[99]">
-      <style>{`
-        @keyframes ticker-scroll {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-        .ticker-track {
-          animation: ticker-scroll 60s linear infinite;
-        }
-        .ticker-track:hover {
-          animation-play-state: paused;
-        }
-        @keyframes ticker-glow {
-          0%, 100% { opacity: 0.3; }
-          50% { opacity: 0.8; }
-        }
-        .ticker-updating {
-          animation: ticker-glow 1s ease-in-out infinite;
-        }
-      `}</style>
+    <>
+      {/* Spacer qui pousse le contenu vers le bas (en position normale dans le flow) */}
+      <div className="h-10 w-full" />
+      
+      {/* Ticker fixé en haut */}
+      <div className="fixed top-0 left-0 right-0 z-[99]">
+        <style>{`
+          @keyframes ticker-scroll {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+          }
+          .ticker-track {
+            animation: ticker-scroll 60s linear infinite;
+          }
+          .ticker-track:hover {
+            animation-play-state: paused;
+          }
+          @keyframes ticker-glow {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.8; }
+          }
+          .ticker-updating {
+            animation: ticker-glow 1s ease-in-out infinite;
+          }
+        `}</style>
 
-      <div 
-        className={`relative flex items-center h-10 overflow-hidden backdrop-blur-xl transition-all duration-300 ${
-          isUpdating 
-            ? 'bg-[#020111] border-b-2 border-[#D4AF37]/60' 
-            : 'bg-[#020111]/95'
-        }`}
-        style={{
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5), 0 2px 10px rgba(212, 175, 55, 0.1)',
-        }}
-      >
-        {isUpdating && (
-          <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent ticker-updating" />
-        )}
-
-        <button
-          onClick={handleDismiss}
-          className="absolute left-2 z-10 p-1 text-white/40 hover:text-white hover:bg-white/10 rounded transition-colors"
-          title="Masquer temporairement"
+        <div 
+          className={`relative flex items-center h-10 overflow-hidden backdrop-blur-xl transition-all duration-300 ${
+            isUpdating 
+              ? 'bg-[#020111] border-b-2 border-[#D4AF37]/60' 
+              : 'bg-[#020111]/95'
+          }`}
+          style={{
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5), 0 2px 10px rgba(212, 175, 55, 0.1)',
+          }}
         >
-          <X size={12} />
-        </button>
+          {isUpdating && (
+            <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent ticker-updating" />
+          )}
 
-        <div className="flex-1 ml-8 overflow-hidden">
-          <div className="ticker-track flex items-center gap-6 whitespace-nowrap">
-            {items.map((item) => (
-              <TickerItemComponent
-                key={item.id}
-                item={item}
-                lang={lang} // 👈 NOUVEAU : passer la langue
-                onClick={() => handleItemClick(item)}
-              />
-            ))}
-            {items.map((item) => (
-              <TickerItemComponent
-                key={`dup-${item.id}`}
-                item={item}
-                lang={lang} // 👈 NOUVEAU : passer la langue
-                onClick={() => handleItemClick(item)}
-              />
-            ))}
+          <button
+            onClick={handleDismiss}
+            className="absolute left-2 z-10 p-1 text-white/40 hover:text-white hover:bg-white/10 rounded transition-colors"
+            title="Masquer temporairement"
+          >
+            <X size={12} />
+          </button>
+
+          <div className="flex-1 ml-8 overflow-hidden">
+            <div className="ticker-track flex items-center gap-6 whitespace-nowrap">
+              {items.map((item) => (
+                <TickerItemComponent
+                  key={item.id}
+                  item={item}
+                  lang={lang}
+                  onClick={() => handleItemClick(item)}
+                />
+              ))}
+              {items.map((item) => (
+                <TickerItemComponent
+                  key={`dup-${item.id}`}
+                  item={item}
+                  lang={lang}
+                  onClick={() => handleItemClick(item)}
+                />
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
-      <div 
-        className="h-2 bg-gradient-to-b from-black/40 to-transparent pointer-events-none"
-        style={{
-          boxShadow: '0 4px 15px rgba(0, 0, 0, 0.3)',
-        }}
-      />
-    </div>
+        <div 
+          className="h-2 bg-gradient-to-b from-black/40 to-transparent pointer-events-none"
+          style={{
+            boxShadow: '0 4px 15px rgba(0, 0, 0, 0.3)',
+          }}
+        />
+      </div>
+    </>
   );
 }
 
 function TickerItemComponent({ 
   item, 
-  lang, // 👈 NOUVEAU : recevoir la langue
+  lang,
   onClick 
 }: { 
   item: TickerItem; 
@@ -224,7 +231,7 @@ function TickerItemComponent({
   const flag = getFlag(item.country_code);
   const hasUrl = !!item.source_url;
 
-  // 👈 NOUVEAU : choisir le bon texte selon la langue
+  // Choisir le bon texte selon la langue
   const countryName = lang === 'fr' ? item.country_name_fr : (item.country_name_en || item.country_name_fr);
   const indicator = lang === 'fr' ? item.indicator_fr : (item.indicator_en || item.indicator_fr);
   const unit = lang === 'fr' ? item.unit_fr : (item.unit_en || item.unit_fr);
