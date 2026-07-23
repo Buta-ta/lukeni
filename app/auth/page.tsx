@@ -33,9 +33,9 @@ const CaurisIcon = ({ className }: { className?: string }) => (
 
 const AuthBackground = () => (
   <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-    <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-gradient-to-br from-purple-600/20 to-transparent blur-3xl" 
+    <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-gradient-to-br from-purple-600/20 to-transparent blur-3xl"
       style={{ animation: 'pulse 8s ease-in-out infinite' }} />
-    <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full bg-gradient-to-br from-[#D4AF37]/10 to-transparent blur-3xl" 
+    <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full bg-gradient-to-br from-[#D4AF37]/10 to-transparent blur-3xl"
       style={{ animation: 'pulse 6s ease-in-out infinite 1s' }} />
     <style>{`
       @keyframes pulse {
@@ -47,6 +47,16 @@ const AuthBackground = () => (
 );
 
 function AuthContent() {
+
+
+
+  // ✅ Appliquer l'attribut data-landing-page au HTML
+  useEffect(() => {
+    document.documentElement.setAttribute('data-auth-page', 'true');
+    return () => {
+      document.documentElement.setAttribute('data-auth-page', 'false');
+    };
+  }, []);
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
@@ -83,21 +93,21 @@ function AuthContent() {
   const getRedirectPath = () => searchParams.get('redirect') || '/explore';
 
   useEffect(() => {
-  const reason = searchParams.get('reason');
-  const deleted = searchParams.get('deleted');
+    const reason = searchParams.get('reason');
+    const deleted = searchParams.get('deleted');
 
-  // ✅ Message de suppression réussie
-  if (deleted === 'true') {
-    setSuccess(lang === 'fr'
-      ? '✅ Compte supprimé. Créez un nouveau compte pour continuer.'
-      : '✅ Account deleted. Create a new account to continue.');
-  }
+    // ✅ Message de suppression réussie
+    if (deleted === 'true') {
+      setSuccess(lang === 'fr'
+        ? '✅ Compte supprimé. Créez un nouveau compte pour continuer.'
+        : '✅ Account deleted. Create a new account to continue.');
+    }
 
-  if (reason === 'timeout') {
-    setError(lang === 'fr'
-      ? '⏱️ Vous avez été déconnecté pour inactivité. Reconnectez-vous.'
-      : '⏱️ You were logged out due to inactivity. Please log in again.');
-  }
+    if (reason === 'timeout') {
+      setError(lang === 'fr'
+        ? '⏱️ Vous avez été déconnecté pour inactivité. Reconnectez-vous.'
+        : '⏱️ You were logged out due to inactivity. Please log in again.');
+    }
 
 
     const redirectTo = getRedirectPath();
@@ -162,67 +172,67 @@ function AuthContent() {
     }
   };
 
-const handleRegister = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError(null);
-  setIsLoading(true);
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsLoading(true);
 
-  try {
-    const response = await fetch('/api/auth/signup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email,
-        password,
-        fullName,
-      }),
-    });
+    try {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password,
+          fullName,
+        }),
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (!response.ok) {
-      if (data.error === 'already_registered') {
-        setError(lang === 'fr' ? 'Cet email est déjà utilisé. Connecte-toi !' : 'This email is already registered. Please log in!');
-      } else {
-        setError(data.error || (lang === 'fr' ? 'Impossible de créer le compte.' : 'Unable to create account.'));
+      if (!response.ok) {
+        if (data.error === 'already_registered') {
+          setError(lang === 'fr' ? 'Cet email est déjà utilisé. Connecte-toi !' : 'This email is already registered. Please log in!');
+        } else {
+          setError(data.error || (lang === 'fr' ? 'Impossible de créer le compte.' : 'Unable to create account.'));
+        }
+        return;
       }
-      return;
+
+      // ✅ ENVOYER L'EMAIL DE BIENVENUE IMMÉDIATEMENT (sans attendre la réponse)
+      // C'est une requête "fire and forget"
+      fetch('/api/send-welcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          fullName,
+          lang: lang // ✅ NOUVEAU : Envoyer la langue
+        }),
+      }).catch(err => console.warn('Welcome email error (non-blocking):', err));
+
+      if (data.session) {
+        setSuccess(lang === 'fr' ? '✅ Compte créé ! Connexion...' : '✅ Account created! Logging in...');
+        await supabase.auth.setSession(data.session);
+
+        setTimeout(() => {
+          window.location.href = getRedirectPath();
+        }, 1000);
+      } else {
+        setSuccess(lang === 'fr' ? '✅ Compte créé ! Connecte-toi.' : '✅ Account created! Please log in.');
+        setTimeout(() => {
+          setView('login');
+        }, 2000);
+      }
+    } catch (err: any) {
+      console.error('Registration error:', err.message);
+      setError(lang === 'fr' ? 'Erreur de connexion au serveur.' : 'Server connection error.');
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    // ✅ ENVOYER L'EMAIL DE BIENVENUE IMMÉDIATEMENT (sans attendre la réponse)
-    // C'est une requête "fire and forget"
-    fetch('/api/send-welcome', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        email, 
-        fullName,
-        lang: lang // ✅ NOUVEAU : Envoyer la langue
-      }),
-    }).catch(err => console.warn('Welcome email error (non-blocking):', err));
-
-    if (data.session) {
-      setSuccess(lang === 'fr' ? '✅ Compte créé ! Connexion...' : '✅ Account created! Logging in...');
-      await supabase.auth.setSession(data.session);
-
-      setTimeout(() => {
-        window.location.href = getRedirectPath();
-      }, 1000);
-    } else {
-      setSuccess(lang === 'fr' ? '✅ Compte créé ! Connecte-toi.' : '✅ Account created! Please log in.');
-      setTimeout(() => {
-        setView('login');
-      }, 2000);
-    }
-  } catch (err: any) {
-    console.error('Registration error:', err.message);
-    setError(lang === 'fr' ? 'Erreur de connexion au serveur.' : 'Server connection error.');
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-   const handleGoogleAuth = async () => {
+  const handleGoogleAuth = async () => {
     setError(null);
     setIsLoading(true);
     try {
@@ -313,7 +323,7 @@ const handleRegister = async (e: React.FormEvent) => {
       <div className="absolute top-4 md:top-6 left-0 right-0 z-10 flex items-center justify-between px-4 md:px-6">
         {/* Retour accueil — responsive ✅ */}
         <Link href="/" className="flex items-center gap-1.5 md:gap-2 text-[#D4AF37] text-[10px] md:text-xs font-bold hover:text-white transition-colors uppercase tracking-widest">
-          <ArrowLeft size={12} className="md:w-4 md:h-4" /> 
+          <ArrowLeft size={12} className="md:w-4 md:h-4" />
           <span className="hidden md:inline">{lang === 'fr' ? 'Accueil' : 'Home'}</span>
         </Link>
 
@@ -339,9 +349,9 @@ const handleRegister = async (e: React.FormEvent) => {
       >
         {/* Glow arrière-plan */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#D4AF37]/5 via-transparent to-purple-600/5 rounded-[40px] blur-xl" />
-        
+
         {/* Card avec clip-path pour forme cauris ✅ */}
-        <div 
+        <div
           className="relative bg-[#020111]/60 backdrop-blur-2xl border border-white/10 p-6 md:p-8 shadow-2xl"
           style={{
             clipPath: 'polygon(15% 0%, 85% 0%, 95% 20%, 98% 50%, 95% 80%, 85% 100%, 15% 100%, 5% 80%, 2% 50%, 5% 20%)',
@@ -349,7 +359,7 @@ const handleRegister = async (e: React.FormEvent) => {
           }}
         >
           {/* Glow de la bordure interne */}
-          <div 
+          <div
             className="absolute inset-0 pointer-events-none"
             style={{
               clipPath: 'polygon(15% 0%, 85% 0%, 95% 20%, 98% 50%, 95% 80%, 85% 100%, 15% 100%, 5% 80%, 2% 50%, 5% 20%)',
@@ -387,21 +397,19 @@ const handleRegister = async (e: React.FormEvent) => {
             >
               <button
                 onClick={() => switchView('login')}
-                className={`flex-1 py-2 md:py-2.5 px-3 md:px-4 rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all duration-300 ${
-                  view === 'login'
-                    ? 'bg-[#D4AF37] text-black shadow-lg shadow-[#D4AF37]/30'
-                    : 'text-white/50 hover:text-white'
-                }`}
+                className={`flex-1 py-2 md:py-2.5 px-3 md:px-4 rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all duration-300 ${view === 'login'
+                  ? 'bg-[#D4AF37] text-black shadow-lg shadow-[#D4AF37]/30'
+                  : 'text-white/50 hover:text-white'
+                  }`}
               >
                 {lang === 'fr' ? 'Connexion' : 'Sign in'}
               </button>
               <button
                 onClick={() => switchView('register')}
-                className={`flex-1 py-2 md:py-2.5 px-3 md:px-4 rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all duration-300 ${
-                  view === 'register'
-                    ? 'bg-[#D4AF37] text-black shadow-lg shadow-[#D4AF37]/30'
-                    : 'text-white/50 hover:text-white'
-                }`}
+                className={`flex-1 py-2 md:py-2.5 px-3 md:px-4 rounded-lg text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all duration-300 ${view === 'register'
+                  ? 'bg-[#D4AF37] text-black shadow-lg shadow-[#D4AF37]/30'
+                  : 'text-white/50 hover:text-white'
+                  }`}
               >
                 {lang === 'fr' ? 'Inscription' : 'Sign up'}
               </button>
