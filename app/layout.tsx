@@ -155,11 +155,25 @@ export default function RootLayout({
         <script
           src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"
           async
+          suppressHydrationWarning
         ></script>
         <script
           src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"
           async
+          suppressHydrationWarning
         ></script>
+
+        {/* ✅ MAPLIBRE GL POUR LES CARTES (UNE SEULE FOIS) */}
+        <script
+          src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"
+          async
+          suppressHydrationWarning
+        ></script>
+        <link
+          href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css"
+          rel="stylesheet"
+          suppressHydrationWarning
+        />
       </head>
 
       <body className="min-h-full flex flex-col bg-[#020111] text-white">

@@ -9,9 +9,10 @@ import { PWARegister } from '@/components/PWARegister';
 import { PWAInstallButton } from '@/components/PWAInstallButton';
 import Footer from '@/components/Footer';
 import GlobalAnnouncement from '@/components/GlobalAnnouncement';
-import { AudioProvider } from '@/lib/contexts/AudioContext';
-import GlobalAudioPlayer from '@/components/GlobalAudioPlayer';
+import { AudioProvider } from '@/lib/contexts/AudioContext'; 
+import GlobalAudioPlayer from '@/components/GlobalAudioPlayer'; 
 import LiveSpotWidget from '@/components/LiveSpotWidget';
+import MacroTicker from '@/components/MacroTicker'; // 👈 NOUVEAU
 import { LanguageProvider, useLanguage } from '@/lib/contexts/LanguageContext';
 
 function LayoutInner({
@@ -52,15 +53,19 @@ function LayoutInner({
     <>
       <PWARegister />
 
+      {/* 👈 TICKER EN HAUT (hors GlobalAnnouncement pour être toujours visible) */}
+      <MacroTicker />
+
       <TrackingProvider>
         <GlobalAnnouncement>
           <AudioProvider>
-            <div className="flex-1 flex flex-col">
+            {/* Padding top pour compenser le ticker */}
+            <div className="flex-1 flex flex-col pt-10">
               {children}
             </div>
-
+            
             {!isGamePage && <Footer />}
-
+            
             <GlobalAudioPlayer />
             <LiveSpotWidget />
           </AudioProvider>

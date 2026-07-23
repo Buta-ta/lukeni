@@ -20,6 +20,8 @@ import {
   WorkflowStatus, DataStatus,
 } from './macro/types';
 
+import MacroTickerManager from './macro/GlobeConfigManager';
+
 function LinguaButton({ action, label, disabled, isProcessing, onClick }: {
   action: string; label: string; disabled: boolean; isProcessing: string | null; onClick: () => void;
 }) {
@@ -39,6 +41,7 @@ export default function MacroAdminTab({ showMsg }: { showMsg: (type: 'success' |
   const [isLoading, setIsLoading] = useState(true);
   const [view, setView] = useState<'list' | 'form'>('list');
 
+  const [adminView, setAdminView] = useState<'charts' | 'globe'>('charts');
   // Filtres liste
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<WorkflowStatus | 'all'>('all');
@@ -48,8 +51,8 @@ export default function MacroAdminTab({ showMsg }: { showMsg: (type: 'success' |
   // Form: Chart
   const [editingId, setEditingId] = useState<string | null>(null);
   const [titleFr, setTitleFr] = useState(''); const [titleEn, setTitleEn] = useState('');
-  const [descFr, setDescFr] = useState('');   const [descEn, setDescEn] = useState('');
-  const [unitFr, setUnitFr] = useState('');   const [unitEn, setUnitEn] = useState('');
+  const [descFr, setDescFr] = useState(''); const [descEn, setDescEn] = useState('');
+  const [unitFr, setUnitFr] = useState(''); const [unitEn, setUnitEn] = useState('');
   const [secUnitFr, setSecUnitFr] = useState(''); const [secUnitEn, setSecUnitEn] = useState('');
   const [sourceFr, setSourceFr] = useState(''); const [sourceEn, setSourceEn] = useState('');
   const [sourceUrl, setSourceUrl] = useState('');
@@ -347,362 +350,362 @@ export default function MacroAdminTab({ showMsg }: { showMsg: (type: 'success' |
 
   return (
     <div className="space-y-6">
-      {/* HEADER */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-teal-500/20 rounded-xl"><TrendingUp className="text-teal-400" size={24} /></div>
-          <div>
-            <h2 className="text-xl md:text-2xl font-serif text-white">Laboratoire Statistique LUKENI</h2>
-            <p className="text-gray-400 text-xs">Création, gouvernance et publication de données macroéconomiques</p>
-          </div>
-        </div>
-        {view === 'list' && (
-          <button onClick={() => openForm()} className="flex items-center gap-2 bg-teal-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-teal-500 transition-all">
-            <PlusCircle size={16} /> Nouveau Graphique
-          </button>
-        )}
-      </div>
 
-      {/* VUE LISTE */}
-      {view === 'list' && (
+      <button
+        onClick={() => setAdminView('globe')}
+        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${adminView === 'globe' ? 'bg-purple-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
+          }`}
+      >
+        📢 Ticker Stats
+      </button>
+      {adminView === 'charts' && (
         <>
-          {/* Filtres originaux */}
-          <div className="flex flex-wrap gap-3 items-center bg-[#0f0f0f] p-3 rounded-xl border border-white/10">
-            <div className="flex items-center gap-2 flex-1 min-w-[200px] bg-white/5 rounded-lg px-3 py-2">
-              <Search size={14} className="text-gray-500" />
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un graphique..."
-                className="bg-transparent text-white text-sm outline-none flex-1" />
-            </div>
-            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as any)} className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none">
-              <option value="all">Tous statuts</option>
-              {Object.entries(WORKFLOW_LABELS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-            </select>
-            <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none">
-              <option value="all">Toutes catégories</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name_fr}</option>)}
-            </select>
-          </div>
+          {/* VUE LISTE */}
+          {view === 'list' && (
+            <>
+              {/* Filtres originaux */}
+              <div className="flex flex-wrap gap-3 items-center bg-[#0f0f0f] p-3 rounded-xl border border-white/10">
+                <div className="flex items-center gap-2 flex-1 min-w-[200px] bg-white/5 rounded-lg px-3 py-2">
+                  <Search size={14} className="text-gray-500" />
+                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un graphique..."
+                    className="bg-transparent text-white text-sm outline-none flex-1" />
+                </div>
+                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as any)} className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none">
+                  <option value="all">Tous statuts</option>
+                  {Object.entries(WORKFLOW_LABELS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                </select>
+                <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none">
+                  <option value="all">Toutes catégories</option>
+                  {categories.map(c => <option key={c.id} value={c.id}>{c.name_fr}</option>)}
+                </select>
+              </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredCharts.length === 0 && <div className="col-span-full text-center py-12 border border-dashed border-white/10 rounded-xl text-gray-500">Aucun graphique trouvé.</div>}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredCharts.length === 0 && <div className="col-span-full text-center py-12 border border-dashed border-white/10 rounded-xl text-gray-500">Aucun graphique trouvé.</div>}
 
-            {filteredCharts.map(chart => {
-              const wf = WORKFLOW_LABELS[chart.workflow_status] || WORKFLOW_LABELS.draft;
-              return (
-                <motion.div key={chart.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-                  className="bg-[#0f0f0f] border border-white/10 rounded-xl p-5 hover:border-teal-500/30 transition-all">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="px-2 py-1 rounded-md text-[10px] font-bold" style={{ backgroundColor: `${wf.color}20`, color: wf.color }}>{wf.label}</span>
-                    <div className="flex gap-2 text-gray-400">
-                      <button onClick={() => setAuditModalChartId(chart.id)} className="hover:text-blue-400" title="Historique"><History size={15}/></button>
-                      <button onClick={() => handleDuplicate(chart)} className="hover:text-amber-400" title="Dupliquer"><Copy size={15}/></button>
-                      <button onClick={() => openForm(chart)} className="hover:text-teal-400"><Edit2 size={15}/></button>
-                      <button onClick={() => handleDeleteChart(chart.id)} className="hover:text-red-400"><Trash2 size={15}/></button>
+                {filteredCharts.map(chart => {
+                  const wf = WORKFLOW_LABELS[chart.workflow_status] || WORKFLOW_LABELS.draft;
+                  return (
+                    <motion.div key={chart.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                      className="bg-[#0f0f0f] border border-white/10 rounded-xl p-5 hover:border-teal-500/30 transition-all">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="px-2 py-1 rounded-md text-[10px] font-bold" style={{ backgroundColor: `${wf.color}20`, color: wf.color }}>{wf.label}</span>
+                        <div className="flex gap-2 text-gray-400">
+                          <button onClick={() => setAuditModalChartId(chart.id)} className="hover:text-blue-400" title="Historique"><History size={15} /></button>
+                          <button onClick={() => handleDuplicate(chart)} className="hover:text-amber-400" title="Dupliquer"><Copy size={15} /></button>
+                          <button onClick={() => openForm(chart)} className="hover:text-teal-400"><Edit2 size={15} /></button>
+                          <button onClick={() => handleDeleteChart(chart.id)} className="hover:text-red-400"><Trash2 size={15} /></button>
+                        </div>
+                      </div>
+                      <h3 className="text-white font-bold mb-1 truncate">{chart.title_fr}</h3>
+                      <div className="flex items-center gap-2 text-xs text-gray-500 mb-2 flex-wrap">
+                        <BarChart3 size={12} />
+                        <span className="uppercase">{CHART_TYPES.find(t => t.id === chart.chart_type)?.label || chart.chart_type}</span>
+                        <span>•</span>
+                        <span style={{ color: chart.category?.color }}>{chart.category?.name_fr || 'Sans catégorie'}</span>
+                      </div>
+                      {/* Badges restaurés */}
+                      {chart.data_status !== 'final' && (
+                        <span className="inline-block text-[10px] px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded mb-2">
+                          {chart.data_status === 'provisional' ? 'Provisoire' : chart.data_status === 'estimated' ? 'Estimé' : 'Prévision'}
+                        </span>
+                      )}
+                      <p className="text-gray-400 text-xs line-clamp-2">{chart.description_fr}</p>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {/* VUE FORMULAIRE */}
+          <AnimatePresence>
+            {view === 'form' && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="space-y-6">
+
+                {coherenceWarnings.length > 0 && (
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 space-y-1">
+                    <div className="flex items-center gap-2 text-amber-400 font-bold text-sm"><AlertTriangle size={16} /> Points de vigilance</div>
+                    {coherenceWarnings.map((w, i) => <p key={i} className="text-amber-300/80 text-xs pl-6">• {w}</p>)}
+                  </div>
+                )}
+
+                <div className="bg-[#0f0f0f] p-6 rounded-xl border border-teal-500/20 space-y-5">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                    <h3 className="text-lg font-bold text-white flex items-center gap-2"><LayoutGrid size={18} className="text-teal-400" /> Structure du Graphique</h3>
+                    <button onClick={resetForm} className="text-xs text-gray-400 hover:text-white flex items-center gap-1"><X size={14} />Fermer</button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="block text-xs text-gray-400 mb-1 font-mono">📊 Type de Graphique</label>
+                      {/* Select groupé original */}
+                      <select value={chartType} onChange={e => setChartType(e.target.value as ChartType)} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2.5 text-white text-sm outline-none focus:border-teal-500">
+                        {['Composition', 'Évolution', 'Comparaison', 'Distribution', 'Démographie'].map(group => (
+                          <optgroup key={group} label={group}>
+                            {CHART_TYPES.filter(t => t.group === group).map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                          </optgroup>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1 font-mono">🏷️ Catégorie</label>
+                      <select value={categoryId} onChange={e => setCategoryId(e.target.value)} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2.5 text-white text-sm outline-none focus:border-teal-500">
+                        <option value="">Sélectionner...</option>
+                        {categories.map(c => <option key={c.id} value={c.id}>{c.name_fr}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1 font-mono">⚙️ Statut éditorial</label>
+                      <select value={workflowStatus} onChange={e => setWorkflowStatus(e.target.value as WorkflowStatus)} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2.5 text-white text-sm outline-none focus:border-teal-500">
+                        {Object.entries(WORKFLOW_LABELS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                      </select>
                     </div>
                   </div>
-                  <h3 className="text-white font-bold mb-1 truncate">{chart.title_fr}</h3>
-                  <div className="flex items-center gap-2 text-xs text-gray-500 mb-2 flex-wrap">
-                    <BarChart3 size={12} />
-                    <span className="uppercase">{CHART_TYPES.find(t => t.id === chart.chart_type)?.label || chart.chart_type}</span>
-                    <span>•</span>
-                    <span style={{ color: chart.category?.color }}>{chart.category?.name_fr || 'Sans catégorie'}</span>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1 font-mono">🇫🇷 Titre *</label>
+                      <input type="text" value={titleFr} onChange={e => setTitleFr(e.target.value)} placeholder="Ex: Investissements de la diaspora" className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-teal-500" />
+                      <div className="flex gap-1 mt-1.5">
+                        <LinguaButton action="correct-fr-title" label="Corriger" disabled={!titleFr} isProcessing={isProcessing} onClick={() => handleLingua('correct-fr', 'title')} />
+                        <LinguaButton action="translate-en-title" label="FR→EN" disabled={!titleFr} isProcessing={isProcessing} onClick={() => handleLingua('translate-en', 'title')} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1 font-mono">🇬🇧 Title</label>
+                      <input type="text" value={titleEn} onChange={e => setTitleEn(e.target.value)} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-teal-500" />
+                      <div className="flex gap-1 mt-1.5">
+                        <LinguaButton action="translate-fr-title" label="EN→FR" disabled={!titleEn} isProcessing={isProcessing} onClick={() => handleLingua('translate-fr', 'title')} />
+                      </div>
+                    </div>
                   </div>
-                  {/* Badges restaurés */}
-                  {chart.data_status !== 'final' && (
-                    <span className="inline-block text-[10px] px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded mb-2">
-                      {chart.data_status === 'provisional' ? 'Provisoire' : chart.data_status === 'estimated' ? 'Estimé' : 'Prévision'}
-                    </span>
-                  )}
-                  <p className="text-gray-400 text-xs line-clamp-2">{chart.description_fr}</p>
-                </motion.div>
-              );
-            })}
-          </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1 font-mono">🇫🇷 Note Éditoriale</label>
+                      <textarea value={descFr} onChange={e => setDescFr(e.target.value)} rows={3} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-teal-500 resize-none" />
+                      <div className="flex gap-1 mt-1.5">
+                        <LinguaButton action="correct-fr-desc" label="Corriger" disabled={!descFr} isProcessing={isProcessing} onClick={() => handleLingua('correct-fr', 'desc')} />
+                        <LinguaButton action="translate-en-desc" label="FR→EN" disabled={!descFr} isProcessing={isProcessing} onClick={() => handleLingua('translate-en', 'desc')} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1 font-mono">🇬🇧 Editorial Note</label>
+                      <textarea value={descEn} onChange={e => setDescEn(e.target.value)} rows={3} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-teal-500 resize-none" />
+                      <div className="flex gap-1 mt-1.5">
+                        <LinguaButton action="translate-fr-desc" label="EN→FR" disabled={!descEn} isProcessing={isProcessing} onClick={() => handleLingua('translate-fr', 'desc')} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-white/10 pt-4">
+                    <h4 className="text-sm font-bold text-teal-400 mb-3 flex items-center gap-2">🔬 Rigueur méthodologique</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                      <div>
+                        <label className="block text-[10px] text-gray-400 mb-1 uppercase">Statut des données</label>
+                        <select value={dataStatus} onChange={e => setDataStatus(e.target.value as DataStatus)} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-2 py-2 text-white text-xs outline-none">
+                          <option value="final">Définitif</option>
+                          <option value="provisional">Provisoire</option>
+                          <option value="estimated">Estimé</option>
+                          <option value="forecast">Prévision</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-gray-400 mb-1 uppercase">Date de référence</label>
+                        <input type="date" value={referenceDate} onChange={e => setReferenceDate(e.target.value)} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-2 py-2 text-white text-xs outline-none" />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-gray-400 mb-1 uppercase">Marge d'erreur (%)</label>
+                        <input type="number" value={marginError} onChange={e => setMarginError(e.target.value)} placeholder="Optionnel" className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-2 py-2 text-white text-xs outline-none" />
+                      </div>
+                      <div className="flex items-end pb-2">
+                        <label className="flex items-center gap-2 text-xs text-gray-300">
+                          <input type="checkbox" checked={hasBreak} onChange={e => setHasBreak(e.target.checked)} /> Rupture de série
+                        </label>
+                      </div>
+                    </div>
+
+                    {hasBreak && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 bg-amber-500/5 border border-amber-500/20 rounded-lg p-3">
+                        <div>
+                          <label className="block text-[10px] text-amber-400 mb-1 uppercase">Note de rupture FR</label>
+                          <textarea value={breakNoteFr} onChange={e => setBreakNoteFr(e.target.value)} rows={2} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none resize-none" />
+                          <div className="flex gap-1 mt-1.5">
+                            <LinguaButton action="correct-fr-breaknote" label="Corriger" disabled={!breakNoteFr} isProcessing={isProcessing} onClick={() => handleLingua('correct-fr', 'breaknote')} />
+                            <LinguaButton action="translate-en-breaknote" label="FR→EN" disabled={!breakNoteFr} isProcessing={isProcessing} onClick={() => handleLingua('translate-en', 'breaknote')} />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-amber-400 mb-1 uppercase">Note de rupture EN</label>
+                          <textarea value={breakNoteEn} onChange={e => setBreakNoteEn(e.target.value)} rows={2} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none resize-none" />
+                          <div className="flex gap-1 mt-1.5">
+                            <LinguaButton action="translate-fr-breaknote" label="EN→FR" disabled={!breakNoteEn} isProcessing={isProcessing} onClick={() => handleLingua('translate-fr', 'breaknote')} />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="block text-[10px] text-gray-400 mb-1 uppercase">Méthodologie FR</label>
+                        <textarea value={methodologyFr} onChange={e => setMethodologyFr(e.target.value)} rows={2} placeholder="Enquête, données administratives..." className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none resize-none" />
+                        <div className="flex gap-1 mt-1.5">
+                          <LinguaButton action="correct-fr-methodology" label="Corriger" disabled={!methodologyFr} isProcessing={isProcessing} onClick={() => handleLingua('correct-fr', 'methodology')} />
+                          <LinguaButton action="translate-en-methodology" label="FR→EN" disabled={!methodologyFr} isProcessing={isProcessing} onClick={() => handleLingua('translate-en', 'methodology')} />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-gray-400 mb-1 uppercase">Méthodologie EN</label>
+                        <textarea value={methodologyEn} onChange={e => setMethodologyEn(e.target.value)} rows={2} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none resize-none" />
+                        <div className="flex gap-1 mt-1.5">
+                          <LinguaButton action="translate-fr-methodology" label="EN→FR" disabled={!methodologyEn} isProcessing={isProcessing} onClick={() => handleLingua('translate-fr', 'methodology')} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] text-gray-400 mb-1 uppercase">Champ / Population couverte FR</label>
+                        <input type="text" value={popScopeFr} onChange={e => setPopScopeFr(e.target.value)} placeholder="Ex: Diaspora congolaise" className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none" />
+                        <div className="flex gap-1 mt-1.5">
+                          <LinguaButton action="correct-fr-popscope" label="Corriger" disabled={!popScopeFr} isProcessing={isProcessing} onClick={() => handleLingua('correct-fr', 'popscope')} />
+                          <LinguaButton action="translate-en-popscope" label="FR→EN" disabled={!popScopeFr} isProcessing={isProcessing} onClick={() => handleLingua('translate-en', 'popscope')} />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-gray-400 mb-1 uppercase">Champ / Population couverte EN</label>
+                        <input type="text" value={popScopeEn} onChange={e => setPopScopeEn(e.target.value)} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none" />
+                        <div className="flex gap-1 mt-1.5">
+                          <LinguaButton action="translate-fr-popscope" label="EN→FR" disabled={!popScopeEn} isProcessing={isProcessing} onClick={() => handleLingua('translate-fr', 'popscope')} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-white/10 pt-4 grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div>
+                      <label className="block text-[10px] text-gray-400 mb-1 uppercase">Unité FR</label>
+                      <input type="text" value={unitFr} onChange={e => setUnitFr(e.target.value)} placeholder="Milliards $" className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-sm outline-none" />
+                      <div className="flex gap-1 mt-1.5">
+                        <LinguaButton action="correct-fr-unit" label="Corriger" disabled={!unitFr} isProcessing={isProcessing} onClick={() => handleLingua('correct-fr', 'unit')} />
+                        <LinguaButton action="translate-en-unit" label="FR→EN" disabled={!unitFr} isProcessing={isProcessing} onClick={() => handleLingua('translate-en', 'unit')} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-gray-400 mb-1 uppercase">Unité EN</label>
+                      <input type="text" value={unitEn} onChange={e => setUnitEn(e.target.value)} placeholder="Billions $" className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-sm outline-none" />
+                      <div className="flex gap-1 mt-1.5">
+                        <LinguaButton action="translate-fr-unit" label="EN→FR" disabled={!unitEn} isProcessing={isProcessing} onClick={() => handleLingua('translate-fr', 'unit')} />
+                      </div>
+                    </div>
+                    {chartType === 'combo' && (
+                      <>
+                        <div>
+                          <label className="block text-[10px] text-gray-400 mb-1 uppercase">Unité sec. FR</label>
+                          <input type="text" value={secUnitFr} onChange={e => setSecUnitFr(e.target.value)} placeholder="%" className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-sm outline-none" />
+                          <div className="flex gap-1 mt-1.5">
+                            <LinguaButton action="correct-fr-secunit" label="Corriger" disabled={!secUnitFr} isProcessing={isProcessing} onClick={() => handleLingua('correct-fr', 'secunit')} />
+                            <LinguaButton action="translate-en-secunit" label="FR→EN" disabled={!secUnitFr} isProcessing={isProcessing} onClick={() => handleLingua('translate-en', 'secunit')} />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-gray-400 mb-1 uppercase">Unité sec. EN</label>
+                          <input type="text" value={secUnitEn} onChange={e => setSecUnitEn(e.target.value)} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-sm outline-none" />
+                          <div className="flex gap-1 mt-1.5">
+                            <LinguaButton action="translate-fr-secunit" label="EN→FR" disabled={!secUnitEn} isProcessing={isProcessing} onClick={() => handleLingua('translate-fr', 'secunit')} />
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    <div>
+                      <label className="block text-[10px] text-gray-400 mb-1 uppercase">Source FR</label>
+                      <input type="text" value={sourceFr} onChange={e => setSourceFr(e.target.value)} placeholder="BAD, 2024" className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-sm outline-none" />
+                      <div className="flex gap-1 mt-1.5">
+                        <LinguaButton action="correct-fr-source" label="Corriger" disabled={!sourceFr} isProcessing={isProcessing} onClick={() => handleLingua('correct-fr', 'source')} />
+                        <LinguaButton action="translate-en-source" label="FR→EN" disabled={!sourceFr} isProcessing={isProcessing} onClick={() => handleLingua('translate-en', 'source')} />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <label className="block text-[10px] text-gray-400 mb-1 uppercase">Source EN</label>
+                      <input type="text" value={sourceEn} onChange={e => setSourceEn(e.target.value)} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-sm outline-none" />
+                      <div className="flex gap-1 mt-1.5">
+                        <LinguaButton action="translate-fr-source" label="EN→FR" disabled={!sourceEn} isProcessing={isProcessing} onClick={() => handleLingua('translate-fr', 'source')} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-gray-400 mb-1 uppercase">🔗 URL Source vérifiable</label>
+                      <input type="url" value={sourceUrl} onChange={e => setSourceUrl(e.target.value)} placeholder="https://..." className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-sm outline-none" />
+                    </div>
+                  </div>
+
+                  <div className="border-t border-white/10 pt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-sm font-bold text-teal-400 flex items-center gap-2"><Sparkles size={14} /> Accessibilité (texte alternatif)</h4>
+                      <button onClick={autoGenerateAltText} className="text-xs bg-teal-500/10 text-teal-400 px-3 py-1 rounded-lg hover:bg-teal-500/20">Générer automatiquement</button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <textarea value={altTextFr} onChange={e => setAltTextFr(e.target.value)} rows={2} placeholder="Description du graphique pour lecteurs d'écran" className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none resize-none" />
+                        <div className="flex gap-1 mt-1.5">
+                          <LinguaButton action="correct-fr-alttext" label="Corriger" disabled={!altTextFr} isProcessing={isProcessing} onClick={() => handleLingua('correct-fr', 'alttext')} />
+                          <LinguaButton action="translate-en-alttext" label="FR→EN" disabled={!altTextFr} isProcessing={isProcessing} onClick={() => handleLingua('translate-en', 'alttext')} />
+                        </div>
+                      </div>
+                      <div>
+                        <textarea value={altTextEn} onChange={e => setAltTextEn(e.target.value)} rows={2} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none resize-none" />
+                        <div className="flex gap-1 mt-1.5">
+                          <LinguaButton action="translate-fr-alttext" label="EN→FR" disabled={!altTextEn} isProcessing={isProcessing} onClick={() => handleLingua('translate-fr', 'alttext')} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Gestionnaires TOUJOURS visibles */}
+                <SeriesManager series={series} setSeries={setSeries} chartType={chartType} />
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <DataEditor
+                    chartType={chartType}
+                    series={series}
+                    dataPoints={dataPoints}
+                    setDataPoints={setDataPoints}
+                    onDelete={(id) => setDeletedDataIds(prev => [...prev, id])}
+                    showMsg={showMsg}
+                  />
+                  <div className="bg-[#020111] p-5 rounded-xl border border-white/10 h-[500px] flex flex-col relative overflow-hidden">
+                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-teal-900/20 via-transparent to-transparent pointer-events-none" />
+                    <h3 className="font-bold text-white text-sm uppercase tracking-wider mb-2 relative z-10">Aperçu en direct</h3>
+                    <p className="text-xs text-gray-500 mb-4 relative z-10">{titleFr || 'Titre du graphique'}</p>
+                    <div className="flex-1 relative z-10">
+                      <ChartPreview chartType={chartType} series={series} dataPoints={dataPoints} annotations={annotations} />
+                    </div>
+                  </div>
+                </div>
+
+                <AnnotationsManager annotations={annotations} setAnnotations={setAnnotations} />
+
+                <div className="flex justify-end gap-3 pt-6">
+                  <button onClick={resetForm} className="px-6 py-3 bg-white/5 text-white rounded-xl font-bold hover:bg-white/10 transition-all">Annuler</button>
+                  <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-teal-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-teal-500 transition-all disabled:opacity-50">
+                    {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                    {editingId ? 'Mettre à jour' : 'Publier le graphique'}
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {auditModalChartId && <AuditHistoryModal chartId={auditModalChartId} onClose={() => setAuditModalChartId(null)} />}
         </>
       )}
 
-      {/* VUE FORMULAIRE */}
-      <AnimatePresence>
-        {view === 'form' && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="space-y-6">
-
-            {coherenceWarnings.length > 0 && (
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 space-y-1">
-                <div className="flex items-center gap-2 text-amber-400 font-bold text-sm"><AlertTriangle size={16}/> Points de vigilance</div>
-                {coherenceWarnings.map((w, i) => <p key={i} className="text-amber-300/80 text-xs pl-6">• {w}</p>)}
-              </div>
-            )}
-
-            <div className="bg-[#0f0f0f] p-6 rounded-xl border border-teal-500/20 space-y-5">
-              <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                <h3 className="text-lg font-bold text-white flex items-center gap-2"><LayoutGrid size={18} className="text-teal-400" /> Structure du Graphique</h3>
-                <button onClick={resetForm} className="text-xs text-gray-400 hover:text-white flex items-center gap-1"><X size={14} />Fermer</button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-xs text-gray-400 mb-1 font-mono">📊 Type de Graphique</label>
-                  {/* Select groupé original */}
-                  <select value={chartType} onChange={e => setChartType(e.target.value as ChartType)} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2.5 text-white text-sm outline-none focus:border-teal-500">
-                    {['Composition', 'Évolution', 'Comparaison', 'Distribution', 'Démographie'].map(group => (
-                      <optgroup key={group} label={group}>
-                        {CHART_TYPES.filter(t => t.group === group).map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-                      </optgroup>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1 font-mono">🏷️ Catégorie</label>
-                  <select value={categoryId} onChange={e => setCategoryId(e.target.value)} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2.5 text-white text-sm outline-none focus:border-teal-500">
-                    <option value="">Sélectionner...</option>
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.name_fr}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1 font-mono">⚙️ Statut éditorial</label>
-                  <select value={workflowStatus} onChange={e => setWorkflowStatus(e.target.value as WorkflowStatus)} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2.5 text-white text-sm outline-none focus:border-teal-500">
-                    {Object.entries(WORKFLOW_LABELS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1 font-mono">🇫🇷 Titre *</label>
-                  <input type="text" value={titleFr} onChange={e => setTitleFr(e.target.value)} placeholder="Ex: Investissements de la diaspora" className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-teal-500" />
-                  <div className="flex gap-1 mt-1.5">
-                    <LinguaButton action="correct-fr-title" label="Corriger" disabled={!titleFr} isProcessing={isProcessing} onClick={() => handleLingua('correct-fr', 'title')} />
-                    <LinguaButton action="translate-en-title" label="FR→EN" disabled={!titleFr} isProcessing={isProcessing} onClick={() => handleLingua('translate-en', 'title')} />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1 font-mono">🇬🇧 Title</label>
-                  <input type="text" value={titleEn} onChange={e => setTitleEn(e.target.value)} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-teal-500" />
-                  <div className="flex gap-1 mt-1.5">
-                    <LinguaButton action="translate-fr-title" label="EN→FR" disabled={!titleEn} isProcessing={isProcessing} onClick={() => handleLingua('translate-fr', 'title')} />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1 font-mono">🇫🇷 Note Éditoriale</label>
-                  <textarea value={descFr} onChange={e => setDescFr(e.target.value)} rows={3} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-teal-500 resize-none" />
-                  <div className="flex gap-1 mt-1.5">
-                    <LinguaButton action="correct-fr-desc" label="Corriger" disabled={!descFr} isProcessing={isProcessing} onClick={() => handleLingua('correct-fr', 'desc')} />
-                    <LinguaButton action="translate-en-desc" label="FR→EN" disabled={!descFr} isProcessing={isProcessing} onClick={() => handleLingua('translate-en', 'desc')} />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1 font-mono">🇬🇧 Editorial Note</label>
-                  <textarea value={descEn} onChange={e => setDescEn(e.target.value)} rows={3} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-4 py-2.5 text-white text-sm outline-none focus:border-teal-500 resize-none" />
-                  <div className="flex gap-1 mt-1.5">
-                    <LinguaButton action="translate-fr-desc" label="EN→FR" disabled={!descEn} isProcessing={isProcessing} onClick={() => handleLingua('translate-fr', 'desc')} />
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t border-white/10 pt-4">
-                <h4 className="text-sm font-bold text-teal-400 mb-3 flex items-center gap-2">🔬 Rigueur méthodologique</h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                  <div>
-                    <label className="block text-[10px] text-gray-400 mb-1 uppercase">Statut des données</label>
-                    <select value={dataStatus} onChange={e => setDataStatus(e.target.value as DataStatus)} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-2 py-2 text-white text-xs outline-none">
-                      <option value="final">Définitif</option>
-                      <option value="provisional">Provisoire</option>
-                      <option value="estimated">Estimé</option>
-                      <option value="forecast">Prévision</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-gray-400 mb-1 uppercase">Date de référence</label>
-                    <input type="date" value={referenceDate} onChange={e => setReferenceDate(e.target.value)} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-2 py-2 text-white text-xs outline-none" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-gray-400 mb-1 uppercase">Marge d'erreur (%)</label>
-                    <input type="number" value={marginError} onChange={e => setMarginError(e.target.value)} placeholder="Optionnel" className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-2 py-2 text-white text-xs outline-none" />
-                  </div>
-                  <div className="flex items-end pb-2">
-                    <label className="flex items-center gap-2 text-xs text-gray-300">
-                      <input type="checkbox" checked={hasBreak} onChange={e => setHasBreak(e.target.checked)} /> Rupture de série
-                    </label>
-                  </div>
-                </div>
-
-                {hasBreak && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 bg-amber-500/5 border border-amber-500/20 rounded-lg p-3">
-                    <div>
-                      <label className="block text-[10px] text-amber-400 mb-1 uppercase">Note de rupture FR</label>
-                      <textarea value={breakNoteFr} onChange={e => setBreakNoteFr(e.target.value)} rows={2} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none resize-none" />
-                      <div className="flex gap-1 mt-1.5">
-                        <LinguaButton action="correct-fr-breaknote" label="Corriger" disabled={!breakNoteFr} isProcessing={isProcessing} onClick={() => handleLingua('correct-fr', 'breaknote')} />
-                        <LinguaButton action="translate-en-breaknote" label="FR→EN" disabled={!breakNoteFr} isProcessing={isProcessing} onClick={() => handleLingua('translate-en', 'breaknote')} />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-amber-400 mb-1 uppercase">Note de rupture EN</label>
-                      <textarea value={breakNoteEn} onChange={e => setBreakNoteEn(e.target.value)} rows={2} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none resize-none" />
-                      <div className="flex gap-1 mt-1.5">
-                        <LinguaButton action="translate-fr-breaknote" label="EN→FR" disabled={!breakNoteEn} isProcessing={isProcessing} onClick={() => handleLingua('translate-fr', 'breaknote')} />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-[10px] text-gray-400 mb-1 uppercase">Méthodologie FR</label>
-                    <textarea value={methodologyFr} onChange={e => setMethodologyFr(e.target.value)} rows={2} placeholder="Enquête, données administratives..." className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none resize-none" />
-                    <div className="flex gap-1 mt-1.5">
-                      <LinguaButton action="correct-fr-methodology" label="Corriger" disabled={!methodologyFr} isProcessing={isProcessing} onClick={() => handleLingua('correct-fr', 'methodology')} />
-                      <LinguaButton action="translate-en-methodology" label="FR→EN" disabled={!methodologyFr} isProcessing={isProcessing} onClick={() => handleLingua('translate-en', 'methodology')} />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-gray-400 mb-1 uppercase">Méthodologie EN</label>
-                    <textarea value={methodologyEn} onChange={e => setMethodologyEn(e.target.value)} rows={2} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none resize-none" />
-                    <div className="flex gap-1 mt-1.5">
-                      <LinguaButton action="translate-fr-methodology" label="EN→FR" disabled={!methodologyEn} isProcessing={isProcessing} onClick={() => handleLingua('translate-fr', 'methodology')} />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] text-gray-400 mb-1 uppercase">Champ / Population couverte FR</label>
-                    <input type="text" value={popScopeFr} onChange={e => setPopScopeFr(e.target.value)} placeholder="Ex: Diaspora congolaise" className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none" />
-                    <div className="flex gap-1 mt-1.5">
-                      <LinguaButton action="correct-fr-popscope" label="Corriger" disabled={!popScopeFr} isProcessing={isProcessing} onClick={() => handleLingua('correct-fr', 'popscope')} />
-                      <LinguaButton action="translate-en-popscope" label="FR→EN" disabled={!popScopeFr} isProcessing={isProcessing} onClick={() => handleLingua('translate-en', 'popscope')} />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-gray-400 mb-1 uppercase">Champ / Population couverte EN</label>
-                    <input type="text" value={popScopeEn} onChange={e => setPopScopeEn(e.target.value)} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none" />
-                    <div className="flex gap-1 mt-1.5">
-                      <LinguaButton action="translate-fr-popscope" label="EN→FR" disabled={!popScopeEn} isProcessing={isProcessing} onClick={() => handleLingua('translate-fr', 'popscope')} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t border-white/10 pt-4 grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div>
-                  <label className="block text-[10px] text-gray-400 mb-1 uppercase">Unité FR</label>
-                  <input type="text" value={unitFr} onChange={e => setUnitFr(e.target.value)} placeholder="Milliards $" className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-sm outline-none" />
-                  <div className="flex gap-1 mt-1.5">
-                    <LinguaButton action="correct-fr-unit" label="Corriger" disabled={!unitFr} isProcessing={isProcessing} onClick={() => handleLingua('correct-fr', 'unit')} />
-                    <LinguaButton action="translate-en-unit" label="FR→EN" disabled={!unitFr} isProcessing={isProcessing} onClick={() => handleLingua('translate-en', 'unit')} />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[10px] text-gray-400 mb-1 uppercase">Unité EN</label>
-                  <input type="text" value={unitEn} onChange={e => setUnitEn(e.target.value)} placeholder="Billions $" className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-sm outline-none" />
-                  <div className="flex gap-1 mt-1.5">
-                    <LinguaButton action="translate-fr-unit" label="EN→FR" disabled={!unitEn} isProcessing={isProcessing} onClick={() => handleLingua('translate-fr', 'unit')} />
-                  </div>
-                </div>
-                {chartType === 'combo' && (
-                  <>
-                    <div>
-                      <label className="block text-[10px] text-gray-400 mb-1 uppercase">Unité sec. FR</label>
-                      <input type="text" value={secUnitFr} onChange={e => setSecUnitFr(e.target.value)} placeholder="%" className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-sm outline-none" />
-                      <div className="flex gap-1 mt-1.5">
-                        <LinguaButton action="correct-fr-secunit" label="Corriger" disabled={!secUnitFr} isProcessing={isProcessing} onClick={() => handleLingua('correct-fr', 'secunit')} />
-                        <LinguaButton action="translate-en-secunit" label="FR→EN" disabled={!secUnitFr} isProcessing={isProcessing} onClick={() => handleLingua('translate-en', 'secunit')} />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-gray-400 mb-1 uppercase">Unité sec. EN</label>
-                      <input type="text" value={secUnitEn} onChange={e => setSecUnitEn(e.target.value)} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-sm outline-none" />
-                      <div className="flex gap-1 mt-1.5">
-                        <LinguaButton action="translate-fr-secunit" label="EN→FR" disabled={!secUnitEn} isProcessing={isProcessing} onClick={() => handleLingua('translate-fr', 'secunit')} />
-                      </div>
-                    </div>
-                  </>
-                )}
-                <div>
-                  <label className="block text-[10px] text-gray-400 mb-1 uppercase">Source FR</label>
-                  <input type="text" value={sourceFr} onChange={e => setSourceFr(e.target.value)} placeholder="BAD, 2024" className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-sm outline-none" />
-                  <div className="flex gap-1 mt-1.5">
-                    <LinguaButton action="correct-fr-source" label="Corriger" disabled={!sourceFr} isProcessing={isProcessing} onClick={() => handleLingua('correct-fr', 'source')} />
-                    <LinguaButton action="translate-en-source" label="FR→EN" disabled={!sourceFr} isProcessing={isProcessing} onClick={() => handleLingua('translate-en', 'source')} />
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                <div>
-                  <label className="block text-[10px] text-gray-400 mb-1 uppercase">Source EN</label>
-                  <input type="text" value={sourceEn} onChange={e => setSourceEn(e.target.value)} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-sm outline-none" />
-                  <div className="flex gap-1 mt-1.5">
-                    <LinguaButton action="translate-fr-source" label="EN→FR" disabled={!sourceEn} isProcessing={isProcessing} onClick={() => handleLingua('translate-fr', 'source')} />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[10px] text-gray-400 mb-1 uppercase">🔗 URL Source vérifiable</label>
-                  <input type="url" value={sourceUrl} onChange={e => setSourceUrl(e.target.value)} placeholder="https://..." className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-sm outline-none" />
-                </div>
-              </div>
-
-              <div className="border-t border-white/10 pt-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-bold text-teal-400 flex items-center gap-2"><Sparkles size={14}/> Accessibilité (texte alternatif)</h4>
-                  <button onClick={autoGenerateAltText} className="text-xs bg-teal-500/10 text-teal-400 px-3 py-1 rounded-lg hover:bg-teal-500/20">Générer automatiquement</button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <textarea value={altTextFr} onChange={e => setAltTextFr(e.target.value)} rows={2} placeholder="Description du graphique pour lecteurs d'écran" className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none resize-none" />
-                    <div className="flex gap-1 mt-1.5">
-                      <LinguaButton action="correct-fr-alttext" label="Corriger" disabled={!altTextFr} isProcessing={isProcessing} onClick={() => handleLingua('correct-fr', 'alttext')} />
-                      <LinguaButton action="translate-en-alttext" label="FR→EN" disabled={!altTextFr} isProcessing={isProcessing} onClick={() => handleLingua('translate-en', 'alttext')} />
-                    </div>
-                  </div>
-                  <div>
-                    <textarea value={altTextEn} onChange={e => setAltTextEn(e.target.value)} rows={2} className="w-full bg-[#1a1a1a] border border-white/20 rounded-lg px-3 py-2 text-white text-xs outline-none resize-none" />
-                    <div className="flex gap-1 mt-1.5">
-                      <LinguaButton action="translate-fr-alttext" label="EN→FR" disabled={!altTextEn} isProcessing={isProcessing} onClick={() => handleLingua('translate-fr', 'alttext')} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Gestionnaires TOUJOURS visibles */}
-            <SeriesManager series={series} setSeries={setSeries} chartType={chartType} />
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <DataEditor
-                chartType={chartType}
-                series={series}
-                dataPoints={dataPoints}
-                setDataPoints={setDataPoints}
-                onDelete={(id) => setDeletedDataIds(prev => [...prev, id])}
-                showMsg={showMsg}
-              />
-              <div className="bg-[#020111] p-5 rounded-xl border border-white/10 h-[500px] flex flex-col relative overflow-hidden">
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-teal-900/20 via-transparent to-transparent pointer-events-none" />
-                <h3 className="font-bold text-white text-sm uppercase tracking-wider mb-2 relative z-10">Aperçu en direct</h3>
-                <p className="text-xs text-gray-500 mb-4 relative z-10">{titleFr || 'Titre du graphique'}</p>
-                <div className="flex-1 relative z-10">
-                  <ChartPreview chartType={chartType} series={series} dataPoints={dataPoints} annotations={annotations} />
-                </div>
-              </div>
-            </div>
-
-            <AnnotationsManager annotations={annotations} setAnnotations={setAnnotations} />
-
-            <div className="flex justify-end gap-3 pt-6">
-              <button onClick={resetForm} className="px-6 py-3 bg-white/5 text-white rounded-xl font-bold hover:bg-white/10 transition-all">Annuler</button>
-              <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-teal-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-teal-500 transition-all disabled:opacity-50">
-                {isSaving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-                {editingId ? 'Mettre à jour' : 'Publier le graphique'}
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {auditModalChartId && <AuditHistoryModal chartId={auditModalChartId} onClose={() => setAuditModalChartId(null)} />}
+      {adminView === 'globe' && (
+        <MacroTickerManager showMsg={showMsg} />
+      )}
     </div>
   );
 }

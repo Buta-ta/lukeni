@@ -16,6 +16,10 @@ import { CompareModal } from '@/components/public/CompareModal';
 import { MacroChart, MacroSeries, MacroAnnotation } from '@/components/admin/macro/types';
 
 import { useLanguage } from '@/lib/contexts/LanguageContext';
+
+
+
+
 interface Category {
   id: string;
   name_fr: string;
@@ -56,7 +60,7 @@ function AnimatedPlaceholder({ lang }: { lang: 'fr' | 'en' }) {
 }
 
 export default function MacroLibraryPage() {
- const { lang } = useLanguage();
+  const { lang } = useLanguage();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
 
@@ -144,7 +148,7 @@ export default function MacroLibraryPage() {
     if (navigator.share) {
       try {
         await navigator.share({ title, text, url });
-      } catch (err) {}
+      } catch (err) { }
     } else {
       await navigator.clipboard.writeText(`${text}\n${url}`);
       setCopiedId(chart.id);
@@ -248,9 +252,8 @@ export default function MacroLibraryPage() {
           </div>
           <button
             onClick={handleToggleCompareMode}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase transition-all ${
-              isCompareMode ? 'bg-[#D4AF37] text-black' : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase transition-all ${isCompareMode ? 'bg-[#D4AF37] text-black' : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
+              }`}
           >
             {isCompareMode ? <EyeOff size={14} /> : <Eye size={14} />}
             {lang === 'fr' ? 'Comparer' : 'Compare'}
@@ -309,11 +312,10 @@ export default function MacroLibraryPage() {
           <div className="flex flex-wrap items-center justify-center gap-2 pt-4 relative z-10">
             <button
               onClick={() => setSelectedCategory('all')}
-              className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${
-                selectedCategory === 'all'
+              className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-all ${selectedCategory === 'all'
                   ? 'bg-white text-black'
                   : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white border border-white/5'
-              }`}
+                }`}
             >
               {lang === 'fr' ? 'Tout voir' : 'All Data'}
             </button>
@@ -321,11 +323,10 @@ export default function MacroLibraryPage() {
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`px-4 py-2 rounded-full text-xs font-bold transition-all border ${
-                  selectedCategory === cat.id
+                className={`px-4 py-2 rounded-full text-xs font-bold transition-all border ${selectedCategory === cat.id
                     ? 'bg-white/10 border-white text-white'
                     : 'bg-white/5 border-transparent text-white/50 hover:bg-white/10 hover:text-white'
-                }`}
+                  }`}
               >
                 <span className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.color }} />
@@ -342,11 +343,14 @@ export default function MacroLibraryPage() {
             <Database size={16} />
             <span>{filteredCharts.length} {lang === 'fr' ? 'graphiques trouvés' : 'charts found'}</span>
           </div>
-          {isCompareMode && selectedForCompare.length > 0 && (
-            <span className="text-xs bg-[#D4AF37]/20 text-[#D4AF37] px-3 py-1 rounded-full">
-              {selectedForCompare.length}/2 {lang === 'fr' ? 'sélectionnés' : 'selected'}
-            </span>
-          )}
+          <div className="flex items-center gap-3">
+            {isCompareMode && selectedForCompare.length > 0 && (
+              <span className="text-xs bg-[#D4AF37]/20 text-[#D4AF37] px-3 py-1 rounded-full">
+                {selectedForCompare.length}/2 {lang === 'fr' ? 'sélectionnés' : 'selected'}
+              </span>
+            )}
+            
+          </div>
         </div>
 
         {/* CHARTS GRID */}
