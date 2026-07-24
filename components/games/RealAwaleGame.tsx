@@ -68,13 +68,6 @@ const T = {
 
 
 
-  // ✅ Appliquer l'attribut data-landing-page au HTML
-  useEffect(() => {
-    document.documentElement.setAttribute('data-awale-page', 'true');
-    return () => {
-      document.documentElement.setAttribute('data-awale-page', 'false');
-    };
-  }, []);
 
 // ─── LOGIQUE JEU ──────────────────────────────────────────────────────────────
 const simulateMove = (board: number[], pitIndex: number, isPlayer: boolean) => {
@@ -483,6 +476,17 @@ export default function RealAwaleGame() {
     return () => clearTimeout(timer);
   }, [turn, gameOver]);
 
+
+
+  // ✅ Appliquer l'attribut data-landing-page au HTML
+  useEffect(() => {
+    document.documentElement.setAttribute('data-awale-page', 'true');
+    return () => {
+      document.documentElement.setAttribute('data-awale-page', 'false');
+    };
+  }, []);
+
+
   // ─── RESET ────────────────────────────────────────────────────────────────
   const resetGame = useCallback(() => {
     setBoard(Array(TOTAL_PITS).fill(INITIAL_SEEDS));
@@ -575,13 +579,12 @@ export default function RealAwaleGame() {
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
-                className={`text-sm font-medium ${
-                  turn === 'AI' && !gameOver
+                className={`text-sm font-medium ${turn === 'AI' && !gameOver
                     ? 'text-red-400'
                     : turn === 'PLAYER' && !gameOver
                       ? 'text-[#D4AF37]'
                       : 'text-white/40'
-                }`}
+                  }`}
               >
                 {gameOver
                   ? t.score
