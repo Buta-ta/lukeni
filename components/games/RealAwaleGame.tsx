@@ -66,6 +66,16 @@ const T = {
   },
 };
 
+
+
+  // ✅ Appliquer l'attribut data-landing-page au HTML
+  useEffect(() => {
+    document.documentElement.setAttribute('data-awale-page', 'true');
+    return () => {
+      document.documentElement.setAttribute('data-awale-page', 'false');
+    };
+  }, []);
+
 // ─── LOGIQUE JEU ──────────────────────────────────────────────────────────────
 const simulateMove = (board: number[], pitIndex: number, isPlayer: boolean) => {
   let newBoard = [...board];

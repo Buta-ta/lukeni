@@ -28,6 +28,15 @@ interface Category {
   icon: string;
 }
 
+
+// ✅ Appliquer l'attribut data-landing-page au HTML
+  useEffect(() => {
+    document.documentElement.setAttribute('data-chiffres-page', 'true');
+    return () => {
+      document.documentElement.setAttribute('data-chiffres-page', 'false');
+    };
+  }, []);
+
 // ⬇️ Isolé dans son propre composant : son state local (placeholderIndex)
 // ne provoque plus le re-render de toute la page / grille de graphiques.
 function AnimatedPlaceholder({ lang }: { lang: 'fr' | 'en' }) {

@@ -24,11 +24,19 @@ export default function ChartDetailPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart');
 
+  // ✅ Appliquer l'attribut data-landing-page au HTML
+  useEffect(() => {
+    document.documentElement.setAttribute('data-slugchiffres-page', 'true');
+    return () => {
+      document.documentElement.setAttribute('data-slugchiffres-page', 'false');
+    };
+  }, []);
+
   useEffect(() => {
     const fetchChart = async () => {
       setIsLoading(true);
       const decodedSlug = decodeURIComponent(slug);
-      
+
       try {
         let { data: chartData, error: chartError } = await supabase
           .from('macro_charts')
@@ -53,7 +61,7 @@ export default function ChartDetailPage() {
             .eq('workflow_status', 'published')
             .ilike('slug', `%${normalizedSlug}%`)
             .single();
-          
+
           chartData = result.data;
           chartError = result.error;
         }
@@ -92,7 +100,7 @@ export default function ChartDetailPage() {
     const url = window.location.href;
 
     if (navigator.share) {
-      try { await navigator.share({ title: title ?? '', url }); } catch (err) {}
+      try { await navigator.share({ title: title ?? '', url }); } catch (err) { }
     } else {
       await navigator.clipboard.writeText(`${text}\n${url}`);
       setCopiedId(chart.id);
@@ -129,7 +137,7 @@ export default function ChartDetailPage() {
   const method = lang === 'fr' ? chart.methodology_fr : chart.methodology_en;
   const scope = lang === 'fr' ? chart.population_scope_fr : chart.population_scope_en;
   const source = lang === 'fr' ? chart.source_fr : chart.source_en;
-  
+
   // Format Date (Published or Reference)
   const publishedDate = chart.published_at ? new Date(chart.published_at).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '--';
 
@@ -159,7 +167,7 @@ export default function ChartDetailPage() {
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-10 relative z-10">
-        
+
         {/* EN-TÊTE : Pédigrée de la donnée */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8 border-b border-white/10 pb-8">
           <div className="flex flex-wrap items-center gap-3 mb-5">
@@ -170,14 +178,13 @@ export default function ChartDetailPage() {
               </span>
             )}
             {chart.data_status !== 'final' && (
-              <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase ${
-                chart.data_status === 'provisional' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
-                chart.data_status === 'estimated' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
-                'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-              }`}>
+              <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase ${chart.data_status === 'provisional' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                  chart.data_status === 'estimated' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                    'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                }`}>
                 {chart.data_status === 'provisional' ? (lang === 'fr' ? 'Provisoire' : 'Provisional') :
-                 chart.data_status === 'estimated' ? (lang === 'fr' ? 'Estimé' : 'Estimated') :
-                 (lang === 'fr' ? 'Prévision' : 'Forecast')}
+                  chart.data_status === 'estimated' ? (lang === 'fr' ? 'Estimé' : 'Estimated') :
+                    (lang === 'fr' ? 'Prévision' : 'Forecast')}
               </span>
             )}
           </div>
@@ -200,21 +207,21 @@ export default function ChartDetailPage() {
 
         {/* CORPS PRINCIPAL */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
+
           {/* Colonne Gauche : Data Viz (70%) */}
           <div className="lg:col-span-2 space-y-6">
-            
+
             {/* Barre de contrôle du Graphique */}
             <div className="flex items-center justify-between bg-white/[0.02] border border-white/5 p-2 rounded-2xl backdrop-blur-md">
               <div className="flex gap-1 bg-[#020111] p-1 rounded-xl">
-                <button 
-                  onClick={() => setViewMode('chart')} 
+                <button
+                  onClick={() => setViewMode('chart')}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'chart' ? 'bg-[#D4AF37] text-black shadow-lg' : 'text-white/50 hover:text-white'}`}
                 >
                   <BarChart2 size={14} /> {lang === 'fr' ? 'Visualisation' : 'Chart'}
                 </button>
-                <button 
-                  onClick={() => setViewMode('table')} 
+                <button
+                  onClick={() => setViewMode('table')}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${viewMode === 'table' ? 'bg-white/10 text-white shadow-lg' : 'text-white/50 hover:text-white'}`}
                 >
                   <Table2 size={14} /> {lang === 'fr' ? 'Données Brutes' : 'Raw Data'}

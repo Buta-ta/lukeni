@@ -25,6 +25,24 @@ html[data-game-page="true"] {
 html[data-landing-page="true"] {
   zoom: 1 !important;
 }
+
+
+html[data-chiffres-page="true"] {
+  zoom: 1 !important;
+}
+
+html[data-awale-page="true"] {
+  zoom: 1 !important;
+}
+
+html[data-slugchiffres-page="true"] {
+  zoom: 1 !important;
+}
+
+html[data-auth-page="true"] {
+  zoom: 1 !important;
+}
+
 * {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

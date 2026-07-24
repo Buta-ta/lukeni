@@ -176,7 +176,7 @@ const LoadingScreen = memo(({ lang }: { lang: 'fr' | 'en' }) => (
       transition={{ duration: 1.5, repeat: Infinity }}
       className="text-[#D4AF37] text-xs tracking-[0.4em] font-light uppercase"
     >
-      {lang === 'fr' ? 'Ouverture du codex...' : 'Opening the codex...'}
+      {lang === 'fr' ? 'L Afrique doit se réunir...' : 'Africa must unite...'}
     </motion.p>
   </motion.div>
 ));
