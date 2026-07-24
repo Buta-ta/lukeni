@@ -43,6 +43,11 @@ html[data-auth-page="true"] {
   zoom: 1 !important;
 }
 
+
+html[data-profil-page="true"] {
+  zoom: 1 !important;
+}
+
 * {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

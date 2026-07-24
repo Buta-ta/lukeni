@@ -12,7 +12,7 @@ import {
   Bell, BellOff, Star, Calendar, FileText,
   Edit3, ChevronRight, TrendingUp, Clock,
   CheckCircle, Search,
-  Trash2, ShieldAlert, TriangleAlert, Users, AlertCircle, XCircle, Fingerprint,AlertTriangle
+  Trash2, ShieldAlert, TriangleAlert, Users, AlertCircle, XCircle, Fingerprint, AlertTriangle
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
@@ -393,18 +393,17 @@ function UserInvestigations({ lang, userId }: { lang: 'fr' | 'en'; userId?: stri
                   </span>
 
                   {/* Badge statut */}
-                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                    s.status === 'completed'
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${s.status === 'completed'
                       ? 'bg-green-500/10 text-green-400'
                       : s.status === 'abandoned'
-                      ? 'bg-red-500/10 text-red-400'
-                      : 'bg-amber-500/10 text-amber-400'
-                  }`}>
+                        ? 'bg-red-500/10 text-red-400'
+                        : 'bg-amber-500/10 text-amber-400'
+                    }`}>
                     {s.status === 'completed'
                       ? (lang === 'fr' ? '✓ Terminée' : '✓ Completed')
                       : s.status === 'abandoned'
-                      ? (lang === 'fr' ? '✗ Abandonnée' : '✗ Abandoned')
-                      : (lang === 'fr' ? '▶ En cours' : '▶ In progress')}
+                        ? (lang === 'fr' ? '✗ Abandonnée' : '✗ Abandoned')
+                        : (lang === 'fr' ? '▶ En cours' : '▶ In progress')}
                   </span>
 
                   {/* Badge groupe */}
@@ -774,141 +773,141 @@ function UserCircles({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
     fetchCirclesData();
   }, [userId]);
 
-const handleApprove = useCallback(async (requestId: string, circleId: string, requestUserId: string) => {
-  try {
-    console.log('🔄 [APPROVE] Début', { requestId, circleId, requestUserId });
+  const handleApprove = useCallback(async (requestId: string, circleId: string, requestUserId: string) => {
+    try {
+      console.log('🔄 [APPROVE] Début', { requestId, circleId, requestUserId });
 
-    // ✅ ÉTAPE 1 : Vérifier la session
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) {
-      throw new Error('Session expirée');
-    }
+      // ✅ ÉTAPE 1 : Vérifier la session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        throw new Error('Session expirée');
+      }
 
-    // ✅ ÉTAPE 2 : Vérifier que c'est le créateur
-    const { data: circleData, error: circleError } = await supabase
-      .from('reading_circles')
-      .select('creator_id, name')
-      .eq('id', circleId)
-      .single();
+      // ✅ ÉTAPE 2 : Vérifier que c'est le créateur
+      const { data: circleData, error: circleError } = await supabase
+        .from('reading_circles')
+        .select('creator_id, name')
+        .eq('id', circleId)
+        .single();
 
-    if (circleError) throw circleError;
-    if (circleData.creator_id !== session.user.id) {
-      throw new Error('Pas autorisé');
-    }
+      if (circleError) throw circleError;
+      if (circleData.creator_id !== session.user.id) {
+        throw new Error('Pas autorisé');
+      }
 
-    // ✅ ÉTAPE 3 : Approuver d'abord la demande
-    console.log('📝 [UPDATE_REQUEST] Mise à jour du statut...');
+      // ✅ ÉTAPE 3 : Approuver d'abord la demande
+      console.log('📝 [UPDATE_REQUEST] Mise à jour du statut...');
 
-    const { error: updateError } = await supabase
-      .from('circle_join_requests')
-      .update({
-        status: 'approved',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', requestId);
+      const { error: updateError } = await supabase
+        .from('circle_join_requests')
+        .update({
+          status: 'approved',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', requestId);
 
-    if (updateError) {
-      console.error('❌ [UPDATE_ERROR]', updateError);
-      throw updateError;
-    }
+      if (updateError) {
+        console.error('❌ [UPDATE_ERROR]', updateError);
+        throw updateError;
+      }
 
-    console.log('✅ [REQUEST_APPROVED]');
+      console.log('✅ [REQUEST_APPROVED]');
 
-    // ✅ ÉTAPE 4 : Attendre un peu avant de vérifier/insérer le membre
-    // (pour éviter les race conditions)
-    await new Promise(resolve => setTimeout(resolve, 500));
+      // ✅ ÉTAPE 4 : Attendre un peu avant de vérifier/insérer le membre
+      // (pour éviter les race conditions)
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-    // ✅ ÉTAPE 5 : Vérifier si le membre existe (et le supprimer si c'est le cas)
-    const { data: existingMembers, error: checkError } = await supabase
-      .from('circle_members')
-      .select('id')
-      .eq('circle_id', circleId)
-      .eq('user_id', requestUserId);
-
-    if (checkError) {
-      console.error('❌ [CHECK_ERROR]', checkError);
-      throw checkError;
-    }
-
-    console.log('🔍 [CHECK_MEMBER]', { count: existingMembers?.length || 0 });
-
-    // Si l'utilisateur existe déjà, le supprimer d'abord
-    if (existingMembers && existingMembers.length > 0) {
-      console.log('🗑️ [CLEANUP] Suppression des anciennes entrées...');
-      
-      const { error: deleteError } = await supabase
+      // ✅ ÉTAPE 5 : Vérifier si le membre existe (et le supprimer si c'est le cas)
+      const { data: existingMembers, error: checkError } = await supabase
         .from('circle_members')
-        .delete()
+        .select('id')
         .eq('circle_id', circleId)
         .eq('user_id', requestUserId);
 
-      if (deleteError) {
-        console.error('❌ [DELETE_ERROR]', deleteError);
-        throw deleteError;
+      if (checkError) {
+        console.error('❌ [CHECK_ERROR]', checkError);
+        throw checkError;
       }
 
-      // Attendre un peu après la suppression
-      await new Promise(resolve => setTimeout(resolve, 300));
+      console.log('🔍 [CHECK_MEMBER]', { count: existingMembers?.length || 0 });
+
+      // Si l'utilisateur existe déjà, le supprimer d'abord
+      if (existingMembers && existingMembers.length > 0) {
+        console.log('🗑️ [CLEANUP] Suppression des anciennes entrées...');
+
+        const { error: deleteError } = await supabase
+          .from('circle_members')
+          .delete()
+          .eq('circle_id', circleId)
+          .eq('user_id', requestUserId);
+
+        if (deleteError) {
+          console.error('❌ [DELETE_ERROR]', deleteError);
+          throw deleteError;
+        }
+
+        // Attendre un peu après la suppression
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+
+      // ✅ ÉTAPE 6 : Insérer le membre
+      console.log('➕ [INSERT_MEMBER] Ajout du nouveau membre...');
+
+      const { data: memberData, error: memberError } = await supabase
+        .from('circle_members')
+        .insert({
+          circle_id: circleId,
+          user_id: requestUserId,
+          role: 'member',
+          current_page: 1,
+        })
+        .select();
+
+      if (memberError) {
+        console.error('❌ [INSERT_ERROR]', memberError);
+        throw memberError;
+      }
+
+      console.log('✅ [MEMBER_ADDED]', memberData);
+
+      // ✅ ÉTAPE 7 : Retirer de la liste UI
+      setIncomingRequests(prev => prev.filter(r => r.id !== requestId));
+
+      // ✅ ÉTAPE 8 : Notification de succès
+      setNotification({
+        type: 'success',
+        message: lang === 'fr'
+          ? '✅ Demande approuvée ! Le membre a maintenant accès au cercle.'
+          : '✅ Request approved! Member now has access to the circle.',
+      });
+
+      console.log('✅ [APPROVE_SUCCESS]');
+
+    } catch (err: any) {
+      console.error('❌ [APPROVE_FAILED]', err);
+
+      let errorMessage = lang === 'fr'
+        ? "Erreur lors de l'approbation de la demande"
+        : 'Error approving request';
+
+      if (err.code === '23505') {
+        errorMessage = lang === 'fr'
+          ? 'Cet utilisateur est déjà membre du cercle'
+          : 'This user is already a member of the circle';
+      } else if (err.code === '42501') {
+        errorMessage = lang === 'fr'
+          ? 'Permission refusée'
+          : 'Permission denied';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
+      setNotification({
+        type: 'error',
+        message: errorMessage,
+      });
     }
-
-    // ✅ ÉTAPE 6 : Insérer le membre
-    console.log('➕ [INSERT_MEMBER] Ajout du nouveau membre...');
-
-    const { data: memberData, error: memberError } = await supabase
-      .from('circle_members')
-      .insert({
-        circle_id: circleId,
-        user_id: requestUserId,
-        role: 'member',
-        current_page: 1,
-      })
-      .select();
-
-    if (memberError) {
-      console.error('❌ [INSERT_ERROR]', memberError);
-      throw memberError;
-    }
-
-    console.log('✅ [MEMBER_ADDED]', memberData);
-
-    // ✅ ÉTAPE 7 : Retirer de la liste UI
-    setIncomingRequests(prev => prev.filter(r => r.id !== requestId));
-
-    // ✅ ÉTAPE 8 : Notification de succès
-    setNotification({
-      type: 'success',
-      message: lang === 'fr'
-        ? '✅ Demande approuvée ! Le membre a maintenant accès au cercle.'
-        : '✅ Request approved! Member now has access to the circle.',
-    });
-
-    console.log('✅ [APPROVE_SUCCESS]');
-
-  } catch (err: any) {
-    console.error('❌ [APPROVE_FAILED]', err);
-
-    let errorMessage = lang === 'fr'
-      ? "Erreur lors de l'approbation de la demande"
-      : 'Error approving request';
-
-    if (err.code === '23505') {
-      errorMessage = lang === 'fr'
-        ? 'Cet utilisateur est déjà membre du cercle'
-        : 'This user is already a member of the circle';
-    } else if (err.code === '42501') {
-      errorMessage = lang === 'fr'
-        ? 'Permission refusée'
-        : 'Permission denied';
-    } else if (err.message) {
-      errorMessage = err.message;
-    }
-
-    setNotification({
-      type: 'error',
-      message: errorMessage,
-    });
-  }
-}, [lang]);
+  }, [lang]);
 
   const handleReject = useCallback(async (requestId: string, comment?: string) => {
     try {
@@ -1279,10 +1278,10 @@ const handleApprove = useCallback(async (requestId: string, circleId: string, re
                         {lang === 'fr' ? 'Refusée' : 'Rejected'}
                       </span>
                       <span className={`text-xs font-bold ${req.remaining_attempts > 1
-                          ? 'text-gray-400'
-                          : req.remaining_attempts === 1
-                            ? 'text-amber-400'
-                            : 'text-red-400'
+                        ? 'text-gray-400'
+                        : req.remaining_attempts === 1
+                          ? 'text-amber-400'
+                          : 'text-red-400'
                         }`}>
                         {lang === 'fr'
                           ? `${req.remaining_attempts}/3 tentatives restantes`
@@ -1358,6 +1357,15 @@ function UserFavorites({ lang }: { lang: 'fr' | 'en' }) {
   const [circleToDelete, setCircleToDelete] = useState<any>(null);
   const [isDeletingCircle, setIsDeletingCircle] = useState(false);
   const [filter, setFilter] = useState<'all' | 'article' | 'press' | 'book' | 'event' | 'wiki'>('all');
+
+
+  // ✅ Appliquer l'attribut data-landing-page au HTML
+  useEffect(() => {
+    document.documentElement.setAttribute('data-profil-page', 'true');
+    return () => {
+      document.documentElement.setAttribute('data-profil-page', 'false');
+    };
+  }, []);
 
   useEffect(() => {
     const fetchFavorites = async () => {
@@ -2358,8 +2366,8 @@ export default function ProfilePage() {
   const [isUploading, setIsUploading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
- const { lang, setLang, toggleLang } = useLanguage();
-    const [activeTab, setActiveTab] = useState<'favorites' | 'notes' | 'investigations' | 'subscriptions' | 'circles' | 'settings'>('favorites');
+  const { lang, setLang, toggleLang } = useLanguage();
+  const [activeTab, setActiveTab] = useState<'favorites' | 'notes' | 'investigations' | 'subscriptions' | 'circles' | 'settings'>('favorites');
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
@@ -2706,7 +2714,7 @@ export default function ProfilePage() {
                 )}
 
                 {activeTab === 'circles' && <UserCircles lang={lang} userId={user?.id} />}
-                 {activeTab === 'investigations' && <UserInvestigations lang={lang} userId={user?.id} />}
+                {activeTab === 'investigations' && <UserInvestigations lang={lang} userId={user?.id} />}
                 {activeTab === 'settings' && user && (
                   <SettingsForm
                     user={user} lang={lang}
