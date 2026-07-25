@@ -8,36 +8,36 @@ import {
   ArrowLeft, ImagePlus, MessageSquareText, Star, CheckCircle,
   Tag, Lightbulb, FileText, CalendarDays, Music, FileAudio,
   Newspaper, Library, ShieldCheck, X, Loader2, AlertTriangle,
-  Crown, LayoutDashboard, Inbox, Clock, Globe,Link2,Eye,Bell, 
-  BookOpen, Users,Search, Map, LucideIcon,BarChart3, CreditCard, TrendingUp, Megaphone
+  Crown, LayoutDashboard, Inbox, Clock, Globe, Link2, Eye, Bell,
+  BookOpen, Users, Search, Map, LucideIcon, BarChart3, CreditCard, TrendingUp, Megaphone
 } from "lucide-react";
 import { autoTranslate } from "@/lib/lingua";
 import type { User } from "@supabase/supabase-js";
 import { Activity } from 'lucide-react';
 
 // Tabs locales
-import HeroTab         from "./tabs/HeroTab";
-import SuggestionsTab  from "./tabs/SuggestionsTab";
+import HeroTab from "./tabs/HeroTab";
+import SuggestionsTab from "./tabs/SuggestionsTab";
 import ConstellationTab from "./tabs/ConstellationTab";
-import DashboardTab    from "./tabs/DashboardTab";
+import DashboardTab from "./tabs/DashboardTab";
 import ContributionsTab from "./tabs/ContributionsTab";
 
 // Tabs globales
-import CategoriesTab      from "@/components/CategoriesTab";
+import CategoriesTab from "@/components/CategoriesTab";
 import TopicSuggestionsTab from "@/components/TopicSuggestionsTab";
-import ArticlesTab        from "@/components/ArticlesTab";
-import EventsTab          from "@/components/EventsTab";
-import MusicGenresTab     from "@/components/MusicGenresTab";
-import MusicTracksTab     from "@/components/MusicTracksTab";
-import MusicErasTab       from "@/components/MusicErasTab";
-import SocialMediaTab     from "@/components/SocialMediaTab";
-import PressTab           from "@/components/PressTab";
-import LibraryTab         from "@/components/LibraryTab";
-import AdminsTab          from "@/components/AdminsTab";
-import ArticleEventsLinkTab from "@/components/ArticleEventsLinkTab"; 
+import ArticlesTab from "@/components/ArticlesTab";
+import EventsTab from "@/components/EventsTab";
+import MusicGenresTab from "@/components/MusicGenresTab";
+import MusicTracksTab from "@/components/MusicTracksTab";
+import MusicErasTab from "@/components/MusicErasTab";
+import SocialMediaTab from "@/components/SocialMediaTab";
+import PressTab from "@/components/PressTab";
+import LibraryTab from "@/components/LibraryTab";
+import AdminsTab from "@/components/AdminsTab";
+import ArticleEventsLinkTab from "@/components/ArticleEventsLinkTab";
 import AdsTab from '@/components/AdsTab';
 import VisitorsTab from '@/components/VisitorsTab';
-import NotificationsTab    from "@/components/NotificationsTab";  
+import NotificationsTab from "@/components/NotificationsTab";
 import AboutTab from '@/components/AboutTab';
 import ReadingCirclesAdminTab from "@/components/ReadingCirclesAdminTab";
 import InvestigationsTab from "@/components/InvestigationsTab";
@@ -45,13 +45,15 @@ import InvestigationBoardAdminTab from "@/components/InvestigationBoardAdminTab"
 import InvestigationAnalyticsTab from "@/components/admin/InvestigationAnalyticsTab";
 
 // 👈 AJOUT DE L'IMPORT DU TAB PAIEMENT
-import PaymentManagementTab from "@/components/admin/PaymentManagementTab"; 
+import PaymentManagementTab from "@/components/admin/PaymentManagementTab";
 import { useActivityTimeout } from '@/lib/hooks/useActivityTimeout';
 import MacroAdminTab from "@/components/admin/MacroAdminTab";
-import AnnouncementsTab from "@/components/admin/AnnouncementsTab"; 
+import AnnouncementsTab from "@/components/admin/AnnouncementsTab";
 import FeedbackTab from "@/components/admin/FeedbackTab";
 
 import LiveSpotsTab from '@/components/admin/LiveSpotsTab'; // 👈 AJOUT
+
+import AwaleSoundsTab from "@/components/admin/AwaleSoundsTab";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -61,11 +63,11 @@ type TabType =
   | "hero"
   | "suggestions"
   | "constellation"
-  | "about" 
+  | "about"
   | "categories"
-  | "feedback" 
+  | "feedback"
   | "topic_suggestions"
-   
+
   | "articles"
   | "events"
   | "article_events"
@@ -74,53 +76,54 @@ type TabType =
   | "music_tracks"
   | "social_media"
   | "press"
-  | "notifications"  
+  | "notifications"
   | "library"
   | "reading_circles"
   | "investigations"
   | "investigation_board"
   | "admins"
-  | "ads"  
+  | "ads"
   | "visitors"
   | "investigation_analytics"
   | "payments" // 👈 AJOUT ICI
   | "macro"
   | "announcements"
-  | "live_spots";
+  | "live_spots"
+  | "awale_sounds";
 
+const ALL_TABS: { id: TabType; label: string; icon: LucideIcon }[] = [
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
 
-const ALL_TABS: { id: TabType; label: string; icon: LucideIcon }[] =  [
-  { id: "dashboard",         label: "Dashboard",       icon: LayoutDashboard  },
-  
-  { id: "contributions",     label: "Contributions",   icon: Inbox            },
-  { id: "hero",              label: "Background",      icon: ImagePlus        },
-  { id: "suggestions",       label: "Recherche",       icon: MessageSquareText},
-  { id: "constellation",     label: "Constellation",   icon: Star             },
-  { id: "categories",        label: "Catégories",      icon: Tag              },
-  { id: "topic_suggestions", label: "Sujets 💡",       icon: Lightbulb        },
-  { id: "feedback",     label: "Avis utilisateurs 💬", icon: MessageSquareText },
-  { id: "articles",          label: "Articles",        icon: FileText         },
-  { id: "events",            label: "Événements",      icon: CalendarDays     },
-  { id: "article_events",    label: "Art↔Evt 🔗",      icon: Link2            }, 
-  { id: "music_eras",        label: "Époques 🕐",      icon: Clock            },
-  { id: "music_genres",      label: "Genres 🎵",       icon: Music            },
-  { id: "music_tracks",      label: "Tracks 🧨",       icon: FileAudio        },
-  { id: "social_media",      label: "Réseaux 🌐",      icon: Globe            },
-  { id: "press",             label: "Presse 📰",        icon: Newspaper        },
+  { id: "contributions", label: "Contributions", icon: Inbox },
+  { id: "hero", label: "Background", icon: ImagePlus },
+  { id: "suggestions", label: "Recherche", icon: MessageSquareText },
+  { id: "constellation", label: "Constellation", icon: Star },
+  { id: "categories", label: "Catégories", icon: Tag },
+  { id: "topic_suggestions", label: "Sujets 💡", icon: Lightbulb },
+  { id: "feedback", label: "Avis utilisateurs 💬", icon: MessageSquareText },
+  { id: "articles", label: "Articles", icon: FileText },
+  { id: "events", label: "Événements", icon: CalendarDays },
+  { id: "article_events", label: "Art↔Evt 🔗", icon: Link2 },
+  { id: "music_eras", label: "Époques 🕐", icon: Clock },
+  { id: "music_genres", label: "Genres 🎵", icon: Music },
+  { id: "music_tracks", label: "Tracks 🧨", icon: FileAudio },
+  { id: "social_media", label: "Réseaux 🌐", icon: Globe },
+  { id: "press", label: "Presse 📰", icon: Newspaper },
   { id: "macro", label: "Chiffres & Macro 📈", icon: TrendingUp },
-  { id: "notifications",     label: "Notifications 🔔", icon: Bell            }, 
+  { id: "notifications", label: "Notifications 🔔", icon: Bell },
   { id: "announcements", label: "Annonces 📢", icon: Megaphone },
-  { id: "ads",               label: "Publicités 📣",    icon: Star },
-  { id: "library",           label: "Bibliothèque 📚", icon: Library          },
-  { id: "reading_circles",   label: "Clubs Lecture 👥",icon: Users            },
-  { id: "investigations",    label: "Enquêtes 🕵️",      icon: Search           },
-  { id: "investigation_board", label: "Mur Enquêtes 🗺️",icon: Map              },
+  { id: "ads", label: "Publicités 📣", icon: Star },
+  { id: "library", label: "Bibliothèque 📚", icon: Library },
+  { id: "reading_circles", label: "Clubs Lecture 👥", icon: Users },
+  { id: "investigations", label: "Enquêtes 🕵️", icon: Search },
+  { id: "investigation_board", label: "Mur Enquêtes 🗺️", icon: Map },
   { id: "investigation_analytics", label: "Stats Enquêtes 📊", icon: BarChart3 },
-  { id: "payments",          label: "Paiements 💳",     icon: CreditCard       }, // 👈 AJOUT ICI
-  { id: "visitors",          label: "Visiteurs 👁️",    icon: Eye },
-   { id: "live_spots",        label: "Live Spots 📊",   icon: Activity         },
-  { id: "admins",            label: "Admins 👑",        icon: ShieldCheck      },
-  { id: "about",             label: "À Propos 📖",      icon: BookOpen },
+  { id: "payments", label: "Paiements 💳", icon: CreditCard }, // 👈 AJOUT ICI
+  { id: "visitors", label: "Visiteurs 👁️", icon: Eye },
+  { id: "live_spots", label: "Live Spots 📊", icon: Activity },
+  { id: "awale_sounds", label: "Sons Awalé 🔊", icon: Music },
+  { id: "admins", label: "Admins 👑", icon: ShieldCheck },
+  { id: "about", label: "À Propos 📖", icon: BookOpen },
 ];
 
 // ─── Composant ────────────────────────────────────────────────────────────────
@@ -133,12 +136,12 @@ export default function AdminDashboard() {
 
   const router = useRouter();
 
-  const [activeTab, setActiveTab]         = useState<TabType>("dashboard");
-  const [msg, setMsg]                     = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [user, setUser]                   = useState<User | null>(null);
-  const [userProfile, setUserProfile]     = useState<{ role: string; allowed_tabs: string[] } | null>(null);
-  const [isLoading, setIsLoading]         = useState(true);
-  const [mounted, setMounted]             = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>("dashboard");
+  const [msg, setMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<{ role: string; allowed_tabs: string[] } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
   const [contributionsCount, setContributionsCount] = useState(0);
   const [availableTabs, setAvailableTabs] = useState<typeof ALL_TABS>([]);
 
@@ -245,38 +248,39 @@ export default function AdminDashboard() {
     if (!availableTabs.some((t) => t.id === activeTab)) return null;
 
     switch (activeTab) {
-      case "dashboard":         return <DashboardTab showMsg={showMsg} />;
-      
-      case "contributions":     return <ContributionsTab showMsg={showMsg} />;
-      case "hero":              return <HeroTab showMsg={showMsg} />;
-      case "suggestions":       return <SuggestionsTab showMsg={showMsg} translateText={translateText} />;
-      case "constellation":     return <ConstellationTab showMsg={showMsg} translateText={translateText} />;
-      case "about":             return <AboutTab showMsg={showMsg} />;
-      case "categories":        return <CategoriesTab showMsg={showMsg} translateText={translateText} />;
-      case "feedback":          return <FeedbackTab showMsg={showMsg} />;
+      case "dashboard": return <DashboardTab showMsg={showMsg} />;
+
+      case "contributions": return <ContributionsTab showMsg={showMsg} />;
+      case "hero": return <HeroTab showMsg={showMsg} />;
+      case "suggestions": return <SuggestionsTab showMsg={showMsg} translateText={translateText} />;
+      case "constellation": return <ConstellationTab showMsg={showMsg} translateText={translateText} />;
+      case "about": return <AboutTab showMsg={showMsg} />;
+      case "categories": return <CategoriesTab showMsg={showMsg} translateText={translateText} />;
+      case "feedback": return <FeedbackTab showMsg={showMsg} />;
       case "topic_suggestions": return <TopicSuggestionsTab showMsg={showMsg} />;
-      case "articles":          return <ArticlesTab showMsg={showMsg} />;
-      case "events":            return <EventsTab showMsg={showMsg} />;
-      case "article_events":    return <ArticleEventsLinkTab showMsg={showMsg} />; 
-      case "music_eras":        return <MusicErasTab showMsg={showMsg} />;
-      case "music_genres":      return <MusicGenresTab showMsg={showMsg} />;
-      case "music_tracks":      return <MusicTracksTab showMsg={showMsg} />;
-      case "social_media":      return <SocialMediaTab showMsg={showMsg} />;
-      case "press":             return <PressTab showMsg={showMsg} />;
+      case "articles": return <ArticlesTab showMsg={showMsg} />;
+      case "events": return <EventsTab showMsg={showMsg} />;
+      case "article_events": return <ArticleEventsLinkTab showMsg={showMsg} />;
+      case "music_eras": return <MusicErasTab showMsg={showMsg} />;
+      case "music_genres": return <MusicGenresTab showMsg={showMsg} />;
+      case "music_tracks": return <MusicTracksTab showMsg={showMsg} />;
+      case "social_media": return <SocialMediaTab showMsg={showMsg} />;
+      case "press": return <PressTab showMsg={showMsg} />;
       case "macro": return <MacroAdminTab showMsg={showMsg} />;
-      case "notifications":     return <NotificationsTab showMsg={showMsg} />;
-      case "announcements":     return <AnnouncementsTab showMsg={showMsg} />;
-      case "ads":               return <AdsTab showMsg={showMsg} />;  
-      case "library":           return <LibraryTab showMsg={showMsg} />;
-      case "reading_circles":   return <ReadingCirclesAdminTab showMsg={showMsg} />;
-      case "investigations":    return <InvestigationsTab showMsg={showMsg} />;
-      case "investigation_board": return <InvestigationBoardAdminTab showMsg={showMsg} />;  
-      case "visitors":          return <VisitorsTab showMsg={showMsg} />;
+      case "notifications": return <NotificationsTab showMsg={showMsg} />;
+      case "announcements": return <AnnouncementsTab showMsg={showMsg} />;
+      case "ads": return <AdsTab showMsg={showMsg} />;
+      case "library": return <LibraryTab showMsg={showMsg} />;
+      case "reading_circles": return <ReadingCirclesAdminTab showMsg={showMsg} />;
+      case "investigations": return <InvestigationsTab showMsg={showMsg} />;
+      case "investigation_board": return <InvestigationBoardAdminTab showMsg={showMsg} />;
+      case "visitors": return <VisitorsTab showMsg={showMsg} />;
       case "investigation_analytics": return <InvestigationAnalyticsTab showMsg={showMsg} />;
-      case "payments":          return <PaymentManagementTab showMsg={showMsg} />;
-      case "live_spots":        return <LiveSpotsTab showMsg={showMsg} />;
-      case "admins":            return <AdminsTab showMsg={showMsg} />;
-      default:                  return null;
+      case "payments": return <PaymentManagementTab showMsg={showMsg} />;
+      case "live_spots": return <LiveSpotsTab showMsg={showMsg} />;
+      case "awale_sounds": return <AwaleSoundsTab showMsg={showMsg} />;
+      case "admins": return <AdminsTab showMsg={showMsg} />;
+      default: return null;
     }
   }
 
@@ -307,11 +311,10 @@ export default function AdminDashboard() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all relative ${
-                  activeTab === tab.id
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-all relative ${activeTab === tab.id
                     ? "bg-red-600/20 text-red-400"
                     : "text-gray-500 hover:text-white hover:bg-white/5"
-                }`}
+                  }`}
               >
                 <tab.icon size={14} />
                 {tab.label}
@@ -371,11 +374,10 @@ export default function AdminDashboard() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap transition-all relative ${
-                  activeTab === tab.id
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap transition-all relative ${activeTab === tab.id
                     ? "bg-red-600 text-white"
                     : "bg-white/5 text-gray-500"
-                }`}
+                  }`}
               >
                 <tab.icon size={10} /> {tab.label}
                 {badge > 0 && (
@@ -396,11 +398,10 @@ export default function AdminDashboard() {
               exit={{ opacity: 0, y: -20 }}
               className="absolute top-4 right-4 z-50"
             >
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-lg shadow-xl text-sm font-bold ${
-                msg.type === "success"
+              <div className={`flex items-center gap-2 px-4 py-2 rounded-lg shadow-xl text-sm font-bold ${msg.type === "success"
                   ? "bg-green-500/20 text-green-400 border border-green-500/30"
                   : "bg-red-500/20 text-red-400 border border-red-500/30"
-              }`}>
+                }`}>
                 {msg.type === "success" ? <CheckCircle size={16} /> : <X size={16} />}
                 {msg.text}
               </div>

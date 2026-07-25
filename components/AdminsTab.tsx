@@ -37,6 +37,7 @@ const ALL_TABS = [
   { id: 'announcements', label: 'Annonces', icon: '📢' },
   { id: 'about', label: 'À Propos', icon: '📖' },
   { id: 'live_spots', label: 'Live Spots', icon: '📊' },
+  { id: 'awale_sounds', label: 'Sons Awalé', icon: '🔊' },
   { id: 'admins', label: 'Admins', icon: '👑' },
 ];
 
