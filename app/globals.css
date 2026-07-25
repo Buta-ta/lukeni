@@ -271,3 +271,35 @@ html {
 .wiki-content .overflow-x-auto::-webkit-scrollbar-thumb:hover {
   background: rgba(212,175,55,0.5);
 }
+
+/* Isoler les iframes YouTube des animations parent */
+.youtube-wrapper {
+  position: relative !important;
+  z-index: 100 !important;
+  isolation: isolate !important;
+  transform: translateZ(0) !important;
+  will-change: auto !important;
+}
+
+.youtube-wrapper iframe {
+  pointer-events: auto !important;
+  position: relative !important;
+  z-index: 10 !important;
+  transform: translateZ(0) !important;
+}
+
+/* Empêcher les parents d'affecter l'iframe */
+.youtube-wrapper * {
+  filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* Diagnostic iframe */
+iframe[src*="youtube.com"] {
+  outline: 2px solid red !important;
+  transition: none !important;
+}
+
+iframe[src*="youtube.com"]:hover {
+  outline: 2px solid lime !important;
+}
