@@ -11,7 +11,7 @@ import {
   Music, ScrollText, BookMarked, Home, ChevronLeft,
   MessageCircle, Filter, Radio, FileAudio, Mic,
   Video, TrendingUp, ImageIcon, X, Upload, PlusCircle,
-  Send, ThumbsUp, BarChart3, Maximize2, Info,
+  Send, ThumbsUp, BarChart3, Maximize2, Info, Link as LinkIcon,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -42,15 +42,25 @@ interface Category {
   id: string; name_fr: string; name_en: string; color: string;
 }
 
-interface MediaItem {
-  type: 'image' | 'video' | 'link'; url: string; caption?: string; alt?: string;
+export interface MediaItem {
+  type: 'image' | 'video' | 'link' | 'youtube' | 'code' | 'gallery' | 'quote_hero';
+  url: string;
+  caption?: string;
+  alt?: string;
+  youtube_id?: string;
+  code_language?: string;
+  code_content?: string;
+  gallery_urls?: string[];
+  quote_text?: string;
+  quote_author?: string;
+  layout?: 'contained' | 'full-bleed' | 'wide';
 }
 
-interface Source {
+export interface Source {
   title: string; url: string; author?: string; date?: string;
 }
 
-interface MacroChartData {
+export interface MacroChartData {
   id: string;
   chart_id: string;
   series_id: string | null;
@@ -68,7 +78,7 @@ interface MacroChartData {
   annotation_fr?: string | null;
   annotation_en?: string | null;
 }
-interface MacroChart {
+export interface MacroChart {
   id: string;
   category_id: string;
   title_fr: string;
@@ -90,7 +100,7 @@ interface MacroChart {
   macro_chart_annotations?: any[];
 }
 
-type UnifiedItem = {
+export type UnifiedItem = {
   itemType: 'article' | 'archive';
   id: string;
   article_type?: 'written' | 'audio';
@@ -123,11 +133,31 @@ type UnifiedItem = {
   reading_time_minutes?: number;
   related_articles_ids?: string[];
   related_charts_ids?: string[];
+  cover_type?: 'image' | 'video_loop' | 'gif';
+  cover_video_url?: string;
+  is_live?: boolean;
+  is_breaking?: boolean;
+  author?: {
+    id: string;
+    name: string;
+    role_fr: string;
+    role_en: string;
+    bio_fr?: string;
+    bio_en?: string;
+    avatar_url?: string;
+    twitter_url?: string;
+  } | null;
+  related_teasers?: {
+    article_id: string;
+    kicker_fr: string;
+    kicker_en: string;
+    insert_index: number;
+  }[];
 
   status?: string;
 };
 
-interface UserProfile {
+export interface UserProfile {
   avatar_url: string | null;
   full_name: string | null;
 }
@@ -155,7 +185,7 @@ interface PressComment {
 }
 
 
-interface PressAnnouncement {
+export interface PressAnnouncement {
   id: string;
   title_fr: string;
   title_en?: string;
@@ -168,12 +198,21 @@ interface PressAnnouncement {
   status: 'active' | 'draft';
   created_at?: string;
 }
+
+
+interface DigestItem {
+  id: string;
+  label_fr: string;
+  label_en: string;
+  article_ids: string[];
+  is_active: boolean;
+}
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const estimateReadingTime = (text?: string) =>
+export const estimateReadingTime = (text?: string) =>
   Math.max(1, Math.ceil((text?.trim().split(/\s+/).length ?? 0) / 200));
 
-const stripMarkdown = (text: string) =>
+export const stripMarkdown = (text: string) =>
   text
     .replace(/```[\s\S]*?```/g, '').replace(/`[^`]+`/g, '')
     .replace(/!\[.*?\]\(.*?\)/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
@@ -204,7 +243,7 @@ const isArticleVisible = (item: UnifiedItem): boolean => {
   return false;
 };
 
-const formatPublishedDate = (dateStr: string | undefined, lang: 'fr' | 'en', withTime = false): string => {
+export const formatPublishedDate = (dateStr: string | undefined, lang: 'fr' | 'en', withTime = false): string => {
   if (!dateStr) return '';
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return '';
@@ -217,7 +256,8 @@ const formatPublishedDate = (dateStr: string | undefined, lang: 'fr' | 'en', wit
   return d.toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US', opts);
 };
 
-const renderContentWithMedia = (raw: string, mediaItems?: MediaItem[]): string => {
+// Rendu markdown vers HTML pur (sans composants React)
+export const renderMarkdownToHtml = (raw: string, mediaItems?: MediaItem[]): string => {
   if (!raw) return '';
   let html = raw;
 
@@ -240,19 +280,28 @@ const renderContentWithMedia = (raw: string, mediaItems?: MediaItem[]): string =
     const trimmed = p.trim();
     if (!trimmed) return '';
     if (trimmed.startsWith('<')) return trimmed;
-    if (trimmed.match(/^\[MEDIA:\d+\]/)) return trimmed;
+    if (trimmed.match(/^\[(MEDIA|CHART|RELATED):\d+\]/)) return trimmed;
+    if (trimmed === '[ANNOUNCEMENT]') return trimmed;
     return `<p class="mb-4 leading-[1.9] text-lg text-white/75">${trimmed}</p>`;
   }).join('\n\n');
 
+  // Médias simples (image, video, link) — inline HTML
   if (mediaItems && mediaItems.length > 0) {
     mediaItems.forEach((media, idx) => {
       const marker = `[MEDIA:${idx}]`;
       let block = '';
+
       if (media.type === 'image') {
-        block = `<figure class="my-8 rounded-2xl overflow-hidden border border-[#0466c8]/20">
+        const wrapClass = media.layout === 'full-bleed'
+          ? 'my-10 -mx-4 md:-mx-20 lg:-mx-40'
+          : media.layout === 'wide'
+            ? 'my-10 -mx-4 md:-mx-8 lg:-mx-16'
+            : 'my-8';
+        block = `<figure class="${wrapClass} rounded-2xl overflow-hidden border border-[#0466c8]/20">
           <img src="${media.url}" alt="${media.alt || media.caption || ''}" class="w-full object-cover" loading="lazy" />
           ${media.caption ? `<figcaption class="px-4 py-3 text-center text-xs text-[#90e0ef]/50 italic bg-[#001233]/40">${media.caption}</figcaption>` : ''}
         </figure>`;
+
       } else if (media.type === 'video') {
         block = `<figure class="my-8">
           <video controls class="w-full rounded-2xl border border-[#0466c8]/20" preload="metadata">
@@ -260,22 +309,117 @@ const renderContentWithMedia = (raw: string, mediaItems?: MediaItem[]): string =
           </video>
           ${media.caption ? `<figcaption class="text-center text-xs text-[#90e0ef]/50 mt-3 italic">${media.caption}</figcaption>` : ''}
         </figure>`;
+
+      } else if (media.type === 'youtube') {
+        const ytId = media.youtube_id || media.url;
+        block = `<figure class="my-8">
+          <div class="aspect-video rounded-2xl overflow-hidden border border-[#0466c8]/20">
+            <iframe
+              src="https://www.youtube.com/embed/${ytId}"
+              class="w-full h-full"
+              frameborder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowfullscreen
+              loading="lazy"
+            ></iframe>
+          </div>
+          ${media.caption ? `<figcaption class="text-center text-xs text-[#90e0ef]/50 mt-3 italic">${media.caption}</figcaption>` : ''}
+        </figure>`;
+
       } else if (media.type === 'link') {
         block = `<a href="${media.url}" target="_blank" rel="noopener noreferrer"
           class="flex items-center gap-3 my-6 p-4 bg-[#001233]/60 border border-[#0466c8]/30 rounded-2xl hover:border-[#0466c8]/60 transition-all group">
           <span>🔗</span>
           <span class="text-[#48cae4] font-medium text-sm group-hover:underline">${media.caption || media.url}</span>
         </a>`;
+
+      } else if (media.type === 'code') {
+        // Placeholder — sera remplacé par le composant React dans parseContentSegments
+        block = `[MEDIA_CODE:${idx}]`;
+
+      } else if (media.type === 'gallery') {
+        // Placeholder — sera remplacé par le composant React
+        block = `[MEDIA_GALLERY:${idx}]`;
+
+      } else if (media.type === 'quote_hero') {
+        // Placeholder — sera remplacé par le composant React
+        block = `[MEDIA_QUOTE:${idx}]`;
       }
+
       html = html.replace(marker, block);
     });
   }
+
+
+  // YouTube inline via URL directe dans le texte
+  html = html.replace(
+    /https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})[^\s<]*/g,
+    (_, id) => `
+      <div class="my-6 aspect-video rounded-2xl overflow-hidden border border-[#0466c8]/20">
+        <iframe
+          src="https://www.youtube.com/embed/${id}"
+          class="w-full h-full"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen
+          loading="lazy"
+        ></iframe>
+      </div>`
+  );
+
   return html;
+};
+
+// Découpe le contenu en segments interleaved (texte HTML + composants React)
+type ContentSegment =
+  | { kind: 'html'; content: string }
+  | { kind: 'chart'; index: number }
+  | { kind: 'related'; index: number }
+  | { kind: 'media_code'; index: number }
+  | { kind: 'media_gallery'; index: number }
+  | { kind: 'media_quote'; index: number }
+  | { kind: 'announcement' };
+
+
+export const parseContentSegments = (raw: string, mediaItems?: MediaItem[]): ContentSegment[] => {
+  if (!raw) return [];
+  const html = renderMarkdownToHtml(raw, mediaItems);
+  const segments: ContentSegment[] = [];
+  const markerRegex = /\[CHART:(\d+)\]|\[RELATED:(\d+)\]|\[MEDIA_CODE:(\d+)\]|\[MEDIA_GALLERY:(\d+)\]|\[MEDIA_QUOTE:(\d+)\]|\[ANNOUNCEMENT\]/g;
+
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = markerRegex.exec(html)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({ kind: 'html', content: html.slice(lastIndex, match.index) });
+    }
+    if (match[1] !== undefined) {
+      segments.push({ kind: 'chart', index: parseInt(match[1]) });
+    } else if (match[2] !== undefined) {
+      segments.push({ kind: 'related', index: parseInt(match[2]) });
+    } else if (match[3] !== undefined) {
+      segments.push({ kind: 'media_code', index: parseInt(match[3]) });
+    } else if (match[4] !== undefined) {
+      segments.push({ kind: 'media_gallery', index: parseInt(match[4]) });
+    } else if (match[5] !== undefined) {
+      segments.push({ kind: 'media_quote', index: parseInt(match[5]) });
+    } else if (match[0] === '[ANNOUNCEMENT]') {
+      segments.push({ kind: 'announcement' });
+    }
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < html.length) {
+    segments.push({ kind: 'html', content: html.slice(lastIndex) });
+  }
+
+  return segments;
 };
 
 // ─── Icône Cauris ─────────────────────────────────────────────────────────────
 
-const CaurisIcon = ({ className }: { className?: string }) => (
+export const CaurisIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 100 100" className={className} fill="currentColor">
     <defs>
       <linearGradient id="caurisGlowPress" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -294,7 +438,7 @@ const CaurisIcon = ({ className }: { className?: string }) => (
 
 // ─── Reading Progress Bar ─────────────────────────────────────────────────────
 
-const ReadingProgressBar = () => {
+export const ReadingProgressBar = () => {
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
   return (
@@ -383,7 +527,30 @@ const ArticleCard = ({ article, lang, index, onClick, variant = 'standard' }: {
           )}
         </div>
 
+
+
         <div className="flex-1 min-w-0 w-full sm:w-auto">
+
+
+          {(article.is_live || article.is_breaking) && (
+            <div className="flex items-center gap-1.5 mb-1.5">
+              {article.is_live && (
+                <motion.span
+                  animate={{ opacity: [1, 0.5, 1] }}
+                  transition={{ duration: 1, repeat: Infinity }}
+                  className="px-2 py-0.5 bg-red-500/20 text-red-400 text-[8px] font-black uppercase tracking-wider rounded-full border border-red-500/30 flex items-center gap-1"
+                >
+                  <span className="w-1.5 h-1.5 bg-red-500 rounded-full" />
+                  {lang === 'fr' ? 'EN DIRECT' : 'LIVE'}
+                </motion.span>
+              )}
+              {article.is_breaking && (
+                <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 text-[8px] font-black uppercase tracking-wider rounded-full border border-orange-500/30">
+                  ⚡ BREAKING
+                </span>
+              )}
+            </div>
+          )}
           <div className="flex items-center gap-2 mb-1.5 flex-wrap">
             <motion.div className="w-1.5 h-1.5 rounded-full flex-shrink-0"
               style={{ backgroundColor: starColor, boxShadow: `0 0 8px ${starColor}` }}
@@ -543,6 +710,23 @@ const ArticleCard = ({ article, lang, index, onClick, variant = 'standard' }: {
         )}
 
         <div className="absolute bottom-0 left-0 right-0 p-4 md:p-5">
+
+
+
+          {article.is_live && (
+            <motion.span
+              animate={{ opacity: [1, 0.4, 1] }}
+              transition={{ duration: 0.8, repeat: Infinity }}
+              className="px-2 py-0.5 bg-red-500 text-white text-[8px] font-black uppercase rounded-full flex items-center gap-1 mr-1"
+            >
+              <span className="w-1 h-1 bg-white rounded-full" /> LIVE
+            </motion.span>
+          )}
+          {article.is_breaking && !article.is_live && (
+            <span className="px-2 py-0.5 bg-orange-500/80 text-white text-[8px] font-black uppercase rounded-full mr-1">
+              ⚡ BREAKING
+            </span>
+          )}
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <motion.div className="w-1.5 h-1.5 rounded-full flex-shrink-0"
               style={{ backgroundColor: starColor, boxShadow: `0 0 8px ${starColor}` }}
@@ -628,7 +812,7 @@ const NewsTicker = ({ articles, lang, onSelect }: {
 
 // ─── Comments Section ─────────────────────────────────────────────────────────
 
-const CommentsSection = ({ articleId, lang, user, userProfile }: {
+export const CommentsSection = ({ articleId, lang, user, userProfile }: {
   articleId: string;
   lang: 'fr' | 'en';
   user: any;
@@ -1028,7 +1212,379 @@ const AnnouncementsCarousel = ({ announcements, lang }: {
   );
 };
 
-const ChartCard = ({ chart, lang, onClick }: { chart: MacroChart; lang: 'fr' | 'en'; onClick: () => void; }) => {
+
+
+export const CodeBlock = ({ language, code, caption }: {
+  language: string; code: string; caption?: string;
+}) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Coloration syntaxique légère par token (sans dépendance lourde)
+  const highlight = (code: string, lang: string): string => {
+    const escaped = code
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    if (['javascript', 'typescript', 'js', 'ts'].includes(lang)) {
+      return escaped
+        .replace(/\b(const|let|var|function|return|if|else|for|while|class|import|export|from|default|async|await|new|typeof|instanceof)\b/g,
+          '<span style="color:#569cd6">$1</span>')
+        .replace(/\b(true|false|null|undefined|this)\b/g,
+          '<span style="color:#4fc1ff">$1</span>')
+        .replace(/('[\s\S]*?'|"[^"]*"|`[\s\S]*?`)/g,
+          '<span style="color:#ce9178">$1</span>')
+        .replace(/(\/\/.*$)/gm,
+          '<span style="color:#6a9955">$1</span>')
+        .replace(/\b(\d+\.?\d*)\b/g,
+          '<span style="color:#b5cea8">$1</span>');
+    }
+    if (lang === 'python') {
+      return escaped
+        .replace(/\b(def|class|import|from|return|if|elif|else|for|while|with|as|in|not|and|or|True|False|None)\b/g,
+          '<span style="color:#569cd6">$1</span>')
+        .replace(/('.*?'|".*?")/g,
+          '<span style="color:#ce9178">$1</span>')
+        .replace(/(#.*$)/gm,
+          '<span style="color:#6a9955">$1</span>');
+    }
+    if (lang === 'sql') {
+      return escaped
+        .replace(/\b(SELECT|FROM|WHERE|JOIN|LEFT|RIGHT|INNER|ON|INSERT|UPDATE|DELETE|CREATE|TABLE|ALTER|DROP|INDEX|AS|AND|OR|NOT|NULL|IN|LIKE|ORDER|BY|GROUP|HAVING|LIMIT|OFFSET|SET|VALUES|INTO)\b/gi,
+          '<span style="color:#569cd6">$1</span>')
+        .replace(/('.*?')/g,
+          '<span style="color:#ce9178">$1</span>')
+        .replace(/(--.*$)/gm,
+          '<span style="color:#6a9955">$1</span>');
+    }
+    if (lang === 'bash') {
+      return escaped
+        .replace(/\b(echo|cd|ls|mkdir|rm|cp|mv|sudo|apt|npm|git|curl|wget|chmod|export|source)\b/g,
+          '<span style="color:#569cd6">$1</span>')
+        .replace(/(#.*$)/gm,
+          '<span style="color:#6a9955">$1</span>')
+        .replace(/(\$\w+)/g,
+          '<span style="color:#4fc1ff">$1</span>');
+    }
+    return escaped;
+  };
+
+  const lines = code.split('\n');
+
+  return (
+    <div className="my-8 rounded-2xl overflow-hidden border border-[#0466c8]/20 font-mono text-sm">
+      {/* Barre titre style éditeur */}
+      <div className="flex items-center justify-between px-4 py-2.5 bg-[#1a1a2e] border-b border-[#0466c8]/10">
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1.5">
+            <div className="w-3 h-3 rounded-full bg-[#ff5f57]" />
+            <div className="w-3 h-3 rounded-full bg-[#febc2e]" />
+            <div className="w-3 h-3 rounded-full bg-[#28c840]" />
+          </div>
+          <span className="text-[#90e0ef]/30 text-[10px] ml-2 uppercase tracking-widest">
+            {language}
+          </span>
+        </div>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white/5 hover:bg-[#0466c8]/20 text-[#90e0ef]/50 hover:text-[#90e0ef] transition-all text-[10px] font-bold uppercase tracking-wider"
+        >
+          {copied ? (
+            <><Check size={11} className="text-green-400" /> Copié</>
+          ) : (
+            <><Upload size={11} /> Copier</>
+          )}
+        </button>
+      </div>
+
+      {/* Code avec numéros de ligne */}
+      <div className="bg-[#0d1117] overflow-x-auto">
+        <table className="w-full border-collapse">
+          <tbody>
+            {lines.map((line, i) => (
+              <tr key={i} className="hover:bg-[#0466c8]/5 transition-colors">
+                <td className="select-none text-right pr-4 pl-4 py-0.5 text-[#90e0ef]/15 text-[11px] w-10 border-r border-[#0466c8]/10 align-top">
+                  {i + 1}
+                </td>
+                <td className="pl-4 pr-4 py-0.5 text-[#e6edf3] text-[13px] whitespace-pre"
+                  dangerouslySetInnerHTML={{ __html: highlight(line, language) }}
+                />
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {caption && (
+        <div className="px-4 py-2 bg-[#0d1117] border-t border-[#0466c8]/10 text-[#90e0ef]/40 text-[10px] italic">
+          {caption}
+        </div>
+      )}
+    </div>
+  );
+};
+
+
+
+
+export const GalleryBlock = ({ urls, caption, lang }: {
+  urls: string[]; caption?: string; lang: 'fr' | 'en';
+}) => {
+  const [current, setCurrent] = useState(0);
+  const [lightbox, setLightbox] = useState(false);
+
+  if (!urls || urls.length === 0) return null;
+
+  return (
+    <div className="my-8">
+      {/* Carrousel principal */}
+      <div className="relative rounded-2xl overflow-hidden border border-[#0466c8]/20 bg-[#000814]">
+        <motion.div
+          className="flex"
+          animate={{ x: `-${current * 100}%` }}
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          style={{ width: `${urls.length * 100}%` }}
+        >
+          {urls.map((url, i) => (
+            <div key={i} style={{ width: `${100 / urls.length}%` }} className="flex-shrink-0">
+              <img
+                src={url}
+                alt={`${i + 1}`}
+                className="w-full aspect-video object-cover cursor-zoom-in"
+                onClick={() => { setCurrent(i); setLightbox(true); }}
+              />
+            </div>
+          ))}
+        </motion.div>
+
+        {/* Flèches */}
+        {urls.length > 1 && (
+          <>
+            <button
+              onClick={() => setCurrent(p => (p - 1 + urls.length) % urls.length)}
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/60 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white hover:bg-[#0466c8] transition-all"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <button
+              onClick={() => setCurrent(p => (p + 1) % urls.length)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/60 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white hover:bg-[#0466c8] transition-all"
+            >
+              <ChevronRight size={18} />
+            </button>
+            {/* Dots */}
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+              {urls.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrent(i)}
+                  className={`rounded-full transition-all ${i === current ? 'w-5 h-1.5 bg-[#0466c8]' : 'w-1.5 h-1.5 bg-white/40'}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Compteur */}
+        <div className="absolute top-3 right-3 px-2.5 py-1 bg-black/60 backdrop-blur-sm rounded-full text-[10px] text-white/70 font-mono">
+          {current + 1} / {urls.length}
+        </div>
+      </div>
+
+      {caption && (
+        <p className="text-center text-xs text-[#90e0ef]/40 mt-3 italic">{caption}</p>
+      )}
+
+      {/* Thumbnails */}
+      {urls.length > 1 && (
+        <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
+          {urls.map((url, i) => (
+            <button
+              key={i}
+              onClick={() => setCurrent(i)}
+              className={`flex-shrink-0 w-16 h-12 rounded-lg overflow-hidden border-2 transition-all ${i === current ? 'border-[#0466c8]' : 'border-transparent opacity-50 hover:opacity-100'}`}
+            >
+              <img src={url} className="w-full h-full object-cover" alt="" />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Lightbox */}
+      <AnimatePresence>
+        {lightbox && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] bg-black/95 flex items-center justify-center p-4"
+            onClick={() => setLightbox(false)}
+          >
+            <button className="absolute top-4 right-4 p-2 bg-white/10 rounded-full text-white hover:bg-white/20">
+              <X size={24} />
+            </button>
+            <motion.img
+              src={urls[current]}
+              className="max-w-full max-h-[90vh] object-contain rounded-xl"
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              onClick={e => e.stopPropagation()}
+            />
+            {urls.length > 1 && (
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
+                {urls.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={e => { e.stopPropagation(); setCurrent(i); }}
+                    className={`rounded-full transition-all ${i === current ? 'w-6 h-2 bg-[#0466c8]' : 'w-2 h-2 bg-white/30'}`}
+                  />
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+
+
+export const QuoteHero = ({ text, author }: { text: string; author?: string }) => (
+  <div className="my-12 -mx-4 md:-mx-16 lg:-mx-32 px-6 md:px-12 py-10 bg-gradient-to-br from-[#001233] to-[#000814] border-y border-[#0466c8]/30 relative overflow-hidden">
+    <div className="absolute top-4 left-6 text-[120px] leading-none text-[#0466c8]/10 font-serif select-none pointer-events-none">
+      "
+    </div>
+    <motion.blockquote
+      initial={{ opacity: 0, y: 10 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      className="relative z-10 text-2xl md:text-3xl font-serif italic text-white/90 leading-relaxed max-w-3xl mx-auto text-center break-words overflow-hidden"
+      style={{ textShadow: '0 0 40px rgba(4,102,200,0.15)' }}
+    >
+      {text}
+    </motion.blockquote>
+    {author && (
+      <p className="text-center text-[#0466c8] text-xs font-black uppercase tracking-[0.3em] mt-6 break-words">
+        — {author}
+      </p>
+    )}
+    <div className="absolute bottom-4 right-6 text-[120px] leading-none text-[#0466c8]/10 font-serif select-none pointer-events-none rotate-180">
+      "
+    </div>
+  </div>
+);
+
+const InlineRelatedTeaser = ({
+  teaser,
+  article,
+  lang,
+  onSelect,
+}: {
+  teaser: { kicker_fr: string; kicker_en: string };
+  article: UnifiedItem;
+  lang: 'fr' | 'en';
+  onSelect: () => void;
+}) => {
+  const kicker = lang === 'fr' ? teaser.kicker_fr : teaser.kicker_en;
+  const title = lang === 'fr' ? article.title_fr : article.title_en;
+  const cat = lang === 'fr' ? article.category_name_fr : article.category_name_en;
+  const color = article.category_color || '#0466c8';
+  const thumb = getThumbnailUrl(article.cover_url, article.format);
+  const readTime = article.reading_time_minutes || estimateReadingTime(
+    lang === 'fr' ? article.content_fr : article.content_en
+  );
+  const dateStr = formatPublishedDate(article.published_at || article.date, lang);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      onClick={onSelect}
+      className="my-10 cursor-pointer group"
+    >
+      {/* Kicker */}
+      <div className="flex items-center gap-3 mb-3">
+        <div className="flex-1 h-px bg-[#0466c8]/20" />
+        <span
+          className="text-[10px] font-black uppercase tracking-[0.3em] px-4 py-1.5 rounded-full border"
+          style={{
+            color,
+            borderColor: `${color}40`,
+            backgroundColor: `${color}10`,
+            textShadow: `0 0 20px ${color}40`,
+          }}
+        >
+          {kicker || (lang === 'fr' ? 'À lire aussi' : 'Also read')}
+        </span>
+        <div className="flex-1 h-px bg-[#0466c8]/20" />
+      </div>
+
+      {/* Card teaser */}
+      <div
+        className="flex gap-4 p-4 rounded-2xl border border-[#0466c8]/15 bg-[#000d1a] hover:border-[#0466c8]/40 transition-all"
+        style={{ boxShadow: `0 0 30px ${color}08` }}
+      >
+        {/* Thumbnail */}
+        {thumb && (
+          <div className="w-24 h-20 sm:w-32 sm:h-24 rounded-xl overflow-hidden flex-shrink-0 border border-[#0466c8]/20">
+            <img
+              src={thumb}
+              alt={title}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+          </div>
+        )}
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-2">
+            <motion.div
+              className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+              style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}` }}
+              animate={{ scale: [1, 1.4, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            />
+            <span className="text-[9px] font-black uppercase tracking-wider" style={{ color }}>
+              {cat}
+            </span>
+            {article.article_type === 'audio' && (
+              <span className="px-2 py-0.5 bg-[#001233] text-[#90e0ef] text-[8px] rounded-full border border-[#0466c8]/30 flex items-center gap-1">
+                <Radio size={8} /> Podcast
+              </span>
+            )}
+          </div>
+
+          <h4 className="font-serif text-white text-base leading-snug group-hover:text-[#90e0ef] transition-colors line-clamp-2 mb-2">
+            {title}
+          </h4>
+
+          <div className="flex items-center gap-3 text-[#90e0ef]/30 text-[9px]">
+            {dateStr && <span className="flex items-center gap-1"><Calendar size={9} /> {dateStr}</span>}
+            <span className="flex items-center gap-1"><Clock size={9} /> {readTime} min</span>
+          </div>
+        </div>
+
+        <ChevronRight
+          size={18}
+          className="flex-shrink-0 self-center text-[#0466c8]/20 group-hover:text-[#0466c8] group-hover:translate-x-1 transition-all"
+        />
+      </div>
+    </motion.div>
+  );
+};
+
+
+
+
+export const ChartCard = ({ chart, lang, onClick }: { chart: MacroChart; lang: 'fr' | 'en'; onClick: () => void; }) => {
   const title = lang === 'fr' ? chart.title_fr : (chart.title_en || chart.title_fr);
   const desc = lang === 'fr' ? chart.description_fr : (chart.description_en || chart.description_fr);
   const unit = lang === 'fr' ? chart.unit_fr : (chart.unit_en || chart.unit_fr);
@@ -1072,7 +1628,7 @@ const ChartCard = ({ chart, lang, onClick }: { chart: MacroChart; lang: 'fr' | '
   );
 };
 
-const ChartModal = ({ chart, lang, onClose }: { chart: MacroChart; lang: 'fr' | 'en'; onClose: () => void; }) => {
+export const ChartModal = ({ chart, lang, onClose }: { chart: MacroChart; lang: 'fr' | 'en'; onClose: () => void; }) => {
   const title = lang === 'fr' ? chart.title_fr : (chart.title_en || chart.title_fr);
   const desc = lang === 'fr' ? chart.description_fr : (chart.description_en || chart.description_fr);
   const unit = lang === 'fr' ? chart.unit_fr : (chart.unit_en || chart.unit_fr);
@@ -1141,9 +1697,571 @@ const ChartModal = ({ chart, lang, onClose }: { chart: MacroChart; lang: 'fr' | 
   );
 };
 
+
+
+export const AuthorByline = ({ article, lang }: { article: UnifiedItem; lang: 'fr' | 'en' }) => {
+  const author = article.author;
+  const name = author?.name || article.author_or_source;
+  const role = author ? (lang === 'fr' ? author.role_fr : author.role_en) : null;
+  const bio = author ? (lang === 'fr' ? author.bio_fr : author.bio_en) : null;
+  const publishedDate = formatPublishedDate(article.published_at || article.date, lang, true);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.35 }}
+      className="flex items-start gap-4 py-6 border-y border-[#0466c8]/15 mb-8"
+    >
+      {/* Avatar */}
+      <div className="relative flex-shrink-0">
+        <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-[#0466c8]/30 bg-[#001233]">
+          {author?.avatar_url ? (
+            <img
+              src={author.avatar_url}
+              alt={name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <span className="text-[#0466c8] font-black text-xl font-serif">
+                {name.charAt(0).toUpperCase()}
+              </span>
+            </div>
+          )}
+        </div>
+        {article.is_live && (
+          <motion.div
+            className="absolute -bottom-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-[#000814]"
+            animate={{ scale: [1, 1.3, 1] }}
+            transition={{ duration: 1, repeat: Infinity }}
+          />
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <p className="text-white font-bold text-sm">{name}</p>
+            {role && (
+              <p className="text-[#0466c8] text-[10px] font-semibold uppercase tracking-wider mt-0.5">
+                {role}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {author?.twitter_url && (
+              <a
+                href={author.twitter_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 bg-[#000d1a] border border-[#0466c8]/20 rounded-full text-[#90e0ef]/50 hover:text-[#90e0ef] hover:border-[#0466c8]/40 transition-all text-[10px] font-bold uppercase tracking-wider"
+              >
+                Suivre
+              </a>
+            )}
+          </div>
+        </div>
+
+        {bio && (
+          <p className="text-[#90e0ef]/40 text-xs leading-relaxed mt-2 line-clamp-2">
+            {bio}
+          </p>
+        )}
+
+        {publishedDate && (
+          <div className="flex items-center gap-2 mt-2 text-[#90e0ef]/25 text-[10px]">
+            <Calendar size={10} className="text-[#0466c8]" />
+            <span>{publishedDate}</span>
+            {article.reading_time_minutes && (
+              <>
+                <span className="text-[#0466c8]/30">·</span>
+                <Clock size={10} className="text-[#0466c8]" />
+                <span>
+                  {article.reading_time_minutes} {lang === 'fr' ? 'min de lecture' : 'min read'}
+                </span>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+};
+
+
+
+export const TableOfContents = ({ content, lang }: { content: string; lang: 'fr' | 'en' }) => {
+  const [activeId, setActiveId] = useState<string>('');
+  const [isOpen, setIsOpen] = useState(true);
+
+  const headings = useMemo(() => {
+    if (!content) return [];
+    const lines = content.split('\n');
+    const result: { level: number; text: string; id: string }[] = [];
+
+    lines.forEach(line => {
+      const h2 = line.match(/^## (.+)$/);
+      const h3 = line.match(/^### (.+)$/);
+      if (h2) {
+        const text = h2[1].trim();
+        result.push({
+          level: 2,
+          text,
+          id: text.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        });
+      } else if (h3) {
+        const text = h3[1].trim();
+        result.push({
+          level: 3,
+          text,
+          id: text.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        });
+      }
+    });
+
+    return result;
+  }, [content]);
+
+  if (headings.length < 2) return null;
+
+  const scrollToHeading = (text: string) => {
+    const allH = document.querySelectorAll('h2, h3');
+    for (const el of Array.from(allH)) {
+      if (el.textContent?.trim() === text) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setActiveId(text);
+        break;
+      }
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.4 }}
+      className="mb-10 rounded-2xl border border-[#0466c8]/15 overflow-hidden"
+      style={{ backgroundColor: 'rgba(0,13,26,0.8)' }}
+    >
+      {/* Header */}
+      <button
+        onClick={() => setIsOpen(p => !p)}
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-[#0466c8]/5 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <ScrollText size={14} className="text-[#0466c8]" />
+          <span className="text-white font-bold text-sm uppercase tracking-widest text-[10px]">
+            {lang === 'fr' ? 'Sommaire' : 'Contents'}
+          </span>
+          <span className="px-2 py-0.5 bg-[#0466c8]/20 text-[#90e0ef] text-[9px] rounded-full">
+            {headings.length}
+          </span>
+        </div>
+        <ChevronRight
+          size={14}
+          className={`text-[#0466c8]/40 transition-transform ${isOpen ? 'rotate-90' : ''}`}
+        />
+      </button>
+
+      {/* Liste */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="overflow-hidden"
+          >
+            <div className="px-5 pb-4 space-y-1 border-t border-[#0466c8]/10">
+              {headings.map((h, i) => (
+                <button
+                  key={i}
+                  onClick={() => scrollToHeading(h.text)}
+                  className={`w-full text-left flex items-center gap-2 py-1.5 px-2 rounded-lg transition-all text-xs group ${activeId === h.text
+                    ? 'bg-[#0466c8]/15 text-[#90e0ef]'
+                    : 'text-[#90e0ef]/40 hover:text-[#90e0ef] hover:bg-[#0466c8]/5'
+                    } ${h.level === 3 ? 'ml-4' : ''}`}
+                >
+                  <span
+                    className={`flex-shrink-0 font-mono text-[8px] ${h.level === 2 ? 'text-[#0466c8]' : 'text-[#0466c8]/40'
+                      }`}
+                  >
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <span className="line-clamp-1 group-hover:text-[#90e0ef] transition-colors">
+                    {h.text}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+};
+
+export const LiveFeed = ({ articleId, lang }: { articleId: string; lang: 'fr' | 'en' }) => {
+  const [updates, setUpdates] = useState<{
+    id: string;
+    content: string;
+    author: string;
+    is_pinned: boolean;
+    created_at: string;
+  }[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Chargement initial
+    supabase
+      .from('press_live_updates')
+      .select('*')
+      .eq('article_id', articleId)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        if (data) setUpdates(data);
+        setIsLoading(false);
+      });
+
+    // Souscription Realtime
+    const channel = supabase
+      .channel(`live-${articleId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'press_live_updates',
+          filter: `article_id=eq.${articleId}`,
+        },
+        payload => {
+          setUpdates(prev => [payload.new as any, ...prev]);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'press_live_updates',
+          filter: `article_id=eq.${articleId}`,
+        },
+        payload => {
+          setUpdates(prev => prev.filter(u => u.id !== (payload.old as any).id));
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [articleId]);
+
+  if (isLoading) return null;
+  if (updates.length === 0) return null;
+
+  const formatLiveTime = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString(lang === 'fr' ? 'fr-FR' : 'en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mb-10 rounded-2xl overflow-hidden border border-red-500/30"
+      style={{ boxShadow: '0 0 30px rgba(239,68,68,0.08)' }}
+    >
+      {/* Header */}
+      <div className="flex items-center gap-3 px-5 py-3 bg-red-500/10 border-b border-red-500/20">
+        <motion.div
+          className="w-2.5 h-2.5 bg-red-500 rounded-full"
+          animate={{ opacity: [1, 0.2, 1] }}
+          transition={{ duration: 1, repeat: Infinity }}
+        />
+        <span className="text-red-400 font-black text-xs uppercase tracking-[0.3em]">
+          {lang === 'fr' ? 'En Direct' : 'Live'}
+        </span>
+        <span className="text-red-400/40 text-[10px] ml-auto">
+          {updates.length} {lang === 'fr' ? 'mise(s) à jour' : 'update(s)'}
+        </span>
+      </div>
+
+      {/* Timeline */}
+      <div className="bg-[#000814] divide-y divide-red-500/10">
+        {updates.map((update, i) => (
+          <motion.div
+            key={update.id}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: i * 0.05 }}
+            className={`flex gap-4 px-5 py-4 ${update.is_pinned ? 'bg-red-500/5' : ''}`}
+          >
+            {/* Timeline dot + line */}
+            <div className="flex flex-col items-center gap-1 flex-shrink-0 pt-1">
+              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${i === 0 ? 'bg-red-500' : 'bg-red-500/30'}`} />
+              {i < updates.length - 1 && (
+                <div className="w-px flex-1 bg-red-500/15 min-h-[16px]" />
+              )}
+            </div>
+
+            {/* Contenu */}
+            <div className="flex-1 min-w-0 pb-2">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <span className="text-[10px] font-mono text-red-400/60">
+                  {formatLiveTime(update.created_at)}
+                </span>
+                {update.is_pinned && (
+                  <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-[8px] font-bold rounded-full">
+                    📌 {lang === 'fr' ? 'Épinglé' : 'Pinned'}
+                  </span>
+                )}
+                <span className="text-[10px] text-[#90e0ef]/30 ml-auto">
+                  {update.author}
+                </span>
+              </div>
+              <p className="text-white/80 text-sm leading-relaxed">{update.content}</p>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </motion.div>
+  );
+};
+
+
+export const ShareButton = ({ article, lang }: { article: UnifiedItem; lang: 'fr' | 'en' }) => {
+  const [copied, setCopied] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+
+  const title = lang === 'fr' ? article.title_fr : article.title_en;
+  const url = typeof window !== 'undefined'
+    ? `${window.location.origin}/presse?article=${article.id}`
+    : '';
+  const tweetText = `${title} - Le Continent`;
+  const emailSubject = `À lire : ${title}`;
+  const emailBody = `Je vous partage cet article : ${title}\n\n${url}`;
+
+  const shareOptions = [
+    {
+      name: 'Twitter/X',
+      icon: '𝕏',
+      url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}&url=${encodeURIComponent(url)}`,
+      color: 'text-black hover:text-white hover:bg-black',
+    },
+    {
+      name: 'Facebook',
+      icon: 'f',
+      url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
+      color: 'text-[#1877F2] hover:text-white hover:bg-[#1877F2]',
+    },
+    {
+      name: 'LinkedIn',
+      icon: 'in',
+      url: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`,
+      color: 'text-[#0A66C2] hover:text-white hover:bg-[#0A66C2]',
+    },
+    {
+      name: 'WhatsApp',
+      icon: '💬',
+      url: `https://wa.me/?text=${encodeURIComponent(`${title}\n${url}`)}`,
+      color: 'text-[#25D366] hover:text-white hover:bg-[#25D366]',
+    },
+    {
+      name: 'Email',
+      icon: '✉️',
+      url: `mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`,
+      color: 'text-[#0466c8] hover:text-white hover:bg-[#0466c8]',
+    },
+  ];
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  return (
+    <div className="relative">
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-2 px-4 py-2.5 bg-[#001233] border border-[#0466c8]/20 rounded-xl text-[#90e0ef]/40 hover:text-[#90e0ef] hover:border-[#0466c8]/40 transition-all text-xs font-bold uppercase tracking-wider"
+      >
+        <Share2 size={14} />
+        {lang === 'fr' ? 'Partager' : 'Share'}
+      </motion.button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: -10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="absolute top-full right-0 mt-2 bg-[#000814] border border-[#0466c8]/30 rounded-2xl shadow-2xl z-40 min-w-56 overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Options partage */}
+            <div className="p-3 space-y-1">
+              {shareOptions.map(opt => (
+                <a
+                  key={opt.name}
+                  href={opt.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border border-transparent hover:border-[#0466c8]/20 transition-all group text-sm ${opt.color}`}
+                >
+                  <span className="text-lg font-bold">{opt.icon}</span>
+                  <span className="flex-1 group-hover:text-white">{opt.name}</span>
+                  <ExternalLink size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                </a>
+              ))}
+            </div>
+
+            {/* Copier le lien */}
+            <div className="border-t border-[#0466c8]/10 p-3">
+              <button
+                onClick={handleCopyLink}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-[#0466c8]/10 hover:bg-[#0466c8]/20 text-[#90e0ef] transition-all text-xs font-bold"
+              >
+                {copied ? (
+                  <>
+                    <Check size={12} className="text-green-400" />
+                    {lang === 'fr' ? 'Lien copié !' : 'Link copied!'}
+                  </>
+                ) : (
+                  <>
+                    <LinkIcon size={12} />
+                    {lang === 'fr' ? 'Copier le lien' : 'Copy link'}
+                  </>
+                )}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+const DigestWidget = ({
+  digest,
+  feedItems,
+  lang,
+  onSelect,
+}: {
+  digest: DigestItem | null;
+  feedItems: UnifiedItem[];
+  lang: 'fr' | 'en';
+  onSelect: (a: UnifiedItem) => void;
+}) => {
+  if (!digest || !digest.article_ids || digest.article_ids.length === 0) return null;
+
+  const items = digest.article_ids
+    .map(id => feedItems.find(a => a.id === id))
+    .filter(Boolean) as UnifiedItem[];
+
+  if (items.length === 0) return null;
+
+  const label = lang === 'fr' ? digest.label_fr : digest.label_en;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      className="my-12 p-5 bg-gradient-to-br from-[#001233]/60 to-[#000814] border border-[#0466c8]/20 rounded-2xl"
+      style={{ boxShadow: '0 0 40px rgba(4,102,200,0.06)' }}
+    >
+      {/* Label */}
+      <div className="flex items-center gap-3 mb-5">
+        <motion.div
+          className="w-2 h-2 bg-[#0466c8] rounded-full"
+          animate={{ opacity: [1, 0.3, 1] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
+        />
+        <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[#0466c8]">
+          {label}
+        </h3>
+        <div className="flex-1 h-px bg-[#0466c8]/20" />
+        <span className="text-[9px] text-[#90e0ef]/25 font-mono uppercase tracking-widest">
+          {lang === 'fr' ? 'Le Continent' : 'Le Continent'}
+        </span>
+      </div>
+
+      {/* Liste compacte */}
+      <div className="space-y-3">
+        {items.map((article, i) => {
+          const title = lang === 'fr' ? article.title_fr : article.title_en;
+          const cat = lang === 'fr' ? article.category_name_fr : article.category_name_en;
+          const color = article.category_color || '#0466c8';
+          const thumb = getThumbnailUrl(article.cover_url, article.format);
+          const dateStr = formatPublishedDate(article.published_at || article.date, lang);
+          const isAudio = article.article_type === 'audio';
+
+          return (
+            <motion.button
+              key={article.id}
+              initial={{ opacity: 0, x: -10 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.07 }}
+              onClick={() => onSelect(article)}
+              className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#0466c8]/5 border border-transparent hover:border-[#0466c8]/20 transition-all group text-left"
+            >
+              {/* Thumbnail */}
+              {thumb ? (
+                <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border border-[#0466c8]/15">
+                  <img src={thumb} alt={title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                </div>
+              ) : (
+                <div className="w-14 h-14 rounded-lg bg-[#001233] flex items-center justify-center flex-shrink-0">
+                  {isAudio ? <Radio size={18} className="text-[#0466c8]/40" /> : <Newspaper size={18} className="text-[#0466c8]/40" />}
+                </div>
+              )}
+
+              {/* Texte */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[8px] font-black uppercase tracking-wider" style={{ color }}>
+                    {cat}
+                  </span>
+                  {isAudio && (
+                    <span className="px-1.5 py-0.5 bg-[#001233] text-[#90e0ef] text-[7px] rounded-full border border-[#0466c8]/20 flex items-center gap-0.5">
+                      <Radio size={7} /> Podcast
+                    </span>
+                  )}
+                  {dateStr && (
+                    <span className="ml-auto text-[8px] text-[#90e0ef]/25">{dateStr}</span>
+                  )}
+                </div>
+                <p className="text-white text-sm font-serif leading-snug group-hover:text-[#90e0ef] transition-colors line-clamp-2">
+                  {title}
+                </p>
+              </div>
+
+              <ChevronRight size={14} className="flex-shrink-0 text-[#0466c8]/20 group-hover:text-[#0466c8] group-hover:translate-x-0.5 transition-all" />
+            </motion.button>
+          );
+        })}
+      </div>
+    </motion.div>
+  );
+};
+
 // ─── Article View ─────────────────────────────────────────────────────────────
 
-const ArticleView = ({ article, lang, onClose, mousePos, feedItems, user, userProfile, announcements, allCharts }: {
+export const ArticleView = ({ article, lang, onClose, mousePos, feedItems, user, userProfile, announcements, allCharts }: {
   article: UnifiedItem; lang: 'fr' | 'en'; onClose: () => void;
   mousePos: { x: number; y: number }; feedItems: UnifiedItem[];
   user: any; userProfile: UserProfile | null; announcements: PressAnnouncement[];
@@ -1153,7 +2271,7 @@ const ArticleView = ({ article, lang, onClose, mousePos, feedItems, user, userPr
   const [audioProgress, setAudioProgress] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [shareCopied, setShareCopied] = useState(false);
+
   const [imgLoaded, setImgLoaded] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -1226,15 +2344,7 @@ const ArticleView = ({ article, lang, onClose, mousePos, feedItems, user, userPr
     next();
   }, [isSpeaking, title, summary, content, lang]);
 
-  const handleShare = useCallback(async () => {
-    if (navigator.share) {
-      try { await navigator.share({ title: title ?? '', url: window.location.href }); } catch (e) { }
-    } else {
-      await navigator.clipboard.writeText(window.location.href);
-      setShareCopied(true);
-      setTimeout(() => setShareCopied(false), 2000);
-    }
-  }, [title]);
+
 
   const formatTime = (s: number) => !s || isNaN(s) ? '0:00' : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
@@ -1244,14 +2354,36 @@ const ArticleView = ({ article, lang, onClose, mousePos, feedItems, user, userPr
 
       {/* COVER */}
       <div className="relative h-[50vh] min-h-[400px] overflow-hidden -mx-4 md:-mx-6 bg-[#000814]">
-        {article.cover_url ? (
+        {article.cover_type === 'video_loop' && article.cover_video_url ? (
+          <motion.video
+            src={article.cover_video_url}
+            autoPlay
+            muted
+            loop
+            playsInline
+            initial={{ scale: 1.05, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 1.5, ease: [0.22, 1, 0.36, 1] }}
+            className="w-full h-full object-cover"
+          />
+        ) : article.cover_url ? (
           <motion.img
             src={getThumbnailUrl(article.cover_url, article.format)}
             alt={title}
             onLoad={() => setImgLoaded(true)}
             initial={{ scale: 1.1, opacity: 0 }}
-            animate={{ scale: imgLoaded ? 1 : 1.1, opacity: imgLoaded ? 1 : 0, x: mousePos.x * 20, y: mousePos.y * 10 }}
-            transition={{ scale: { duration: 1.2, ease: [0.22, 1, 0.36, 1] }, opacity: { duration: 1.2 }, x: { type: 'spring', stiffness: 20, damping: 30 }, y: { type: 'spring', stiffness: 20, damping: 30 } }}
+            animate={{
+              scale: imgLoaded ? 1 : 1.1,
+              opacity: imgLoaded ? 1 : 0,
+              x: mousePos.x * 20,
+              y: mousePos.y * 10
+            }}
+            transition={{
+              scale: { duration: 1.2, ease: [0.22, 1, 0.36, 1] },
+              opacity: { duration: 1.2 },
+              x: { type: 'spring', stiffness: 20, damping: 30 },
+              y: { type: 'spring', stiffness: 20, damping: 30 }
+            }}
             className={`w-full h-full ${isArchive ? 'object-contain' : 'object-cover'}`}
           />
         ) : (
@@ -1306,24 +2438,13 @@ const ArticleView = ({ article, lang, onClose, mousePos, feedItems, user, userPr
       {/* BODY */}
       <div className="max-w-2xl mx-auto px-4 md:px-0 mt-10 mb-20">
 
-        {/* META : temps de lecture + date */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-          className="flex flex-wrap items-center gap-4 mb-8 py-4 border-b border-[#0466c8]/10 text-[#90e0ef]/40 text-xs"
-        >
-          {!isArchive && (
-            <span className="flex items-center gap-1.5">
-              <Clock size={12} className="text-[#0466c8]" />
-              {readTime} {lang === 'fr' ? 'min de lecture' : 'min read'}
-            </span>
-          )}
-          {publishedDate && (
-            <span className="flex items-center gap-1.5">
-              <Calendar size={12} className="text-[#0466c8]" />
-              {publishedDate}
-            </span>
-          )}
-        </motion.div>
+        {/* BYLINE AUTEUR */}
+        <AuthorByline article={article} lang={lang} />
+
+        {/* SOMMAIRE */}
+        {content && content.includes('##') && (
+          <TableOfContents content={content} lang={lang} />
+        )}
 
         {/* ACTION BUTTONS — sans bouton retour */}
         <motion.div
@@ -1361,11 +2482,7 @@ const ArticleView = ({ article, lang, onClose, mousePos, feedItems, user, userPr
 
           <FavoriteButton itemType="press" itemId={article.id} size={14} />
 
-          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={handleShare}
-            className="flex items-center gap-1.5 px-5 py-3 bg-[#000d1a] border border-[#0466c8]/20 rounded-xl text-[#90e0ef]/40 hover:text-[#90e0ef] hover:border-[#0466c8]/40 transition-all text-xs font-bold uppercase tracking-wider">
-            {shareCopied ? <Check size={14} className="text-green-400" /> : <Share2 size={14} />}
-            {shareCopied ? (lang === 'fr' ? 'Copié !' : 'Copied!') : (lang === 'fr' ? 'Partager' : 'Share')}
-          </motion.button>
+          <ShareButton article={article} lang={lang} />
         </motion.div>
 
         {/* AUDIO PLAYER (Article audio principal) */}
@@ -1416,6 +2533,11 @@ const ArticleView = ({ article, lang, onClose, mousePos, feedItems, user, userPr
           </motion.div>
         )}
 
+        {/* LIVE FEED */}
+        {article.is_live && (
+          <LiveFeed articleId={article.id} lang={lang} />
+        )}
+
         {/* RÉSUMÉ */}
         {summary && (
           <motion.p
@@ -1439,57 +2561,161 @@ const ArticleView = ({ article, lang, onClose, mousePos, feedItems, user, userPr
         </div>
 
         {/* MAIN CONTENT — PREMIÈRE MOITIÉ */}
-        {/* MAIN CONTENT AFFECTATION INTELLIGENTE */}
+        {/* RENDU PRINCIPAL — segments interleaved */}
         {(() => {
-          const paragraphs = (content || '').split('\n\n').filter(p => p.trim());
+          const segments = parseContentSegments(content || '', article.media_items);
 
-          // Calculer les points d'insertion
-          const chartsIndex = paragraphs.length > 2 ? 2 : 1; // Graphiques après le 2e paragraphe (environ 30% du début)
-          const announcementsIndex = Math.ceil(paragraphs.length / 2); // Annonces au milieu
+          return segments.map((seg, segIdx) => {
+            if (seg.kind === 'html') {
+              return (
+                <motion.div
+                  key={`html-${segIdx}`}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.1 }}
+                  className="prose prose-invert max-w-none mb-6"
+                  dangerouslySetInnerHTML={{ __html: seg.content }}
+                />
+              );
+            }
 
-          const introPart = paragraphs.slice(0, chartsIndex).join('\n\n');
-          const middlePart = paragraphs.slice(chartsIndex, announcementsIndex).join('\n\n');
-          const endPart = paragraphs.slice(announcementsIndex).join('\n\n');
-
-          return (
-            <>
-              {/* Introduction */}
-              {introPart && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
-                  className="prose prose-invert max-w-none mb-12" dangerouslySetInnerHTML={{ __html: renderContentWithMedia(introPart, article.media_items) }} />
-              )}
-
-              {/* GRAPHIQUES (Après les premiers paragraphes) */}
-              {linkedCharts.length > 0 && (
-                <motion.section initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="mb-12 py-8 border-y border-[#0466c8]/20">
-                  <h3 className="flex items-center gap-2 text-xl font-serif italic text-white mb-6"><BarChart3 size={24} className="text-[#0466c8]" /> {lang === 'fr' ? 'Chiffres & Données Clés' : 'Key Figures & Data'}</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {linkedCharts.map((chart: MacroChart) => (
-                      <ChartCard key={chart.id} chart={chart} lang={lang} onClick={() => setSelectedChartModal(chart)} />
-                    ))}
+            if (seg.kind === 'chart') {
+              const chart = linkedCharts[seg.index];
+              if (!chart) return null;
+              return (
+                <motion.div
+                  key={`chart-${segIdx}`}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  className="my-10"
+                >
+                  <div className="flex items-center gap-3 mb-4">
+                    <BarChart3 size={16} className="text-[#0466c8]" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#0466c8]">
+                      {lang === 'fr' ? 'Données & Chiffres' : 'Data & Figures'}
+                    </span>
+                    <div className="flex-1 h-px bg-[#0466c8]/20" />
                   </div>
-                </motion.section>
-              )}
+                  <ChartCard
+                    chart={chart}
+                    lang={lang}
+                    onClick={() => setSelectedChartModal(chart)}
+                  />
+                </motion.div>
+              );
+            }
 
-              {/* Milieu */}
-              {middlePart && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}
-                  className="prose prose-invert max-w-none mb-12" dangerouslySetInnerHTML={{ __html: renderContentWithMedia(middlePart, article.media_items) }} />
-              )}
+            if (seg.kind === 'related') {
+              const teaser = article.related_teasers?.find(t => t.insert_index === seg.index);
+              const targetId = article.related_articles_ids?.[seg.index];
+              const targetArticle = targetId ? feedItems.find(a => a.id === targetId) : null;
+              if (!targetArticle) return null;
+              return (
+                <InlineRelatedTeaser
+                  key={`related-${segIdx}`}
+                  teaser={teaser || { kicker_fr: 'À lire aussi', kicker_en: 'Also read' }}
+                  article={targetArticle}
+                  lang={lang}
+                  onSelect={() => {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    // On recharge l'article — la page parente gère ça via selectedArticle
+                    // Ici on remonte juste au composant parent via un event custom
+                    window.dispatchEvent(new CustomEvent('lukeni:select-article', { detail: targetArticle }));
+                  }}
+                />
+              );
+            }
 
-              {/* ANNONCES (Au centre) */}
-              {announcements.length > 0 && (
-                <AnnouncementsCarousel announcements={announcements} lang={lang} />
-              )}
 
-              {/* Fin de l'article */}
-              {endPart && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
-                  className="prose prose-invert max-w-none mb-16" dangerouslySetInnerHTML={{ __html: renderContentWithMedia(endPart, article.media_items) }} />
-              )}
-            </>
-          );
+            if (seg.kind === 'media_code') {
+              const media = article.media_items?.[seg.index];
+              if (!media || media.type !== 'code') return null;
+              return (
+                <CodeBlock
+                  key={`code-${segIdx}`}
+                  language={media.code_language || 'plaintext'}
+                  code={media.code_content || ''}
+                  caption={media.caption}
+                />
+              );
+            }
+
+            if (seg.kind === 'media_gallery') {
+              const media = article.media_items?.[seg.index];
+              if (!media || media.type !== 'gallery') return null;
+              return (
+                <GalleryBlock
+                  key={`gallery-${segIdx}`}
+                  urls={media.gallery_urls || []}
+                  caption={media.caption}
+                  lang={lang}
+                />
+              );
+            }
+
+            if (seg.kind === 'media_quote') {
+              const media = article.media_items?.[seg.index];
+              if (!media || media.type !== 'quote_hero') return null;
+              return (
+                <QuoteHero
+                  key={`quote-${segIdx}`}
+                  text={media.quote_text || ''}
+                  author={media.quote_author}
+                />
+              );
+            }
+
+            if (seg.kind === 'announcement') {
+              if (!announcements || announcements.length === 0) return null;
+              return (
+                <AnnouncementsCarousel
+                  key={`announcement-${segIdx}`}
+                  announcements={announcements}
+                  lang={lang}
+                />
+              );
+            }
+
+            return null;
+          });
         })()}
+
+        {/* ANNONCES — affichées à la fin seulement si AUCUN marqueur [ANNOUNCEMENT] n'est présent dans le texte */}
+        {announcements.length > 0 && !(content || '').includes('[ANNOUNCEMENT]') && (
+          <AnnouncementsCarousel announcements={announcements} lang={lang} />
+        )}
+
+        {/* Graphiques non positionnés (pas de marqueur dans le texte) — fin d'article */}
+        {linkedCharts.filter((_, i) => {
+          const content_to_check = content || '';
+          return !content_to_check.includes(`[CHART:${i}]`);
+        }).length > 0 && (
+            <motion.section
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="mb-12 py-8 border-y border-[#0466c8]/20"
+            >
+              <h3 className="flex items-center gap-2 text-xl font-serif italic text-white mb-6">
+                <BarChart3 size={24} className="text-[#0466c8]" />
+                {lang === 'fr' ? 'Chiffres & Données Clés' : 'Key Figures & Data'}
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {linkedCharts.filter((_, i) => {
+                  const content_to_check = content || '';
+                  return !content_to_check.includes(`[CHART:${i}]`);
+                }).map((chart) => (
+                  <ChartCard
+                    key={chart.id}
+                    chart={chart}
+                    lang={lang}
+                    onClick={() => setSelectedChartModal(chart)}
+                  />
+                ))}
+              </div>
+            </motion.section>
+          )}
 
         {/* MODALE GRAPHIQUE */}
         <AnimatePresence>
@@ -1530,28 +2756,49 @@ const ArticleView = ({ article, lang, onClose, mousePos, feedItems, user, userPr
         {/* ARTICLES CONNEXES */}
         {article.related_articles_ids && article.related_articles_ids.length > 0 && (
           <motion.section
-            initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
             className="mb-12 pt-8 border-t border-[#0466c8]/20"
           >
             <h3 className="flex items-center gap-2 text-base font-bold text-white mb-6">
               <TrendingUp size={16} className="text-[#0466c8]" />
-              {lang === 'fr' ? 'Articles Connexes' : 'Related Articles'}
+              {lang === 'fr' ? 'À lire aussi' : 'Read more'}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {feedItems
                 .filter(a => article.related_articles_ids?.includes(a.id))
-                .slice(0, 2)
                 .map((a, i) => {
                   const relTitle = lang === 'fr' ? a.title_fr : a.title_en;
+                  const relCat = lang === 'fr' ? a.category_name_fr : a.category_name_en;
+                  const color = a.category_color || '#0466c8';
+                  const thumb = getThumbnailUrl(a.cover_url, a.format);
                   return (
                     <motion.div
                       key={a.id}
-                      initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
-                      className="p-4 bg-[#000d1a] border border-[#0466c8]/15 rounded-xl hover:border-[#0466c8]/35 transition-all group cursor-pointer"
+                      initial={{ opacity: 0, y: 10 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: i * 0.1 }}
+                      onClick={() => {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        window.dispatchEvent(new CustomEvent('lukeni:select-article', { detail: a }));
+                      }}
+                      className="flex gap-3 p-4 bg-[#000d1a] border border-[#0466c8]/15 rounded-xl hover:border-[#0466c8]/35 transition-all group cursor-pointer"
                     >
-                      <p className="text-[#48cae4] font-medium text-sm group-hover:text-[#90e0ef] line-clamp-2 transition-colors">{relTitle}</p>
-                      <div className="flex items-center gap-2 mt-2 text-[10px] text-[#90e0ef]/25">
-                        <Calendar size={10} /> {formatPublishedDate(a.published_at || a.date, lang)}
+                      {thumb && (
+                        <div className="w-20 h-16 rounded-lg overflow-hidden flex-shrink-0 border border-[#0466c8]/15">
+                          <img src={thumb} alt={relTitle} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[8px] font-black uppercase tracking-wider" style={{ color }}>{relCat}</span>
+                        <p className="text-[#48cae4] font-serif font-medium text-sm group-hover:text-[#90e0ef] line-clamp-2 transition-colors mt-1">
+                          {relTitle}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2 text-[9px] text-[#90e0ef]/25">
+                          <Calendar size={9} /> {formatPublishedDate(a.published_at || a.date, lang)}
+                        </div>
                       </div>
                     </motion.div>
                   );
@@ -1639,7 +2886,7 @@ const FloatingSocials = ({ settings }: { settings: SocialSettings | null }) => {
 // ─── Page Principale ──────────────────────────────────────────────────────────
 
 export default function PressePage() {
- const { lang, setLang, toggleLang } = useLanguage();
+  const { lang, setLang, toggleLang } = useLanguage();
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [feedItems, setFeedItems] = useState<UnifiedItem[]>([]);
@@ -1647,6 +2894,7 @@ export default function PressePage() {
   const [socialSettings, setSocialSettings] = useState<SocialSettings | null>(null);
 
   const [allMacroCharts, setAllMacroCharts] = useState<MacroChart[]>([]);
+  const [digest, setDigest] = useState<DigestItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -1707,6 +2955,19 @@ export default function PressePage() {
     const timer = setInterval(tick, 1000);
     fetchData();
 
+
+    const handleSelectArticle = (e: Event) => {
+      const custom = e as CustomEvent;
+      setSelectedArticle(custom.detail);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    window.addEventListener('lukeni:select-article', handleSelectArticle);
+    return () => {
+      subscription.unsubscribe();
+      clearInterval(timer);
+      window.removeEventListener('lukeni:select-article', handleSelectArticle);
+    };
+
     return () => { subscription.unsubscribe(); clearInterval(timer); };
   }, [fetchUserProfile]);
 
@@ -1717,9 +2978,9 @@ export default function PressePage() {
   }, [searchTerm, isFocused, smartSuggestions.length]);
   async function fetchData() {
     setIsLoading(true);
-    const [artRes, arcRes, catRes, sugRes, socRes, annRes, chartRes, chartDataRes, chartSeriesRes, chartAnnotRes] = await Promise.all([
+    const [artRes, arcRes, catRes, sugRes, socRes, annRes, chartRes, chartDataRes, chartSeriesRes, chartAnnotRes, digestRes] = await Promise.all([
 
-      supabase.from('press_articles').select('*, categories(*)').in('status', ['published', 'scheduled']),
+      supabase.from('press_articles').select('*, categories(*), press_authors(*)').in('status', ['published', 'scheduled']),
       supabase.from('press_archives').select('*').eq('status', 'published'),
       supabase.from('categories').select('*').eq('show_presse', true).eq('is_active', true),
       supabase.from('search_suggestions').select('*').eq('is_active', true).or('target_space.eq.all,target_space.eq.presse'),
@@ -1728,7 +2989,8 @@ export default function PressePage() {
       supabase.from('macro_charts').select('*').eq('workflow_status', 'published'), // ✅ CHANGÉ
       supabase.from('macro_chart_data').select('*').order('sort_order', { ascending: true }),
       supabase.from('macro_chart_series').select('*'), // ✅ NOUVEAU
-      supabase.from('macro_chart_annotations').select('*') // ✅ NOUVEAU
+      supabase.from('macro_chart_annotations').select('*'), // ✅ NOUVEAU
+      supabase.from('press_digest').select('*').eq('is_active', true).single(),
     ]);
 
     if (chartRes.data && chartDataRes.data && chartSeriesRes.data && chartAnnotRes.data) {
@@ -1778,6 +3040,22 @@ export default function PressePage() {
           related_articles_ids: a.related_articles_ids,
           related_charts_ids: a.related_charts_ids,
           status: a.status,
+          // Après related_charts_ids: a.related_charts_ids,
+          related_teasers: a.related_teasers,
+          cover_type: a.cover_type || 'image',
+          cover_video_url: a.cover_video_url || null,
+          is_live: a.is_live || false,
+          is_breaking: a.is_breaking || false,
+          author: a.author_id ? {
+            id: a.author_id,
+            name: a.press_authors?.name || a.author_name,
+            role_fr: a.press_authors?.role_fr || 'Journaliste',
+            role_en: a.press_authors?.role_en || 'Journalist',
+            bio_fr: a.press_authors?.bio_fr,
+            bio_en: a.press_authors?.bio_en,
+            avatar_url: a.press_authors?.avatar_url,
+            twitter_url: a.press_authors?.twitter_url,
+          } : null,
         };
         // Filtrer selon l'heure locale du navigateur
         if (isArticleVisible(item)) items.push(item);
@@ -1822,11 +3100,13 @@ export default function PressePage() {
       setAnnouncements(activeAnnouncements as PressAnnouncement[]);
     }
 
+    if (digestRes.data) setDigest(digestRes.data as DigestItem);
+
     setTimeout(() => setIsLoading(false), 800);
   }
 
   const filteredArticles = useMemo(() => {
-    return feedItems.filter(a => {
+    const filtered = feedItems.filter(a => {
       const title = (lang === 'fr' ? a.title_fr : a.title_en) ?? '';
       const city = a.location_city ?? '';
       const country = a.location_country ?? '';
@@ -1834,6 +3114,16 @@ export default function PressePage() {
       const matchSearch = !term || title.toLowerCase().includes(term) || city.toLowerCase().includes(term) || country.toLowerCase().includes(term);
       const matchCat = activeCategory === 'all' || (activeCategory === 'archive' ? a.itemType === 'archive' : a.category_id === activeCategory);
       return matchSearch && matchCat;
+    });
+
+    // Tri : breaking + live en priorité, puis par date
+    return filtered.sort((a, b) => {
+      // Breaking + live d'abord
+      const aScore = (a.is_breaking ? 2 : 0) + (a.is_live ? 1 : 0);
+      const bScore = (b.is_breaking ? 2 : 0) + (b.is_live ? 1 : 0);
+      if (aScore !== bScore) return bScore - aScore;
+      // Puis par date
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
   }, [feedItems, searchTerm, activeCategory, lang]);
 
@@ -1941,6 +3231,65 @@ export default function PressePage() {
         </div>
       </nav>
 
+      {/* BANDEAU BREAKING NEWS */}
+      <AnimatePresence>
+        {feedItems.some(a => a.is_breaking) && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="relative z-[90] overflow-hidden bg-gradient-to-r from-orange-600 via-orange-500 to-orange-600"
+            style={{ boxShadow: '0 0 30px rgba(249,115,22,0.4)' }}
+          >
+            <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 flex items-center gap-5">
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <motion.span
+                  animate={{ scale: [1, 1.2, 1], opacity: [1, 0.5, 1] }}
+                  transition={{ duration: 0.8, repeat: Infinity }}
+                  className="block w-2.5 h-2.5 bg-white rounded-full"
+                />
+                <span className="text-white text-[10px] font-black uppercase tracking-[0.2em]">
+                  ⚡ {lang === 'fr' ? 'Actus' : 'Breaking'}
+                </span>
+              </div>
+
+              <div className="flex-1 min-h-[24px] overflow-hidden">
+                <motion.div
+                  animate={{ x: ['100%', '-100%'] }}
+                  transition={{ duration: 25, ease: 'linear', repeat: Infinity }}
+                  className="flex items-center gap-8 whitespace-nowrap"
+                >
+                  {feedItems
+                    .filter(a => a.is_breaking)
+                    .map((a, i) => (
+                      <motion.button
+                        key={`${a.id}-${i}`}
+                        onClick={() => {
+                          setSelectedArticle(a);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        whileHover={{ scale: 1.02 }}
+                        className="text-white text-xs font-bold hover:opacity-80 transition-opacity flex items-center gap-2 px-2"
+                      >
+                        <span className="w-1 h-1 bg-white rounded-full flex-shrink-0" />
+                        <span>{lang === 'fr' ? a.title_fr : a.title_en}</span>
+                      </motion.button>
+                    ))}
+                </motion.div>
+              </div>
+
+              <button
+                onClick={() => setActiveCategory('all')}
+                className="text-white text-[10px] font-bold uppercase tracking-wider hover:opacity-80 transition-opacity flex-shrink-0 px-2"
+              >
+                {lang === 'fr' ? 'Voir tout' : 'View all'} →
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence mode="wait">
         {!selectedArticle ? (
           <motion.div key="press-list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.4 }}>
@@ -1950,12 +3299,15 @@ export default function PressePage() {
               <header className="text-center mb-16">
                 <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}>
                   <p className="text-[#0466c8] text-[9px] tracking-[0.6em] uppercase font-black mb-6 opacity-60">
-                    {lang === 'fr' ? "Le Continent" : 'The Continent'}
+                    {lang === 'fr' ? 'Actualités sur Notre Monde' : 'News about our World'}
                   </p>
                   <h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-[90px] xl:text-[110px] font-serif italic text-white tracking-tighter mb-3 leading-none"
                     style={{ textShadow: '0 0 60px #0466c820' }}>
-                    {lang === 'fr' ? 'Presse' : 'Press'}
+                    Le Continent
                   </h1>
+                  <p className="text-[#90e0ef]/30 text-xs tracking-[0.25em] uppercase mb-2">
+                    {lang === 'fr' ? 'Le média révolutionnaire' : 'The revolutionary media'}
+                  </p>
                   {/* Ligne lumineuse sous le titre */}
                   <div className="mx-auto w-24 h-px mb-8" style={{ background: 'linear-gradient(90deg, transparent, #0466c8, transparent)', boxShadow: '0 0 8px #0466c8' }} />
                   <p className="text-[#90e0ef]/20 text-sm tracking-[0.3em] uppercase mb-12">
@@ -2072,7 +3424,24 @@ export default function PressePage() {
                   {viewMode === 'list' && (
                     <div className="flex flex-col gap-3">
                       {filteredArticles.map((article, i) => (
-                        <ArticleCard key={article.id} article={article} lang={lang} index={i} onClick={() => setSelectedArticle(article)} variant="list" />
+                        <React.Fragment key={article.id}>
+                          <ArticleCard
+                            article={article}
+                            lang={lang}
+                            index={i}
+                            onClick={() => setSelectedArticle(article)}
+                            variant="list"
+                          />
+                          {/* Digest après le 4e article */}
+                          {i === Math.min(3, filteredArticles.length - 1) && (
+                            <DigestWidget
+                              digest={digest}
+                              feedItems={feedItems}
+                              lang={lang}
+                              onSelect={setSelectedArticle}
+                            />
+                          )}
+                        </React.Fragment>
                       ))}
                     </div>
                   )}
@@ -2084,20 +3453,44 @@ export default function PressePage() {
                           <ArticleCard article={heroArticle} lang={lang} index={0} onClick={() => setSelectedArticle(heroArticle)} variant="hero" />
                         </div>
                       )}
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
-                        {gridArticles.map((article, i) => (
-                          <ArticleCard key={article.id} article={article} lang={lang} index={i} onClick={() => setSelectedArticle(article)} variant={i === 1 || i === 6 ? 'featured' : 'standard'} />
-                        ))}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
+                        {gridArticles.map((article, i) => {
+                          // Articles longs : prennent 2 colonnes
+                          const isLong = (article.content_fr?.length ?? 0) > 2000 || (article.content_en?.length ?? 0) > 2000;
+                          const colSpan = isLong ? 'md:col-span-2' : '';
+                          return (
+                            <div key={article.id} className={colSpan}>
+                              <ArticleCard
+                                article={article}
+                                lang={lang}
+                                index={i}
+                                onClick={() => setSelectedArticle(article)}
+                                variant={isLong ? 'featured' : (i === 1 || i === 6 ? 'featured' : 'standard')}
+                              />
+                            </div>
+                          );
+                        })}
                       </div>
+                      {/* DigestWidget placé après la grille */}
+                      <DigestWidget digest={digest} feedItems={feedItems} lang={lang} onSelect={setSelectedArticle} />
                     </>
                   )}
 
                   {viewMode === 'cinema' && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
                       {filteredArticles.map((article, i) => (
-                        <ArticleCard key={article.id} article={article} lang={lang} index={i} onClick={() => setSelectedArticle(article)} variant="cinema" />
+                        <React.Fragment key={article.id}>
+                          <ArticleCard article={article} lang={lang} index={i} onClick={() => setSelectedArticle(article)} variant="cinema" />
+                          {i === 5 && (
+                            <div className="col-span-1 sm:col-span-2 lg:col-span-3">
+                              <DigestWidget digest={digest} feedItems={feedItems} lang={lang} onSelect={setSelectedArticle} />
+                            </div>
+                          )}
+                        </React.Fragment>
                       ))}
                     </div>
+
+
                   )}
                 </>
               )}
@@ -2105,7 +3498,7 @@ export default function PressePage() {
 
             <footer className="py-20 border-t border-[#0466c8]/10 text-center relative z-10">
               <p className="text-[#0466c8] text-[9px] font-black uppercase tracking-[0.5em] opacity-20 mb-6">
-                {lang === 'fr' ? 'Lukeni Presse • Archives du Monde' : 'Lukeni Press • World Archives'}
+                {lang === 'fr' ? 'Le Continent • Média Révolutionnaire by Lukeni' : 'Le Continent • Revolutionary Media by Lukeni'}
               </p>
               <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
                 onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}

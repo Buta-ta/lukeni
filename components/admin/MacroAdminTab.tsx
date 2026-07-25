@@ -350,19 +350,57 @@ export default function MacroAdminTab({ showMsg }: { showMsg: (type: 'success' |
 
   return (
     <div className="space-y-6">
-
-      <button
-        onClick={() => setAdminView('globe')}
-        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${adminView === 'globe' ? 'bg-purple-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
-          }`}
-      >
-        📢 Ticker Stats
-      </button>
+      {/* HEADER AVEC TOGGLE */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-teal-500/20 rounded-xl">
+            <TrendingUp className="text-teal-400" size={24} />
+          </div>
+          <div>
+            <h2 className="text-xl md:text-2xl font-serif text-white">Laboratoire Statistique LUKENI</h2>
+            <p className="text-gray-400 text-xs">Création, gouvernance et publication de données macroéconomiques</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setAdminView('charts')}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${adminView === 'charts' ? 'bg-teal-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
+              }`}
+          >
+            📊 Graphiques
+          </button>
+          <button
+            onClick={() => setAdminView('globe')}
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${adminView === 'globe' ? 'bg-purple-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
+              }`}
+          >
+            📢 Ticker Stats
+          </button>
+        </div>
+      </div>
       {adminView === 'charts' && (
         <>
           {/* VUE LISTE */}
           {view === 'list' && (
             <>
+
+
+              {/* Header avec bouton Nouveau Graphique */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <BarChart3 size={20} className="text-teal-400" />
+                  <span className="text-white font-bold">
+                    {filteredCharts.length} graphique{filteredCharts.length > 1 ? 's' : ''}
+                  </span>
+                </div>
+                <button
+                  onClick={() => openForm()}
+                  className="flex items-center gap-2 bg-teal-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-teal-500 transition-all"
+                >
+                  <PlusCircle size={16} /> Nouveau Graphique
+                </button>
+              </div>
+
               {/* Filtres originaux */}
               <div className="flex flex-wrap gap-3 items-center bg-[#0f0f0f] p-3 rounded-xl border border-white/10">
                 <div className="flex items-center gap-2 flex-1 min-w-[200px] bg-white/5 rounded-lg px-3 py-2">

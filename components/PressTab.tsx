@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import {
   Loader2, Newspaper, PlusCircle, Edit2, Trash2, X, Languages,
   SpellCheck, CheckCircle, Lightbulb, Upload, Image as ImageIcon,
@@ -9,7 +10,7 @@ import {
   List, ListOrdered, Quote, Bold, Italic, Heading, Save, Mic, Play,
   MapPin, Globe, Map, Navigation, AlertTriangle, Archive, Settings,
   MessageCircle, Filter, Radio, Headphones, AlignLeft, Info, ChevronDown, ChevronRight,
-  Ban, Shield, MessageSquare, Users, BarChart3
+  Ban, Shield, MessageSquare, Users, BarChart3, Check, Zap, ChevronLeft
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { autoTranslate, autoCorrect } from '@/lib/lingua';
@@ -25,10 +26,22 @@ const FacebookIcon = ({ size = 24, className = "" }) => (
 
 interface Category { id: string; name_fr: string; name_en: string; }
 interface MediaItem {
-  type: 'image' | 'video' | 'link';
+  type: 'image' | 'video' | 'link' | 'youtube' | 'code' | 'gallery' | 'quote_hero';
   url: string;
   caption?: string;
   alt?: string;
+  // YouTube
+  youtube_id?: string;
+  // Code
+  code_language?: string;
+  code_content?: string;
+  // Gallery
+  gallery_urls?: string[];
+  // Quote hero
+  quote_text?: string;
+  quote_author?: string;
+  // Layout
+  layout?: 'contained' | 'full-bleed' | 'wide';
 }
 interface Source {
   title: string;
@@ -47,6 +60,11 @@ interface PressArticle {
   summary_fr: string;
   summary_en: string;
   cover_url: string;
+  cover_type?: 'image' | 'video_loop' | 'gif';
+  cover_video_url?: string;
+  is_live?: boolean;
+  is_breaking?: boolean;
+  author_id?: string;
   audio_url?: string;
   reading_audio_url?: string;
   audio_content_url?: string;
@@ -68,7 +86,28 @@ interface PressArticle {
   reading_time_minutes?: number;
   related_articles_ids?: string[];
   related_charts_ids?: string[];
+  related_teasers?: {
+    article_id: string;
+    kicker_fr: string;
+    kicker_en: string;
+    insert_index: number;
+  }[];
   categories: Category;
+}
+
+
+interface PressAuthor {
+  id: string;
+  name: string;
+  role_fr: string;
+  role_en: string;
+  bio_fr?: string;
+  bio_en?: string;
+  avatar_url?: string;
+  twitter_url?: string;
+  linkedin_url?: string;
+  email?: string;
+  is_active: boolean;
 }
 
 interface PressSuggestion {
@@ -280,7 +319,7 @@ function ArticleTypeSelector({ value, onChange }: { value: 'written' | 'audio'; 
 }
 
 export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: string) => void }) {
-  const [view, setView] = useState<'articles' | 'archives' | 'suggestions' | 'comments' | 'moderation' | 'announcements' | 'settings'>('articles');
+  const [view, setView] = useState<'articles' | 'archives' | 'suggestions' | 'comments' | 'moderation' | 'announcements' | 'settings' | 'live' | 'digest' | 'authors'>('articles');
 
   const [articles, setArticles] = useState<PressArticle[]>([]);
   const [archives, setArchives] = useState<PressArchive[]>([]);
@@ -288,7 +327,7 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
   const [comments, setComments] = useState<PressComment[]>([]);
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-   const [macroCharts, setMacroCharts] = useState<{id: string; title_fr: string}[]>([]);
+  const [macroCharts, setMacroCharts] = useState<{ id: string; title_fr: string }[]>([]);
   const [socialSettings, setSocialSettings] = useState<SocialSettings>({
     id: 1, whatsapp_number: '', whatsapp_message: '', instagram_url: '', facebook_url: '',
     wa_active: false, ig_active: false, fb_active: false
@@ -315,6 +354,23 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
   const [readingTimeMinutes, setReadingTimeMinutes] = useState<number>(1);
   const [relatedArticlesIds, setRelatedArticlesIds] = useState<string[]>([]);
   const [relatedChartsIds, setRelatedChartsIds] = useState<string[]>([]);
+
+
+  const [relatedTeasers, setRelatedTeasers] = useState<{
+    article_id: string;
+    kicker_fr: string;
+    kicker_en: string;
+    insert_index: number;
+  }[]>([]);
+
+  // Modal teaser
+  const [showTeaserModal, setShowTeaserModal] = useState(false);
+  const [teaserTargetArticleId, setTeaserTargetArticleId] = useState('');
+  const [teaserKickerFr, setTeaserKickerFr] = useState('');
+  const [teaserKickerEn, setTeaserKickerEn] = useState('');
+  const [teaserInsertLang, setTeaserInsertLang] = useState<'fr' | 'en'>('fr');
+
+
   const [authorName, setAuthorName] = useState('Rédaction Lukeni');
   const [categoryId, setCategoryId] = useState('');
   const [status, setStatus] = useState('draft');
@@ -366,10 +422,21 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
   const [showPreview, setShowPreview] = useState(false);
 
   const [showMediaModal, setShowMediaModal] = useState(false);
-  const [mediaType, setMediaType] = useState<'image' | 'video' | 'link'>('image');
+  const [mediaType, setMediaType] = useState<'image' | 'video' | 'link' | 'youtube' | 'code' | 'gallery' | 'quote_hero'>('image');
   const [mediaUrl, setMediaUrl] = useState('');
   const [mediaCaption, setMediaCaption] = useState('');
   const [mediaAlt, setMediaAlt] = useState('');
+  const [mediaLayout, setMediaLayout] = useState<'contained' | 'full-bleed' | 'wide'>('contained');
+  // YouTube
+  const [mediaYoutubeUrl, setMediaYoutubeUrl] = useState('');
+  // Code
+  const [mediaCodeLang, setMediaCodeLang] = useState('javascript');
+  const [mediaCodeContent, setMediaCodeContent] = useState('');
+  // Gallery
+  const [mediaGalleryUrls, setMediaGalleryUrls] = useState<string[]>([]);
+  // Quote hero
+  const [mediaQuoteText, setMediaQuoteText] = useState('');
+  const [mediaQuoteAuthor, setMediaQuoteAuthor] = useState('');
 
   const [showSourceModal, setShowSourceModal] = useState(false);
   const [sourceTitle, setSourceTitle] = useState('');
@@ -382,6 +449,46 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
   const [userToBlock, setUserToBlock] = useState<{ id: string; email: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showTypeInfo, setShowTypeInfo] = useState(false);
+
+  const [coverType, setCoverType] = useState<'image' | 'video_loop' | 'gif'>('image');
+  const [coverVideoUrl, setCoverVideoUrl] = useState('');
+  const [isLive, setIsLive] = useState(false);
+  const [isBreaking, setIsBreaking] = useState(false);
+
+  const [authorId, setAuthorId] = useState<string>('');
+  const [authors, setAuthors] = useState<PressAuthor[]>([]);
+  const [showAuthorForm, setShowAuthorForm] = useState(false);
+  const [authorEditingId, setAuthorEditingId] = useState<string | null>(null);
+
+  const [authorRoleFr, setAuthorRoleFr] = useState('Journaliste');
+  const [authorRoleEn, setAuthorRoleEn] = useState('Journalist');
+  const [authorBioFr, setAuthorBioFr] = useState('');
+  const [authorBioEn, setAuthorBioEn] = useState('');
+  const [authorAvatar, setAuthorAvatar] = useState('');
+  const [authorTwitter, setAuthorTwitter] = useState('');
+  const [authorLinkedin, setAuthorLinkedin] = useState('');
+
+  // Digest
+  const [digestLabel, setDigestLabel] = useState('À lire absolument');
+  const [digestLabelEn, setDigestLabelEn] = useState('Must read');
+  const [digestArticleIds, setDigestArticleIds] = useState<string[]>([]);
+  const [isSavingDigest, setIsSavingDigest] = useState(false);
+
+  // Live updates
+  const [liveUpdates, setLiveUpdates] = useState<{
+    id: string;
+    article_id: string;
+    content: string;
+    media_url?: string;
+    media_type?: string;
+    author: string;
+    is_pinned: boolean;
+    created_at: string;
+  }[]>([]);
+  const [selectedLiveArticleId, setSelectedLiveArticleId] = useState<string | null>(null);
+  const [newLiveContent, setNewLiveContent] = useState('');
+  const [newLiveAuthor, setNewLiveAuthor] = useState('Rédaction Le Continent');
+  const [isPostingLive, setIsPostingLive] = useState(false);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -408,11 +515,29 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
     const { data: blockedUsersData } = await supabase.from('blocked_users').select('*').order('blocked_at', { ascending: false });
     if (blockedUsersData) setBlockedUsers(blockedUsersData);
 
-        const { data: settingsData } = await supabase.from('social_settings').select('*').eq('id', 1).single();
+    const { data: settingsData } = await supabase.from('social_settings').select('*').eq('id', 1).single();
     if (settingsData) setSocialSettings(settingsData);
 
     const { data: chartData } = await supabase.from('macro_charts').select('id, title_fr').eq('is_active', true);
     if (chartData) setMacroCharts(chartData);
+
+    const { data: authorsData } = await supabase
+      .from('press_authors')
+      .select('*')
+      .eq('is_active', true)
+      .order('name');
+    if (authorsData) setAuthors(authorsData);
+
+    const { data: digestData } = await supabase
+      .from('press_digest')
+      .select('*')
+      .eq('is_active', true)
+      .single();
+    if (digestData) {
+      setDigestLabel(digestData.label_fr || 'À lire absolument');
+      setDigestLabelEn(digestData.label_en || 'Must read');
+      setDigestArticleIds(digestData.article_ids || []);
+    }
 
     setIsLoading(false);
   }
@@ -427,6 +552,11 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
     setSummaryFr('');
     setSummaryEn('');
     setCoverUrl('');
+    setCoverType('image');
+    setCoverVideoUrl('');
+    setIsLive(false);
+    setIsBreaking(false);
+    setAuthorId('');
     setReadingAudioUrl('');
     setAudioContentUrl('');
     setAudioDuration('');
@@ -435,6 +565,7 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
     setRelatedArticlesIds([]);
     setAuthorName('Rédaction Lukeni');
     setRelatedChartsIds([]);
+    setRelatedTeasers([]);
     setCategoryId('');
     setStatus('draft');
     setMediaItems([]);
@@ -459,6 +590,11 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
     setSummaryFr(a.summary_fr || '');
     setSummaryEn(a.summary_en || '');
     setCoverUrl(a.cover_url || '');
+    setCoverType(a.cover_type || 'image');
+    setCoverVideoUrl(a.cover_video_url || '');
+    setIsLive(a.is_live || false);
+    setIsBreaking(a.is_breaking || false);
+    setAuthorId(a.author_id || '');
     setReadingAudioUrl(a.reading_audio_url || '');
     setAudioContentUrl(a.audio_content_url || '');
     setAudioDuration(a.audio_duration || '');
@@ -466,6 +602,7 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
     setReadingTimeMinutes(a.reading_time_minutes || 1);
     setRelatedArticlesIds(a.related_articles_ids || []);
     setRelatedChartsIds(a.related_charts_ids || []);
+    setRelatedTeasers(a.related_teasers || []);
     setAuthorName(a.author_name || 'Rédaction Lukeni');
     setCategoryId(a.category_id || '');
     setStatus(a.status);
@@ -499,6 +636,11 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
       summary_fr: summaryFr || null,
       summary_en: summaryEn || null,
       cover_url: coverUrl || null,
+      cover_type: coverType,
+      cover_video_url: coverVideoUrl || null,
+      is_live: isLive,
+      is_breaking: isBreaking,
+      author_id: authorId || null,
       reading_audio_url: articleType === 'written' ? (readingAudioUrl || null) : null,
       audio_content_url: articleType === 'audio' ? (audioContentUrl || null) : null,
       audio_duration: articleType === 'audio' ? (audioDuration || null) : null,
@@ -506,6 +648,7 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
       reading_time_minutes: readingTimeMinutes || 1,
       related_articles_ids: relatedArticlesIds.length > 0 ? relatedArticlesIds : null,
       related_charts_ids: relatedChartsIds.length > 0 ? relatedChartsIds : null,
+      related_teasers: relatedTeasers.length > 0 ? relatedTeasers : null,
       author_name: authorName,
       category_id: categoryId || null,
       status: finalStatus,
@@ -821,15 +964,70 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
     });
   };
 
+  const extractYoutubeId = (url: string): string => {
+    const match = url.match(
+      /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/
+    );
+    return match ? match[1] : url;
+  };
+
   const addMediaItem = () => {
-    if (!mediaUrl.trim()) return showMsg('error', 'URL requise');
-    const newItem: MediaItem = { type: mediaType, url: mediaUrl, caption: mediaCaption || undefined, alt: mediaAlt || undefined };
+    let newItem: MediaItem;
+
+    if (mediaType === 'youtube') {
+      if (!mediaYoutubeUrl.trim()) return showMsg('error', 'URL YouTube requise');
+      const ytId = extractYoutubeId(mediaYoutubeUrl);
+      newItem = {
+        type: 'youtube',
+        url: mediaYoutubeUrl,
+        youtube_id: ytId,
+        caption: mediaCaption || undefined,
+        layout: mediaLayout,
+      };
+    } else if (mediaType === 'code') {
+      if (!mediaCodeContent.trim()) return showMsg('error', 'Code requis');
+      newItem = {
+        type: 'code',
+        url: '',
+        code_language: mediaCodeLang,
+        code_content: mediaCodeContent,
+        caption: mediaCaption || undefined,
+      };
+    } else if (mediaType === 'gallery') {
+      if (mediaGalleryUrls.length === 0) return showMsg('error', 'Ajoutez au moins une image');
+      newItem = {
+        type: 'gallery',
+        url: mediaGalleryUrls[0],
+        gallery_urls: mediaGalleryUrls,
+        caption: mediaCaption || undefined,
+      };
+    } else if (mediaType === 'quote_hero') {
+      if (!mediaQuoteText.trim()) return showMsg('error', 'Citation requise');
+      newItem = {
+        type: 'quote_hero',
+        url: '',
+        quote_text: mediaQuoteText,
+        quote_author: mediaQuoteAuthor || undefined,
+      };
+    } else {
+      if (!mediaUrl.trim()) return showMsg('error', 'URL requise');
+      newItem = {
+        type: mediaType,
+        url: mediaUrl,
+        caption: mediaCaption || undefined,
+        alt: mediaAlt || undefined,
+        layout: mediaLayout,
+      };
+    }
+
     setMediaItems([...mediaItems, newItem]);
-    setMediaUrl('');
-    setMediaCaption('');
-    setMediaAlt('');
+    // Reset
+    setMediaUrl(''); setMediaCaption(''); setMediaAlt('');
+    setMediaYoutubeUrl(''); setMediaCodeContent(''); setMediaCodeLang('javascript');
+    setMediaGalleryUrls([]); setMediaQuoteText(''); setMediaQuoteAuthor('');
+    setMediaLayout('contained');
     setShowMediaModal(false);
-    showMsg('success', '✅ Média ajouté');
+    showMsg('success', '✅ Bloc média ajouté');
   };
 
   const removeMediaItem = (index: number) => {
@@ -1189,6 +1387,25 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
           <div className="flex items-center gap-2"><Settings size={16} /> Réseaux</div>
         </button>
 
+        <button onClick={() => setView('live')} className={`group relative px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-300 whitespace-nowrap ${view === 'live' ? 'bg-gradient-to-r from-red-600 to-red-500 text-white shadow-lg' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}`}>
+          <div className="flex items-center gap-2">
+            <Radio size={16} />
+            Direct / Live
+            {articles.filter(a => a.is_live).length > 0 && (
+              <span className="px-2 py-0.5 bg-white/20 rounded-full text-xs animate-pulse">
+                {articles.filter(a => a.is_live).length}
+              </span>
+            )}
+          </div>
+        </button>
+        <button onClick={() => setView('digest')} className={`group relative px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-300 whitespace-nowrap ${view === 'digest' ? 'bg-gradient-to-r from-yellow-600 to-yellow-500 text-white shadow-lg' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}`}>
+          <div className="flex items-center gap-2"><Newspaper size={16} /> Digest / Une</div>
+        </button>
+
+        <button onClick={() => setView('authors')} className={`group relative px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-300 whitespace-nowrap ${view === 'authors' ? 'bg-gradient-to-r from-teal-600 to-teal-500 text-white shadow-lg' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}`}>
+          <div className="flex items-center gap-2"><User size={16} /> Auteurs</div>
+        </button>
+
         {view === 'articles' && !showForm && (
           <button onClick={() => setShowForm(true)} className="ml-auto px-6 py-3 bg-gradient-to-r from-green-600 to-green-500 text-white rounded-xl font-semibold text-sm hover:shadow-lg hover:shadow-green-500/20 transition-all flex items-center gap-2">
             <PlusCircle size={16} /> Nouvel Article
@@ -1277,14 +1494,75 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
                       </select>
                     </div>
                     <div>
-                      <label className="text-xs font-semibold text-gray-400 mb-2 flex items-center gap-2"><User size={14} /> Auteur</label>
-                      <input type="text" value={authorName} onChange={e => setAuthorName(e.target.value)} className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 focus:outline-none" />
+                      <label className="text-xs font-semibold text-gray-400 mb-2 flex items-center gap-2">
+                        <User size={14} /> Auteur
+                      </label>
+                      <select
+                        value={authorId}
+                        onChange={e => {
+                          setAuthorId(e.target.value);
+                          const found = authors.find(a => a.id === e.target.value);
+                          if (found) setAuthorName(found.name);
+                        }}
+                        className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 focus:outline-none mb-2"
+                      >
+                        <option value="">Nom libre (ci-dessous)</option>
+                        {authors.map(a => (
+                          <option key={a.id} value={a.id}>{a.name} — {a.role_fr}</option>
+                        ))}
+                      </select>
+                      {!authorId && (
+                        <input
+                          type="text"
+                          value={authorName}
+                          onChange={e => setAuthorName(e.target.value)}
+                          placeholder="Rédaction Le Continent"
+                          className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 focus:outline-none"
+                        />
+                      )}
                     </div>
                   </div>
                   <div className="mt-4">
                     <label className="text-xs font-semibold text-gray-400 mb-2 flex items-center gap-2"><Clock size={14} /> Programmer la publication (optionnel)</label>
                     <input type="datetime-local" value={scheduledPublishAt} onChange={e => setScheduledPublishAt(e.target.value)} min={new Date().toISOString().slice(0, 16)} className="w-full md:w-80 bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 focus:outline-none" />
                   </div>
+                </div>
+
+
+                {/* BADGES LIVE / BREAKING */}
+                <div className="flex items-center gap-4 mb-4 p-4 bg-red-500/5 border border-red-500/20 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <div
+                        onClick={() => setIsLive(!isLive)}
+                        className={`relative w-10 h-5 rounded-full transition-all ${isLive ? 'bg-red-500' : 'bg-white/10'}`}
+                      >
+                        <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${isLive ? 'left-5' : 'left-0.5'}`} />
+                      </div>
+                      <span className="text-sm text-white font-semibold flex items-center gap-2">
+                        <Radio size={14} className={isLive ? 'text-red-400 animate-pulse' : 'text-gray-500'} />
+                        🔴 En Direct
+                      </span>
+                    </label>
+                    {isLive && (
+                      <span className="text-xs text-red-400 animate-pulse">
+                        Cet article sera affiché comme LIVE
+                      </span>
+                    )}
+                  </div>
+                  <div className="w-px h-8 bg-white/10" />
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <div
+                      onClick={() => setIsBreaking(!isBreaking)}
+                      className={`relative w-10 h-5 rounded-full transition-all ${isBreaking ? 'bg-orange-500' : 'bg-white/10'}`}
+                    >
+                      <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${isBreaking ? 'left-5' : 'left-0.5'}`} />
+                    </div>
+                    <span className="text-sm text-white font-semibold flex items-center gap-2">
+                      <Zap size={14} className={isBreaking ? 'text-orange-400' : 'text-gray-500'} />
+                      ⚡ Breaking News
+                    </span>
+                  </label>
                 </div>
 
                 {/* 3 - ONGLETS CONTENU */}
@@ -1301,13 +1579,91 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
                   {activeTab === 'content' && (
                     <div className="space-y-6">
                       {/* COUVERTURE */}
-                      <div>
-                        <label className="text-xs font-semibold text-gray-400 mb-2 flex items-center gap-2"><ImageIcon size={14} /> Image de couverture</label>
-                        <div className="flex flex-col sm:flex-row gap-3">
-                          <button onClick={() => openCloudinaryWidget('image', setCoverUrl, 'cover')} disabled={isUploading === 'cover'} className="relative w-full sm:w-48 h-32 bg-[#1a1a1a] border-2 border-dashed border-white/20 rounded-xl hover:border-blue-500 flex flex-col items-center justify-center overflow-hidden transition-colors">
-                            {coverUrl ? <img src={coverUrl} className="w-full h-full object-cover" /> : isUploading === 'cover' ? <Loader2 className="animate-spin" /> : <Upload className="text-gray-500" />}
+                      <div className="space-y-4">
+                        <label className="text-xs font-semibold text-gray-400 flex items-center gap-2">
+                          <ImageIcon size={14} /> Couverture
+                        </label>
+
+                        {/* Type de cover */}
+                        <div className="grid grid-cols-3 gap-3">
+                          {([
+                            { val: 'image', label: 'Image fixe', icon: '🖼️' },
+                            { val: 'video_loop', label: 'Vidéo loop', icon: '🎬' },
+                            { val: 'gif', label: 'GIF animé', icon: '✨' },
+                          ] as const).map(opt => (
+                            <button
+                              key={opt.val}
+                              type="button"
+                              onClick={() => setCoverType(opt.val)}
+                              className={`p-3 rounded-xl border-2 text-sm font-semibold transition-all flex flex-col items-center gap-1 ${coverType === opt.val
+                                ? 'border-blue-500 bg-blue-500/10 text-white'
+                                : 'border-white/10 text-gray-500 hover:border-white/20'
+                                }`}
+                            >
+                              <span className="text-xl">{opt.icon}</span>
+                              <span className="text-xs">{opt.label}</span>
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Upload image (toujours — sert de thumbnail pour video/gif aussi) */}
+                        <div>
+                          <p className="text-[10px] text-gray-500 mb-2">
+                            {coverType === 'image' ? 'Image principale' : 'Image thumbnail (fallback)'}
+                          </p>
+                          <button
+                            onClick={() => openCloudinaryWidget('image', setCoverUrl, 'cover')}
+                            disabled={isUploading === 'cover'}
+                            className="relative w-48 h-32 bg-[#1a1a1a] border-2 border-dashed border-white/20 rounded-xl hover:border-blue-500 flex flex-col items-center justify-center overflow-hidden transition-colors"
+                          >
+                            {coverUrl
+                              ? <img src={coverUrl} className="w-full h-full object-cover" />
+                              : isUploading === 'cover'
+                                ? <Loader2 className="animate-spin text-gray-500" />
+                                : <><Upload className="text-gray-500 mb-1" /><span className="text-xs text-gray-600">Upload image</span></>
+                            }
                           </button>
                         </div>
+
+                        {/* Upload vidéo/GIF si besoin */}
+                        {(coverType === 'video_loop' || coverType === 'gif') && (
+                          <div>
+                            <p className="text-[10px] text-gray-500 mb-2">
+                              {coverType === 'video_loop' ? 'Fichier vidéo (mp4 court, <10s)' : 'Fichier GIF'}
+                            </p>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={coverVideoUrl}
+                                onChange={e => setCoverVideoUrl(e.target.value)}
+                                placeholder="https://"
+                                className="flex-1 bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                              />
+                              <button
+                                onClick={() => openCloudinaryWidget(
+                                  coverType === 'gif' ? 'image' : 'video',
+                                  setCoverVideoUrl,
+                                  'cover-video'
+                                )}
+                                disabled={isUploading === 'cover-video'}
+                                className="px-4 bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 rounded-xl flex items-center gap-2 text-sm"
+                              >
+                                {isUploading === 'cover-video' ? <Loader2 className="animate-spin" size={16} /> : <Upload size={16} />}
+                                Upload
+                              </button>
+                            </div>
+                            {coverVideoUrl && coverType === 'video_loop' && (
+                              <video
+                                src={coverVideoUrl}
+                                autoPlay
+                                muted
+                                loop
+                                playsInline
+                                className="w-48 h-32 object-cover rounded-xl mt-2 border border-white/10"
+                              />
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* ARTICLE ÉCRIT : AUDIO LECTURE VOCALE */}
@@ -1434,6 +1790,20 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
                             <button onClick={() => insertMarkdown('## Titre', 'fr')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1"><Heading size={12} /> Titre</button>
                             <button onClick={() => insertMarkdown('> Citation', 'fr')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1"><Quote size={12} /> Citation</button>
                             <button onClick={() => insertMarkdown('- Élément', 'fr')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1"><List size={12} /> Liste</button>
+                            <button
+                              onClick={() => {
+                                const marker = `\n\n[ANNOUNCEMENT]\n\n`;
+                                const textarea = document.getElementById('content-fr') as HTMLTextAreaElement;
+                                if (textarea) {
+                                  const start = textarea.selectionStart;
+                                  setContentFr(contentFr.substring(0, start) + marker + contentFr.substring(start));
+                                  showMsg('success', '📢 Annonce insérée dans FR');
+                                }
+                              }}
+                              className="text-xs bg-cyan-500/10 px-2 py-1 rounded text-cyan-400 hover:bg-cyan-500/20 flex items-center gap-1 border border-cyan-500/20"
+                            >
+                              <Newspaper size={12} /> Annonce
+                            </button>
                             <button onClick={() => handleLingua('translate-content-en')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1">{isProcessing === 'translate-content-en' ? <Loader2 size={12} className="animate-spin" /> : <Languages size={12} />} FR → EN</button>
                           </div>
                         </div>
@@ -1447,6 +1817,20 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
                             <button onClick={() => insertMarkdown('## Title', 'en')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1"><Heading size={12} /> Title</button>
                             <button onClick={() => insertMarkdown('> Quote', 'en')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1"><Quote size={12} /> Quote</button>
                             <button onClick={() => insertMarkdown('- Item', 'en')} className="text-xs bg-white/5 px-2 py-1 rounded text-gray-400 hover:text-white flex items-center gap-1"><List size={12} /> List</button>
+                            <button
+                              onClick={() => {
+                                const marker = `\n\n[ANNOUNCEMENT]\n\n`;
+                                const textarea = document.getElementById('content-en') as HTMLTextAreaElement;
+                                if (textarea) {
+                                  const start = textarea.selectionStart;
+                                  setContentEn(contentEn.substring(0, start) + marker + contentEn.substring(start));
+                                  showMsg('success', '📢 Announcement inserted in EN');
+                                }
+                              }}
+                              className="text-xs bg-cyan-500/10 px-2 py-1 rounded text-cyan-400 hover:bg-cyan-500/20 flex items-center gap-1 border border-cyan-500/20"
+                            >
+                              <Newspaper size={12} /> Announcement
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -1457,16 +1841,111 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
                           <h4 className="text-sm font-bold text-white">Galerie Média {mediaItems.length > 0 && <span className="px-2 py-1 bg-blue-500 text-white text-xs rounded-full ml-2">{mediaItems.length}</span>}</h4>
                           <button onClick={() => setShowMediaModal(true)} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold flex items-center gap-2"><PlusCircle size={16} /> Ajouter</button>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <p className="text-xs text-gray-500">
+                          💡 Placez votre curseur dans le textarea, puis cliquez sur "Insérer" pour positionner le bloc à cet endroit.
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           {mediaItems.map((item, index) => (
-                            <div key={index} className="bg-white/5 p-3 rounded-xl relative">
-                              {item.type === 'image' && <img src={item.url} className="w-full h-24 object-cover rounded-lg" />}
-                              <p className="text-xs text-white truncate mt-2">{item.caption || 'Sans légende'}</p>
-                              <button onClick={() => {
-                                const newItems = [...mediaItems];
-                                newItems.splice(index, 1);
-                                setMediaItems(newItems);
-                              }} className="absolute top-1 right-1 p-1 bg-red-500/20 rounded hover:bg-red-500 text-white"><Trash2 size={12} /></button>
+                            <div key={index} className="bg-white/5 p-3 rounded-xl border border-white/10">
+                              <div className="flex items-start gap-3 mb-2">
+                                {/* Preview */}
+                                {item.type === 'image' && (
+                                  <img src={item.url} className="w-16 h-16 object-cover rounded-lg flex-shrink-0" alt="" />
+                                )}
+                                {item.type === 'video' && (
+                                  <div className="w-16 h-16 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <Video size={20} className="text-purple-400" />
+                                  </div>
+                                )}
+                                {item.type === 'youtube' && (
+                                  <div className="w-16 h-16 bg-red-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <span className="text-2xl">▶️</span>
+                                  </div>
+                                )}
+                                {item.type === 'code' && (
+                                  <div className="w-16 h-16 bg-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <Code size={20} className="text-green-400" />
+                                  </div>
+                                )}
+                                {item.type === 'gallery' && (
+                                  <div className="w-16 h-16 bg-blue-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <ImageIcon size={20} className="text-blue-400" />
+                                  </div>
+                                )}
+                                {item.type === 'quote_hero' && (
+                                  <div className="w-16 h-16 bg-yellow-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <Quote size={20} className="text-yellow-400" />
+                                  </div>
+                                )}
+                                {item.type === 'link' && (
+                                  <div className="w-16 h-16 bg-cyan-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <LinkIcon size={20} className="text-cyan-400" />
+                                  </div>
+                                )}
+
+                                {/* Info */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-blue-400 font-mono text-xs">[MEDIA:{index}]</span>
+                                    <span className="text-[10px] uppercase font-bold text-gray-500">{item.type}</span>
+                                  </div>
+                                  <p className="text-xs text-white truncate">
+                                    {item.type === 'youtube' && `YouTube: ${item.youtube_id}`}
+                                    {item.type === 'code' && `Code ${item.code_language}: ${(item.code_content || '').substring(0, 30)}...`}
+                                    {item.type === 'gallery' && `Galerie (${item.gallery_urls?.length || 0} images)`}
+                                    {item.type === 'quote_hero' && `"${(item.quote_text || '').substring(0, 40)}..."`}
+                                    {item.type === 'image' && (item.caption || 'Image sans légende')}
+                                    {item.type === 'video' && (item.caption || 'Vidéo')}
+                                    {item.type === 'link' && (item.caption || item.url)}
+                                  </p>
+                                </div>
+
+                                {/* Delete */}
+                                <button
+                                  onClick={() => {
+                                    const newItems = [...mediaItems];
+                                    newItems.splice(index, 1);
+                                    setMediaItems(newItems);
+                                  }}
+                                  className="p-1.5 bg-red-500/20 rounded hover:bg-red-500 text-red-400 hover:text-white flex-shrink-0"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+
+                              {/* Boutons d'insertion */}
+                              <div className="flex gap-2 pt-2 border-t border-white/10">
+                                <button
+                                  onClick={() => {
+                                    const marker = `\n\n[MEDIA:${index}]\n\n`;
+                                    const textarea = document.getElementById('content-fr') as HTMLTextAreaElement;
+                                    if (textarea) {
+                                      const start = textarea.selectionStart;
+                                      const newContent = contentFr.substring(0, start) + marker + contentFr.substring(start);
+                                      setContentFr(newContent);
+                                      showMsg('success', `📌 Bloc ${index + 1} inséré dans FR`);
+                                    }
+                                  }}
+                                  className="flex-1 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded-lg text-xs font-bold"
+                                >
+                                  ↳ Insérer FR
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const marker = `\n\n[MEDIA:${index}]\n\n`;
+                                    const textarea = document.getElementById('content-en') as HTMLTextAreaElement;
+                                    if (textarea) {
+                                      const start = textarea.selectionStart;
+                                      const newContent = contentEn.substring(0, start) + marker + contentEn.substring(start);
+                                      setContentEn(newContent);
+                                      showMsg('success', `📌 Bloc ${index + 1} inséré dans EN`);
+                                    }
+                                  }}
+                                  className="flex-1 px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded-lg text-xs font-bold"
+                                >
+                                  ↳ Insérer EN
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -1478,28 +1957,164 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
                     <div className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <label className="text-xs font-semibold text-gray-400 mb-2 flex items-center gap-2"><Clock size={14} /> Temps de lecture (minutes)</label>
-                          <input type="number" value={readingTimeMinutes} onChange={e => setReadingTimeMinutes(parseInt(e.target.value) || 1)} min="1" className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm" />
-                          <p className="text-xs text-gray-500 mt-1">Estimé automatiquement ou manuel</p>
+                          <label className="text-xs font-semibold text-gray-400 mb-2 flex items-center gap-2">
+                            <Clock size={14} /> Temps de lecture (minutes)
+                          </label>
+                          <input
+                            type="number"
+                            value={readingTimeMinutes}
+                            onChange={e => setReadingTimeMinutes(parseInt(e.target.value) || 1)}
+                            min="1"
+                            className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                          />
                         </div>
+
                         <div>
-                          <label className="text-xs font-semibold text-gray-400 mb-2 flex items-center gap-2"><LinkIcon size={14} /> Articles similaires à afficher</label>
-                          <select multiple value={relatedArticlesIds} onChange={e => setRelatedArticlesIds(Array.from(e.target.selectedOptions, option => option.value))} className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm" size={3}>
+                          <label className="text-xs font-semibold text-gray-400 mb-2 flex items-center gap-2">
+                            <LinkIcon size={14} /> Articles similaires
+                          </label>
+                          <select
+                            multiple
+                            value={relatedArticlesIds}
+                            onChange={e => setRelatedArticlesIds(Array.from(e.target.selectedOptions, o => o.value))}
+                            className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                            size={4}
+                          >
                             {articles.filter(a => a.id !== editingId).map(a => (
                               <option key={a.id} value={a.id}>{a.title_fr}</option>
                             ))}
                           </select>
-                                                 <p className="text-xs text-gray-500 mt-1">Ctrl/Cmd + clic pour sélectionner plusieurs</p>
+                          <p className="text-xs text-gray-500 mt-1">Ctrl/Cmd + clic pour plusieurs</p>
                         </div>
+
                         <div>
-                          <label className="text-xs font-semibold text-gray-400 mb-2 flex items-center gap-2"><BarChart3 size={14} className="text-[#D4AF37]" /> Graphiques Macroéconomiques</label>
-                          <select multiple value={relatedChartsIds} onChange={e => setRelatedChartsIds(Array.from(e.target.selectedOptions, option => option.value))} className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm" size={3}>
-                            {macroCharts.map(c => <option key={c.id} value={c.id}>📊 {c.title_fr}</option>)}
+                          <label className="text-xs font-semibold text-gray-400 mb-2 flex items-center gap-2">
+                            <BarChart3 size={14} className="text-[#D4AF37]" /> Graphiques liés
+                          </label>
+                          <select
+                            multiple
+                            value={relatedChartsIds}
+                            onChange={e => setRelatedChartsIds(Array.from(e.target.selectedOptions, o => o.value))}
+                            className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                            size={4}
+                          >
+                            {macroCharts.map(c => (
+                              <option key={c.id} value={c.id}>📊 {c.title_fr}</option>
+                            ))}
                           </select>
-                          <p className="text-xs text-gray-500 mt-1">Ctrl/Cmd + clic pour sélectionner plusieurs</p>
+                          <p className="text-xs text-gray-500 mt-1">Ctrl/Cmd + clic pour plusieurs</p>
                         </div>
                       </div>
-                      <InfoBadge text="Les métadonnées permettent une meilleure indexation et une meilleure expérience utilisateur" />
+
+                      {/* INSERTION GRAPHIQUES DANS LE TEXTE */}
+                      {relatedChartsIds.length > 0 && (
+                        <div className="p-4 bg-[#D4AF37]/5 border border-[#D4AF37]/20 rounded-xl space-y-3">
+                          <p className="text-xs font-bold text-[#D4AF37] flex items-center gap-2">
+                            <BarChart3 size={14} /> Insérer les graphiques dans le texte
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Placez votre curseur dans le textarea (FR ou EN) à la fin d'un paragraphe,
+                            puis cliquez sur "Insérer" pour positionner le graphique à cet endroit précis.
+                          </p>
+                          <div className="space-y-2">
+                            {relatedChartsIds.map((chartId, index) => {
+                              const chart = macroCharts.find(c => c.id === chartId);
+                              if (!chart) return null;
+                              return (
+                                <div key={chartId} className="flex items-center justify-between gap-3 p-3 bg-[#1a1a1a] rounded-lg border border-white/10">
+                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    <span className="text-[#D4AF37] font-mono text-xs">[CHART:{index}]</span>
+                                    <span className="text-white text-xs truncate">{chart.title_fr}</span>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => {
+                                        const marker = `\n\n[CHART:${index}]\n\n`;
+                                        const textarea = document.getElementById('content-fr') as HTMLTextAreaElement;
+                                        if (textarea) {
+                                          const start = textarea.selectionStart;
+                                          const newContent = contentFr.substring(0, start) + marker + contentFr.substring(start);
+                                          setContentFr(newContent);
+                                          showMsg('success', `📊 Graphique inséré dans FR`);
+                                        }
+                                      }}
+                                      className="px-3 py-1.5 bg-[#D4AF37]/20 hover:bg-[#D4AF37]/40 text-[#D4AF37] rounded-lg text-xs font-bold"
+                                    >
+                                      ↳ FR
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        const marker = `\n\n[CHART:${index}]\n\n`;
+                                        const textarea = document.getElementById('content-en') as HTMLTextAreaElement;
+                                        if (textarea) {
+                                          const start = textarea.selectionStart;
+                                          const newContent = contentEn.substring(0, start) + marker + contentEn.substring(start);
+                                          setContentEn(newContent);
+                                          showMsg('success', `📊 Graphique inséré dans EN`);
+                                        }
+                                      }}
+                                      className="px-3 py-1.5 bg-[#D4AF37]/20 hover:bg-[#D4AF37]/40 text-[#D4AF37] rounded-lg text-xs font-bold"
+                                    >
+                                      ↳ EN
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* INSERTION TEASERS INLINE */}
+                      {relatedArticlesIds.length > 0 && (
+                        <div className="p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl space-y-3">
+                          <p className="text-xs font-bold text-blue-400 flex items-center gap-2">
+                            <LinkIcon size={14} /> Teasers inline — articles connexes dans le texte
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Placez votre curseur dans le textarea à la fin d'un paragraphe.
+                            Cliquez sur "Configurer & Insérer" pour définir le kicker éditorial
+                            et insérer le marqueur [RELATED:x] à cet endroit.
+                          </p>
+                          <div className="space-y-2">
+                            {relatedArticlesIds.map((artId, index) => {
+                              const art = articles.find(a => a.id === artId);
+                              const existingTeaser = relatedTeasers.find(t => t.article_id === artId);
+                              if (!art) return null;
+                              return (
+                                <div key={artId} className="flex items-center justify-between gap-3 p-3 bg-[#1a1a1a] rounded-lg border border-white/10">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="text-blue-400 font-mono text-xs">[RELATED:{index}]</span>
+                                      <span className="text-white text-xs truncate">{art.title_fr}</span>
+                                    </div>
+                                    {existingTeaser && (
+                                      <div className="flex gap-3 text-[10px] text-gray-500">
+                                        <span>FR: <em className="text-gray-300">"{existingTeaser.kicker_fr}"</em></span>
+                                        <span>EN: <em className="text-gray-300">"{existingTeaser.kicker_en}"</em></span>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <button
+                                    onClick={() => {
+                                      setTeaserTargetArticleId(artId);
+                                      const existing = relatedTeasers.find(t => t.article_id === artId);
+                                      setTeaserKickerFr(existing?.kicker_fr || '');
+                                      setTeaserKickerEn(existing?.kicker_en || '');
+                                      setShowTeaserModal(true);
+                                    }}
+                                    className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 rounded-lg text-xs font-bold whitespace-nowrap"
+                                  >
+                                    {existingTeaser ? '✏️ Modifier' : '⚙️ Configurer'}
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      <InfoBadge text="Les marqueurs [CHART:x] et [RELATED:x] s'insèrent dans le texte à l'endroit exact choisi par le rédacteur." />
                     </div>
                   )}
 
@@ -1573,6 +2188,16 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
                       {a.reading_audio_url && <span className="px-2 py-0.5 bg-blue-500/10 text-blue-300 text-[10px] rounded-full flex items-center gap-1"><Headphones size={10} /> Lecture vocale</span>}
                       {a.audio_content_url && <span className="px-2 py-0.5 bg-purple-500/10 text-purple-400 text-[10px] rounded-full flex items-center gap-1"><Mic size={10} /> Podcast</span>}
                       {a.reading_time_minutes && <span className="px-2 py-0.5 bg-green-500/10 text-green-400 text-[10px] rounded-full flex items-center gap-1"><Clock size={10} /> {a.reading_time_minutes} min</span>}
+                      {a.is_live && (
+                        <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-[10px] rounded-full flex items-center gap-1 animate-pulse">
+                          <Radio size={10} /> LIVE
+                        </span>
+                      )}
+                      {a.is_breaking && (
+                        <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 text-[10px] rounded-full flex items-center gap-1">
+                          ⚡ BREAKING
+                        </span>
+                      )}
                     </div>
                     <h3 className="text-white font-bold">{a.title_fr}</h3>
                     <p className="text-sm text-gray-500 line-clamp-1 mt-1">{a.summary_fr}</p>
@@ -1586,6 +2211,162 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
             </div>
           )}
         </>
+      )}
+
+
+      {/* VUE LIVE */}
+      {view === 'live' && (
+        <div className="space-y-6">
+          <div className="p-5 bg-red-500/5 border border-red-500/20 rounded-2xl">
+            <div className="flex items-center gap-3 mb-2">
+              <motion.div
+                className="w-3 h-3 bg-red-500 rounded-full"
+                animate={{ opacity: [1, 0.3, 1] }}
+                transition={{ duration: 1, repeat: Infinity }}
+              />
+              <h3 className="text-white font-bold text-lg">Gestion du Direct</h3>
+            </div>
+            <p className="text-gray-400 text-sm">
+              Sélectionnez un article marqué "En Direct" pour lui ajouter des mises à jour en temps réel.
+            </p>
+          </div>
+
+          {/* Articles live actifs */}
+          <div className="space-y-3">
+            <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Articles en Direct</h4>
+            {articles.filter(a => a.is_live).length === 0 ? (
+              <div className="text-center py-12 bg-white/[0.02] rounded-2xl border border-white/10">
+                <Radio className="mx-auto mb-3 text-gray-600" size={36} />
+                <p className="text-gray-500 text-sm">Aucun article en direct actuellement</p>
+                <p className="text-gray-600 text-xs mt-1">
+                  Activez le mode "En Direct" lors de la création d'un article
+                </p>
+              </div>
+            ) : (
+              articles.filter(a => a.is_live).map(a => (
+                <div
+                  key={a.id}
+                  className={`p-4 rounded-2xl border cursor-pointer transition-all ${selectedLiveArticleId === a.id
+                    ? 'border-red-500/50 bg-red-500/10'
+                    : 'border-white/10 bg-white/[0.02] hover:border-white/20'
+                    }`}
+                  onClick={() => {
+                    setSelectedLiveArticleId(a.id);
+                    // Charger les live updates
+                    supabase
+                      .from('press_live_updates')
+                      .select('*')
+                      .eq('article_id', a.id)
+                      .order('created_at', { ascending: false })
+                      .then(({ data }) => { if (data) setLiveUpdates(data); });
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <motion.div
+                      className="w-2.5 h-2.5 bg-red-500 rounded-full flex-shrink-0"
+                      animate={{ opacity: [1, 0.3, 1] }}
+                      transition={{ duration: 1, repeat: Infinity }}
+                    />
+                    <div className="flex-1">
+                      <p className="text-white font-bold text-sm">{a.title_fr}</p>
+                      <p className="text-gray-500 text-xs mt-0.5">{a.author_name}</p>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-600" />
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Zone de publication live */}
+          {selectedLiveArticleId && (
+            <div className="space-y-4">
+              <div className="p-5 bg-[#0f0f0f] border border-red-500/20 rounded-2xl">
+                <h4 className="text-white font-bold mb-4 flex items-center gap-2">
+                  <Radio size={16} className="text-red-400 animate-pulse" />
+                  Publier une mise à jour
+                </h4>
+                <textarea
+                  value={newLiveContent}
+                  onChange={e => setNewLiveContent(e.target.value)}
+                  placeholder="Nouvelle information, développement, chiffre..."
+                  rows={4}
+                  className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm mb-3"
+                />
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    value={newLiveAuthor}
+                    onChange={e => setNewLiveAuthor(e.target.value)}
+                    placeholder="Auteur"
+                    className="flex-1 bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                  />
+                  <button
+                    onClick={async () => {
+                      if (!newLiveContent.trim() || !selectedLiveArticleId) return;
+                      setIsPostingLive(true);
+                      const { data, error } = await supabase
+                        .from('press_live_updates')
+                        .insert({
+                          article_id: selectedLiveArticleId,
+                          content: newLiveContent.trim(),
+                          author: newLiveAuthor || 'Rédaction Le Continent',
+                        })
+                        .select()
+                        .single();
+                      if (!error && data) {
+                        setLiveUpdates(prev => [data, ...prev]);
+                        setNewLiveContent('');
+                        showMsg('success', '🔴 Update live publiée');
+                      } else {
+                        showMsg('error', error?.message || 'Erreur');
+                      }
+                      setIsPostingLive(false);
+                    }}
+                    disabled={isPostingLive || !newLiveContent.trim()}
+                    className="px-6 py-3 bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white rounded-xl font-bold text-sm flex items-center gap-2"
+                  >
+                    {isPostingLive ? <Loader2 className="animate-spin" size={16} /> : <Radio size={16} />}
+                    Publier
+                  </button>
+                </div>
+              </div>
+
+              {/* Historique des updates */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider">
+                  Historique ({liveUpdates.length})
+                </h4>
+                {liveUpdates.map(update => (
+                  <div key={update.id} className="p-4 bg-white/[0.02] border border-white/10 rounded-xl flex gap-3">
+                    <div className="flex-shrink-0 mt-1">
+                      <div className="w-2 h-2 bg-red-400 rounded-full" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-bold text-white">{update.author}</span>
+                        <span className="text-xs text-gray-600">
+                          {new Date(update.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <p className="text-gray-300 text-sm">{update.content}</p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        await supabase.from('press_live_updates').delete().eq('id', update.id);
+                        setLiveUpdates(prev => prev.filter(u => u.id !== update.id));
+                        showMsg('success', '🗑️ Update supprimée');
+                      }}
+                      className="p-1.5 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500 hover:text-white transition-all flex-shrink-0"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {/* VUE ARCHIVES */}
@@ -2009,6 +2790,431 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
         </>
       )}
 
+
+      {/* VUE DIGEST */}
+      {view === 'digest' && (
+        <div className="space-y-6 max-w-3xl">
+          <div className="p-5 bg-yellow-500/5 border border-yellow-500/20 rounded-2xl">
+            <div className="flex items-center gap-3 mb-2">
+              <Newspaper size={20} className="text-yellow-400" />
+              <h3 className="text-white font-bold text-lg">Digest / La Une</h3>
+            </div>
+            <p className="text-gray-400 text-sm">
+              Sélectionnez les articles qui apparaîtront dans le widget "À lire absolument"
+              affiché dans la liste des articles côté lecteur.
+            </p>
+          </div>
+
+          {/* Labels */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-semibold text-gray-400 mb-2 block">
+                🇫🇷 Label (Français)
+              </label>
+              <input
+                type="text"
+                value={digestLabel}
+                onChange={e => setDigestLabel(e.target.value)}
+                className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-400 mb-2 block">
+                🇬🇧 Label (Anglais)
+              </label>
+              <input
+                type="text"
+                value={digestLabelEn}
+                onChange={e => setDigestLabelEn(e.target.value)}
+                className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Sélection articles */}
+          <div>
+            <label className="text-xs font-semibold text-gray-400 mb-3 block">
+              Articles sélectionnés pour la Une ({digestArticleIds.length})
+            </label>
+            <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+              {articles.filter(a => a.status === 'published').map(a => {
+                const isSelected = digestArticleIds.includes(a.id);
+                return (
+                  <div
+                    key={a.id}
+                    onClick={() => {
+                      setDigestArticleIds(prev =>
+                        isSelected
+                          ? prev.filter(id => id !== a.id)
+                          : [...prev, a.id]
+                      );
+                    }}
+                    className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${isSelected
+                      ? 'border-yellow-500/50 bg-yellow-500/10'
+                      : 'border-white/10 bg-white/[0.02] hover:border-white/20'
+                      }`}
+                  >
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${isSelected ? 'border-yellow-500 bg-yellow-500' : 'border-white/20'
+                      }`}>
+                      {isSelected && <Check size={12} className="text-white" />}
+                    </div>
+                    {a.cover_url && (
+                      <img src={a.cover_url} className="w-10 h-10 object-cover rounded-lg flex-shrink-0" alt="" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm font-medium truncate">{a.title_fr}</p>
+                      <p className="text-gray-500 text-xs">
+                        {a.categories?.name_fr || 'Sans catégorie'} •{' '}
+                        {a.article_type === 'audio' ? '🎙️ Audio' : '📝 Écrit'}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Aperçu de l'ordre */}
+          {digestArticleIds.length > 0 && (
+            <div className="p-4 bg-white/[0.02] border border-white/10 rounded-xl">
+              <p className="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">
+                Ordre d'affichage
+              </p>
+              <div className="space-y-2">
+                {digestArticleIds.map((id, i) => {
+                  const a = articles.find(art => art.id === id);
+                  if (!a) return null;
+                  return (
+                    <div key={id} className="flex items-center gap-3 text-sm">
+                      <span className="text-gray-600 font-mono w-5 text-right">{i + 1}.</span>
+                      <span className="text-white truncate">{a.title_fr}</span>
+                      <button
+                        onClick={() => setDigestArticleIds(prev => prev.filter(pid => pid !== id))}
+                        className="ml-auto p-1 text-red-400 hover:text-red-300"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Bouton sauvegarder */}
+          <button
+            onClick={async () => {
+              setIsSavingDigest(true);
+              try {
+                const { error } = await supabase
+                  .from('press_digest')
+                  .upsert({
+                    id: 1,
+                    label_fr: digestLabel,
+                    label_en: digestLabelEn,
+                    article_ids: digestArticleIds,
+                    is_active: true,
+                    updated_at: new Date().toISOString(),
+                  });
+                if (error) throw error;
+                showMsg('success', '✅ Digest / Une mis à jour');
+              } catch (err: any) {
+                showMsg('error', err.message);
+              }
+              setIsSavingDigest(false);
+            }}
+            disabled={isSavingDigest}
+            className="px-8 py-3 bg-yellow-600 hover:bg-yellow-500 text-white rounded-xl font-bold flex items-center gap-2"
+          >
+            {isSavingDigest ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+            Sauvegarder la Une
+          </button>
+        </div>
+      )}
+
+
+      {/* VUE AUTEURS */}
+      {view === 'authors' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-bold text-white">Équipe éditoriale</h3>
+              <p className="text-gray-400 text-sm mt-1">
+                Gérez les profils auteurs affichés dans les articles
+              </p>
+            </div>
+            {!showAuthorForm && (
+              <button
+                onClick={() => {
+                  setAuthorEditingId(null);
+                  setAuthorName('');
+                  setAuthorRoleFr('Journaliste');
+                  setAuthorRoleEn('Journalist');
+                  setAuthorBioFr('');
+                  setAuthorBioEn('');
+                  setAuthorAvatar('');
+                  setAuthorTwitter('');
+                  setAuthorLinkedin('');
+                  setShowAuthorForm(true);
+                }}
+                className="px-5 py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-semibold text-sm flex items-center gap-2"
+              >
+                <PlusCircle size={16} /> Ajouter un auteur
+              </button>
+            )}
+          </div>
+
+          {/* Formulaire auteur */}
+          {showAuthorForm && (
+            <div className="bg-[#0f0f0f] border border-teal-500/30 rounded-2xl p-6 space-y-5">
+              <div className="flex items-center justify-between">
+                <h4 className="text-white font-bold">
+                  {authorEditingId ? 'Modifier l\'auteur' : 'Nouvel auteur'}
+                </h4>
+                <button onClick={() => setShowAuthorForm(false)} className="p-2 hover:bg-white/10 rounded-lg">
+                  <X size={18} className="text-gray-400" />
+                </button>
+              </div>
+
+              {/* Avatar */}
+              <div className="flex items-center gap-4">
+                <div className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-teal-500/30 bg-[#1a1a1a] flex items-center justify-center flex-shrink-0">
+                  {authorAvatar
+                    ? <img src={authorAvatar} className="w-full h-full object-cover" alt="" />
+                    : <User size={28} className="text-gray-600" />
+                  }
+                </div>
+                <div className="flex-1">
+                  <button
+                    onClick={() => openCloudinaryWidget('image', setAuthorAvatar, 'author-avatar')}
+                    disabled={isUploading === 'author-avatar'}
+                    className="px-4 py-2 bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 rounded-xl text-sm flex items-center gap-2"
+                  >
+                    {isUploading === 'author-avatar'
+                      ? <Loader2 className="animate-spin" size={14} />
+                      : <Upload size={14} />
+                    }
+                    Upload avatar
+                  </button>
+                  {authorAvatar && (
+                    <button
+                      onClick={() => setAuthorAvatar('')}
+                      className="ml-2 text-xs text-red-400 hover:text-red-300"
+                    >
+                      Supprimer
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-semibold text-gray-400 mb-2 block">Nom complet *</label>
+                  <input
+                    type="text"
+                    value={authorName}
+                    onChange={e => setAuthorName(e.target.value)}
+                    placeholder="Ex: Jean-Paul Mbeki"
+                    className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-400 mb-2 block">🇫🇷 Rôle / Fonction</label>
+                  <input
+                    type="text"
+                    value={authorRoleFr}
+                    onChange={e => setAuthorRoleFr(e.target.value)}
+                    placeholder="Ex: Correspondant Afrique centrale"
+                    className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-400 mb-2 block">🇬🇧 Role / Title</label>
+                  <input
+                    type="text"
+                    value={authorRoleEn}
+                    onChange={e => setAuthorRoleEn(e.target.value)}
+                    placeholder="Ex: Central Africa Correspondent"
+                    className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-400 mb-2 block">Email (optionnel)</label>
+                  <input
+                    type="email"
+                    value={authorLinkedin}
+                    onChange={e => setAuthorLinkedin(e.target.value)}
+                    placeholder="contact@lecontinent.media"
+                    className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-400 mb-2 block">Twitter / X (URL)</label>
+                  <input
+                    type="text"
+                    value={authorTwitter}
+                    onChange={e => setAuthorTwitter(e.target.value)}
+                    placeholder="https://x.com/..."
+                    className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-semibold text-gray-400 mb-2 block">🇫🇷 Bio</label>
+                  <textarea
+                    value={authorBioFr}
+                    onChange={e => setAuthorBioFr(e.target.value)}
+                    rows={3}
+                    placeholder="Courte biographie..."
+                    className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-400 mb-2 block">🇬🇧 Bio</label>
+                  <textarea
+                    value={authorBioEn}
+                    onChange={e => setAuthorBioEn(e.target.value)}
+                    rows={3}
+                    placeholder="Short biography..."
+                    className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+                <button
+                  onClick={() => setShowAuthorForm(false)}
+                  className="px-6 py-2.5 bg-white/5 text-gray-400 rounded-xl text-sm hover:bg-white/10"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!authorName.trim()) return showMsg('error', 'Le nom est requis');
+                    setIsSaving(true);
+                    const payload = {
+                      name: authorName,
+                      role_fr: authorRoleFr,
+                      role_en: authorRoleEn,
+                      bio_fr: authorBioFr || null,
+                      bio_en: authorBioEn || null,
+                      avatar_url: authorAvatar || null,
+                      twitter_url: authorTwitter || null,
+                      linkedin_url: authorLinkedin || null,
+                      is_active: true,
+                    };
+                    try {
+                      if (authorEditingId) {
+                        const { error } = await supabase
+                          .from('press_authors')
+                          .update(payload)
+                          .eq('id', authorEditingId);
+                        if (error) throw error;
+                        showMsg('success', '✅ Auteur mis à jour');
+                      } else {
+                        const { error } = await supabase
+                          .from('press_authors')
+                          .insert(payload);
+                        if (error) throw error;
+                        showMsg('success', '🎉 Auteur créé');
+                      }
+                      setShowAuthorForm(false);
+                      fetchData();
+                    } catch (err: any) {
+                      showMsg('error', err.message);
+                    }
+                    setIsSaving(false);
+                  }}
+                  disabled={isSaving}
+                  className="px-8 py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-sm font-bold flex items-center gap-2"
+                >
+                  {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                  Enregistrer
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Liste des auteurs */}
+          {!showAuthorForm && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {authors.map(a => (
+                <div
+                  key={a.id}
+                  className="bg-white/[0.02] border border-white/10 rounded-2xl p-5 hover:border-teal-500/30 transition-all"
+                >
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="w-14 h-14 rounded-full overflow-hidden border border-teal-500/20 bg-[#1a1a1a] flex items-center justify-center flex-shrink-0">
+                      {a.avatar_url
+                        ? <img src={a.avatar_url} className="w-full h-full object-cover" alt={a.name} />
+                        : <User size={20} className="text-gray-600" />
+                      }
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-bold text-sm truncate">{a.name}</p>
+                      <p className="text-teal-400 text-xs">{a.role_fr}</p>
+                      {a.bio_fr && (
+                        <p className="text-gray-500 text-xs mt-1 line-clamp-2">{a.bio_fr}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {a.twitter_url && (
+                      <a
+                        href={a.twitter_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 bg-white/5 text-gray-400 hover:text-white rounded-lg text-xs"
+                      >
+                        X
+                      </a>
+                    )}
+                    <div className="ml-auto flex gap-2">
+                      <button
+                        onClick={() => {
+                          setAuthorEditingId(a.id);
+                          setAuthorName(a.name);
+                          setAuthorRoleFr(a.role_fr);
+                          setAuthorRoleEn(a.role_en);
+                          setAuthorBioFr(a.bio_fr || '');
+                          setAuthorBioEn(a.bio_en || '');
+                          setAuthorAvatar(a.avatar_url || '');
+                          setAuthorTwitter(a.twitter_url || '');
+                          setAuthorLinkedin(a.linkedin_url || '');
+                          setShowAuthorForm(true);
+                        }}
+                        className="p-2 bg-white/5 text-gray-400 hover:text-teal-400 rounded-lg"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!confirm('Supprimer cet auteur ?')) return;
+                          await supabase.from('press_authors').delete().eq('id', a.id);
+                          fetchData();
+                          showMsg('success', '🗑️ Auteur supprimé');
+                        }}
+                        className="p-2 bg-white/5 text-gray-400 hover:text-red-400 rounded-lg"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {authors.length === 0 && (
+                <div className="col-span-3 text-center py-16 bg-white/[0.02] rounded-2xl border border-white/10">
+                  <User className="mx-auto mb-3 text-gray-600" size={36} />
+                  <p className="text-gray-500 text-sm">Aucun auteur créé</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* VUE SETTINGS */}
       {view === 'settings' && (
         <div className="bg-[#0f0f0f] border border-white/10 rounded-2xl p-6 md:p-8 max-w-4xl mx-auto shadow-2xl">
@@ -2056,28 +3262,357 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
         </div>
       )}
 
-      {/* MODALS */}
-      {showMediaModal && (
+
+      {showTeaserModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0f0f0f] rounded-2xl border border-white/10 max-w-2xl w-full">
+          <div className="bg-[#0f0f0f] rounded-2xl border border-blue-500/30 max-w-lg w-full">
             <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 px-6 py-4 border-b border-white/10 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-white">Ajouter un média</h3>
-              <button onClick={() => setShowMediaModal(false)} className="p-2 hover:bg-white/10 rounded-lg"><X size={20} /></button>
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <LinkIcon size={18} className="text-blue-400" /> Configurer le teaser inline
+              </h3>
+              <button onClick={() => setShowTeaserModal(false)} className="p-2 hover:bg-white/10 rounded-lg">
+                <X size={18} className="text-gray-400" />
+              </button>
             </div>
             <div className="p-6 space-y-4">
-              <div className="grid grid-cols-3 gap-3">
-                <button onClick={() => setMediaType('image')} className={`p-3 rounded-xl border-2 ${mediaType === 'image' ? 'border-blue-500' : 'border-white/10'}`}>Image</button>
-                <button onClick={() => setMediaType('video')} className={`p-3 rounded-xl border-2 ${mediaType === 'video' ? 'border-blue-500' : 'border-white/10'}`}>Vidéo</button>
-                <button onClick={() => setMediaType('link')} className={`p-3 rounded-xl border-2 ${mediaType === 'link' ? 'border-blue-500' : 'border-white/10'}`}>Lien</button>
+              <div className="p-3 bg-white/5 rounded-xl border border-white/10">
+                <p className="text-xs text-gray-400 mb-1">Article cible</p>
+                <p className="text-white text-sm font-bold">
+                  {articles.find(a => a.id === teaserTargetArticleId)?.title_fr}
+                </p>
               </div>
-              <div className="flex gap-2">
-                <input type="text" value={mediaUrl} onChange={e => setMediaUrl(e.target.value)} placeholder="URL" className="flex-1 bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white" />
-                {mediaType !== 'link' && <button onClick={openMediaCloudinary} className="px-4 bg-white/5 rounded-xl">Upload</button>}
+              <div>
+                <label className="text-xs font-semibold text-gray-400 mb-2 block">
+                  🇫🇷 Kicker éditorial (FR)
+                </label>
+                <input
+                  type="text"
+                  value={teaserKickerFr}
+                  onChange={e => setTeaserKickerFr(e.target.value)}
+                  placeholder="Ex: Coup dur, À ne pas rater, La suite logique..."
+                  className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                />
               </div>
-              <input type="text" value={mediaCaption} onChange={e => setMediaCaption(e.target.value)} placeholder="Légende" className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm" />
+              <div>
+                <label className="text-xs font-semibold text-gray-400 mb-2 block">
+                  🇬🇧 Kicker éditorial (EN)
+                </label>
+                <input
+                  type="text"
+                  value={teaserKickerEn}
+                  onChange={e => setTeaserKickerEn(e.target.value)}
+                  placeholder="Ex: Hard blow, Must read, The logical follow-up..."
+                  className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                />
+              </div>
+              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                <p className="text-xs text-blue-300">
+                  💡 Après avoir configuré, cliquez sur "Insérer" — placez d'abord votre curseur
+                  dans le textarea à l'endroit voulu.
+                </p>
+              </div>
+              <div className="flex gap-3 pt-2 border-t border-white/10">
+                <button
+                  onClick={() => setShowTeaserModal(false)}
+                  className="flex-1 px-4 py-2.5 bg-white/5 text-gray-400 rounded-xl text-sm"
+                >
+                  Annuler
+                </button>
+                {['fr', 'en'].map(lang => (
+                  <button
+                    key={lang}
+                    onClick={() => {
+                      const index = relatedArticlesIds.indexOf(teaserTargetArticleId);
+                      if (index === -1) return;
+
+                      // Sauvegarder le teaser
+                      setRelatedTeasers(prev => {
+                        const filtered = prev.filter(t => t.article_id !== teaserTargetArticleId);
+                        return [...filtered, {
+                          article_id: teaserTargetArticleId,
+                          kicker_fr: teaserKickerFr,
+                          kicker_en: teaserKickerEn,
+                          insert_index: index
+                        }];
+                      });
+
+                      // Insérer le marqueur dans le texte
+                      const marker = `\n\n[RELATED:${index}]\n\n`;
+                      const textareaId = lang === 'fr' ? 'content-fr' : 'content-en';
+                      const textarea = document.getElementById(textareaId) as HTMLTextAreaElement;
+                      if (textarea) {
+                        const start = textarea.selectionStart;
+                        const setter = lang === 'fr' ? setContentFr : setContentEn;
+                        const content = lang === 'fr' ? contentFr : contentEn;
+                        setter(content.substring(0, start) + marker + content.substring(start));
+                      }
+                      setShowTeaserModal(false);
+                      showMsg('success', `✅ Teaser [RELATED:${index}] inséré dans ${lang.toUpperCase()}`);
+                    }}
+                    className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-bold"
+                  >
+                    Insérer ↳ {lang.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODALS */}
+      {showMediaModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[#0f0f0f] rounded-2xl border border-white/10 max-w-2xl w-full my-4">
+            <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 px-6 py-4 border-b border-white/10 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-white">Ajouter un bloc média</h3>
+              <button onClick={() => setShowMediaModal(false)} className="p-2 hover:bg-white/10 rounded-lg">
+                <X size={20} className="text-gray-400" />
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+
+              {/* Type selector */}
+              <div>
+                <label className="text-xs font-semibold text-gray-400 mb-3 block">Type de bloc</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {([
+                    { val: 'image', label: 'Image', icon: '🖼️' },
+                    { val: 'video', label: 'Vidéo', icon: '🎬' },
+                    { val: 'youtube', label: 'YouTube', icon: '▶️' },
+                    { val: 'code', label: 'Code', icon: '💻' },
+                    { val: 'gallery', label: 'Galerie', icon: '📸' },
+                    { val: 'quote_hero', label: 'Citation', icon: '💬' },
+                    { val: 'link', label: 'Lien', icon: '🔗' },
+                  ] as const).map(opt => (
+                    <button
+                      key={opt.val}
+                      onClick={() => setMediaType(opt.val)}
+                      className={`p-2.5 rounded-xl border-2 text-xs font-bold flex flex-col items-center gap-1 transition-all ${mediaType === opt.val
+                        ? 'border-blue-500 bg-blue-500/15 text-white'
+                        : 'border-white/10 text-gray-500 hover:border-white/20'
+                        }`}
+                    >
+                      <span className="text-lg">{opt.icon}</span>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* IMAGE / VIDEO / LINK */}
+              {(mediaType === 'image' || mediaType === 'video' || mediaType === 'link') && (
+                <div className="space-y-4">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={mediaUrl}
+                      onChange={e => setMediaUrl(e.target.value)}
+                      placeholder="URL"
+                      className="flex-1 bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                    />
+                    {mediaType !== 'link' && (
+                      <button
+                        onClick={openMediaCloudinary}
+                        className="px-4 bg-white/5 hover:bg-white/10 text-gray-300 rounded-xl flex items-center gap-2 text-sm"
+                      >
+                        <Upload size={16} /> Upload
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    value={mediaCaption}
+                    onChange={e => setMediaCaption(e.target.value)}
+                    placeholder="Légende (optionnel)"
+                    className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                  />
+                  {mediaType === 'image' && (
+                    <div>
+                      <label className="text-xs text-gray-500 mb-2 block">Mise en page</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {([
+                          { val: 'contained', label: 'Contenu', desc: 'Dans la colonne' },
+                          { val: 'wide', label: 'Large', desc: 'Déborde un peu' },
+                          { val: 'full-bleed', label: 'Plein cadre', desc: 'Toute la largeur' },
+                        ] as const).map(opt => (
+                          <button
+                            key={opt.val}
+                            onClick={() => setMediaLayout(opt.val)}
+                            className={`p-2.5 rounded-xl border text-xs font-bold text-center transition-all ${mediaLayout === opt.val
+                              ? 'border-blue-500 bg-blue-500/15 text-white'
+                              : 'border-white/10 text-gray-500'
+                              }`}
+                          >
+                            <div>{opt.label}</div>
+                            <div className="text-[9px] font-normal text-gray-600 mt-0.5">{opt.desc}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* YOUTUBE */}
+              {mediaType === 'youtube' && (
+                <div className="space-y-4">
+                  <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+                    <p className="text-xs text-red-300">
+                      📺 Collez l'URL YouTube complète (pas besoin d'héberger la vidéo).
+                    </p>
+                  </div>
+                  <input
+                    type="text"
+                    value={mediaYoutubeUrl}
+                    onChange={e => setMediaYoutubeUrl(e.target.value)}
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                  />
+                  {mediaYoutubeUrl && (() => {
+                    const id = extractYoutubeId(mediaYoutubeUrl);
+                    return id.length === 11 ? (
+                      <div className="rounded-xl overflow-hidden border border-white/10">
+                        <img
+                          src={`https://img.youtube.com/vi/${id}/hqdefault.jpg`}
+                          className="w-full h-32 object-cover"
+                          alt="preview"
+                        />
+                        <p className="text-xs text-green-400 p-2">✅ ID détecté : {id}</p>
+                      </div>
+                    ) : null;
+                  })()}
+                  <input
+                    type="text"
+                    value={mediaCaption}
+                    onChange={e => setMediaCaption(e.target.value)}
+                    placeholder="Légende / description de la vidéo"
+                    className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                  />
+                </div>
+              )}
+
+              {/* CODE */}
+              {mediaType === 'code' && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs text-gray-400 mb-2 block font-semibold">Langage</label>
+                    <select
+                      value={mediaCodeLang}
+                      onChange={e => setMediaCodeLang(e.target.value)}
+                      className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                    >
+                      {[
+                        'javascript', 'typescript', 'python', 'bash', 'sql',
+                        'json', 'html', 'css', 'rust', 'go', 'java', 'php',
+                        'swift', 'kotlin', 'yaml', 'markdown', 'plaintext'
+                      ].map(l => <option key={l} value={l}>{l}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 mb-2 block font-semibold">Code</label>
+                    <textarea
+                      value={mediaCodeContent}
+                      onChange={e => setMediaCodeContent(e.target.value)}
+                      rows={8}
+                      placeholder="Collez votre code ici..."
+                      className="w-full bg-[#0d0d0d] border border-white/20 rounded-xl px-4 py-3 text-green-400 text-sm font-mono"
+                      spellCheck={false}
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    value={mediaCaption}
+                    onChange={e => setMediaCaption(e.target.value)}
+                    placeholder="Description du snippet (optionnel)"
+                    className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                  />
+                </div>
+              )}
+
+              {/* GALLERY */}
+              {mediaType === 'gallery' && (
+                <div className="space-y-4">
+                  <p className="text-xs text-gray-500">Ajoutez plusieurs images pour créer un carrousel.</p>
+                  <div className="space-y-2">
+                    {mediaGalleryUrls.map((url, i) => (
+                      <div key={i} className="flex gap-2 items-center">
+                        <img src={url} className="w-12 h-12 object-cover rounded-lg border border-white/10" alt="" />
+                        <span className="flex-1 text-xs text-gray-400 truncate">{url}</span>
+                        <button
+                          onClick={() => setMediaGalleryUrls(mediaGalleryUrls.filter((_, idx) => idx !== i))}
+                          className="p-1.5 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => {
+                      loadCloudinaryScript(() => {
+                        // @ts-ignore
+                        const w = window.cloudinary.createUploadWidget({
+                          cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+                          uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET,
+                          sources: ['local', 'url'],
+                          resourceType: 'image',
+                          multiple: true,
+                        }, (error: any, result: any) => {
+                          if (result?.event === 'success') {
+                            setMediaGalleryUrls(prev => [...prev, result.info.secure_url]);
+                          }
+                          if (error) showMsg('error', 'Erreur Cloudinary');
+                        });
+                        w.open();
+                      });
+                    }}
+                    className="w-full py-3 border-2 border-dashed border-white/20 rounded-xl text-gray-500 hover:border-blue-500 hover:text-blue-400 transition-all flex items-center justify-center gap-2 text-sm"
+                  >
+                    <Upload size={16} /> Ajouter des images
+                  </button>
+                  <input
+                    type="text"
+                    value={mediaCaption}
+                    onChange={e => setMediaCaption(e.target.value)}
+                    placeholder="Légende de la galerie"
+                    className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                  />
+                </div>
+              )}
+
+              {/* QUOTE HERO */}
+              {mediaType === 'quote_hero' && (
+                <div className="space-y-4">
+                  <div className="p-4 bg-[#D4AF37]/5 border border-[#D4AF37]/20 rounded-xl">
+                    <p className="text-xs text-[#D4AF37]">
+                      💬 Une citation mise en valeur qui sort de la colonne de texte.
+                    </p>
+                  </div>
+                  <textarea
+                    value={mediaQuoteText}
+                    onChange={e => setMediaQuoteText(e.target.value)}
+                    rows={3}
+                    placeholder="La citation exacte..."
+                    className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm italic"
+                  />
+                  <input
+                    type="text"
+                    value={mediaQuoteAuthor}
+                    onChange={e => setMediaQuoteAuthor(e.target.value)}
+                    placeholder="Auteur / Source de la citation"
+                    className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                  />
+                </div>
+              )}
+
               <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
-                <button onClick={() => setShowMediaModal(false)} className="px-6 py-3 bg-white/5 rounded-xl">Annuler</button>
-                <button onClick={addMediaItem} className="px-6 py-3 bg-blue-600 text-white rounded-xl">Ajouter</button>
+                <button onClick={() => setShowMediaModal(false)} className="px-6 py-3 bg-white/5 text-gray-400 rounded-xl text-sm hover:bg-white/10">
+                  Annuler
+                </button>
+                <button onClick={addMediaItem} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-bold">
+                  Ajouter le bloc
+                </button>
               </div>
             </div>
           </div>

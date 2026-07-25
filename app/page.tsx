@@ -22,6 +22,8 @@ import { CoreSection } from '@/components/CoreSection';
 import { ArxivSection } from '@/components/ArxivSection';
 import { PWAInstallButton } from '@/components/PWAInstallButton';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
+
+import { ArticleView, UnifiedItem, MacroChart, PressAnnouncement, UserProfile } from './presse/page';
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 
 interface Personality {
@@ -97,14 +99,17 @@ interface MusicTrack {
 
 interface LukeniSearchResult {
   id: string;
-  type: 'article' | 'personality';
+  type: 'article' | 'personality' | 'press_article' | 'press_archive';
   title_fr: string;
   title_en: string;
   summary_fr: string;
   summary_en: string;
   image_url?: string;
-  slug: string;
+  slug?: string;
   categories?: { color: string; name_fr: string; name_en: string };
+  is_live?: boolean;
+  is_breaking?: boolean;
+  published_at?: string;
 }
 
 interface WikiResult {
@@ -213,32 +218,77 @@ function useLukeniSearch(query: string, lang: 'fr' | 'en', geoCountry: string | 
       setIsLoading(true);
       try {
         const q = query.toLowerCase();
+
+        // Articles encyclopédie
         let artQuery = supabase
           .from('articles')
           .select('id, title_fr, title_en, summary_fr, summary_en, image_url, slug, categories(color, name_fr, name_en)')
           .eq('status', 'published')
           .or(`title_fr.ilike.%${q}%,title_en.ilike.%${q}%,summary_fr.ilike.%${q}%`)
           .limit(4);
+
+        // Personnalités
         let persQuery = supabase
           .from('personalities')
           .select('id, name_fr, name_en, short_bio_fr, short_bio_en, image_url, slug')
           .or(`name_fr.ilike.%${q}%,name_en.ilike.%${q}%`)
           .limit(3);
+
+        // Articles presse
+        let pressQuery = supabase
+          .from('press_articles')
+          .select('id, title_fr, title_en, summary_fr, summary_en, cover_url, is_live, is_breaking, published_at')
+          .eq('status', 'published')
+          .or(`title_fr.ilike.%${q}%,title_en.ilike.%${q}%,summary_fr.ilike.%${q}%`)
+          .limit(3);
+
+        // Archives presse
+        let archiveQuery = supabase
+          .from('press_archives')
+          .select('id, title_fr, title_en, media_url, original_date')
+          .eq('status', 'published')
+          .or(`title_fr.ilike.%${q}%,title_en.ilike.%${q}%`)
+          .limit(2);
+
         if (geoCountry) artQuery = artQuery.ilike('summary_fr', `%${geoCountry}%`);
-        const [artResult, persResult] = await Promise.all([artQuery, persQuery]);
+
+        const [artResult, persResult, pressResult, archiveResult] = await Promise.all([
+          artQuery, persQuery, pressQuery, archiveQuery
+        ]);
+
         const articles = (artResult.data || []).map((a: any) => ({
           id: a.id, type: 'article' as const,
           title_fr: a.title_fr, title_en: a.title_en,
           summary_fr: a.summary_fr, summary_en: a.summary_en,
           image_url: a.image_url, slug: a.slug, categories: a.categories,
         }));
+
         const personalities = (persResult.data || []).map((p: any) => ({
           id: p.id, type: 'personality' as const,
           title_fr: p.name_fr, title_en: p.name_en,
-          summary_fr: p.short_bio_fr, short_bio_en: p.short_bio_en,
+          summary_fr: p.short_bio_fr, summary_en: p.short_bio_en,
           image_url: p.image_url, slug: p.slug,
         }));
-        const all: LukeniSearchResult[] = [...articles, ...personalities];
+
+        const pressArticles = (pressResult.data || []).map((p: any) => ({
+          id: p.id, type: 'press_article' as const,
+          title_fr: p.title_fr, title_en: p.title_en,
+          summary_fr: p.summary_fr, summary_en: p.summary_en,
+          image_url: p.cover_url,
+          is_live: p.is_live,
+          is_breaking: p.is_breaking,
+          published_at: p.published_at,
+        }));
+
+        const archives = (archiveResult.data || []).map((a: any) => ({
+          id: a.id, type: 'press_archive' as const,
+          title_fr: a.title_fr, title_en: a.title_en,
+          summary_fr: '', summary_en: '',
+          image_url: a.media_url,
+          published_at: a.original_date,
+        }));
+
+        const all: LukeniSearchResult[] = [...articles, ...personalities, ...pressArticles, ...archives];
         cacheRef.current.set(key, all);
         setResults(all);
       } catch { setResults([]); }
@@ -428,12 +478,13 @@ const SearchDropdown = ({
   searchValue, lang, isFocused,
   lukeniResults, lukeniLoading, geoCountry,
   wikiResults, wikiLoading,
-  onClose,
+  onClose, onOpenPressArticle,
 }: {
   searchValue: string; lang: 'fr' | 'en'; isFocused: boolean;
   lukeniResults: LukeniSearchResult[]; lukeniLoading: boolean; geoCountry: string | null;
   wikiResults: WikiResult[]; wikiLoading: boolean;
   onClose: () => void;
+  onOpenPressArticle: (article: LukeniSearchResult) => void;
 }) => {
   const showExternalApis = searchValue.length >= 3;
   const { results: archiveResults, isLoading: archiveLoading } = useInternetArchive(searchValue, showExternalApis);
@@ -441,7 +492,10 @@ const SearchDropdown = ({
   const { results: coreResults, isLoading: coreLoading } = useCoreApi(searchValue, showExternalApis);
   const { results: arxivResults, isLoading: arxivLoading } = useArxiv(searchValue, undefined, showExternalApis);
 
-  const hasLukeni = lukeniResults.length > 0;
+  const [activeFilter, setActiveFilter] = useState<'all' | 'encyclopedie' | 'presse' | 'wiki' | 'archives'>('all');
+
+  const hasLukeni = lukeniResults.some(r => r.type === 'article' || r.type === 'personality');
+  const hasPress = lukeniResults.some(r => r.type === 'press_article' || r.type === 'press_archive');
   const hasWiki = wikiResults.length > 0;
   const hasArchive = Object.values(archiveResults).some((arr) => arr.length > 0);
   const hasScholar = scholarResults.length > 0;
@@ -449,6 +503,11 @@ const SearchDropdown = ({
   const hasArxiv = arxivResults.length > 0;
   const anyLoading = lukeniLoading || wikiLoading || archiveLoading || scholarLoading || coreLoading || arxivLoading;
 
+  const filteredLukeni = lukeniResults.filter(r =>
+    activeFilter === 'all' ||
+    (activeFilter === 'encyclopedie' && (r.type === 'article' || r.type === 'personality')) ||
+    (activeFilter === 'presse' && (r.type === 'press_article' || r.type === 'press_archive'))
+  );
   const isVisible =
     isFocused &&
     searchValue.length >= 2 &&
@@ -472,7 +531,30 @@ const SearchDropdown = ({
             </div>
           )}
 
-          {hasLukeni && (
+          {/* Filtres par espace */}
+          {(hasLukeni || hasPress || hasWiki || hasArchive) && (
+            <div className="px-4 py-2.5 border-b border-white/5 flex items-center gap-2 overflow-x-auto sticky top-0 z-20 bg-[#0d0d1a]/98 backdrop-blur-xl">
+              {[
+                { key: 'all', label: lang === 'fr' ? 'Tous' : 'All', count: lukeniResults.length + wikiResults.length },
+                { key: 'encyclopedie', label: lang === 'fr' ? 'Encyclopédie' : 'Encyclopedia', count: lukeniResults.filter(r => r.type === 'article' || r.type === 'personality').length },
+                { key: 'presse', label: lang === 'fr' ? 'Presse' : 'Press', count: lukeniResults.filter(r => r.type === 'press_article' || r.type === 'press_archive').length },
+                { key: 'wiki', label: 'Wikipedia', count: wikiResults.length },
+              ].map(filter => (
+                <button
+                  key={filter.key}
+                  onClick={() => setActiveFilter(filter.key as any)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${activeFilter === filter.key
+                    ? 'bg-[#D4AF37] text-black'
+                    : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                    }`}
+                >
+                  {filter.label} {filter.count > 0 && `(${filter.count})`}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {filteredLukeni.length > 0 && (activeFilter === 'all' || activeFilter === 'encyclopedie') && (
             <div>
               <div className="px-4 py-2.5 bg-[#D4AF37]/5 border-b border-white/5 flex items-center gap-2 sticky top-0 z-10">
                 <CaurisIcon className="w-3 h-3 text-[#D4AF37]" />
@@ -481,7 +563,7 @@ const SearchDropdown = ({
                 </span>
                 {lukeniLoading && <Loader2 size={10} className="animate-spin text-[#D4AF37] ml-auto" />}
               </div>
-              {lukeniResults.map((result) => {
+              {filteredLukeni.filter(r => r.type === 'article' || r.type === 'personality').map((result) => {
                 const title = lang === 'fr' ? result.title_fr : result.title_en;
                 const summary = lang === 'fr' ? result.summary_fr : result.summary_en;
                 const href = result.type === 'article' ? `/encyclopedie/${result.slug}` : `/personnalites/${result.slug}`;
@@ -511,6 +593,63 @@ const SearchDropdown = ({
                     </div>
                     <ArrowRight size={14} className="text-gray-700 group-hover:text-[#D4AF37] transition-colors flex-shrink-0 mt-1" />
                   </Link>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Résultats Presse */}
+          {filteredLukeni.some(r => r.type === 'press_article' || r.type === 'press_archive') && (activeFilter === 'all' || activeFilter === 'presse') && (
+            <div>
+              <div className="px-4 py-2.5 bg-[#0466c8]/5 border-b border-white/5 flex items-center gap-2 sticky top-0 z-10">
+                <span className="text-[#0466c8] text-xs">📰</span>
+                <span className="text-[10px] font-bold text-[#0466c8] tracking-[0.2em] uppercase">
+                  {lang === 'fr' ? 'Presse — Le Continent' : 'Press — Le Continent'}
+                </span>
+              </div>
+              {filteredLukeni.filter(r => r.type === 'press_article' || r.type === 'press_archive').map((result) => {
+                const title = lang === 'fr' ? result.title_fr : result.title_en;
+                const summary = lang === 'fr' ? result.summary_fr : result.summary_en;
+                return (
+                  <button
+                    key={`${result.type}-${result.id}`}
+                    onClick={() => {
+                      onOpenPressArticle(result);
+                      onClose();
+                    }}
+                    className="w-full flex items-start gap-3 px-4 py-3.5 hover:bg-[#0466c8]/10 transition-colors group border-b border-white/[0.03] text-left"
+                  >
+                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-white/5 flex-shrink-0 border border-white/10">
+                      {result.image_url
+                        ? <img src={result.image_url} alt="" className="w-full h-full object-cover" />
+                        : <div className="w-full h-full flex items-center justify-center">
+                          <span className="text-[#0466c8] text-xs">📰</span>
+                        </div>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        {result.is_live && (
+                          <span className="text-[8px] text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded font-mono uppercase animate-pulse">LIVE</span>
+                        )}
+                        {result.is_breaking && (
+                          <span className="text-[8px] text-orange-400 bg-orange-400/10 px-1.5 py-0.5 rounded font-mono uppercase">BREAKING</span>
+                        )}
+                        <span className="text-[8px] text-[#0466c8] bg-[#0466c8]/10 px-1.5 py-0.5 rounded font-mono uppercase">
+                          {result.type === 'press_article' ? 'Article' : 'Archive'}
+                        </span>
+                      </div>
+                      <p className="text-white text-sm font-bold leading-tight mb-1 group-hover:text-[#0466c8] transition-colors line-clamp-2">{stripFormatting(title)}</p>
+                      {summary && (
+                        <p className="text-gray-500 text-xs leading-relaxed line-clamp-2">{stripFormatting(summary)}</p>
+                      )}
+                      {result.published_at && (
+                        <p className="text-gray-600 text-[9px] mt-1">
+                          {new Date(result.published_at).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        </p>
+                      )}
+                    </div>
+                    <ArrowRight size={14} className="text-gray-700 group-hover:text-[#0466c8] transition-colors flex-shrink-0 mt-1" />
+                  </button>
                 );
               })}
             </div>
@@ -610,6 +749,238 @@ const FeaturedEventsBar = ({
   );
 };
 
+
+
+// ─── PRESS DRAWER ─────────────────────────────────────────────────────────────
+
+
+
+const PressArticleDrawer = ({
+  articleId,
+  onClose,
+  lang,
+  mousePos,
+  user,
+}: {
+  articleId: string | null;
+  onClose: () => void;
+  lang: 'fr' | 'en';
+  mousePos: { x: number; y: number };
+  user: any;
+}) => {
+  const [article, setArticle] = useState<UnifiedItem | null>(null);
+  const [feedItems, setFeedItems] = useState<UnifiedItem[]>([]);
+  const [announcements, setAnnouncements] = useState<PressAnnouncement[]>([]);
+  const [allCharts, setAllCharts] = useState<MacroChart[]>([]);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!articleId) {
+      setArticle(null);
+      return;
+    }
+
+    async function fetchArticle() {
+      setIsLoading(true);
+
+      // Fetch l'article
+      const { data: artData } = await supabase
+        .from('press_articles')
+        .select('*, categories(color, name_fr, name_en), press_authors(*)')
+        .eq('id', articleId)
+        .eq('status', 'published')
+        .single();
+
+      if (artData) {
+        const unifiedArticle: UnifiedItem = {
+          itemType: 'article',
+          id: artData.id,
+          article_type: artData.article_type || 'written',
+          title_fr: artData.title_fr,
+          title_en: artData.title_en || '',
+          summary_fr: artData.summary_fr || '',
+          summary_en: artData.summary_en || '',
+          content_fr: artData.content_fr || '',
+          content_en: artData.content_en || '',
+          cover_url: artData.cover_url || '',
+          cover_type: artData.cover_type || 'image',
+          cover_video_url: artData.cover_video_url || null,
+          reading_audio_url: artData.reading_audio_url,
+          audio_content_url: artData.audio_content_url,
+          audio_duration: artData.audio_duration,
+          audio_host: artData.audio_host,
+          author_or_source: artData.author_name || 'Rédaction',
+          date: artData.published_at || artData.created_at,
+          published_at: artData.published_at,
+          category_id: artData.category_id || '',
+          category_color: artData.categories?.color || '#0466c8',
+          category_name_fr: artData.categories?.name_fr || 'Presse',
+          category_name_en: artData.categories?.name_en || 'Press',
+          location_city: artData.location_city,
+          location_country: artData.location_country,
+          media_items: artData.media_items,
+          sources: artData.sources,
+          reading_time_minutes: artData.reading_time_minutes,
+          related_articles_ids: artData.related_articles_ids,
+          related_charts_ids: artData.related_charts_ids,
+          related_teasers: artData.related_teasers,
+          is_live: artData.is_live || false,
+          is_breaking: artData.is_breaking || false,
+          status: artData.status,
+          author: artData.press_authors ? {
+            id: artData.author_id,
+            name: artData.press_authors.name,
+            role_fr: artData.press_authors.role_fr,
+            role_en: artData.press_authors.role_en,
+            bio_fr: artData.press_authors.bio_fr,
+            bio_en: artData.press_authors.bio_en,
+            avatar_url: artData.press_authors.avatar_url,
+            twitter_url: artData.press_authors.twitter_url,
+          } : null,
+        };
+        setArticle(unifiedArticle);
+      }
+
+      // Fetch feedItems pour articles connexes
+      const { data: feedData } = await supabase
+        .from('press_articles')
+        .select('*, categories(color, name_fr, name_en)')
+        .eq('status', 'published')
+        .order('published_at', { ascending: false })
+        .limit(20);
+
+      if (feedData) {
+        const feed: UnifiedItem[] = feedData.map((a: any) => ({
+          itemType: 'article',
+          id: a.id,
+          article_type: a.article_type || 'written',
+          title_fr: a.title_fr,
+          title_en: a.title_en || '',
+          summary_fr: a.summary_fr || '',
+          summary_en: a.summary_en || '',
+          content_fr: a.content_fr || '',
+          content_en: a.content_en || '',
+          cover_url: a.cover_url || '',
+          author_or_source: a.author_name || 'Rédaction',
+          date: a.published_at || a.created_at,
+          published_at: a.published_at,
+          category_id: a.category_id || '',
+          category_color: a.categories?.color || '#0466c8',
+          category_name_fr: a.categories?.name_fr || 'Presse',
+          category_name_en: a.categories?.name_en || 'Press',
+          reading_time_minutes: a.reading_time_minutes,
+          status: a.status,
+        }));
+        setFeedItems(feed);
+      }
+
+      // Fetch announcements
+      const { data: annData } = await supabase
+        .from('press_announcements')
+        .select('*')
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+
+      if (annData) {
+        setAnnouncements(annData as PressAnnouncement[]);
+      }
+
+      // Fetch charts
+      const [chartRes, chartDataRes, chartSeriesRes, chartAnnotRes] = await Promise.all([
+        supabase.from('macro_charts').select('*').eq('workflow_status', 'published'),
+        supabase.from('macro_chart_data').select('*').order('sort_order', { ascending: true }),
+        supabase.from('macro_chart_series').select('*'),
+        supabase.from('macro_chart_annotations').select('*'),
+      ]);
+
+      if (chartRes.data && chartDataRes.data && chartSeriesRes.data && chartAnnotRes.data) {
+        const chartsWithData = chartRes.data.map((c: any) => ({
+          ...c,
+          dataPoints: chartDataRes.data.filter((d: any) => d.chart_id === c.id),
+          macro_chart_series: chartSeriesRes.data.filter((s: any) => s.chart_id === c.id),
+          macro_chart_annotations: chartAnnotRes.data.filter((a: any) => a.chart_id === c.id),
+        }));
+        setAllCharts(chartsWithData);
+      }
+
+      // Fetch user profile
+      if (user?.id) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('avatar_url, full_name')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (profileData) setUserProfile(profileData);
+      }
+
+      setIsLoading(false);
+    }
+
+    fetchArticle();
+  }, [articleId, user]);
+
+  if (!articleId || !article) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[9999] flex"
+      >
+        {/* Overlay */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+          onClick={onClose}
+        />
+
+        {/* Panneau */}
+        <motion.div
+          initial={{ x: '100%' }}
+          animate={{ x: 0 }}
+          exit={{ x: '100%' }}
+          transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+          className="relative ml-auto w-full md:w-3/4 lg:w-2/3 bg-[#000814] overflow-y-auto shadow-2xl"
+        >
+          {/* Bouton fermer */}
+          <button
+            onClick={onClose}
+            className="fixed top-6 right-6 z-[10000] p-3 bg-black/80 backdrop-blur-md border border-white/20 rounded-full text-white hover:bg-[#0466c8] hover:border-[#0466c8] transition-all"
+          >
+            <X size={20} />
+          </button>
+
+          {/* Loading */}
+          {isLoading ? (
+            <div className="flex items-center justify-center min-h-screen">
+              <Loader2 className="animate-spin text-[#0466c8]" size={48} />
+            </div>
+          ) : (
+            <div className="relative z-10">
+              <ArticleView
+                article={article}
+                lang={lang}
+                onClose={onClose}
+                mousePos={mousePos}
+                feedItems={feedItems}
+                user={user}
+                userProfile={userProfile}
+                announcements={announcements}
+                allCharts={allCharts}
+              />
+            </div>
+          )}
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
 // ─── PAGE PRINCIPALE ──────────────────────────────────────────────────────────
 
 export default function LandingPage() {
@@ -653,6 +1024,7 @@ export default function LandingPage() {
   const [geoCountry, setGeoCountry] = useState<string | null>(null);
   const [geoLoading, setGeoLoading] = useState(false);
   const [userSession, setUserSession] = useState<any>(null);
+  const [selectedPressArticleId, setSelectedPressArticleId] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => setUserSession(session));
@@ -703,6 +1075,34 @@ export default function LandingPage() {
     }
     loadData();
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const articleId = params.get('article');
+    if (articleId) {
+      setSelectedPressArticleId(articleId);
+    }
+  }, []);
+
+  // Synchroniser l'URL
+  useEffect(() => {
+    if (selectedPressArticleId) {
+      const newUrl = `${window.location.pathname}?article=${selectedPressArticleId}`;
+      window.history.pushState({}, '', newUrl);
+    } else {
+      window.history.pushState({}, '', window.location.pathname);
+    }
+  }, [selectedPressArticleId]);
+
+
+
+  const handleOpenPressArticle = useCallback((result: LukeniSearchResult) => {
+    setSelectedPressArticleId(result.id);
+  }, []);
+
+
+
+
 
   useEffect(() => {
     if (!isMounted) return;
@@ -1101,10 +1501,11 @@ export default function LandingPage() {
             lukeniResults={lukeniResults} lukeniLoading={lukeniLoading} geoCountry={geoCountry}
             wikiResults={wikiResults} wikiLoading={wikiLoading}
             onClose={() => { setIsFocused(false); setSearchValue(''); }}
+            onOpenPressArticle={handleOpenPressArticle}
           />
         </motion.form>
 
-        <FeaturedEventsBar events={featuredEvents} lang={lang} onEventClick={setActiveFeaturedEvent} />
+        {!isFocused && <FeaturedEventsBar events={featuredEvents} lang={lang} onEventClick={setActiveFeaturedEvent} />}
       </div>
 
       {/* ── POP-UP ÉTOILE (CORRIGÉE DÉFINITIVEMENT) ── */}
@@ -1245,6 +1646,15 @@ export default function LandingPage() {
       </div>
 
       <audio ref={audioRef} />
+
+      {/* Press Drawer */}
+      <PressArticleDrawer
+        articleId={selectedPressArticleId}
+        onClose={() => setSelectedPressArticleId(null)}
+        lang={lang}
+        mousePos={mousePos}
+        user={userSession}
+      />
 
       {/* ── PWA INSTALL ── */}
       <PWAInstallButton lang={lang} delayMs={5000} />
