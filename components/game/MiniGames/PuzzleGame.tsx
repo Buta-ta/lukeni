@@ -237,7 +237,7 @@ export default function PuzzleGame({
     if (localBudget >= cost) {
       const newBudget = localBudget - cost;
       const newLost = totalCaurisLost + cost;
-      
+
       setLocalBudget(newBudget);
       setTotalCaurisLost(newLost);
       setUnlockedClues((prev) => [...prev, clue.id]);
@@ -253,7 +253,8 @@ export default function PuzzleGame({
   };
 
   // ✅ LOGIQUE DE SWAP
-  const handlePieceClick = (index: number) => {
+  const handlePieceClick = (e: React.MouseEvent, index: number) => {
+    e.stopPropagation(); // ✅ Empêche la propagation vers le panorama
     if (isVictory || isSubmitting) return;
 
     if (selectedIdx === null) {
@@ -269,17 +270,20 @@ export default function PuzzleGame({
 
   // ✅ DRAG AND DROP
   const handleDragStart = (e: React.DragEvent<HTMLButtonElement>, index: number) => {
+    e.stopPropagation(); // ✅ Empêche la propagation
     setDraggedPiece(index);
     e.dataTransfer.effectAllowed = "move";
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    e.stopPropagation(); // ✅ Empêche la propagation
     e.dataTransfer.dropEffect = "move";
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>, index: number) => {
     e.preventDefault();
+    e.stopPropagation(); // ✅ Empêche la propagation
     if (draggedPiece !== null && draggedPiece !== index) {
       const newPieces = [...pieces];
       [newPieces[draggedPiece], newPieces[index]] = [newPieces[index], newPieces[draggedPiece]];
@@ -405,13 +409,12 @@ export default function PuzzleGame({
                 repeat: timeLeft <= 10 ? Infinity : 0,
                 duration: 0.5,
               }}
-              className={`flex items-center gap-1 font-mono text-xs md:text-sm px-2 md:px-3 py-1.5 rounded-lg transition-all font-bold border ${
-                timeLeft <= 10
-                  ? "bg-red-500/20 border-red-500/50 text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.3)]"
-                  : timeLeft <= 30
+              className={`flex items-center gap-1 font-mono text-xs md:text-sm px-2 md:px-3 py-1.5 rounded-lg transition-all font-bold border ${timeLeft <= 10
+                ? "bg-red-500/20 border-red-500/50 text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.3)]"
+                : timeLeft <= 30
                   ? "bg-amber-500/20 border-amber-500/30 text-amber-400"
                   : "bg-green-500/20 border-green-500/30 text-green-400"
-              }`}
+                }`}
             >
               <Clock size={14} />
               {formatTime(timeLeft)}
@@ -421,11 +424,10 @@ export default function PuzzleGame({
           {clues.length > 0 && (
             <button
               onClick={() => setShowClues(!showClues)}
-              className={`flex items-center gap-1 text-xs font-bold px-2 md:px-3 py-1.5 rounded-lg transition-all ${
-                showClues
-                  ? "bg-blue-600 text-white"
-                  : "bg-blue-900/30 text-blue-400 border border-blue-500/30 hover:bg-blue-900/50"
-              }`}
+              className={`flex items-center gap-1 text-xs font-bold px-2 md:px-3 py-1.5 rounded-lg transition-all ${showClues
+                ? "bg-blue-600 text-white"
+                : "bg-blue-900/30 text-blue-400 border border-blue-500/30 hover:bg-blue-900/50"
+                }`}
             >
               <Lightbulb size={14} />
               <span className="hidden sm:inline">{lang === "fr" ? "Indices" : "Clues"}</span>
@@ -487,11 +489,10 @@ export default function PuzzleGame({
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: idx * 0.1 }}
-                      className={`p-3 rounded-lg border transition-all ${
-                        isUnlocked
-                          ? "bg-blue-900/30 border-blue-500/50 shadow-[0_0_8px_rgba(59,130,246,0.2)]"
-                          : "bg-black/40 border-gray-700 hover:border-blue-500/30"
-                      }`}
+                      className={`p-3 rounded-lg border transition-all ${isUnlocked
+                        ? "bg-blue-900/30 border-blue-500/50 shadow-[0_0_8px_rgba(59,130,246,0.2)]"
+                        : "bg-black/40 border-gray-700 hover:border-blue-500/30"
+                        }`}
                     >
                       <div className="flex justify-between items-start mb-2">
                         <span className="text-[10px] font-bold text-gray-500 uppercase">
@@ -508,12 +509,12 @@ export default function PuzzleGame({
                           {(lang === "fr"
                             ? clue.text_fr
                             : clue.text_en || clue.text_fr) && (
-                            <p className="text-xs text-blue-100 leading-relaxed">
-                              {lang === "fr"
-                                ? clue.text_fr
-                                : clue.text_en || clue.text_fr}
-                            </p>
-                          )}
+                              <p className="text-xs text-blue-100 leading-relaxed">
+                                {lang === "fr"
+                                  ? clue.text_fr
+                                  : clue.text_en || clue.text_fr}
+                              </p>
+                            )}
 
                           {clue.media_url && (
                             <div className="mt-2 rounded-lg overflow-hidden border border-white/10 bg-black/50">
@@ -573,9 +574,8 @@ export default function PuzzleGame({
         <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_transparent_0%,_#000_100%)] pointer-events-none" />
 
         <div
-          className={`relative w-full mx-auto grid transition-all duration-1000 ${
-            isVictory ? "gap-0" : "gap-2 md:gap-3"
-          }`}
+          className={`relative w-full mx-auto grid transition-all duration-1000 ${isVictory ? "gap-0" : "gap-2 md:gap-3"
+            }`}
           style={{
             gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
             gridTemplateRows: `repeat(${gridSize}, 1fr)`,
@@ -609,23 +609,20 @@ export default function PuzzleGame({
                     stiffness: 300,
                     damping: 20,
                   }}
-                  onClick={() => handlePieceClick(idx)}
-                  className={`relative w-full h-full overflow-hidden cursor-grab active:cursor-grabbing transition-all duration-300 ${
-                    isVictory
-                      ? "border-none rounded-none shadow-none"
-                      : `p-[2px] md:p-[3px] bg-gradient-to-br from-[#f4ecd8] to-[#e8dcc8] border-2 rounded-lg shadow-[2px_4px_10px_rgba(0,0,0,0.5)] ${
-                          isSelected
-                            ? "shadow-[0_0_20px_rgba(212,175,55,0.6)] ring-2 ring-[#D4AF37] ring-offset-2 ring-offset-black border-[#D4AF37]"
-                            : isCorrect
-                            ? "border-green-500/60 shadow-[0_0_15px_rgba(34,197,94,0.3)]"
-                            : "border-[#d3cbb8] hover:border-[#D4AF37]/50 hover:shadow-[2px_4px_15px_rgba(212,175,55,0.2)]"
-                        }`
-                  }`}
+                  onClick={(e) => handlePieceClick(e, idx)}
+                  className={`relative w-full h-full overflow-hidden cursor-grab active:cursor-grabbing transition-all duration-300 ${isVictory
+                    ? "border-none rounded-none shadow-none"
+                    : `p-[2px] md:p-[3px] bg-gradient-to-br from-[#f4ecd8] to-[#e8dcc8] border-2 rounded-lg shadow-[2px_4px_10px_rgba(0,0,0,0.5)] ${isSelected
+                      ? "shadow-[0_0_20px_rgba(212,175,55,0.6)] ring-2 ring-[#D4AF37] ring-offset-2 ring-offset-black border-[#D4AF37]"
+                      : isCorrect
+                        ? "border-green-500/60 shadow-[0_0_15px_rgba(34,197,94,0.3)]"
+                        : "border-[#d3cbb8] hover:border-[#D4AF37]/50 hover:shadow-[2px_4px_15px_rgba(212,175,55,0.2)]"
+                    }`
+                    }`}
                 >
                   <div
-                    className={`w-full h-full ${
-                      !isVictory && "border border-black/10"
-                    }`}
+                    className={`w-full h-full ${!isVictory && "border border-black/10"
+                      }`}
                     style={{
                       backgroundImage: `url(${imageUrl})`,
                       backgroundSize: `${gridSize * 100}% ${gridSize * 100}%`,
@@ -680,11 +677,10 @@ export default function PuzzleGame({
           initial={{ opacity: 0, y: 10, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          className={`text-center font-mono text-sm md:text-base p-4 rounded-xl border font-bold transition-all ${
-            feedback.includes("✅")
-              ? "bg-green-900/30 border-green-500/50 text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.2)]"
-              : "bg-red-900/30 border-red-500/50 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.2)]"
-          }`}
+          className={`text-center font-mono text-sm md:text-base p-4 rounded-xl border font-bold transition-all ${feedback.includes("✅")
+            ? "bg-green-900/30 border-green-500/50 text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.2)]"
+            : "bg-red-900/30 border-red-500/50 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.2)]"
+            }`}
         >
           {feedback}
         </motion.div>

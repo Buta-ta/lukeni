@@ -26,6 +26,10 @@ const TOOLTIP_STYLE = { backgroundColor: '#020111', borderColor: 'rgba(255,255,2
 // ⬇️ FIX Bug 2 : clé de série toujours cohérente avec pivotSeriesData
 const seriesKey = (s: MacroSeries) => s.name_fr || 'Valeur';
 
+// ✅ NOUVEAU : nom affiché selon la langue (pour légende et tooltip)
+const seriesName = (s: MacroSeries, lang: 'fr' | 'en') => 
+  lang === 'fr' ? (s.name_fr || 'Valeur') : (s.name_en || s.name_fr || 'Valeur');
+
 export default function RenderChartPublic({
   chartType, dataPoints, series, annotations, unit, secondaryUnit, lang, isLarge = false,
 }: RenderChartProps) {
@@ -94,7 +98,15 @@ export default function RenderChartPublic({
             <PolarAngleAxis dataKey="name" stroke="rgba(255,255,255,0.5)" fontSize={fontSize} />
             <PolarRadiusAxis stroke="rgba(255,255,255,0.2)" fontSize={fontSize - 2} />
             {series.map(s => (
-              <Radar key={s.id} name={seriesKey(s)} dataKey={seriesKey(s)} stroke={s.color} fill={s.color} fillOpacity={0.3} isAnimationActive={false} />
+              <Radar 
+                key={s.id} 
+                name={seriesName(s, lang)} 
+                dataKey={seriesKey(s)} 
+                stroke={s.color} 
+                fill={s.color} 
+                fillOpacity={0.3} 
+                isAnimationActive={false} 
+              />
             ))}
             <Legend wrapperStyle={{ fontSize: fontSize + 1 }} />
             <Tooltip contentStyle={TOOLTIP_STYLE} />
@@ -120,7 +132,16 @@ export default function RenderChartPublic({
             <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => Math.abs(v)} />
             <Legend wrapperStyle={{ fontSize }} />
             {renderAnnotations()}
-            {series.map(s => <Bar key={s.id} dataKey={seriesKey(s)} fill={s.color} stackId="pyramid" isAnimationActive={false} />)}
+            {series.map(s => (
+              <Bar 
+                key={s.id} 
+                name={seriesName(s, lang)} 
+                dataKey={seriesKey(s)} 
+                fill={s.color} 
+                stackId="pyramid" 
+                isAnimationActive={false} 
+              />
+            ))}
           </BarChart>
         </ResponsiveContainer>
       );
@@ -135,7 +156,18 @@ export default function RenderChartPublic({
             <YAxis {...AXIS_STYLE} fontSize={fontSize} />
             <Tooltip content={<CustomTooltip />} />
             <Legend wrapperStyle={{ fontSize }} />
-            {series.map(s => <Line key={s.id} type="monotone" dataKey={seriesKey(s)} stroke={s.color} strokeWidth={isLarge ? 3 : 2.5} dot={{ r: 3 }} isAnimationActive={false} />)}
+            {series.map(s => (
+              <Line 
+                key={s.id} 
+                type="monotone" 
+                name={seriesName(s, lang)} 
+                dataKey={seriesKey(s)} 
+                stroke={s.color} 
+                strokeWidth={isLarge ? 3 : 2.5} 
+                dot={{ r: 3 }} 
+                isAnimationActive={false} 
+              />
+            ))}
             {renderAnnotations()}
           </LineChart>
         </ResponsiveContainer>
@@ -154,8 +186,26 @@ export default function RenderChartPublic({
             <Legend wrapperStyle={{ fontSize }} />
             {renderAnnotations()}
             {series.map(s => s.render_as === 'bar'
-              ? <Bar key={s.id} yAxisId={s.axis === 'secondary' ? 'right' : 'left'} dataKey={seriesKey(s)} fill={s.color} radius={[4,4,0,0]} isAnimationActive={false} />
-              : <Line key={s.id} yAxisId={s.axis === 'secondary' ? 'right' : 'left'} type="monotone" dataKey={seriesKey(s)} stroke={s.color} strokeWidth={isLarge ? 3 : 2.5} dot={{ r: 3 }} isAnimationActive={false} />
+              ? <Bar 
+                  key={s.id} 
+                  yAxisId={s.axis === 'secondary' ? 'right' : 'left'} 
+                  name={seriesName(s, lang)} 
+                  dataKey={seriesKey(s)} 
+                  fill={s.color} 
+                  radius={[4,4,0,0]} 
+                  isAnimationActive={false} 
+                />
+              : <Line 
+                  key={s.id} 
+                  yAxisId={s.axis === 'secondary' ? 'right' : 'left'} 
+                  name={seriesName(s, lang)} 
+                  type="monotone" 
+                  dataKey={seriesKey(s)} 
+                  stroke={s.color} 
+                  strokeWidth={isLarge ? 3 : 2.5} 
+                  dot={{ r: 3 }} 
+                  isAnimationActive={false} 
+                />
             )}
           </ComposedChart>
         </ResponsiveContainer>
@@ -172,7 +222,16 @@ export default function RenderChartPublic({
           <Tooltip content={<CustomTooltip />} />
           <Legend wrapperStyle={{ fontSize }} />
           {renderAnnotations()}
-          {series.map(s => <Bar key={s.id} dataKey={seriesKey(s)} stackId="a" fill={s.color} isAnimationActive={false} />)}
+          {series.map(s => (
+            <Bar 
+              key={s.id} 
+              name={seriesName(s, lang)} 
+              dataKey={seriesKey(s)} 
+              stackId="a" 
+              fill={s.color} 
+              isAnimationActive={false} 
+            />
+          ))}
         </BarChart>
       </ResponsiveContainer>
     );
