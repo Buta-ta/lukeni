@@ -5,6 +5,27 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Send, Clock, Lightbulb, Unlock, Languages, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
+const markMiniGameComplete = async (miniGameId: string, sessionId: string) => {
+  if (!sessionId) return;
+  const conditionKey = `minigame_${miniGameId}_completed`;
+  try {
+    const { data: session } = await supabase
+      .from('investigation_sessions')
+      .select('completed_mini_games')
+      .eq('id', sessionId)
+      .single();
+    const completed = session?.completed_mini_games || [];
+    if (!completed.includes(conditionKey)) {
+      await supabase
+        .from('investigation_sessions')
+        .update({ completed_mini_games: [...completed, conditionKey] })
+        .eq('id', sessionId);
+    }
+  } catch (err) {
+    console.error('❌ Erreur sauvegarde mini-game complété:', err);
+  }
+};
+
 interface Props {
   miniGame: any;
   onComplete: (score: number, caurisEarned: number) => void;
@@ -185,6 +206,7 @@ export default function TranslationGame({
     setTimeout(async () => {
       setFeedback("✅ Message traduit!");
       await saveMiniGameSession("completed", 100, miniGame.reward_cauris || 20);
+      await markMiniGameComplete(miniGame.id, sessionId);
       setTimeout(() => onComplete(100, miniGame.reward_cauris || 20), 2000);
       setIsSubmitting(false);
     }, 1000);

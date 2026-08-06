@@ -6,6 +6,30 @@ import { motion } from "framer-motion";
 import { Loader2, X, Send, RotateCcw, MapPin, Clock, Lightbulb, DollarSign } from "lucide-react";
 import dynamic from "next/dynamic";
 
+
+import { supabase } from "@/lib/supabase-browser";
+
+const markMiniGameComplete = async (miniGameId: string, sessionId: string) => {
+  if (!sessionId) return;
+  const conditionKey = `minigame_${miniGameId}_completed`;
+  try {
+    const { data: session } = await supabase
+      .from('investigation_sessions')
+      .select('completed_mini_games')
+      .eq('id', sessionId)
+      .single();
+    const completed = session?.completed_mini_games || [];
+    if (!completed.includes(conditionKey)) {
+      await supabase
+        .from('investigation_sessions')
+        .update({ completed_mini_games: [...completed, conditionKey] })
+        .eq('id', sessionId);
+    }
+  } catch (err) {
+    console.error('❌ Erreur sauvegarde mini-game complété:', err);
+  }
+};
+
 interface Props {
   miniGame: any;
   onComplete: (score: number, caurisEarned: number) => void;
@@ -13,6 +37,7 @@ interface Props {
   onClose: () => void;
   budgetCauris: number;
   lang: "fr" | "en";
+  sessionId: string;
 }
 
 // Charger Leaflet dynamiquement pour éviter les problèmes SSR
@@ -28,6 +53,7 @@ export default function MapGame({
   onClose,
   budgetCauris,
   lang,
+  sessionId,
 }: Props) {
   const config = miniGame.config || {};
   const mapMode = config.map_mode || "image";
@@ -90,6 +116,8 @@ export default function MapGame({
     setTimeout(() => {
       if (isCorrect) {
         setFeedback(lang === "fr" ? "✅ Itinéraire confirmé" : "✅ Route confirmed");
+        markMiniGameComplete(miniGame.id, sessionId);
+
         setTimeout(() => onComplete(100, miniGame.reward_cauris || 20), 1500);
       } else {
         setFeedback(lang === "fr" ? "❌ Tracé incorrect" : "❌ Incorrect route");

@@ -17,6 +17,29 @@ import {
   Search,
 } from "lucide-react";
 
+import { supabase } from "@/lib/supabase-browser";
+
+const markMiniGameComplete = async (miniGameId: string, sessionId: string) => {
+  if (!sessionId) return;
+  const conditionKey = `minigame_${miniGameId}_completed`;
+  try {
+    const { data: session } = await supabase
+      .from('investigation_sessions')
+      .select('completed_mini_games')
+      .eq('id', sessionId)
+      .single();
+    const completed = session?.completed_mini_games || [];
+    if (!completed.includes(conditionKey)) {
+      await supabase
+        .from('investigation_sessions')
+        .update({ completed_mini_games: [...completed, conditionKey] })
+        .eq('id', sessionId);
+    }
+  } catch (err) {
+    console.error('❌ Erreur sauvegarde mini-game complété:', err);
+  }
+};
+
 interface Props {
   miniGame: any;
   miniGameSessionId?: string;
@@ -191,7 +214,8 @@ export default function ExchangeRateGame({
       // Vérifier si tous les taux ont été analysés
       const totalAnalyzed = Object.keys(analyzedRates).length + 1;
       if (totalAnalyzed >= exchangeRates.length) {
-        setTimeout(() => {
+        setTimeout(async () => {
+          await markMiniGameComplete(miniGame.id, sessionId);
           onComplete(100, miniGame.reward_cauris || 20);
         }, 3000);
       }
@@ -376,13 +400,12 @@ export default function ExchangeRateGame({
                 repeat: timeLeft <= 10 ? Infinity : 0,
                 duration: 0.5,
               }}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-mono text-xs font-bold border ${
-                timeLeft <= 10
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-mono text-xs font-bold border ${timeLeft <= 10
                   ? "bg-red-500/20 border-red-500/50 text-red-400"
                   : timeLeft <= 30
-                  ? "bg-amber-500/20 border-amber-500/30 text-amber-400"
-                  : "bg-green-500/20 border-green-500/30 text-green-400"
-              }`}
+                    ? "bg-amber-500/20 border-amber-500/30 text-amber-400"
+                    : "bg-green-500/20 border-green-500/30 text-green-400"
+                }`}
             >
               <Clock size={14} />
               {formatTime(timeLeft)}
@@ -480,11 +503,10 @@ export default function ExchangeRateGame({
               return (
                 <div
                   key={clue.id}
-                  className={`p-3 rounded-lg border transition-all ${
-                    isRevealed
+                  className={`p-3 rounded-lg border transition-all ${isRevealed
                       ? "bg-blue-900/30 border-blue-500/50"
                       : "bg-black/40 border-gray-700"
-                  }`}
+                    }`}
                 >
                   {isRevealed ? (
                     <p className="text-xs text-blue-100 italic">
@@ -549,11 +571,11 @@ export default function ExchangeRateGame({
               whileHover={
                 !analyzed
                   ? {
-                      rotateY: 5,
-                      rotateX: -5,
-                      z: 50,
-                      scale: 1.05,
-                    }
+                    rotateY: 5,
+                    rotateX: -5,
+                    z: 50,
+                    scale: 1.05,
+                  }
                   : {}
               }
               whileTap={!analyzed ? { scale: 0.98 } : {}}
@@ -563,19 +585,18 @@ export default function ExchangeRateGame({
               style={{ transformStyle: "preserve-3d" }}
             >
               <div
-                className={`relative bg-gradient-to-br from-[#1a1a2e] to-[#0f0f1a] border-2 rounded-xl p-4 backdrop-blur-sm transition-all ${
-                  analyzed === "fraud"
+                className={`relative bg-gradient-to-br from-[#1a1a2e] to-[#0f0f1a] border-2 rounded-xl p-4 backdrop-blur-sm transition-all ${analyzed === "fraud"
                     ? isFraud
                       ? "border-green-500/50 shadow-[0_0_20px_rgba(34,197,94,0.3)]"
                       : "border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.3)]"
                     : analyzed === "authentic"
-                    ? !isFraud
-                      ? "border-green-500/50 shadow-[0_0_20px_rgba(34,197,94,0.3)]"
-                      : "border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.3)]"
-                    : isSelected
-                    ? "border-[#D4AF37] shadow-[0_0_20px_rgba(212,175,55,0.4)]"
-                    : "border-white/10 hover:border-[#D4AF37]/50"
-                }`}
+                      ? !isFraud
+                        ? "border-green-500/50 shadow-[0_0_20px_rgba(34,197,94,0.3)]"
+                        : "border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.3)]"
+                      : isSelected
+                        ? "border-[#D4AF37] shadow-[0_0_20px_rgba(212,175,55,0.4)]"
+                        : "border-white/10 hover:border-[#D4AF37]/50"
+                  }`}
               >
                 {/* Effet holographique au hover */}
                 {!analyzed && (
@@ -587,15 +608,14 @@ export default function ExchangeRateGame({
                   <motion.div
                     initial={{ scale: 0, rotate: -180 }}
                     animate={{ scale: 1, rotate: 0 }}
-                    className={`absolute -top-2 -right-2 rounded-full w-8 h-8 flex items-center justify-center shadow-lg z-20 ${
-                      (analyzed === "fraud" && isFraud) ||
-                      (analyzed === "authentic" && !isFraud)
+                    className={`absolute -top-2 -right-2 rounded-full w-8 h-8 flex items-center justify-center shadow-lg z-20 ${(analyzed === "fraud" && isFraud) ||
+                        (analyzed === "authentic" && !isFraud)
                         ? "bg-green-500 text-white"
                         : "bg-red-500 text-white"
-                    }`}
+                      }`}
                   >
                     {(analyzed === "fraud" && isFraud) ||
-                    (analyzed === "authentic" && !isFraud) ? (
+                      (analyzed === "authentic" && !isFraud) ? (
                       <CheckCircle size={18} />
                     ) : (
                       <X size={18} />
@@ -665,7 +685,7 @@ export default function ExchangeRateGame({
                 "{lang === "fr"
                   ? exchangeRates[selectedRate].deviation_fr
                   : exchangeRates[selectedRate].deviation_en ||
-                    exchangeRates[selectedRate].deviation_fr}"
+                  exchangeRates[selectedRate].deviation_fr}"
               </p>
             )}
 
@@ -731,11 +751,10 @@ export default function ExchangeRateGame({
             initial={{ opacity: 0, y: 20, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.9 }}
-            className={`relative z-10 text-center font-mono text-sm p-4 rounded-xl border font-bold ${
-              feedback.includes("✅")
+            className={`relative z-10 text-center font-mono text-sm p-4 rounded-xl border font-bold ${feedback.includes("✅")
                 ? "bg-green-900/30 border-green-500/50 text-green-400 shadow-[0_0_20px_rgba(34,197,94,0.3)]"
                 : "bg-red-900/30 border-red-500/50 text-red-400 shadow-[0_0_20px_rgba(239,68,68,0.3)]"
-            }`}
+              }`}
           >
             {feedback}
           </motion.div>

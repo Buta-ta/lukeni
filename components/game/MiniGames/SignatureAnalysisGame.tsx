@@ -19,6 +19,30 @@ import {
   Contrast,
 } from "lucide-react";
 
+
+
+import { supabase } from "@/lib/supabase-browser";
+
+const markMiniGameComplete = async (miniGameId: string, sessionId: string) => {
+  if (!sessionId) return;
+  const conditionKey = `minigame_${miniGameId}_completed`;
+  try {
+    const { data: session } = await supabase
+      .from('investigation_sessions')
+      .select('completed_mini_games')
+      .eq('id', sessionId)
+      .single();
+    const completed = session?.completed_mini_games || [];
+    if (!completed.includes(conditionKey)) {
+      await supabase
+        .from('investigation_sessions')
+        .update({ completed_mini_games: [...completed, conditionKey] })
+        .eq('id', sessionId);
+    }
+  } catch (err) {
+    console.error('❌ Erreur sauvegarde mini-game complété:', err);
+  }
+};
 interface Props {
   miniGame: any;
   miniGameSessionId?: string;
@@ -30,8 +54,8 @@ interface Props {
   lang: "fr" | "en";
   onStateChange?: (state: any) => void;
   onProgressUpdate?: (budgetCauris: number, caurisLost: number) => void;
-  sessionId?: string;
-  userId?: string;
+  sessionId: string;
+  userId: string;
 }
 
 interface Signature {
@@ -144,6 +168,7 @@ export default function SignatureAnalysisGame({
   lang,
   onStateChange,
   onProgressUpdate,
+  sessionId,
 }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [mode, setMode] = useState<"simple" | "matching">("simple");
@@ -371,6 +396,7 @@ export default function SignatureAnalysisGame({
               : "✅ All matches correct!"
         );
 
+        markMiniGameComplete(miniGame.id, sessionId);
         setTimeout(() => onComplete(100, rewardCauris), 2000);
       } else {
         setFeedback(

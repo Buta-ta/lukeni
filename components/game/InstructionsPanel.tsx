@@ -24,6 +24,7 @@ interface InstructionsPanelProps {
   hasMiniGames: boolean;
   hasWordSearch: boolean;
   hasDialogues: boolean;
+  onShowTutorial?: () => void;
 }
 
 export default function InstructionsPanel({
@@ -37,6 +38,7 @@ export default function InstructionsPanel({
   hasMiniGames,
   hasWordSearch,
   hasDialogues,
+  onShowTutorial,
 }: InstructionsPanelProps) {
   const [expandedThemes, setExpandedThemes] = React.useState<
     Record<string, boolean>
@@ -487,17 +489,29 @@ export default function InstructionsPanel({
             className="fixed top-20 inset-x-0 z-[40] max-h-[70vh] overflow-y-auto bg-gradient-to-b from-black/95 to-black/90 border-b border-[#D4AF37]/20 shadow-2xl"
           >
             {/* Header du panneau */}
-            <div className="sticky top-0 bg-black/95 px-4 py-3 flex items-center justify-between border-b border-[#D4AF37]/20 backdrop-blur-sm z-10">
+                        <div className="sticky top-0 bg-black/95 px-4 py-3 flex items-center justify-between border-b border-[#D4AF37]/20 backdrop-blur-sm z-10">
               <span className="font-mono text-xs text-[#D4AF37] tracking-widest font-bold flex items-center gap-2">
                 <Lightbulb size={14} />
                 {content.title}
               </span>
-              <button
-                onClick={onClose}
-                className="text-[#D4AF37] hover:text-white transition-colors"
-              >
-                <X size={18} />
-              </button>
+              <div className="flex items-center gap-2">
+                {/* ✅ Bouton pour revoir le Tutoriel rapide */}
+                {onShowTutorial && (
+                  <button
+                    onClick={onShowTutorial}
+                    className="flex items-center gap-1.5 px-3 py0.5 py-1 bg-[#D4AF37]/10 hover:bg-[#D4AF37]/20 border border-[#D4AF37]/30 rounded-lg text-[10px] text-[#D4AF37] font-bold font-mono transition-all"
+                  >
+                    <span>🎓</span>
+                    {lang === "fr" ? "Tutoriel" : "Tutorial"}
+                  </button>
+                )}
+                <button
+                  onClick={onClose}
+                  className="text-[#D4AF37] hover:text-white transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
 
             {/* Thèmes et Sections */}

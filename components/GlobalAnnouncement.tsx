@@ -18,18 +18,37 @@ interface Announcement {
   is_scrolling: boolean;
 }
 
+// ✅ Email de l'admin qui ne doit jamais être bloqué
+const ADMIN_EMAIL = 'butacode08@gmail.com';
+
 export default function GlobalAnnouncement({ children }: { children: React.ReactNode }) {
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
   const [dismissedId, setDismissedId] = useState<string | null>(null);
   const [lang, setLang] = useState<'fr' | 'en'>('fr');
-  
+  const [isAdminUser, setIsAdminUser] = useState(false);
+
   const supabase = createClient();
-  const pathname = usePathname(); // 👈 Récupère l'URL actuelle
-  const isAdminRoute = pathname?.startsWith('/admin'); // 👈 Vérifie si on est côté Admin
+  const pathname = usePathname();
+  const isAdminRoute = pathname?.startsWith('/admin');
 
   useEffect(() => {
     const storedLang = localStorage.getItem('lukeni_lang') as 'fr' | 'en' | null;
     if (storedLang) setLang(storedLang);
+
+    // ✅ Vérifier si l'utilisateur connecté est l'admin
+    const checkAdminUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.email === ADMIN_EMAIL) {
+        setIsAdminUser(true);
+      }
+
+      // ✅ Écouter les changements d'auth (login/logout)
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+        setIsAdminUser(session?.user?.email === ADMIN_EMAIL);
+      });
+
+      return subscription;
+    };
 
     const fetchAnnouncement = async () => {
       const { data } = await supabase
@@ -40,18 +59,20 @@ export default function GlobalAnnouncement({ children }: { children: React.React
       setAnnouncement(data || null);
     };
 
+    checkAdminUser();
     fetchAnnouncement();
 
     const channel = supabase.channel('public:global_announcements')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'global_announcements' }, () => {
-          fetchAnnouncement();
+        fetchAnnouncement();
       }).subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, []);
 
   // SCÉNARIO 1 : L'annonce est BLOQUANTE et ce N'EST PAS l'admin
-  if (announcement?.is_blocking && !isAdminRoute) {
+  if (announcement?.is_blocking && !isAdminRoute && !isAdminUser) {
+
     const message = lang === 'en' && announcement.message_en ? announcement.message_en : announcement.message_fr;
     return <AwaleGame message={message} />;
   }
@@ -68,9 +89,9 @@ export default function GlobalAnnouncement({ children }: { children: React.React
   // SCÉNARIO 2 : Visibilité de la bannière
   // On l'affiche si c'est pas bloquant OU si c'est l'admin (pour lui rappeler que le site est bloqué)
   const isVisible = announcement && (!announcement.is_blocking || isAdminRoute) && dismissedId !== announcement.id;
-  
+
   const messageText = announcement ? (lang === 'en' && announcement.message_en ? announcement.message_en : announcement.message_fr) : '';
-  
+
   // Si c'est bloquant et qu'on est sur l'admin, on force la couleur en rouge pour bien alerter.
   const bgColor = (announcement?.is_blocking && isAdminRoute) ? '#dc2626' : (announcement?.bg_color || '#2563eb');
 
@@ -101,11 +122,11 @@ export default function GlobalAnnouncement({ children }: { children: React.React
             style={{ backgroundColor: bgColor, boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}
           >
             <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center gap-4">
-              
+
               <div className="animate-pulse shrink-0">
                 {getIcon(announcement.type, announcement.is_blocking)}
               </div>
-              
+
               <div className="flex-1 overflow-hidden flex items-center relative">
                 {announcement.is_scrolling && !announcement.is_blocking ? (
                   <div className="w-full overflow-hidden mask-edges">
@@ -120,8 +141,8 @@ export default function GlobalAnnouncement({ children }: { children: React.React
                 )}
               </div>
 
-              <button 
-                onClick={() => setDismissedId(announcement.id)} 
+              <button
+                onClick={() => setDismissedId(announcement.id)}
                 className="p-1.5 text-white/70 hover:text-white hover:bg-black/20 rounded-lg transition-colors shrink-0 z-10"
                 title="Fermer l'alerte"
               >

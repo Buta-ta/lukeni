@@ -26,7 +26,8 @@ const FacebookIcon = ({ size = 24, className = "" }) => (
 
 interface Category { id: string; name_fr: string; name_en: string; }
 interface MediaItem {
-  type: 'image' | 'video' | 'link' | 'youtube' | 'code' | 'gallery' | 'quote_hero';
+  type: 'image' | 'video' | 'link' | 'youtube' | 'code' | 'gallery' | 'quote_hero' | "text_table";
+
   url: string;
   caption?: string;
   alt?: string;
@@ -168,6 +169,20 @@ interface SocialSettings {
 }
 
 
+interface DigestItem {
+  id: string;
+  label_fr: string;
+  label_en: string;
+  article_ids: string[];
+  design: 'classic' | 'grid' | 'carousel' | 'ranked' | 'hero_list' | 'timeline' | 'diptych';
+  accent_color: string;
+  position_after_index: number;
+  is_active: boolean;
+  priority: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 interface PressAnnouncement {
   id: string;
   title_fr: string;
@@ -205,6 +220,210 @@ const parseMarkdown = (text: string): string => {
     return p;
   }).join('\n\n');
   return html;
+};
+
+
+// ─── Bloc média : Texte/Tableau/Illustration ──────────────────────────────
+
+const TextTableBlockForm = ({
+  onAdd,
+  onCancel,
+  caption,
+  setCaption,
+}: {
+  onAdd: (type: string, content: string, format?: string) => void;
+  onCancel: () => void;
+  caption: string;
+  setCaption: (v: string) => void;
+}) => {
+  const [blockType, setBlockType] = useState<'text' | 'table' | 'illustration'>('text');
+  const [textContent, setTextContent] = useState('');
+  const [tableRows, setTableRows] = useState(2);
+  const [tableCols, setTableCols] = useState(3);
+  const [tableData, setTableData] = useState<string[][]>([]);
+  const [illustrationUrl, setIllustrationUrl] = useState('');
+  const [illustrationAlt, setIllustrationAlt] = useState('');
+
+  useEffect(() => {
+    if (blockType === 'table') {
+      const newData = Array(tableRows)
+        .fill(null)
+        .map(() => Array(tableCols).fill(''));
+      setTableData(newData);
+    }
+  }, [blockType, tableRows, tableCols]);
+
+  const generateTableMarkdown = () => {
+    if (tableData.length === 0) return '';
+    const header = tableData[0].map((_, i) => `Col ${i + 1}`).join(' | ');
+    const separator = Array(tableCols).fill('---').join(' | ');
+    const rows = tableData.slice(1).map(row => row.join(' | ')).join('\n');
+    return `| ${header} |\n| ${separator} |\n| ${rows} |`;
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Type selector */}
+      <div>
+        <label className="text-xs font-semibold text-gray-400 mb-3 block">Type de bloc</label>
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            { val: 'text', label: 'Texte riche', icon: '✏️' },
+            { val: 'table', label: 'Tableau', icon: '📊' },
+            { val: 'illustration', label: 'Illustration', icon: '🖼️' },
+          ] as const).map(opt => (
+            <button
+              key={opt.val}
+              type="button"
+              onClick={() => setBlockType(opt.val)}
+              className={`p-3 rounded-xl border-2 text-center transition-all ${
+                blockType === opt.val
+                  ? 'border-green-500 bg-green-500/10 text-white'
+                  : 'border-white/10 text-gray-500 hover:border-white/20'
+              }`}
+            >
+              <div className="text-lg mb-1">{opt.icon}</div>
+              <p className="text-xs font-bold">{opt.label}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Contenu spécifique au type */}
+      {blockType === 'text' && (
+        <div>
+          <label className="text-xs font-semibold text-gray-400 mb-2 block">Texte riche (Markdown supporté)</label>
+          <textarea
+            value={textContent}
+            onChange={e => setTextContent(e.target.value)}
+            rows={8}
+            placeholder="Vous pouvez utiliser la syntaxe Markdown : **gras**, *italique*, [lien](url), > citation, etc."
+            className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm font-mono"
+          />
+          <p className="text-[9px] text-gray-500 mt-2">Markdown complet supporté (tableaux, formules LaTeX, etc.)</p>
+        </div>
+      )}
+
+      {blockType === 'table' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-gray-400 mb-2 block">Lignes</label>
+              <input
+                type="number"
+                value={tableRows}
+                onChange={e => setTableRows(Math.max(1, parseInt(e.target.value) || 1))}
+                min="1"
+                max="20"
+                className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-400 mb-2 block">Colonnes</label>
+              <input
+                type="number"
+                value={tableCols}
+                onChange={e => setTableCols(Math.max(1, parseInt(e.target.value) || 1))}
+                min="1"
+                max="10"
+                className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-400 mb-2 block">Remplissez le tableau</label>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse bg-[#1a1a1a] border border-white/10 rounded-lg">
+                <tbody>
+                  {tableData.map((row, rowIdx) => (
+                    <tr key={rowIdx}>
+                      {row.map((cell, colIdx) => (
+                        <td key={`${rowIdx}-${colIdx}`} className="border border-white/10 p-2">
+                          <input
+                            type="text"
+                            value={cell}
+                            onChange={e => {
+                              const newData = tableData.map((r, i) =>
+                                i === rowIdx ? r.map((c, j) => (j === colIdx ? e.target.value : c)) : r
+                              );
+                              setTableData(newData);
+                            }}
+                            placeholder={rowIdx === 0 ? `En-tête ${colIdx + 1}` : ''}
+                            className="w-full bg-transparent text-white text-xs p-1 border-0 outline-none"
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {blockType === 'illustration' && (
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-gray-400 mb-2 block">URL de l'illustration</label>
+            <input
+              type="text"
+              value={illustrationUrl}
+              onChange={e => setIllustrationUrl(e.target.value)}
+              placeholder="https://"
+              className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-400 mb-2 block">Texte alternatif (accessibilité)</label>
+            <input
+              type="text"
+              value={illustrationAlt}
+              onChange={e => setIllustrationAlt(e.target.value)}
+              placeholder="Description de l'illustration"
+              className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Légende commune */}
+      <div>
+        <label className="text-xs font-semibold text-gray-400 mb-2 block">Légende / Description (optionnel)</label>
+        <input
+          type="text"
+          value={caption}
+          onChange={e => setCaption(e.target.value)}
+          placeholder="Ex: Détails importants sur ce bloc..."
+          className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+        />
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-2">
+        <button
+          onClick={onCancel}
+          className="flex-1 px-4 py-2 bg-white/5 text-gray-400 rounded-xl text-sm hover:bg-white/10"
+        >
+          Annuler
+        </button>
+        <button
+          onClick={() => {
+            if (blockType === 'text' && textContent.trim()) {
+              onAdd('text', textContent, 'markdown');
+            } else if (blockType === 'table') {
+              onAdd('table', generateTableMarkdown(), 'markdown');
+            } else if (blockType === 'illustration' && illustrationUrl.trim()) {
+              onAdd('illustration', illustrationUrl, illustrationAlt);
+            }
+          }}
+          className="flex-1 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-500"
+        >
+          Ajouter le bloc
+        </button>
+      </div>
+    </div>
+  );
 };
 
 function DeleteSuggestionModal({ onConfirm, onCancel, suggestion }: { onConfirm: () => void; onCancel: () => void; suggestion: PressSuggestion; }) {
@@ -422,7 +641,7 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
   const [showPreview, setShowPreview] = useState(false);
 
   const [showMediaModal, setShowMediaModal] = useState(false);
-  const [mediaType, setMediaType] = useState<'image' | 'video' | 'link' | 'youtube' | 'code' | 'gallery' | 'quote_hero'>('image');
+    const [mediaType, setMediaType] = useState<'image' | 'video' | 'link' | 'youtube' | 'code' | 'gallery' | 'quote_hero' | 'text_table'>('image');
   const [mediaUrl, setMediaUrl] = useState('');
   const [mediaCaption, setMediaCaption] = useState('');
   const [mediaAlt, setMediaAlt] = useState('');
@@ -468,10 +687,17 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
   const [authorTwitter, setAuthorTwitter] = useState('');
   const [authorLinkedin, setAuthorLinkedin] = useState('');
 
-  // Digest
+  // Digests multiples
+  const [digests, setDigests] = useState<DigestItem[]>([]);
+  const [showDigestForm, setShowDigestForm] = useState(false);
+  const [editingDigestId, setEditingDigestId] = useState<string | null>(null);
   const [digestLabel, setDigestLabel] = useState('À lire absolument');
   const [digestLabelEn, setDigestLabelEn] = useState('Must read');
   const [digestArticleIds, setDigestArticleIds] = useState<string[]>([]);
+  const [digestDesign, setDigestDesign] = useState<DigestItem['design']>('classic');
+  const [digestAccentColor, setDigestAccentColor] = useState('#0466c8');
+  const [digestPositionAfter, setDigestPositionAfter] = useState(4);
+  const [digestIsActive, setDigestIsActive] = useState(false);
   const [isSavingDigest, setIsSavingDigest] = useState(false);
 
   // Live updates
@@ -531,13 +757,8 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
     const { data: digestData } = await supabase
       .from('press_digest')
       .select('*')
-      .eq('is_active', true)
-      .single();
-    if (digestData) {
-      setDigestLabel(digestData.label_fr || 'À lire absolument');
-      setDigestLabelEn(digestData.label_en || 'Must read');
-      setDigestArticleIds(digestData.article_ids || []);
-    }
+      .order('priority', { ascending: true });
+    if (digestData) setDigests(digestData as DigestItem[]);
 
     setIsLoading(false);
   }
@@ -2792,143 +3013,411 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
 
 
       {/* VUE DIGEST */}
+            {/* VUE DIGEST */}
       {view === 'digest' && (
-        <div className="space-y-6 max-w-3xl">
-          <div className="p-5 bg-yellow-500/5 border border-yellow-500/20 rounded-2xl">
-            <div className="flex items-center gap-3 mb-2">
-              <Newspaper size={20} className="text-yellow-400" />
-              <h3 className="text-white font-bold text-lg">Digest / La Une</h3>
+        <div className="space-y-6">
+
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-bold text-white">Digests / La Une</h3>
+              <p className="text-gray-400 text-sm mt-1">
+                Maximum 3 digests actifs simultanément •{' '}
+                <span className={digests.filter(d => d.is_active).length >= 3 ? 'text-red-400 font-bold' : 'text-green-400'}>
+                  {digests.filter(d => d.is_active).length}/3 actifs
+                </span>
+              </p>
             </div>
-            <p className="text-gray-400 text-sm">
-              Sélectionnez les articles qui apparaîtront dans le widget "À lire absolument"
-              affiché dans la liste des articles côté lecteur.
-            </p>
+            {!showDigestForm && (
+              <button
+                onClick={() => {
+                  setEditingDigestId(null);
+                  setDigestLabel('À lire absolument');
+                  setDigestLabelEn('Must read');
+                  setDigestArticleIds([]);
+                  setDigestDesign('classic');
+                  setDigestAccentColor('#0466c8');
+                  setDigestPositionAfter(4);
+                  setDigestIsActive(false);
+                  setShowDigestForm(true);
+                }}
+                className="px-5 py-2.5 bg-yellow-600 hover:bg-yellow-500 text-white rounded-xl font-semibold text-sm flex items-center gap-2"
+              >
+                <PlusCircle size={16} /> Nouveau digest
+              </button>
+            )}
           </div>
 
-          {/* Labels */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-semibold text-gray-400 mb-2 block">
-                🇫🇷 Label (Français)
-              </label>
-              <input
-                type="text"
-                value={digestLabel}
-                onChange={e => setDigestLabel(e.target.value)}
-                className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-400 mb-2 block">
-                🇬🇧 Label (Anglais)
-              </label>
-              <input
-                type="text"
-                value={digestLabelEn}
-                onChange={e => setDigestLabelEn(e.target.value)}
-                className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
-              />
-            </div>
-          </div>
+          {/* FORMULAIRE */}
+          {showDigestForm && (
+            <div className="bg-[#0f0f0f] border border-yellow-500/30 rounded-2xl overflow-hidden">
+              <div className="bg-gradient-to-r from-yellow-600/20 to-orange-600/20 px-6 py-4 border-b border-white/10 flex items-center justify-between">
+                <h4 className="text-white font-bold text-lg">
+                  {editingDigestId ? 'Modifier le digest' : 'Nouveau digest'}
+                </h4>
+                <button onClick={() => setShowDigestForm(false)} className="p-2 hover:bg-white/10 rounded-lg">
+                  <X size={18} className="text-gray-400" />
+                </button>
+              </div>
 
-          {/* Sélection articles */}
-          <div>
-            <label className="text-xs font-semibold text-gray-400 mb-3 block">
-              Articles sélectionnés pour la Une ({digestArticleIds.length})
-            </label>
-            <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
-              {articles.filter(a => a.status === 'published').map(a => {
-                const isSelected = digestArticleIds.includes(a.id);
-                return (
-                  <div
-                    key={a.id}
-                    onClick={() => {
-                      setDigestArticleIds(prev =>
-                        isSelected
-                          ? prev.filter(id => id !== a.id)
-                          : [...prev, a.id]
-                      );
-                    }}
-                    className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${isSelected
-                      ? 'border-yellow-500/50 bg-yellow-500/10'
-                      : 'border-white/10 bg-white/[0.02] hover:border-white/20'
-                      }`}
-                  >
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${isSelected ? 'border-yellow-500 bg-yellow-500' : 'border-white/20'
-                      }`}>
-                      {isSelected && <Check size={12} className="text-white" />}
-                    </div>
-                    {a.cover_url && (
-                      <img src={a.cover_url} className="w-10 h-10 object-cover rounded-lg flex-shrink-0" alt="" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm font-medium truncate">{a.title_fr}</p>
-                      <p className="text-gray-500 text-xs">
-                        {a.categories?.name_fr || 'Sans catégorie'} •{' '}
-                        {a.article_type === 'audio' ? '🎙️ Audio' : '📝 Écrit'}
-                      </p>
+              <div className="p-6 space-y-6">
+
+                {/* Labels */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold text-gray-400 mb-2 block">🇫🇷 Label (Français)</label>
+                    <input
+                      type="text"
+                      value={digestLabel}
+                      onChange={e => setDigestLabel(e.target.value)}
+                      className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-gray-400 mb-2 block">🇬🇧 Label (Anglais)</label>
+                    <input
+                      type="text"
+                      value={digestLabelEn}
+                      onChange={e => setDigestLabelEn(e.target.value)}
+                      className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Design selector */}
+                <div>
+                  <label className="text-xs font-semibold text-gray-400 mb-3 block">Design / Template</label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {([
+                      { val: 'classic', label: 'Classique', desc: 'Liste verticale', icon: '☰' },
+                      { val: 'grid', label: 'Grille', desc: '2-3 cartes', icon: '⊞' },
+                      { val: 'carousel', label: 'Carrousel', desc: 'Défilement', icon: '▷' },
+                      { val: 'ranked', label: 'Classé', desc: 'Top 01/02/03', icon: '#' },
+                      { val: 'hero_list', label: 'Héros + Liste', desc: '1 grand + liste', icon: '⬛' },
+                      { val: 'timeline', label: 'Timeline', desc: 'Chronologique', icon: '⋮' },
+                      { val: 'diptych', label: 'Diptyque', desc: 'Image/texte alt.', icon: '⫸' },
+                    ] as const).map(opt => (
+                      <button
+                        key={opt.val}
+                        type="button"
+                        onClick={() => setDigestDesign(opt.val)}
+                        className={`p-3 rounded-xl border-2 text-left transition-all ${digestDesign === opt.val
+                          ? 'border-yellow-500 bg-yellow-500/10 text-white'
+                          : 'border-white/10 text-gray-500 hover:border-white/20'
+                        }`}
+                      >
+                        <div className="text-xl mb-1 font-mono">{opt.icon}</div>
+                        <p className="text-xs font-bold">{opt.label}</p>
+                        <p className="text-[10px] text-gray-600 mt-0.5">{opt.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Config */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold text-gray-400 mb-2 block">Couleur d'accent</label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="color"
+                        value={digestAccentColor}
+                        onChange={e => setDigestAccentColor(e.target.value)}
+                        className="w-12 h-10 rounded-lg border border-white/20 bg-transparent cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={digestAccentColor}
+                        onChange={e => setDigestAccentColor(e.target.value)}
+                        className="flex-1 bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm font-mono"
+                      />
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Aperçu de l'ordre */}
-          {digestArticleIds.length > 0 && (
-            <div className="p-4 bg-white/[0.02] border border-white/10 rounded-xl">
-              <p className="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">
-                Ordre d'affichage
-              </p>
-              <div className="space-y-2">
-                {digestArticleIds.map((id, i) => {
-                  const a = articles.find(art => art.id === id);
-                  if (!a) return null;
-                  return (
-                    <div key={id} className="flex items-center gap-3 text-sm">
-                      <span className="text-gray-600 font-mono w-5 text-right">{i + 1}.</span>
-                      <span className="text-white truncate">{a.title_fr}</span>
-                      <button
-                        onClick={() => setDigestArticleIds(prev => prev.filter(pid => pid !== id))}
-                        className="ml-auto p-1 text-red-400 hover:text-red-300"
+                  <div>
+                    <label className="text-xs font-semibold text-gray-400 mb-2 block">
+                      Afficher après l'article N°
+                    </label>
+                    <input
+                      type="number"
+                      value={digestPositionAfter}
+                      onChange={e => setDigestPositionAfter(parseInt(e.target.value) || 4)}
+                      min="1"
+                      max="20"
+                      className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
+                    />
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <label className="flex items-center gap-3 cursor-pointer p-3 bg-[#1a1a1a] border border-white/20 rounded-xl">
+                      <div
+                        onClick={() => {
+                          const activeCount = digests.filter(d => d.is_active && d.id !== editingDigestId).length;
+                          if (!digestIsActive && activeCount >= 3) return;
+                          setDigestIsActive(!digestIsActive);
+                        }}
+                        className={`relative w-10 h-5 rounded-full transition-all cursor-pointer ${digestIsActive ? 'bg-green-500' : 'bg-white/10'}`}
                       >
-                        <X size={12} />
-                      </button>
+                        <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${digestIsActive ? 'left-5' : 'left-0.5'}`} />
+                      </div>
+                      <div>
+                        <p className="text-sm text-white font-semibold">Actif</p>
+                        {digests.filter(d => d.is_active && d.id !== editingDigestId).length >= 3 && !digestIsActive && (
+                          <p className="text-[10px] text-red-400">3/3 actifs — désactivez-en un</p>
+                        )}
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Sélection articles */}
+                <div>
+                  <label className="text-xs font-semibold text-gray-400 mb-3 block">
+                    Articles sélectionnés ({digestArticleIds.length})
+                  </label>
+                  <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
+                    {articles.filter(a => a.status === 'published').map(a => {
+                      const isSelected = digestArticleIds.includes(a.id);
+                      return (
+                        <div
+                          key={a.id}
+                          onClick={() => setDigestArticleIds(prev =>
+                            isSelected ? prev.filter(id => id !== a.id) : [...prev, a.id]
+                          )}
+                          className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${isSelected
+                            ? 'border-yellow-500/50 bg-yellow-500/10'
+                            : 'border-white/10 bg-white/[0.02] hover:border-white/20'
+                          }`}
+                        >
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${isSelected ? 'border-yellow-500 bg-yellow-500' : 'border-white/20'}`}>
+                            {isSelected && <Check size={12} className="text-white" />}
+                          </div>
+                          {a.cover_url && (
+                            <img src={a.cover_url} className="w-10 h-10 object-cover rounded-lg flex-shrink-0" alt="" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm font-medium truncate">{a.title_fr}</p>
+                            <p className="text-gray-500 text-xs">
+                              {a.categories?.name_fr || 'Sans catégorie'} •{' '}
+                              {a.article_type === 'audio' ? 'Audio' : 'Écrit'}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Ordre d'affichage */}
+                {digestArticleIds.length > 0 && (
+                  <div className="p-4 bg-white/[0.02] border border-white/10 rounded-xl">
+                    <p className="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">Ordre d'affichage</p>
+                    <div className="space-y-2">
+                      {digestArticleIds.map((id, i) => {
+                        const a = articles.find(art => art.id === id);
+                        if (!a) return null;
+                        return (
+                          <div key={id} className="flex items-center gap-3 text-sm">
+                            <span className="text-gray-600 font-mono w-5 text-right">{i + 1}.</span>
+                            <span className="text-white truncate flex-1">{a.title_fr}</span>
+                            <button
+                              onClick={() => setDigestArticleIds(prev => prev.filter(pid => pid !== id))}
+                              className="ml-auto p-1 text-red-400 hover:text-red-300 flex-shrink-0"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+                  <button onClick={() => setShowDigestForm(false)} className="px-6 py-2.5 bg-white/5 text-gray-400 rounded-xl text-sm">
+                    Annuler
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setIsSavingDigest(true);
+                      try {
+                        const activeCount = digests.filter(d => d.is_active && d.id !== editingDigestId).length;
+                        if (digestIsActive && activeCount >= 3) {
+                          showMsg('error', '3/3 digests actifs — désactivez-en un avant d\'activer celui-ci');
+                          setIsSavingDigest(false);
+                          return;
+                        }
+                        const payload = {
+                          label_fr: digestLabel,
+                          label_en: digestLabelEn,
+                          article_ids: digestArticleIds,
+                          design: digestDesign,
+                          accent_color: digestAccentColor,
+                          position_after_index: digestPositionAfter,
+                          is_active: digestIsActive,
+                          priority: editingDigestId
+                            ? digests.find(d => d.id === editingDigestId)?.priority || 1
+                            : (digests.length + 1),
+                          updated_at: new Date().toISOString(),
+                        };
+                        if (editingDigestId) {
+                          const { error } = await supabase.from('press_digest').update(payload).eq('id', editingDigestId);
+                          if (error) throw error;
+                          showMsg('success', '✅ Digest mis à jour');
+                        } else {
+                          const { error } = await supabase.from('press_digest').insert(payload);
+                          if (error) throw error;
+                          showMsg('success', '🎉 Digest créé');
+                        }
+                        setShowDigestForm(false);
+                        fetchData();
+                      } catch (err: any) {
+                        showMsg('error', err.message);
+                      }
+                      setIsSavingDigest(false);
+                    }}
+                    disabled={isSavingDigest}
+                    className="px-8 py-2.5 bg-yellow-600 hover:bg-yellow-500 text-white rounded-xl text-sm font-bold flex items-center gap-2"
+                  >
+                    {isSavingDigest ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                    Enregistrer
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
-          {/* Bouton sauvegarder */}
-          <button
-            onClick={async () => {
-              setIsSavingDigest(true);
-              try {
-                const { error } = await supabase
-                  .from('press_digest')
-                  .upsert({
-                    id: 1,
-                    label_fr: digestLabel,
-                    label_en: digestLabelEn,
-                    article_ids: digestArticleIds,
-                    is_active: true,
-                    updated_at: new Date().toISOString(),
-                  });
-                if (error) throw error;
-                showMsg('success', '✅ Digest / Une mis à jour');
-              } catch (err: any) {
-                showMsg('error', err.message);
-              }
-              setIsSavingDigest(false);
-            }}
-            disabled={isSavingDigest}
-            className="px-8 py-3 bg-yellow-600 hover:bg-yellow-500 text-white rounded-xl font-bold flex items-center gap-2"
-          >
-            {isSavingDigest ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
-            Sauvegarder la Une
-          </button>
+          {/* LISTE DES DIGESTS */}
+          {!showDigestForm && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {digests.length === 0 ? (
+                <div className="col-span-3 text-center py-16 bg-white/[0.02] rounded-2xl border border-white/10">
+                  <Newspaper className="mx-auto mb-3 text-gray-600" size={36} />
+                  <p className="text-gray-500 text-sm">Aucun digest créé</p>
+                </div>
+              ) : (
+                digests.map(d => {
+                  const digestArticles = (d.article_ids || [])
+                    .map(id => articles.find(a => a.id === id))
+                    .filter(Boolean);
+                  return (
+                    <div
+                      key={d.id}
+                      className={`bg-white/[0.02] rounded-2xl border overflow-hidden transition-all ${d.is_active ? 'border-yellow-500/40' : 'border-white/10'}`}
+                    >
+                      {/* Bande couleur accent */}
+                      <div className="h-1.5" style={{ backgroundColor: d.accent_color }} />
+                      <div className="p-5">
+                        <div className="flex items-start justify-between gap-2 mb-3">
+                          <div>
+                            <p className="text-white font-bold text-sm">{d.label_fr}</p>
+                            <p className="text-gray-500 text-xs mt-0.5">{d.label_en}</p>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 ${d.is_active ? 'bg-green-500/20 text-green-400' : 'bg-white/10 text-gray-500'}`}>
+                            {d.is_active ? 'ACTIF' : 'INACTIF'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mb-3 flex-wrap">
+                          <span className="px-2 py-0.5 bg-white/5 text-gray-400 text-[10px] rounded-full capitalize border border-white/10">
+                            {d.design}
+                          </span>
+                          <span className="px-2 py-0.5 bg-white/5 text-gray-400 text-[10px] rounded-full border border-white/10">
+                            Après art. #{d.position_after_index}
+                          </span>
+                          <span className="px-2 py-0.5 bg-white/5 text-gray-400 text-[10px] rounded-full border border-white/10">
+                            {d.article_ids?.length || 0} articles
+                          </span>
+                        </div>
+                        {/* Mini aperçu articles */}
+                        <div className="flex gap-1.5 mb-4 overflow-hidden">
+                          {digestArticles.slice(0, 4).map((a: any) => (
+                            a?.cover_url ? (
+                              <img key={a.id} src={a.cover_url} className="w-10 h-10 object-cover rounded-lg flex-shrink-0 border border-white/10" alt="" />
+                            ) : (
+                              <div key={a?.id} className="w-10 h-10 rounded-lg bg-white/5 flex-shrink-0 border border-white/10 flex items-center justify-center">
+                                <Newspaper size={12} className="text-gray-600" />
+                              </div>
+                            )
+                          ))}
+                          {digestArticles.length > 4 && (
+                            <div className="w-10 h-10 rounded-lg bg-white/5 flex-shrink-0 border border-white/10 flex items-center justify-center">
+                              <span className="text-[10px] text-gray-500 font-bold">+{digestArticles.length - 4}</span>
+                            </div>
+                          )}
+                        </div>
+                        {/* Actions */}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={async () => {
+                              const activeCount = digests.filter(x => x.is_active && x.id !== d.id).length;
+                              if (!d.is_active && activeCount >= 3) {
+                                showMsg('error', '3/3 digests actifs — désactivez-en un d\'abord');
+                                return;
+                              }
+                              await supabase.from('press_digest').update({ is_active: !d.is_active, updated_at: new Date().toISOString() }).eq('id', d.id);
+                              fetchData();
+                              showMsg('success', d.is_active ? '⏸️ Digest désactivé' : '✅ Digest activé');
+                            }}
+                            className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${d.is_active
+                              ? 'bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20'
+                              : 'bg-green-500/10 text-green-400 hover:bg-green-500/20'
+                            }`}
+                          >
+                            {d.is_active ? 'Désactiver' : 'Activer'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingDigestId(d.id);
+                              setDigestLabel(d.label_fr);
+                              setDigestLabelEn(d.label_en);
+                              setDigestArticleIds(d.article_ids || []);
+                              setDigestDesign(d.design);
+                              setDigestAccentColor(d.accent_color);
+                              setDigestPositionAfter(d.position_after_index);
+                              setDigestIsActive(d.is_active);
+                              setShowDigestForm(true);
+                            }}
+                            className="p-2 bg-white/5 text-gray-400 hover:text-yellow-400 rounded-xl"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!confirm('Supprimer ce digest ?')) return;
+                              await supabase.from('press_digest').delete().eq('id', d.id);
+                              fetchData();
+                              showMsg('success', '🗑️ Digest supprimé');
+                            }}
+                            className="p-2 bg-white/5 text-gray-400 hover:text-red-400 rounded-xl"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                          <button
+                            onClick={async () => {
+                              const { error } = await supabase.from('press_digest').insert({
+                                label_fr: d.label_fr + ' (copie)',
+                                label_en: d.label_en + ' (copy)',
+                                article_ids: d.article_ids,
+                                design: d.design,
+                                accent_color: d.accent_color,
+                                position_after_index: d.position_after_index,
+                                is_active: false,
+                                priority: digests.length + 1,
+                              });
+                              if (!error) { fetchData(); showMsg('success', '📋 Digest dupliqué'); }
+                            }}
+                            className="p-2 bg-white/5 text-gray-400 hover:text-blue-400 rounded-xl"
+                            title="Dupliquer"
+                          >
+                            <FileText size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -3360,6 +3849,11 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
         </div>
       )}
 
+
+
+
+      
+
       {/* MODALS */}
       {showMediaModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
@@ -3384,6 +3878,7 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
                     { val: 'gallery', label: 'Galerie', icon: '📸' },
                     { val: 'quote_hero', label: 'Citation', icon: '💬' },
                     { val: 'link', label: 'Lien', icon: '🔗' },
+                    { val: 'text_table', label: 'Texte/Tableau', icon: '📋' },
                   ] as const).map(opt => (
                     <button
                       key={opt.val}
@@ -3528,6 +4023,47 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
                     className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm"
                   />
                 </div>
+              )}
+
+
+                            {/* TEXTE / TABLEAU / ILLUSTRATION */}
+              {mediaType === 'text_table' && (
+                <TextTableBlockForm
+                  onAdd={(type, content, format) => {
+                    let newItem: MediaItem;
+                    if (type === 'text') {
+                      newItem = {
+                        type: 'code',
+                        url: '',
+                        code_language: 'markdown',
+                        code_content: content,
+                        caption: mediaCaption || undefined,
+                      };
+                    } else if (type === 'table') {
+                      newItem = {
+                        type: 'code',
+                        url: '',
+                        code_language: 'markdown',
+                        code_content: content,
+                        caption: mediaCaption || undefined,
+                      };
+                    } else {
+                      newItem = {
+                        type: 'image',
+                        url: content,
+                        alt: format || '',
+                        caption: mediaCaption || undefined,
+                      };
+                    }
+                    setMediaItems([...mediaItems, newItem]);
+                    setMediaCaption('');
+                    setShowMediaModal(false);
+                    showMsg('success', '✅ Bloc média ajouté');
+                  }}
+                  onCancel={() => {}}
+                  caption={mediaCaption}
+                  setCaption={setMediaCaption}
+                />
               )}
 
               {/* GALLERY */}

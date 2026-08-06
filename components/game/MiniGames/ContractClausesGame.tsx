@@ -18,6 +18,21 @@ import {
   ScrollText,
 } from "lucide-react";
 
+
+import { supabase } from "@/lib/supabase-browser";
+
+const markMiniGameComplete = async (miniGameId: string, sessionId: string) => {
+  if (!sessionId) return;
+  const conditionKey = `minigame_${miniGameId}_completed`;
+  try {
+    const { data: session } = await supabase.from('investigation_sessions').select('completed_mini_games').eq('id', sessionId).single();
+    const completed = session?.completed_mini_games || [];
+    if (!completed.includes(conditionKey)) {
+      await supabase.from('investigation_sessions').update({ completed_mini_games: [...completed, conditionKey] }).eq('id', sessionId);
+    }
+  } catch (err) { console.error('❌ Erreur sauvegarde mini-game complété:', err); }
+};
+
 interface Props {
   miniGame: any;
   miniGameSessionId?: string;
@@ -66,6 +81,7 @@ export default function ContractClausesGame({
   lang,
   onStateChange,
   onProgressUpdate,
+  sessionId,
 }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [phase, setPhase] = useState<GamePhase>("intro");
@@ -591,6 +607,7 @@ export default function ContractClausesGame({
           </button>
           <button
             onClick={() => {
+              markMiniGameComplete(miniGame.id, sessionId); 
               onComplete(finalScore, caurisEarned);
             }}
             className="flex-[2] py-3 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-white hover:to-gray-200 text-black rounded-xl text-xs font-bold flex justify-center items-center gap-2 shadow-[0_0_15px_rgba(212,175,55,0.3)]"

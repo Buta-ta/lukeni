@@ -5,6 +5,29 @@ import { motion } from "framer-motion";
 import { Loader2, Send, Clock, Lightbulb, Unlock, Eye, Flashlight } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
+
+
+const markMiniGameComplete = async (miniGameId: string, sessionId: string) => {
+  if (!sessionId) return;
+  const conditionKey = `minigame_${miniGameId}_completed`;
+  try {
+    const { data: session } = await supabase
+      .from('investigation_sessions')
+      .select('completed_mini_games')
+      .eq('id', sessionId)
+      .single();
+    const completed = session?.completed_mini_games || [];
+    if (!completed.includes(conditionKey)) {
+      await supabase
+        .from('investigation_sessions')
+        .update({ completed_mini_games: [...completed, conditionKey] })
+        .eq('id', sessionId);
+    }
+  } catch (err) {
+    console.error('❌ Erreur sauvegarde mini-game complété:', err);
+  }
+};
+
 interface Props {
   miniGame: any;
   onComplete: (score: number, caurisEarned: number) => void;
@@ -303,6 +326,8 @@ export default function RedactedGame({
       if (userAnswer.toUpperCase().trim() === hiddenText.toUpperCase().trim()) {
         setFeedback("✅ " + (lang === "fr" ? "Message révélé!" : "Message revealed!"));
         await saveMiniGameSession("completed", 100, miniGame.reward_cauris || 20);
+
+        await markMiniGameComplete(miniGame.id, sessionId);
         setTimeout(() => onComplete(100, miniGame.reward_cauris || 20), 2000);
       } else {
         setFeedback("❌ " + (lang === "fr" ? "Réponse incorrecte" : "Incorrect answer"));

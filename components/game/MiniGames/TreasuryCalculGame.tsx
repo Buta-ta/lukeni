@@ -14,7 +14,7 @@ import {
   AlertTriangle,
   CheckCircle,
 } from "lucide-react";
-
+import { supabase } from "@/lib/supabase";
 interface Props {
   miniGame: any;
   miniGameSessionId?: string;
@@ -26,10 +26,33 @@ interface Props {
   lang: "fr" | "en";
   onStateChange?: (state: any) => void;
   onProgressUpdate?: (budgetCauris: number, caurisLost: number) => void;
-  sessionId?: string;
-  userId?: string;
+  sessionId: string;
+  userId: string;
 }
 
+
+
+
+const markMiniGameComplete = async (miniGameId: string, sessionId: string) => {
+  if (!sessionId) return;
+  const conditionKey = `minigame_${miniGameId}_completed`;
+  try {
+    const { data: session } = await supabase
+      .from('investigation_sessions')
+      .select('completed_mini_games')
+      .eq('id', sessionId)
+      .single();
+    const completed = session?.completed_mini_games || [];
+    if (!completed.includes(conditionKey)) {
+      await supabase
+        .from('investigation_sessions')
+        .update({ completed_mini_games: [...completed, conditionKey] })
+        .eq('id', sessionId);
+    }
+  } catch (err) {
+    console.error('❌ Erreur sauvegarde mini-game complété:', err);
+  }
+};
 interface Document {
   id: string;
   type: string;
@@ -68,6 +91,7 @@ export default function TreasuryCalculGame({
   lang,
   onStateChange,
   onProgressUpdate,
+  sessionId,
 }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -246,7 +270,7 @@ export default function TreasuryCalculGame({
             ? "✅ Audit Réussi !"
             : "✅ Audit Successful!"
         );
-
+        markMiniGameComplete(miniGame.id, sessionId);
         setTimeout(() => onComplete(100, rewardCauris), 2000);
       } else {
         setFeedback(

@@ -4,6 +4,29 @@ import React, { useRef, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Loader2, X, Send, Power } from "lucide-react";
 
+
+import { supabase } from "@/lib/supabase-browser";
+
+const markMiniGameComplete = async (miniGameId: string, sessionId: string) => {
+  if (!sessionId) return;
+  const conditionKey = `minigame_${miniGameId}_completed`;
+  try {
+    const { data: session } = await supabase
+      .from('investigation_sessions')
+      .select('completed_mini_games')
+      .eq('id', sessionId)
+      .single();
+    const completed = session?.completed_mini_games || [];
+    if (!completed.includes(conditionKey)) {
+      await supabase
+        .from('investigation_sessions')
+        .update({ completed_mini_games: [...completed, conditionKey] })
+        .eq('id', sessionId);
+    }
+  } catch (err) {
+    console.error('❌ Erreur sauvegarde mini-game complété:', err);
+  }
+};
 interface Props {
   miniGame: any;
   onComplete: (score: number, caurisEarned: number) => void;
@@ -11,6 +34,7 @@ interface Props {
   onClose: () => void;
   budgetCauris: number;
   lang: "fr" | "en";
+  sessionId: string;
 }
 
 export default function RadioGame({
@@ -20,6 +44,7 @@ export default function RadioGame({
   onClose,
   budgetCauris,
   lang,
+  sessionId,
 }: Props) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -143,6 +168,7 @@ export default function RadioGame({
     setTimeout(() => {
       if (isCorrect) {
         setFeedback(lang === "fr" ? "✅ Interception réussie" : "✅ Interception successful");
+        markMiniGameComplete(miniGame.id, sessionId);
         setTimeout(() => onComplete(100, miniGame.reward_cauris || 15), 1500);
       } else {
         setFeedback(lang === "fr" ? "❌ Code incorrect" : "❌ Incorrect code");

@@ -21,7 +21,7 @@ const MiniPanoramaViewer = dynamic(
   { ssr: false, loading: () => <div className="w-full h-[500px] bg-black flex items-center justify-center"><Loader2 className="animate-spin text-red-500" /></div> }
 );
 
-const HOTSPOT_TYPES: HotspotType[] = ['evidence', 'audio', 'document', 'enigma', 'image', 'info', 'transition', 'locked', 'character', 'ending', 'dialogue_bubble','dialogue'];
+const HOTSPOT_TYPES: HotspotType[] = ['evidence', 'audio', 'document', 'enigma', 'image', 'info', 'transition', 'locked', 'character', 'ending', 'dialogue_bubble', 'dialogue'];
 
 interface Props {
   investigationId: string;
@@ -125,7 +125,22 @@ function ColorPicker({ currentColor, onSelect }: any) {
 // FORMULAIRE DE CONTENU
 // ────────────────────────────────────────────────────────────
 function HotspotContentForm({
-  hotspot, evidences, scenes, chapters, characters, allEnigmas, dialogueSpeakers,dialoguesList, wordSearches, updateHotspot, isTranslating, setIsTranslating, lang
+  hotspot,
+  evidences,
+  scenes,
+  chapters,
+  characters,
+  allEnigmas,
+  dialogueSpeakers,
+  dialoguesList,
+  wordSearches,
+  miniGames,
+  timelinesWithSlots,
+  boardsWithConnections,
+  updateHotspot,
+  isTranslating,
+  setIsTranslating,
+  lang
 }: any) {
 
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
@@ -282,39 +297,39 @@ function HotspotContentForm({
 
 
     // ── ARBRE DE DIALOGUE INTERACTIF ──
-if (hotspot.type === 'dialogue') {
-  return (
-    <div className="space-y-3 bg-fuchsia-900/10 p-4 rounded-xl border border-fuchsia-500/20">
-      <h4 className="text-sm font-bold text-fuchsia-400 flex items-center gap-2">
-        🗨️ Arbre de Dialogue Interactif
-      </h4>
-      <div>
-        <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">
-          Quel dialogue lancer au clic ?
-        </label>
-        <select
-          value={hotspot.dialogue_id || ''}
-          onChange={e => updateHotspot(hotspot.id, { dialogue_id: e.target.value || undefined })}
-          className="w-full bg-[#1a1a1a] border border-fuchsia-500/30 rounded px-3 py-2 text-sm text-white outline-none focus:border-fuchsia-500"
-        >
-          <option value="">— Choisir un dialogue —</option>
-          {(dialoguesList || []).map((d: any) => (
-            <option key={d.id} value={d.id}>{d.name}</option>
-          ))}
-        </select>
-        {(!dialoguesList || dialoguesList.length === 0) && (
-          <p className="text-[10px] text-gray-500 mt-1">
-            Aucun dialogue trouvé. Créez-en un dans l'onglet "Dialogues" de l'investigation.
-          </p>
-        )}
-        <p className="text-[10px] text-gray-600 mt-2">
-          💡 Le dialogue démarrera avec le personnage OU le joueur défini comme
-          "Point d'entrée" dans l'éditeur de dialogue.
-        </p>
-      </div>
-    </div>
-  );
-}
+    if (hotspot.type === 'dialogue') {
+      return (
+        <div className="space-y-3 bg-fuchsia-900/10 p-4 rounded-xl border border-fuchsia-500/20">
+          <h4 className="text-sm font-bold text-fuchsia-400 flex items-center gap-2">
+            🗨️ Arbre de Dialogue Interactif
+          </h4>
+          <div>
+            <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">
+              Quel dialogue lancer au clic ?
+            </label>
+            <select
+              value={hotspot.dialogue_id || ''}
+              onChange={e => updateHotspot(hotspot.id, { dialogue_id: e.target.value || undefined })}
+              className="w-full bg-[#1a1a1a] border border-fuchsia-500/30 rounded px-3 py-2 text-sm text-white outline-none focus:border-fuchsia-500"
+            >
+              <option value="">— Choisir un dialogue —</option>
+              {(dialoguesList || []).map((d: any) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+            {(!dialoguesList || dialoguesList.length === 0) && (
+              <p className="text-[10px] text-gray-500 mt-1">
+                Aucun dialogue trouvé. Créez-en un dans l'onglet "Dialogues" de l'investigation.
+              </p>
+            )}
+            <p className="text-[10px] text-gray-600 mt-2">
+              💡 Le dialogue démarrera avec le personnage OU le joueur défini comme
+              "Point d'entrée" dans l'éditeur de dialogue.
+            </p>
+          </div>
+        </div>
+      );
+    }
 
     // ── DIALOGUE BUBBLE ──
     if (hotspot.type === 'dialogue_bubble') {
@@ -339,7 +354,68 @@ if (hotspot.type === 'dialogue') {
           {hotspot.variant !== 'ground' && (<IconPicker currentIcon={hotspot.icon} currentIconUrl={hotspot.icon_url} onSelectEmoji={(e: string) => updateHotspot(hotspot.id, { icon: e, icon_url: undefined })} onSelectCustomUrl={(u: string) => updateHotspot(hotspot.id, { icon_url: u || undefined })} transitionMode={true} />)}
           <div><label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block"><ArrowRight size={10} className="inline mr-1" /> Aller vers une autre scène</label><select value={hotspot.target_scene_id || ''} onChange={e => updateHotspot(hotspot.id, { target_scene_id: e.target.value || undefined })} className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white"><option value="">— Même chapitre —</option>{scenes.map((sc: any, idx: number) => <option key={sc.id} value={sc.id}>Scène {idx + 1} — {sc.title_fr}</option>)}</select></div>
           <div><label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Ou vers un autre chapitre</label><select value={hotspot.target_chapter_id || ''} onChange={e => updateHotspot(hotspot.id, { target_chapter_id: e.target.value || undefined })} className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white"><option value="">— Aucun —</option>{chapters.map((chap: any) => <option key={chap.id} value={chap.id}>{chap.step_order}. {chap.title_fr}</option>)}</select></div>
-          <div><label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Condition de déverrouillage</label><select value={hotspot.condition || ''} onChange={e => updateHotspot(hotspot.id, { condition: e.target.value || undefined })} className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-red-500"><option value="">— Aucune condition —</option><optgroup label="❓ Énigmes">{allEnigmas.map((enig: any) => (<option key={enig.id} value={`enigma_${enig.id}_solved`}>❓ {enig.question_fr || 'Énigme sans question'}</option>))}</optgroup><optgroup label="🧩 Mots Mêlés">{(wordSearches || []).map((ws: any) => (<option key={ws.id} value={`wordsearch_${ws.id}_completed`}>{ws.title_fr}</option>))}</optgroup></select></div>
+          <div><label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Condition de déverrouillage</label><select
+            value={hotspot.condition || ''}
+            onChange={e => updateHotspot(hotspot.id, { condition: e.target.value || undefined })}
+            className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-red-500"
+          >
+            <option value="">— Aucune condition —</option>
+
+            <optgroup label="❓ Énigmes">
+              {allEnigmas.map((enig: any) => (
+                <option key={enig.id} value={`enigma_${enig.id}_solved`}>
+                  {enig.question_fr || 'Énigme sans question'}
+                </option>
+              ))}
+            </optgroup>
+
+            <optgroup label="🧩 Mots Mêlés">
+              {(wordSearches || []).map((ws: any) => (
+                <option key={ws.id} value={`wordsearch_${ws.id}_completed`}>
+                  {ws.title_fr}
+                </option>
+              ))}
+            </optgroup>
+
+            <optgroup label="📻 Mini-Jeux">
+              {(miniGames || []).map((mg: any) => (
+                <option key={mg.id} value={`minigame_${mg.id}_completed`}>
+                  {mg.title_fr || 'Mini-jeu sans titre'}
+                </option>
+              ))}
+            </optgroup>
+            {(timelinesWithSlots || []).length > 0 && (
+              <optgroup label="📈 Timeline — Slots">
+                {(timelinesWithSlots || []).flatMap((timeline: any) =>
+                  (timeline.slots || []).map((slot: any) => (
+                    <option key={slot.id} value={`timeline_${timeline.id}_slot_${slot.id}_validated`}>
+                      [{timeline.title_fr}] {slot.label_fr || slot.label_en}
+                    </option>
+                  ))
+                )}
+              </optgroup>
+            )}
+
+            {(boardsWithConnections || []).length > 0 && (
+              <optgroup label="🧠 Tableau de Connexion — Nœuds">
+                {(boardsWithConnections || []).flatMap((board: any) =>
+                  (board.connections || []).map((conn: any, connIdx: number) => (
+                    <option key={conn.id} value={`board_${board.id}_connection_${conn.id}_validated`}>
+                      [{board.title_fr}] {conn.label_fr || conn.label_en || `Nœud ${connIdx + 1}`}
+                    </option>
+                  ))
+                )}
+              </optgroup>
+            )}
+
+            <optgroup label="💬 Dialogues Interactifs">
+              {(dialoguesList || []).map((dlg: any) => (
+                <option key={dlg.id} value={`dialogue_${dlg.id}_completed`}>
+                  {dlg.name || `Dialogue ${dlg.id.slice(0, 4)}`}
+                </option>
+              ))}
+            </optgroup>
+          </select></div>
         </div>
       );
     }
@@ -377,6 +453,7 @@ if (hotspot.type === 'dialogue') {
               className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-xs text-white outline-none focus:border-red-500"
             >
               <option value="">— Aucune condition —</option>
+
               <optgroup label="❓ Énigmes">
                 {allEnigmas.map((enig: any) => (
                   <option key={enig.id} value={`enigma_${enig.id}_solved`}>
@@ -384,6 +461,7 @@ if (hotspot.type === 'dialogue') {
                   </option>
                 ))}
               </optgroup>
+
               <optgroup label="🧩 Mots Mêlés">
                 {(wordSearches || []).map((ws: any) => (
                   <option key={ws.id} value={`wordsearch_${ws.id}_completed`}>
@@ -391,9 +469,49 @@ if (hotspot.type === 'dialogue') {
                   </option>
                 ))}
               </optgroup>
+
+              <optgroup label="📻 Mini-Jeux">
+                {(miniGames || []).map((mg: any) => (
+                  <option key={mg.id} value={`minigame_${mg.id}_completed`}>
+                    {mg.title_fr || 'Mini-jeu sans titre'}
+                  </option>
+                ))}
+              </optgroup>
+
+              {(timelinesWithSlots || []).length > 0 && (
+                <optgroup label="📈 Timeline — Slots">
+                  {(timelinesWithSlots || []).flatMap((timeline: any) =>
+                    (timeline.slots || []).map((slot: any) => (
+                      <option key={slot.id} value={`timeline_${timeline.id}_slot_${slot.id}_validated`}>
+                        [{timeline.title_fr}] {slot.label_fr || slot.label_en}
+                      </option>
+                    ))
+                  )}
+                </optgroup>
+              )}
+
+              {(boardsWithConnections || []).length > 0 && (
+                <optgroup label="🧠 Tableau de Connexion — Nœuds">
+                  {(boardsWithConnections || []).flatMap((board: any) =>
+                    (board.connections || []).map((conn: any, connIdx: number) => (
+                      <option key={conn.id} value={`board_${board.id}_connection_${conn.id}_validated`}>
+                        [{board.title_fr}] {conn.label_fr || conn.label_en || `Nœud ${connIdx + 1}`}
+                      </option>
+                    ))
+                  )}
+                </optgroup>
+              )}
+
+              <optgroup label="💬 Dialogues Interactifs">
+                {(dialoguesList || []).map((dlg: any) => (
+                  <option key={dlg.id} value={`dialogue_${dlg.id}_completed`}>
+                    {dlg.name || `Dialogue ${dlg.id.slice(0, 4)}`}
+                  </option>
+                ))}
+              </optgroup>
             </select>
             <p className="text-[10px] text-gray-600 mt-1">
-              Le joueur doit résoudre ceci pour accéder au hotspot
+              Le joueur doit compléter ceci pour accéder au hotspot
             </p>
           </div>
         )}
@@ -542,19 +660,19 @@ export default function PanoramaHotspotEditor({
 
 
   useEffect(() => {
-  console.log("🔍 investigationId:", investigationId); // ← AJOUT
-  if (!investigationId) return;
-  
-  supabase
-    .from('investigation_dialogues')
-    .select('id, name')
-    .eq('investigation_id', investigationId)
-    .then(({ data, error }) => {
-      console.log("🔍 Dialogues chargés:", data); // ← AJOUT
-      console.log("🔍 Erreur éventuelle:", error); // ← AJOUT
-      setDialoguesList(data || []);
-    });
-}, [investigationId]);
+    console.log("🔍 investigationId:", investigationId); // ← AJOUT
+    if (!investigationId) return;
+
+    supabase
+      .from('investigation_dialogues')
+      .select('id, name')
+      .eq('investigation_id', investigationId)
+      .then(({ data, error }) => {
+        console.log("🔍 Dialogues chargés:", data); // ← AJOUT
+        console.log("🔍 Erreur éventuelle:", error); // ← AJOUT
+        setDialoguesList(data || []);
+      });
+  }, [investigationId]);
 
 
   // ✅ Charger les mots mêlés
@@ -566,6 +684,52 @@ export default function PanoramaHotspotEditor({
       .eq('investigation_id', investigationId)
       .then(({ data }) => setWordSearchesState(data || []));
   }, [investigationId]);
+
+
+  // ✅ Charger les timelines ET leurs slots
+  const [timelinesWithSlotsState, setTimelinesWithSlotsState] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!investigationId) return;
+    supabase
+      .from('investigation_timelines')
+      .select('*')
+      .eq('investigation_id', investigationId)
+      .then(({ data }) => {
+        // Chaque timeline a déjà ses slots dans le champ 'slots'
+        setTimelinesWithSlotsState(data || []);
+      });
+  }, [investigationId]);
+
+  // ✅ Charger les boards ET leurs connexions
+  const [boardsWithConnectionsState, setBoardsWithConnectionsState] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!investigationId) return;
+    supabase
+      .from('investigation_deduction_boards')
+      .select('*')
+      .eq('investigation_id', investigationId)
+      .then(({ data }) => {
+        // Chaque board a déjà ses connexions dans le champ 'connections'
+        setBoardsWithConnectionsState(data || []);
+      });
+  }, [investigationId]);
+
+
+  // ✅ Charger les mini-jeux
+  const [miniGamesState, setMiniGamesState] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!investigationId) return;
+    supabase
+      .from('investigation_mini_games')
+      .select('*')
+      .eq('investigation_id', investigationId)
+      .then(({ data }) => setMiniGamesState(data || []));
+  }, [investigationId]);
+
+
 
 
   const [allInstructions, setAllInstructions] = useState<any[]>([]);
@@ -647,7 +811,7 @@ export default function PanoramaHotspotEditor({
   };
 
 
-    // ── Traduction du Contexte Historique ──
+  // ── Traduction du Contexte Historique ──
   const translateContext = async (sceneId: string, frText: string) => {
     if (!frText.trim()) return;
     setIsTranslatingContext(true);
@@ -784,7 +948,7 @@ export default function PanoramaHotspotEditor({
       hotspots: activeScene.hotspots,
       ambient_audio_url: activeScene.ambient_audio_url,
       ambient_audio_volume: activeScene.ambient_audio_volume ?? 0.5,
-      historical_context_fr: activeScene.historical_context_fr || null, 
+      historical_context_fr: activeScene.historical_context_fr || null,
       historical_context_en: activeScene.historical_context_en || null,
       timer_duration: activeScene.timer_duration,
       visual_filter: activeScene.visual_filter,
@@ -1148,7 +1312,7 @@ export default function PanoramaHotspotEditor({
 
 
 
-                    {/* ── MÉMOIRE / CONTEXTE HISTORIQUE DU LIEU ── */}
+          {/* ── MÉMOIRE / CONTEXTE HISTORIQUE DU LIEU ── */}
           <div className="bg-[#111] p-4 rounded-xl border border-[#06b6d4]/20 space-y-4">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-bold text-[#06b6d4] flex items-center gap-2">
@@ -1296,8 +1460,24 @@ export default function PanoramaHotspotEditor({
                     </div>
                   </div>
 
-                  <HotspotContentForm hotspot={selectedHotspot} evidences={evidences} scenes={scenes} chapters={chapters} characters={characters} dialogueSpeakers={dialogueSpeakers} dialoguesList={dialoguesList} wordSearches={wordSearchesState} allEnigmas={allEnigmas} updateHotspot={updateHotspot} isTranslating={isTranslating} setIsTranslating={setIsTranslating} lang={lang} />
-
+                  <HotspotContentForm
+                    hotspot={selectedHotspot}
+                    evidences={evidences}
+                    scenes={scenes}
+                    chapters={chapters}
+                    characters={characters}
+                    dialogueSpeakers={dialogueSpeakers}
+                    dialoguesList={dialoguesList}
+                    wordSearches={wordSearchesState}
+                    allEnigmas={allEnigmas}
+                    miniGames={miniGamesState}
+                    timelinesWithSlots={timelinesWithSlotsState}
+                    boardsWithConnections={boardsWithConnectionsState}
+                    updateHotspot={updateHotspot}
+                    isTranslating={isTranslating}
+                    setIsTranslating={setIsTranslating}
+                    lang={lang}
+                  />
 
                   {/* ✅ INSTRUCTION DU HOTSPOT */}
                   <div className="pt-3 border-t border-white/10">

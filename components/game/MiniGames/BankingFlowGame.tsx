@@ -13,6 +13,21 @@ import {
   RotateCcw,
 } from "lucide-react";
 
+
+import { supabase } from "@/lib/supabase-browser";
+
+const markMiniGameComplete = async (miniGameId: string, sessionId: string) => {
+  if (!sessionId) return;
+  const conditionKey = `minigame_${miniGameId}_completed`;
+  try {
+    const { data: session } = await supabase.from('investigation_sessions').select('completed_mini_games').eq('id', sessionId).single();
+    const completed = session?.completed_mini_games || [];
+    if (!completed.includes(conditionKey)) {
+      await supabase.from('investigation_sessions').update({ completed_mini_games: [...completed, conditionKey] }).eq('id', sessionId);
+    }
+  } catch (err) { console.error('❌ Erreur sauvegarde mini-game complété:', err); }
+};
+
 interface Props {
   miniGame: any;
   miniGameSessionId?: string;
@@ -58,6 +73,7 @@ export default function BankingFlowGame({
   lang,
   onStateChange,
   onProgressUpdate,
+  sessionId,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const lastClickRef = useRef<{ entityId: string; time: number } | null>(null);
@@ -277,6 +293,8 @@ const handleSubmit = async () => {
       setFeedback(
         lang === "fr" ? "✅ Réseau Démasqué !" : "✅ Network Exposed!"
       );
+
+      markMiniGameComplete(miniGame.id, sessionId); // ✅ AJOUTER
 
       // ✅ NE PAS modifier le budget ici !
       // Laisser onComplete le faire dans page.tsx

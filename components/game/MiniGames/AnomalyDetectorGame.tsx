@@ -4,6 +4,35 @@ import React, { useRef, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Loader2, X, Send, AlertCircle } from "lucide-react";
 
+import { supabase } from "@/lib/supabase-browser";
+
+// ✅ AJOUTER CETTE FONCTION dans chaque mini-game
+const markMiniGameComplete = async (miniGameId: string, sessionId: string) => {
+  if (!sessionId) return;
+
+  // ✅ Stocker le FORMAT COMPLET pour matcher les conditions de hotspot
+  const conditionKey = `minigame_${miniGameId}_completed`;
+
+  try {
+    const { data: session } = await supabase
+      .from('investigation_sessions')
+      .select('completed_mini_games')
+      .eq('id', sessionId)
+      .single();
+
+    const completed = session?.completed_mini_games || [];
+    if (!completed.includes(conditionKey)) {
+      const updated = [...completed, conditionKey];
+      await supabase
+        .from('investigation_sessions')
+        .update({ completed_mini_games: updated })
+        .eq('id', sessionId);
+    }
+  } catch (err) {
+    console.error('❌ Erreur sauvegarde mini-game complété:', err);
+  }
+};
+
 interface Props {
   miniGame: any;
   onComplete: (score: number, caurisEarned: number) => void;
@@ -11,6 +40,7 @@ interface Props {
   onClose: () => void;
   budgetCauris: number;
   lang: "fr" | "en";
+  sessionId: string;
 }
 
 interface Anomaly {
@@ -31,6 +61,7 @@ export default function AnomalyDetectorGame({
   onClose,
   budgetCauris,
   lang,
+  sessionId,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -109,6 +140,8 @@ export default function AnomalyDetectorGame({
       if (minimumMet && allCorrect) {
         setFeedback(lang === "fr" ? "✅ Fraudes Détectées" : "✅ Frauds Detected");
         const score = foundAnomalies.length * 20;
+        // ✅ MARQUER COMME COMPLÉTÉ AVANT onComplete
+        markMiniGameComplete(miniGame.id, sessionId);
         setTimeout(() => onComplete(score, miniGame.reward_cauris || 20), 1500);
       } else {
         setFeedback(
@@ -250,11 +283,10 @@ export default function AnomalyDetectorGame({
                 <motion.div
                   animate={!isFound ? { scale: [0.8, 1.1, 0.8] } : {}}
                   transition={{ duration: 1.5, repeat: Infinity }}
-                  className={`w-full h-full rounded-full border-2 border-dashed ${
-                    isFound
+                  className={`w-full h-full rounded-full border-2 border-dashed ${isFound
                       ? "border-green-500/50 bg-green-500/5"
                       : "border-red-500/50 bg-red-500/5"
-                  }`}
+                    }`}
                 />
 
                 {/* Tooltip */}
@@ -277,11 +309,11 @@ export default function AnomalyDetectorGame({
       {/* Panneau Découverte */}
       <motion.div
         animate={{
-          borderColor: foundAnomalies.length >= minAnomalies 
-            ? "rgba(34, 197, 94, 0.5)" 
+          borderColor: foundAnomalies.length >= minAnomalies
+            ? "rgba(34, 197, 94, 0.5)"
             : "rgba(239, 68, 68, 0.3)",
-          backgroundColor: foundAnomalies.length >= minAnomalies 
-            ? "rgba(34, 197, 94, 0.05)" 
+          backgroundColor: foundAnomalies.length >= minAnomalies
+            ? "rgba(34, 197, 94, 0.05)"
             : "rgba(239, 68, 68, 0.05)",
         }}
         className="border-2 rounded-lg p-4 space-y-3"
@@ -292,11 +324,10 @@ export default function AnomalyDetectorGame({
           </p>
           <button
             onClick={() => setShowHints(!showHints)}
-            className={`px-2 py-1 text-[10px] font-bold rounded transition-colors ${
-              showHints
+            className={`px-2 py-1 text-[10px] font-bold rounded transition-colors ${showHints
                 ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
                 : "bg-white/5 text-gray-400 border border-white/10 hover:border-white/30"
-            }`}
+              }`}
           >
             {lang === "fr" ? showHints ? "Masquer Indices" : "Afficher Indices" : showHints ? "Hide Hints" : "Show Hints"}
           </button>
@@ -317,9 +348,8 @@ export default function AnomalyDetectorGame({
               animate={{
                 width: `${Math.min(100, (foundAnomalies.length / minAnomalies) * 100)}%`,
               }}
-              className={`h-full transition-colors ${
-                foundAnomalies.length >= minAnomalies ? "bg-green-500" : "bg-red-500"
-              }`}
+              className={`h-full transition-colors ${foundAnomalies.length >= minAnomalies ? "bg-green-500" : "bg-red-500"
+                }`}
               transition={{ duration: 0.3 }}
             />
           </div>

@@ -6,6 +6,29 @@ import { Loader2, Send, Clock, Lightbulb, Unlock, FileQuestion } from "lucide-re
 import { supabase } from "@/lib/supabase";
 
 // Template à appliquer à chaque mini-jeu :
+
+
+
+const markMiniGameComplete = async (miniGameId: string, sessionId: string) => {
+  if (!sessionId) return;
+  const conditionKey = `minigame_${miniGameId}_completed`;
+  try {
+    const { data: session } = await supabase
+      .from('investigation_sessions')
+      .select('completed_mini_games')
+      .eq('id', sessionId)
+      .single();
+    const completed = session?.completed_mini_games || [];
+    if (!completed.includes(conditionKey)) {
+      await supabase
+        .from('investigation_sessions')
+        .update({ completed_mini_games: [...completed, conditionKey] })
+        .eq('id', sessionId);
+    }
+  } catch (err) {
+    console.error('❌ Erreur sauvegarde mini-game complété:', err);
+  }
+};
 interface Props {
   miniGame: any;
   miniGameSessionId?: string;        // Ajout
@@ -316,7 +339,7 @@ export default function PuzzleGame({
         if (onProgressUpdate) {
           onProgressUpdate(localBudget, totalCaurisLost);
         }
-
+        markMiniGameComplete(miniGame.id, sessionId);
         setTimeout(() => onComplete(100, totalReward), 3500);
       } else {
         // ❌ ERREUR

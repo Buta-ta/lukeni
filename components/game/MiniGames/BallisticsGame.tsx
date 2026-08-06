@@ -5,6 +5,35 @@ import { motion } from "framer-motion";
 import { Loader2, Send, Target, Eye, Clock, Lightbulb, Unlock, ZoomIn, ZoomOut, Lock } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
+
+
+const markMiniGameComplete = async (miniGameId: string, sessionId: string) => {
+  if (!sessionId) return;
+
+  // ✅ Stocker le FORMAT COMPLET pour matcher les conditions de hotspot
+  const conditionKey = `minigame_${miniGameId}_completed`;
+
+  try {
+    const { data: session } = await supabase
+      .from('investigation_sessions')
+      .select('completed_mini_games')
+      .eq('id', sessionId)
+      .single();
+
+    const completed = session?.completed_mini_games || [];
+    if (!completed.includes(conditionKey)) {
+      const updated = [...completed, conditionKey];
+      await supabase
+        .from('investigation_sessions')
+        .update({ completed_mini_games: updated })
+        .eq('id', sessionId);
+    }
+  } catch (err) {
+    console.error('❌ Erreur sauvegarde mini-game complété:', err);
+  }
+};
+
+
 interface Props {
   miniGame: any;
   onComplete: (score: number, caurisEarned: number) => void;
@@ -155,7 +184,7 @@ export default function BallisticsGame({
 
   // Calculs visuels (uniquement pour le flou, plus d'indicateur de proximité)
   const focusGap = Math.abs(focus - targetFocus);
-  const isFocusCorrect = focusGap <=0;
+  const isFocusCorrect = focusGap <= 0;
   const currentBlur = focusGap / 10;
 
   const getLightFilter = () => {
@@ -195,6 +224,9 @@ export default function BallisticsGame({
       if (isFocusCorrect) {
         setFeedback(lang === "fr" ? "✅ Analyse confirmée" : "✅ Analysis confirmed");
         await saveMiniGameSession("completed", 100, miniGame.reward_cauris || 20);
+
+        // ✅ MARQUER COMME COMPLÉTÉ AVANT onComplete
+        await markMiniGameComplete(miniGame.id, sessionId);
         setTimeout(() => onComplete(100, miniGame.reward_cauris || 20), 1500);
       } else {
         setFeedback(lang === "fr" ? "❌ Cible floue, analyse échouée" : "❌ Blurry target, analysis failed");
@@ -255,11 +287,10 @@ export default function BallisticsGame({
 
         <div className="flex items-center gap-2">
           {timeLeft !== null && (
-            <div className={`flex items-center gap-1 font-mono text-xs px-2 py-1 rounded font-bold border ${
-              timeLeft <= 10 ? "bg-red-500/20 border-red-500/50 text-red-400"
-              : timeLeft <= 30 ? "bg-amber-500/20 border-amber-500/30 text-amber-400"
-              : "bg-green-500/20 border-green-500/30 text-green-400"
-            }`}>
+            <div className={`flex items-center gap-1 font-mono text-xs px-2 py-1 rounded font-bold border ${timeLeft <= 10 ? "bg-red-500/20 border-red-500/50 text-red-400"
+                : timeLeft <= 30 ? "bg-amber-500/20 border-amber-500/30 text-amber-400"
+                  : "bg-green-500/20 border-green-500/30 text-green-400"
+              }`}>
               <Clock size={12} />
               {formatTime(timeLeft)}
             </div>
@@ -268,9 +299,8 @@ export default function BallisticsGame({
           {clues.length > 0 && (
             <button
               onClick={() => setShowClues(!showClues)}
-              className={`flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded transition-all ${
-                showClues ? "bg-blue-600 text-white" : "bg-blue-900/30 text-blue-400 border border-blue-500/30"
-              }`}
+              className={`flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded transition-all ${showClues ? "bg-blue-600 text-white" : "bg-blue-900/30 text-blue-400 border border-blue-500/30"
+                }`}
             >
               <Lightbulb size={12} />
               <span className="hidden sm:inline">{lang === "fr" ? "Indices" : "Clues"}</span>
@@ -312,8 +342,8 @@ export default function BallisticsGame({
 
       {/* ✅ MICROSCOPE + ZOOM */}
       <div className="flex flex-col items-center gap-2">
-        <div 
-          className="relative w-48 h-48 sm:w-56 sm:h-56 rounded-full border-[8px] border-gray-900 bg-black shadow-[0_0_40px_rgba(0,0,0,0.8)_inset] overflow-hidden" 
+        <div
+          className="relative w-48 h-48 sm:w-56 sm:h-56 rounded-full border-[8px] border-gray-900 bg-black shadow-[0_0_40px_rgba(0,0,0,0.8)_inset] overflow-hidden"
           ref={containerRef}
         >
           {/* Réticule */}
@@ -366,21 +396,20 @@ export default function BallisticsGame({
 
       {/* ✅ PANNEAU DE CONTRÔLE COMPACT (SANS BARRE DE PROGRESSION) */}
       <div className="bg-[#111] border border-gray-800 p-3 rounded-xl space-y-3">
-        
+
         {/* Filtre Imposé */}
         <div className="bg-black/40 border border-gray-700 rounded p-2 flex items-center justify-between">
           <span className="text-[10px] text-gray-400 font-mono uppercase flex items-center gap-1">
             <Eye size={10} /> {lang === "fr" ? "Spectre" : "Spectrum"}
           </span>
-          <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded ${
-            targetLight === "white" ? "bg-gray-200 text-black"
-            : targetLight === "uv" ? "bg-purple-900 text-purple-200"
-            : "bg-red-900 text-red-200"
-          }`}>
+          <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded ${targetLight === "white" ? "bg-gray-200 text-black"
+              : targetLight === "uv" ? "bg-purple-900 text-purple-200"
+                : "bg-red-900 text-red-200"
+            }`}>
             <Lock size={10} className="inline mr-1" />
-            {targetLight === "white" ? (lang === "fr" ? "Blanc" : "White") 
-            : targetLight === "uv" ? "UV" 
-            : (lang === "fr" ? "Infrarouge" : "Infrared")}
+            {targetLight === "white" ? (lang === "fr" ? "Blanc" : "White")
+              : targetLight === "uv" ? "UV"
+                : (lang === "fr" ? "Infrarouge" : "Infrared")}
           </span>
         </div>
 
@@ -411,10 +440,9 @@ export default function BallisticsGame({
         <motion.div
           initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`text-center font-mono text-xs p-2 rounded-lg border font-bold ${
-            feedback.includes("✅") ? "bg-green-900/30 border-green-500/50 text-green-400"
-            : "bg-red-900/30 border-red-500/50 text-red-400"
-          }`}
+          className={`text-center font-mono text-xs p-2 rounded-lg border font-bold ${feedback.includes("✅") ? "bg-green-900/30 border-green-500/50 text-green-400"
+              : "bg-red-900/30 border-red-500/50 text-red-400"
+            }`}
         >
           {feedback}
         </motion.div>

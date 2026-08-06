@@ -41,6 +41,8 @@ interface Props {
   onClose: () => void;
   onUnlockEvidence?: (evidenceId: string) => void;
   onTriggerEvent?: (eventId: string) => void;
+  sessionId?: string;
+  onDialogueComplete?: () => void;
 }
 
 export default function DialoguePlayer({
@@ -53,6 +55,8 @@ export default function DialoguePlayer({
   onClose,
   onUnlockEvidence,
   onTriggerEvent,
+  sessionId,
+  onDialogueComplete,
 }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [nodes, setNodes] = useState<DialogueNodeData[]>([]);
@@ -65,6 +69,61 @@ export default function DialoguePlayer({
 
   const typingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+
+
+  // ✅ Marquer le dialogue comme complété en BDD
+  const markDialogueComplete = async () => {
+    console.log('🎯 [DIALOGUE] markDialogueComplete APPELÉ', { sessionId, dialogueId });
+
+    if (!sessionId) {
+      console.log('❌ [DIALOGUE] Pas de sessionId, abandon');
+      return;
+    }
+
+    try {
+  const { data: session } = await supabase
+    .from('investigation_sessions')
+    .select('completed_dialogues')
+    .eq('id', sessionId)
+    .single();
+
+  const completed = session?.completed_dialogues || [];
+  console.log('🔍 [DIALOGUE] completed_dialogues actuel:', completed);
+
+  // ✅ Format canonique : dialogue_<id>_completed
+  const completionKey = `dialogue_${dialogueId}_completed`;
+
+  if (!completed.includes(completionKey)) {
+    const updated = [...completed, completionKey];
+    console.log('💾 [DIALOGUE] Sauvegarde:', { completionKey, updated });
+
+    const { data, error } = await supabase
+      .from('investigation_sessions')
+      .update({ completed_dialogues: updated })
+      .eq('id', sessionId)
+      .select();
+
+    if (error) {
+      console.error('❌ [DIALOGUE] Erreur Supabase:', error);
+    } else {
+      console.log('✅ [DIALOGUE] Sauvegardé avec succès:', data);
+      // ✅ Toujours appeler onDialogueComplete après sauvegarde réussie
+      if (onDialogueComplete) {
+        onDialogueComplete();
+      }
+    }
+  } else {
+    console.log('⚠️ [DIALOGUE] Déjà dans completed_dialogues, refresh quand même');
+    // ✅ Appeler onDialogueComplete même si déjà en base
+    // pour forcer le refresh du state React côté page
+    if (onDialogueComplete) {
+      onDialogueComplete();
+    }
+  }
+} catch (err) {
+  console.error('❌ [DIALOGUE] Erreur catch:', err);
+}
+  };
   // ── Chargement initial ──
   useEffect(() => {
     let isMounted = true;
@@ -156,9 +215,9 @@ export default function DialoguePlayer({
 
   const currentChoices = currentNode
     ? choices
-        .filter(c => c.node_id === currentNode.id)
-        .filter(c => !c.required_evidence_id || unlockedEvidenceIds.includes(c.required_evidence_id))
-        .filter(c => !usedChoiceIds.includes(c.id))
+      .filter(c => c.node_id === currentNode.id)
+      .filter(c => !c.required_evidence_id || unlockedEvidenceIds.includes(c.required_evidence_id))
+      .filter(c => !usedChoiceIds.includes(c.id))
     : [];
 
   const speaker = currentNode?.speaker_npc_id
@@ -210,12 +269,15 @@ export default function DialoguePlayer({
       if (currentNode.auto_next_node_id) {
         setCurrentNodeId(currentNode.auto_next_node_id);
       } else {
+
+        console.log('🏁 [DIALOGUE] Fin du dialogue (NPC sans auto_next)');
+        // ✅ Dialogue terminé
+        markDialogueComplete();
         onClose();
       }
     }
   };
 
-  // ── Le joueur sélectionne une réponse ──
   const handleChoiceClick = (choice: DialogueChoiceData) => {
     if (choice.unlocks_evidence_id) onUnlockEvidence?.(choice.unlocks_evidence_id);
     if (choice.trigger_event_id) onTriggerEvent?.(choice.trigger_event_id);
@@ -224,6 +286,9 @@ export default function DialoguePlayer({
     if (choice.next_node_id) {
       setCurrentNodeId(choice.next_node_id);
     } else {
+      console.log('🏁 [DIALOGUE] Fin du dialogue (choix sans next_node)');
+      // ✅ Dialogue terminé
+      markDialogueComplete();
       onClose();
     }
   };

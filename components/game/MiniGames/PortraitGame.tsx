@@ -4,6 +4,30 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, X, ChevronLeft, ChevronRight, RotateCcw, Send, ScanFace, Sliders, UserX, CheckCircle2, Clock, Lightbulb, Unlock } from "lucide-react";
 
+
+
+import { supabase } from "@/lib/supabase-browser";
+
+const markMiniGameComplete = async (miniGameId: string, sessionId: string) => {
+  if (!sessionId) return;
+  const conditionKey = `minigame_${miniGameId}_completed`;
+  try {
+    const { data: session } = await supabase
+      .from('investigation_sessions')
+      .select('completed_mini_games')
+      .eq('id', sessionId)
+      .single();
+    const completed = session?.completed_mini_games || [];
+    if (!completed.includes(conditionKey)) {
+      await supabase
+        .from('investigation_sessions')
+        .update({ completed_mini_games: [...completed, conditionKey] })
+        .eq('id', sessionId);
+    }
+  } catch (err) {
+    console.error('❌ Erreur sauvegarde mini-game complété:', err);
+  }
+};
 interface Props {
   miniGame: any;
   onComplete: (score: number, caurisEarned: number) => void;
@@ -11,6 +35,7 @@ interface Props {
   onClose: () => void;
   budgetCauris: number;
   lang: "fr" | "en";
+  sessionId: string;
 }
 
 export default function PortraitGame({
@@ -20,6 +45,7 @@ export default function PortraitGame({
   onClose,
   budgetCauris,
   lang,
+  sessionId,
 }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -112,6 +138,7 @@ export default function PortraitGame({
       setIsScanning(false);
       if (isCorrect) {
         setFeedback("✅ " + (lang === "fr" ? "Identification Confirmée" : "ID Confirmed"));
+        markMiniGameComplete(miniGame.id, sessionId);
         setTimeout(() => onComplete(100, miniGame.reward_cauris || 20), 1500);
       } else {
         setFeedback("❌ " + (lang === "fr" ? "Aucune correspondance" : "No match found"));

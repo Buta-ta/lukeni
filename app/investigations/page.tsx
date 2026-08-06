@@ -254,13 +254,13 @@ export default function InvestigationsHub() {
       for (const inv of investigations) {
         // ✅ Récupérer pricing pour cette investigation
         const pricing = pricingData.find((p: any) => p.product_id === inv.id && p.product_type === "investigation");
-        
+
         // ✅ Prendre le trial le plus RÉCENT
         const invTrials = (trialData || [])
           .filter((t: any) => t.target_id === inv.id)
           .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         const trial = invTrials[0];
-        
+
         // ✅ Calculer le trial UNIQUEMENT si enquête payante
         if (pricing && trial && trial.status === 'active') {
           const expiredAt = new Date(trial.expired_at).getTime();
@@ -397,7 +397,7 @@ export default function InvestigationsHub() {
             .filter((t) => t.target_id === inv.id)
             .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
           const trial = invTrials[0];
-          
+
           if (invTrials.length > 1) {
             console.log(`⚠️ [LISTE] Plusieurs trials pour ${inv.id}, on prend le plus récent`);
           }
@@ -569,6 +569,10 @@ export default function InvestigationsHub() {
 
     try {
       await supabase.from("investigation_sessions").delete().eq("id", deleteModal.sessionId);
+
+      // ✅ Réinitialiser le tutoriel pour cette investigation
+      localStorage.removeItem(`lukeni_tutorial_done_${deleteModal.invId}`);
+
       setUserSessions((prev) => {
         const next = { ...prev };
         delete next[deleteModal.invId];

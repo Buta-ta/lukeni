@@ -52,6 +52,7 @@ import CharacterDialogModal from "@/components/game/CharacterDialogModal";
 import ContextualEnding from "@/components/game/ContextualEnding";
 import DeductionPanel from "@/components/game/DeductionPanel";
 import InstructionsPanel from "@/components/game/InstructionsPanel";
+import TutorialModal from "@/components/game/TutorialModal";
 import { useDeduction } from "@/lib/hooks/useDeduction";
 import { useMiniGameSession } from "@/lib/hooks/useMiniGameSession";
 import WordSearchGame from "@/components/game/WordSearchGame";
@@ -752,12 +753,61 @@ export default function InvestigationGame(props: {
     setMiniGameSessionActive(null);
     console.log("🎮 [9] Mini-jeu fermé");
 
+
+    // ✅ Transition de scène après validation du mini-jeu
+    if (activeMiniGame?.success_target_scene_id && currentChapter) {
+      const sceneIdx = currentChapter.scenes?.findIndex(
+        (s) => s.id === activeMiniGame.success_target_scene_id,
+      );
+      if (sceneIdx !== undefined && sceneIdx !== -1) {
+        setTimeout(() => {
+          setCurrentSceneIndex(sceneIdx);
+          playTransitionSound();
+        }, 500);
+      }
+    } else if (activeMiniGame?.success_target_chapter_id) {
+      const chapIdx = chapters.findIndex(
+        (c) => c.id === activeMiniGame.success_target_chapter_id,
+      );
+      if (chapIdx !== -1) {
+        setTimeout(() => {
+          setCurrentChapterIndex(chapIdx);
+          setCurrentSceneIndex(0);
+          playTransitionSound();
+        }, 500);
+      }
+    }
+
     // 5. Toast de succès
     setActiveMilestone({
       fr: `🎉 Mini-jeu réussi ! +${caurisEarned} Cauris`,
       en: `🎉 Mini-game completed! +${caurisEarned} Cauris`,
     });
     setTimeout(() => setActiveMilestone(null), 4000);
+
+    // ✅ Transition de scène après validation du mini-jeu
+    if (activeMiniGame?.success_target_scene_id && currentChapter) {
+      const sceneIdx = currentChapter.scenes?.findIndex(
+        (s) => s.id === activeMiniGame.success_target_scene_id,
+      );
+      if (sceneIdx !== undefined && sceneIdx !== -1) {
+        setTimeout(() => {
+          setCurrentSceneIndex(sceneIdx);
+          playTransitionSound();
+        }, 500);
+      }
+    } else if (activeMiniGame?.success_target_chapter_id) {
+      const chapIdx = chapters.findIndex(
+        (c) => c.id === activeMiniGame.success_target_chapter_id,
+      );
+      if (chapIdx !== -1) {
+        setTimeout(() => {
+          setCurrentChapterIndex(chapIdx);
+          setCurrentSceneIndex(0);
+          playTransitionSound();
+        }, 500);
+      }
+    }
   };
 
   // ✅ HANDLER : Échouer un mini-jeu
@@ -808,6 +858,8 @@ export default function InvestigationGame(props: {
   };
 
   const [showInstructions, setShowInstructions] = useState(false);
+
+  const [showTutorial, setShowTutorial] = useState(false);
 
   const [instructionNotifications, setInstructionNotifications] = useState<
     { id: string; icon: string; name: string; text: string }[]
@@ -1306,6 +1358,20 @@ export default function InvestigationGame(props: {
     if (lastPlayed - createdAt > 90000) setShowIntro(false);
   }, [session?.id, isSessionLoading]);
 
+  // ✅ Déclencher le tutoriel UNIQUEMENT quand le jeu est prêt (après intro + sélection personnage)
+  useEffect(() => {
+    // Ne pas déclencher si un écran d'intro/chargement est actif
+    if (showIntro || showCharacterSelect || isLoading || !session || isSessionLoading || !invId) return;
+
+    const tutorialKey = `lukeni_tutorial_done_${invId}`;
+    const hasSeenTutorial = localStorage.getItem(tutorialKey);
+
+    if (!hasSeenTutorial && !showTutorial) {
+      const timer = setTimeout(() => setShowTutorial(true), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [showIntro, showCharacterSelect, isLoading, session, isSessionLoading, invId, showTutorial]);
+
   useEffect(() => {
     if (!currentScene?.timer_duration || currentScene.timer_duration <= 0) {
       setTimerSeconds(null);
@@ -1775,6 +1841,10 @@ export default function InvestigationGame(props: {
     setWordSearchProgress({});
     setWordSearchAttempts({});
 
+    // ✅ Réinitialiser le tutoriel pour qu'il se relance
+    const tutorialKey = `lukeni_tutorial_done_${invId}`;
+    localStorage.removeItem(tutorialKey);
+
     await refreshDeductions();
     // Récupère le timer de la première scène du premier chapitre
     const firstScene = chapters[0]?.scenes?.[0];
@@ -1793,6 +1863,8 @@ export default function InvestigationGame(props: {
       await resetSession(startBudget);
     }
   };
+
+
 
   // ── REJOINDRE UN GROUPE ──
   const handleJoinGroup = async () => {
@@ -1882,6 +1954,7 @@ export default function InvestigationGame(props: {
             : "cette énigme";
         }
         // Format: wordsearch_<id>_completed
+        // Format: wordsearch_<id>_completed
         else if (hotspot.condition.startsWith("wordsearch_")) {
           console.log("🔓 Type de condition: WORD SEARCH");
           lockType = "wordsearch";
@@ -1893,17 +1966,10 @@ export default function InvestigationGame(props: {
             "🔓 completed_word_searches en session:",
             (session as any)?.completed_word_searches,
           );
-          console.log(
-            "🔓 Type de completed_word_searches:",
-            Array.isArray((session as any)?.completed_word_searches)
-              ? "TABLEAU"
-              : "NON TABLEAU",
-          );
 
-          // ✅ CORRECTION : Vérifier que completed_word_searches existe ET contient l'ID
           isConditionMet =
             Array.isArray((session as any)?.completed_word_searches) &&
-            (session as any)?.completed_word_searches?.includes(wsId);
+            (session as any)?.completed_word_searches?.includes(hotspot.condition);
 
           console.log("🔓 Word Search complété ?", isConditionMet);
 
@@ -1918,14 +1984,49 @@ export default function InvestigationGame(props: {
           console.log("🔓 Nom du word search:", lockName);
         }
 
+        // ✅ NOUVEAU : Format dialogue_<id>_completed
+        else if (hotspot.condition.startsWith("dialogue_")) {
+          console.log("🔓 Type de condition: DIALOGUE");
+          lockType = "dialogue";
+          const dlgId = hotspot.condition
+            .replace("dialogue_", "")
+            .replace("_completed", "");
+          console.log("🔓 Dialogue ID à vérifier:", dlgId);
+          console.log(
+            "🔓 completed_dialogues en session:",
+            (session as any)?.completed_dialogues,
+          );
+
+          // ✅ Vérifier avec le format canonique dialogue_<id>_completed
+          isConditionMet =
+            Array.isArray((session as any)?.completed_dialogues) &&
+            (session as any)?.completed_dialogues?.includes(hotspot.condition);
+
+          console.log("🔓 Dialogue complété ?", isConditionMet);
+
+          const dlg = allDialogues.find((d: any) => d.id === dlgId);
+          lockName = dlg
+            ? dlg.name || `Dialogue ${dlgId.slice(0, 4)}`
+            : lang === "fr"
+              ? "ce dialogue"
+              : "this dialogue";
+          console.log("🔓 Nom du dialogue:", lockName);
+        }
+
         console.log("🔓 Condition rencontrée ?", isConditionMet);
 
         if (!isConditionMet) {
+          const actionVerb =
+            lockType === "enigma"
+              ? lang === "fr" ? "résoudre" : "solve"
+              : lockType === "dialogue"
+                ? lang === "fr" ? "terminer le dialogue" : "complete the dialogue"
+                : lang === "fr" ? "terminer" : "complete";
+
           const message =
             lang === "fr"
-              ? `🔒 Accès verrouillé. Vous devez d'abord : ${lockType === "enigma" ? "résoudre" : "terminer"} "${lockName}"`
-              : `🔒 Access locked. You must first: ${lockType === "enigma" ? "solve" : "complete"} "${lockName}"`;
-
+              ? `🔒 Accès verrouillé. Vous devez d'abord : ${actionVerb} "${lockName}"`
+              : `🔒 Access locked. You must first: ${actionVerb} "${lockName}"`;
           console.log("❌ HOTSPOT VERROUILLÉ - Message:", message);
           sendChatMessage(message, "system");
           console.log("🔓 ========== FIN VÉRIFICATION (VERROUILLÉ) ==========");
@@ -2891,13 +2992,25 @@ export default function InvestigationGame(props: {
     unreadChatCount > 0;
 
 
-
+  // ✅ DEBUG : Vérifier que validatedConditions contient les dialogues complétés
+  console.log('🔍 [DEBUG] validatedConditions:', [
+    ...(session?.solved_enigmas || []),
+    ...(session as any)?.completed_word_searches || [],
+    ...(session as any)?.completed_mini_games || [],
+    ...(session as any)?.validated_deductions || [],
+    ...(session as any)?.completed_dialogues || [],
+  ]);
 
 
   return (
     <div className="h-[100dvh] w-screen bg-black overflow-hidden relative font-sans text-white text-[12px]">
 
       {currentScene.panorama_url ? (
+
+
+
+
+
         <PanoramaViewer
           panoramaUrl={currentScene.panorama_url}
           hotspots={
@@ -2919,6 +3032,15 @@ export default function InvestigationGame(props: {
           completedWordSearches={
             (session as any)?.completed_word_searches || []
           }
+          validatedConditions={[
+            ...(session?.solved_enigmas || []),
+            ...((session as any)?.completed_word_searches || []),
+            ...((session as any)?.completed_mini_games || []),
+            ...((session as any)?.validated_deductions || []),
+            // ✅ Les dialogues sont déjà stockés au format dialogue_<id>_completed
+            // On les passe tels quels — DialoguePlayer écrit maintenant ce format
+            ...((session as any)?.completed_dialogues || []),
+          ]}
           lang={lang}
           onHotspotActivate={handleHotspotActivate}
           onSceneTap={handleSceneTap}
@@ -2974,7 +3096,7 @@ export default function InvestigationGame(props: {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowInstructions(true)}
-                className="flex items-center gap-2 text-gray-400 hover:text-[#D4AF37] font-mono text-[10px] tracking-widest transition-colors"
+                className="flex items-center gap-2 text-gray-400 hover:text-[#D4AF37] font-mono text-[10(10px] tracking8px] tracking-widest transition-colors"
                 title={lang === "fr" ? "Instructions" : "Instructions"}
               >
                 <Lightbulb size={14} /> {lang === "fr" ? "GUIDE" : "GUIDE"}
@@ -5606,25 +5728,38 @@ export default function InvestigationGame(props: {
 
 
 
-      {/* ✅ NOUVEAU : MODAL DIALOGUE INTERACTIF */}
       {activeDialogueId && (
-        <DialoguePlayer
-          dialogueId={activeDialogueId}
-          investigationId={invId}
-          lang={lang}
-          preloadedData={allDialogues.find(d => d.id === activeDialogueId)}
-          unlockedEvidenceIds={session?.collected_evidences || []}
-          onClose={() => {
-            setActiveDialogueId(null);
-            setDialogueNodes([]);
-          }}
-          onUnlockEvidence={(evidenceId) => {
-            handleCollectEvidence(evidenceId);
-          }}
-          onTriggerEvent={(eventId) => {
-            triggerNarrativeEvent(eventId);
-          }}
-        />
+
+        <>
+          {console.log('🔍 [PAGE] sessionId passé à DialoguePlayer:', session?.id)}
+
+          <DialoguePlayer
+            dialogueId={activeDialogueId}
+            investigationId={invId}
+            lang={lang}
+            preloadedData={allDialogues.find(d => d.id === activeDialogueId)}
+            unlockedEvidenceIds={session?.collected_evidences || []}
+            sessionId={session?.id}
+            onClose={() => {
+              setActiveDialogueId(null);
+              setDialogueNodes([]);
+            }}
+            onUnlockEvidence={(evidenceId) => {
+              handleCollectEvidence(evidenceId);
+            }}
+            onTriggerEvent={(eventId) => {
+              triggerNarrativeEvent(eventId);
+            }}
+            onDialogueComplete={async () => {
+              console.log('🔄 [PAGE] Dialogue terminé, rafraîchissement de la session...');
+              // ✅ Forcer le rafraîchissement de la session
+              if (forceRefreshSession) {
+                await forceRefreshSession();
+              }
+            }}
+          />
+
+        </>
       )}
 
       {/* ── ÉCRAN DE FIN CONTEXTUALISÉE ── */}
@@ -5888,7 +6023,24 @@ export default function InvestigationGame(props: {
         hasGroup={!!session?.group_id}
         hasMiniGames={availableMiniGames.length > 0}  // ✅ NOUVEAU
         hasWordSearch={!!currentWordSearch}            // ✅ NOUVEAU
-        hasDialogues={allDialogues.length > 0}         // ✅ NOUVEAU
+        hasDialogues={allDialogues.length > 0}  
+        onShowTutorial={() => setShowTutorial(true)}       // ✅ NOUVEAU
+      />
+
+      {/* ── TUTORIEL DYNAMIQUE ── */}
+      <TutorialModal
+        isOpen={showTutorial}
+        onClose={() => {
+          setShowTutorial(false);
+          // ✅ Marquer comme vu pour ne plus le lancer automatiquement
+          const tutorialKey = `lukeni_tutorial_done_${invId}`;
+          localStorage.setItem(tutorialKey, 'true');
+        }}
+        lang={lang}
+        hasWordSearch={!!currentWordSearch}
+        hasMiniGames={availableMiniGames.length > 0}
+        hasDeduction={shouldShowDeductionButton}
+        hasGroup={!!session?.group_id}
       />
 
       {/* ── Toast "Groupe rejoint" ── */}

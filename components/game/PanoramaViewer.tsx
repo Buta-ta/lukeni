@@ -52,12 +52,40 @@ function TransitionEffect({ isTransitioning }: { isTransitioning: boolean }) {
 }
 
 // ── Contrôles de rotation ET DE ZOOM (Améliorés pour éviter le tournis) ──
-function DragAndZoomControls({ isTransitioning }: { isTransitioning: boolean }) {
+function DragAndZoomControls({
+  isTransitioning,
+  joystickDeltaRef,
+}: {
+  isTransitioning: boolean;
+  joystickDeltaRef: React.MutableRefObject<{ x: number; y: number }>;
+}) {
   const { camera, gl } = useThree();
   const isDragging = useRef(false);
   const lastPos = useRef({ x: 0, y: 0 });
   const rotationRef = useRef({ x: 0, y: 0 });
   const velocityRef = useRef({ x: 0, y: 0 });
+
+  // ── Touches clavier maintenues ──
+  const keysRef = useRef<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Ne rien faire si un input/textarea a le focus
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      keysRef.current[e.key] = true;
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      keysRef.current[e.key] = false;
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
+  }, []);
 
   useEffect(() => {
     const canvas = gl.domElement;
@@ -66,8 +94,8 @@ function DragAndZoomControls({ isTransitioning }: { isTransitioning: boolean }) 
       if (isTransitioning) return;
       e.preventDefault();
       const perspectiveCamera = camera as THREE.PerspectiveCamera;
-      let newFov = perspectiveCamera.fov + (e.deltaY * 0.05);
-      newFov = Math.max(30, Math.min(100, newFov)); // Limites du zoom optique
+      let newFov = perspectiveCamera.fov + e.deltaY * 0.05;
+      newFov = Math.max(30, Math.min(100, newFov));
       perspectiveCamera.fov = newFov;
       perspectiveCamera.updateProjectionMatrix();
     };
@@ -83,19 +111,19 @@ function DragAndZoomControls({ isTransitioning }: { isTransitioning: boolean }) 
       if (!isDragging.current || isTransitioning) return;
       const dx = e.clientX - lastPos.current.x;
       const dy = e.clientY - lastPos.current.y;
-
-      // ✅ ANTI-TOURNIS : Sensibilité réduite (0.0015 au lieu de 0.003)
       velocityRef.current = { x: dx * 0.0015, y: dy * 0.0015 };
       rotationRef.current.x -= dx * 0.0015;
       rotationRef.current.y -= dy * 0.0015;
-
-      // ✅ ANTI-TOURNIS : Angle vertical (pitch) strictement bloqué (évite de faire des loopings)
-      rotationRef.current.y = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, rotationRef.current.y));
-
+      rotationRef.current.y = Math.max(
+        -Math.PI / 3,
+        Math.min(Math.PI / 3, rotationRef.current.y)
+      );
       lastPos.current = { x: e.clientX, y: e.clientY };
     };
 
-    const onMouseUp = () => { isDragging.current = false; };
+    const onMouseUp = () => {
+      isDragging.current = false;
+    };
 
     const onTouchStart = (e: TouchEvent) => {
       if (isTransitioning) return;
@@ -107,43 +135,107 @@ function DragAndZoomControls({ isTransitioning }: { isTransitioning: boolean }) 
       if (!isDragging.current || isTransitioning) return;
       const dx = e.touches[0].clientX - lastPos.current.x;
       const dy = e.touches[0].clientY - lastPos.current.y;
-
       rotationRef.current.x -= dx * 0.0015;
       rotationRef.current.y -= dy * 0.0015;
-      rotationRef.current.y = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, rotationRef.current.y));
-
+      rotationRef.current.y = Math.max(
+        -Math.PI / 3,
+        Math.min(Math.PI / 3, rotationRef.current.y)
+      );
       lastPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     };
 
-    canvas.addEventListener('wheel', onWheel, { passive: false });
-    canvas.addEventListener('mousedown', onMouseDown);
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-    canvas.addEventListener('touchstart', onTouchStart, { passive: true });
-    canvas.addEventListener('touchmove', onTouchMove, { passive: true });
-    canvas.addEventListener('touchend', onMouseUp);
+    canvas.addEventListener("wheel", onWheel, { passive: false });
+    canvas.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    canvas.addEventListener("touchstart", onTouchStart, { passive: true });
+    canvas.addEventListener("touchmove", onTouchMove, { passive: true });
+    canvas.addEventListener("touchend", onMouseUp);
 
     return () => {
-      canvas.removeEventListener('wheel', onWheel);
-      canvas.removeEventListener('mousedown', onMouseDown);
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-      canvas.removeEventListener('touchstart', onTouchStart);
-      canvas.removeEventListener('touchmove', onTouchMove);
-      canvas.removeEventListener('touchend', onMouseUp);
+      canvas.removeEventListener("wheel", onWheel);
+      canvas.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      canvas.removeEventListener("touchstart", onTouchStart);
+      canvas.removeEventListener("touchmove", onTouchMove);
+      canvas.removeEventListener("touchend", onMouseUp);
     };
   }, [camera, gl, isTransitioning]);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
+    const perspectiveCamera = camera as THREE.PerspectiveCamera;
+    const ROTATION_SPEED = 1.2;
+    const ZOOM_SPEED = 40;
+
+    // ── Joystick virtuel ──
+    // ── Joystick virtuel ──
+    const jx = joystickDeltaRef.current.x;
+    const jy = joystickDeltaRef.current.y;
+    if (Math.abs(jx) > 0.05) {
+      rotationRef.current.x -= jx * ROTATION_SPEED * delta;
+    }
+    if (Math.abs(jy) > 0.05) {
+      // ✅ Joystick vertical = rotation verticale (pitch)
+      rotationRef.current.y += jy * ROTATION_SPEED * delta;
+      rotationRef.current.y = Math.max(
+        -Math.PI / 3,
+        Math.min(Math.PI / 3, rotationRef.current.y)
+      );
+    }
+
+    // ── Clavier ──
+    if (!isTransitioning) {
+      const keys = keysRef.current;
+
+      // Rotation horizontale
+      if (keys["ArrowLeft"]) {
+        rotationRef.current.x += ROTATION_SPEED * delta;
+      }
+      if (keys["ArrowRight"]) {
+        rotationRef.current.x -= ROTATION_SPEED * delta;
+      }
+
+      // Rotation verticale (haut/bas)
+      if (keys["ArrowUp"]) {
+        rotationRef.current.y += ROTATION_SPEED * delta;
+        rotationRef.current.y = Math.max(
+          -Math.PI / 3,
+          Math.min(Math.PI / 3, rotationRef.current.y)
+        );
+      }
+      if (keys["ArrowDown"]) {
+        rotationRef.current.y -= ROTATION_SPEED * delta;
+        rotationRef.current.y = Math.max(
+          -Math.PI / 3,
+          Math.min(Math.PI / 3, rotationRef.current.y)
+        );
+      }
+
+      // ✅ Zoom avec A (avancer) et R (reculer)
+      if (keys["a"] || keys["A"]) {
+        let newFov = perspectiveCamera.fov - ZOOM_SPEED * delta;
+        newFov = Math.max(30, Math.min(100, newFov));
+        perspectiveCamera.fov = newFov;
+        perspectiveCamera.updateProjectionMatrix();
+      }
+      if (keys["r"] || keys["R"]) {
+        let newFov = perspectiveCamera.fov + ZOOM_SPEED * delta;
+        newFov = Math.max(30, Math.min(100, newFov));
+        perspectiveCamera.fov = newFov;
+        perspectiveCamera.updateProjectionMatrix();
+      }
+    }
+
+    // ── Inertie drag ──
     if (!isDragging.current) {
-      // ✅ ANTI-TOURNIS : Plus de friction (0.85 au lieu de 0.92) -> s'arrête plus vite
       velocityRef.current.x *= 0.85;
       velocityRef.current.y *= 0.85;
       rotationRef.current.x -= velocityRef.current.x;
       rotationRef.current.y -= velocityRef.current.y;
     }
 
-    camera.rotation.order = 'YXZ';
+    camera.rotation.order = "YXZ";
     camera.rotation.y = rotationRef.current.x;
     camera.rotation.x = rotationRef.current.y;
   });
@@ -170,14 +262,14 @@ function calculateHotspotProximity(cameraRotation: { x: number; y: number }, hot
 
 // ── Hotspot 3D ──
 function HotspotMarker({
-  hotspot, onActivate, solvedEnigmas, completedWordSearches, lang, characters, proximityState, isTransitioning
+  hotspot, onActivate, solvedEnigmas, completedWordSearches, validatedConditions, lang, characters, proximityState, isTransitioning
 }: any) {
   const { position } = flatToSpherical(hotspot.x_percent, hotspot.y_percent);
   const [hovered, setHovered] = useState(false);
   const config = HOTSPOT_CONFIG[hotspot.type] || { color: '#ffffff', icon: '❓' };
   const activeColor = hotspot.color || config.color;
   const isLocked = hotspot.condition
-    ? !solvedEnigmas.includes(hotspot.condition) && !(completedWordSearches || []).includes(hotspot.condition)
+    ? !validatedConditions.includes(hotspot.condition)
     : false;
   const isTransition = hotspot.type === 'transition';
   const state = isTransition ? (proximityState || 'FAR') : null;
@@ -317,6 +409,7 @@ interface PanoramaViewerProps {
   evidences: any[];
   solvedEnigmas: string[];
   completedWordSearches?: string[];
+  validatedConditions?: string[];
   lang?: 'fr' | 'en';
   onHotspotActivate: (hotspot: Hotspot, evidence?: any) => void;
   onTransition?: (chapterId: string) => void;
@@ -330,8 +423,137 @@ interface PanoramaViewerProps {
 
 }
 
+
+// ── Joystick Virtuel ──
+function VirtualJoystick({
+  onDelta,
+  isVisible,
+  onToggle,
+}: {
+  onDelta: (x: number, y: number) => void;
+  isVisible: boolean;
+  onToggle: () => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const knobRef = useRef<HTMLDivElement>(null);
+  const activeRef = useRef(false);
+  const originRef = useRef({ x: 0, y: 0 });
+  const MAX_DIST = 40;
+
+  const getPos = (e: MouseEvent | { clientX: number; clientY: number }) => ({
+    x: e.clientX,
+    y: e.clientY
+  });
+
+  const onStart = (pos: { x: number; y: number }) => {
+    activeRef.current = true;
+    originRef.current = pos;
+  };
+
+  const onMove = (pos: { x: number; y: number }) => {
+    if (!activeRef.current || !knobRef.current) return;
+    let dx = pos.x - originRef.current.x;
+    let dy = pos.y - originRef.current.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > MAX_DIST) {
+      dx = (dx / dist) * MAX_DIST;
+      dy = (dy / dist) * MAX_DIST;
+    }
+    knobRef.current.style.transform = `translate(${dx}px, ${dy}px)`;
+    // Normaliser entre -1 et 1
+    onDelta(dx / MAX_DIST, dy / MAX_DIST);
+  };
+
+  const onEnd = () => {
+    activeRef.current = false;
+    if (knobRef.current) {
+      knobRef.current.style.transform = `translate(0px, 0px)`;
+    }
+    onDelta(0, 0);
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => onMove(getPos(e));
+    const handleMouseUp = () => onEnd();
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      onMove(getPos(e.touches[0]));
+    };
+    const handleTouchEnd = () => onEnd();
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("touchmove", handleTouchMove, { passive: false });
+    window.addEventListener("touchend", handleTouchEnd);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, []);
+
+  return (
+    <div className="absolute bottom-24 left-4 z-50 flex flex-col items-center gap-2" data-ui-block="true">
+      {/* Bouton toggle */}
+      <button
+        onClick={onToggle}
+        className="w-7 h-7 rounded-full bg-black/60 border border-white/20 text-white text-[10px] font-bold flex items-center justify-center hover:bg-black/80 transition-all"
+        title={isVisible ? "Masquer joystick" : "Afficher joystick"}
+      >
+        {isVisible ? "✕" : "🕹️"}
+      </button>
+
+      {/* Joystick */}
+      <AnimatePresence>
+        {isVisible && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ duration: 0.15 }}
+          >
+            <div
+              ref={containerRef}
+              className="relative w-24 h-24 rounded-full bg-black/40 border-2 border-white/20 backdrop-blur-md flex items-center justify-center select-none"
+              style={{ touchAction: "none" }}
+              onMouseDown={(e) => onStart(getPos(e.nativeEvent))}
+              onTouchStart={(e) => {
+                e.preventDefault();
+                onStart(getPos(e.touches[0]));
+              }}
+            >
+              {/* Croix indicative */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-30">
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 text-white text-[10px]">▲</div>
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-white text-[10px]">▼</div>
+                <div className="absolute left-2 top-1/2 -translate-y-1/2 text-white text-[10px]">◀</div>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 text-white text-[10px]">▶</div>
+              </div>
+
+              {/* Knob */}
+              <div
+                ref={knobRef}
+                className="w-10 h-10 rounded-full bg-white/20 border-2 border-white/50 backdrop-blur-sm transition-transform duration-75 cursor-grab active:cursor-grabbing"
+                style={{ willChange: "transform" }}
+              />
+            </div>
+
+            {/* Légende */}
+            {/* Légende */}
+            <p className="text-[9px] text-white/30 text-center mt-1 font-mono">
+              ↕ haut/bas · ↔ rotation · A/R zoom
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export default function PanoramaViewer({
-  panoramaUrl, hotspots, evidences, solvedEnigmas, completedWordSearches = [], lang = 'fr',
+  panoramaUrl, hotspots, evidences, solvedEnigmas, completedWordSearches = [], validatedConditions = [], lang = 'fr',
   onHotspotActivate, onTransition, onSceneChange, onSceneTap,
   ambientAudioUrl, ambientAudioVolume = 0.5, visualFilter = 'none', isEditorPreview = false, characters = [],
 }: PanoramaViewerProps) {
@@ -395,11 +617,24 @@ export default function PanoramaViewer({
   const [showVolumePanel, setShowVolumePanel] = useState(false);
   const [audioBlocked, setAudioBlocked] = useState(false);
 
+  // États joystick
+  const [joystickVisible, setJoystickVisible] = useState(true);
+  const joystickDeltaRef = useRef({ x: 0, y: 0 });
+
   // ✅ Gestion du volume effectif (combinaison admin + user)
+  // ✅ Gestion du volume effectif et du mute en temps réel
   useEffect(() => {
     if (audioRef.current) {
-      const finalVolume = isMuted ? 0 : ambientAudioVolume * userVolume;
-      audioRef.current.volume = Math.max(0, Math.min(1, finalVolume));
+      if (isMuted) {
+        audioRef.current.pause(); // ✅ Coupe la lecture si muté
+      } else {
+        const finalVolume = ambientAudioVolume * userVolume;
+        audioRef.current.volume = Math.max(0, Math.min(1, finalVolume));
+        // ✅ Reprend la lecture si unmute
+        if (audioRef.current.paused && ambientAudioUrl) {
+          audioRef.current.play().catch(() => { });
+        }
+      }
     }
   }, [ambientAudioVolume, userVolume, isMuted, ambientAudioUrl]);
 
@@ -412,41 +647,49 @@ export default function PanoramaViewer({
   }, [userVolume, isMuted]);
 
   // ✅ COUPURE PROPRE entre les scènes : Fade out → change → fade in
+  // ✅ COUPURE PROPRE entre les scènes : Fade out → change → fade in
   useEffect(() => {
     setIsTransitioning(false);
-
-    // ✅ FIX : on capture le NŒUD DOM réel maintenant, pendant que le ref est encore valide.
-    // Même si React remet audioRef.current à null lors du démontage,
-    // cette constante continuera de pointer vers le véritable élément <audio>,
-    // ce qui nous permet de le mettre en pause même après le démontage du composant.
     const audioEl = audioRef.current;
 
+    let fadeInInterval: NodeJS.Timeout | null = null;
+
     if (audioEl && ambientAudioUrl) {
-      audioEl.volume = 0;
+      if (isMuted) {
+        // ✅ Si muté, on s'assure que l'audio est en pause
+        audioEl.pause();
+      } else {
+        // ✅ Sinon, on lance la lecture avec un fade-in
+        audioEl.volume = 0;
 
-      audioEl.play().catch((err) => {
-        console.warn("🔇 Autoplay bloqué par le navigateur.");
-        setAudioBlocked(true);
-      });
+        audioEl.play().catch((err) => {
+          console.warn("🔇 Autoplay bloqué par le navigateur.");
+          setAudioBlocked(true);
+        });
 
-      const fadeInInterval = setInterval(() => {
-        const target = isMuted ? 0 : ambientAudioVolume * userVolume;
-        if (audioEl.volume < target - 0.05) {
-          audioEl.volume = Math.min(target, audioEl.volume + 0.05);
-        } else {
-          audioEl.volume = target;
-          clearInterval(fadeInInterval);
-        }
-      }, 80);
+        fadeInInterval = setInterval(() => {
+          const target = ambientAudioVolume * userVolume;
+          if (audioEl.volume < target - 0.05) {
+            audioEl.volume = Math.min(target, audioEl.volume + 0.05);
+          } else {
+            audioEl.volume = target;
+            if (fadeInInterval) clearInterval(fadeInInterval);
+          }
+        }, 80);
+      }
+    }
 
-      // ✅ NETTOYAGE : Stopper l'audio via la référence capturée (fonctionne même après démontage)
-      return () => {
-        clearInterval(fadeInInterval);
+    // ✅ NETTOYAGE : Stopper l'audio à la fermeture/scene change
+    return () => {
+      if (fadeInInterval) clearInterval(fadeInInterval);
+      if (audioEl) {
         audioEl.pause();
         audioEl.currentTime = 0;
-        console.log('🔇 [PANORAMA] Audio stoppé (via référence capturée)');
-      };
-    }
+        audioEl.src = ''; // Force le navigateur à libérer la ressource
+        audioEl.load(); // Réinitialise complètement l'élément audio
+        console.log('🔇 [PANORAMA] Audio stoppé et nettoyé');
+      }
+    };
   }, [panoramaUrl, ambientAudioUrl, ambientAudioVolume, userVolume, isMuted]);
 
   const handleHotspotActivate = (hotspot: Hotspot) => {
@@ -502,7 +745,6 @@ export default function PanoramaViewer({
           ref={audioRef}
           key={ambientAudioUrl}
           src={ambientAudioUrl}
-          autoPlay
           loop
           playsInline
           className="hidden"
@@ -581,6 +823,18 @@ export default function PanoramaViewer({
         </div>
       )}
 
+
+      {/* ✅ Joystick Virtuel */}
+      {!isEditorPreview && (
+        <VirtualJoystick
+          onDelta={(x, y) => {
+            joystickDeltaRef.current = { x, y };
+          }}
+          isVisible={joystickVisible}
+          onToggle={() => setJoystickVisible((v) => !v)}
+        />
+      )}
+
       {/* ✅ L'écran de fondu au noir pour la transition Street View */}
       <div
         className={`absolute inset-0 z-40 bg-black transition-opacity duration-500 pointer-events-none ${isTransitioning ? 'opacity-100' : 'opacity-0'}`}
@@ -592,7 +846,7 @@ export default function PanoramaViewer({
 
       <div className="w-full h-full transition-all duration-1000" style={{ filter: getFilterStyle() }}>
         {/* On force le re-render du Canvas quand la photo change pour reset la caméra */}
-        <Canvas key={panoramaUrl} camera={{ position: [0, 0, 0.1], fov: 75 }} gl={{ antialias: true }} style={{ background: '#000' }}>
+        <Canvas key={panoramaUrl} camera={{ position: [0, 0, 0.1], fov: 90 }} gl={{ antialias: true }} style={{ background: '#000' }}>
           <Suspense fallback={null}>
             <PanoramaSphere url={panoramaUrl} />
             <CameraRotationTracker onRotationChange={(rot) => {
@@ -607,7 +861,10 @@ export default function PanoramaViewer({
             }} />
 
             <TransitionEffect isTransitioning={isTransitioning} />
-            <DragAndZoomControls isTransitioning={isTransitioning} />
+            <DragAndZoomControls
+              isTransitioning={isTransitioning}
+              joystickDeltaRef={joystickDeltaRef}
+            />
 
             {hotspots.map(hotspot => (
               <HotspotMarker
@@ -616,6 +873,7 @@ export default function PanoramaViewer({
                 onActivate={handleHotspotActivate}
                 solvedEnigmas={solvedEnigmas}
                 completedWordSearches={completedWordSearches || []}
+                validatedConditions={validatedConditions}
                 lang={lang}
                 characters={characters}
                 proximityState={proximities[hotspot.id]}
