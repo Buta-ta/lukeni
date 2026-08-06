@@ -1,29 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { userId, adminId } = body;
+  const { userId } = body;
 
-  if (!userId || !adminId) {
-    return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
+  if (!userId) {
+    return NextResponse.json({ error: "Missing userId" }, { status: 400 });
   }
 
-  // Vérifier que l'admin est bien admin
-  const supabase = createClient(
+  // ✅ FIX SÉCURITÉ LUK-004: Ne JAMAIS faire confiance à adminId du body
+  // On récupère l'utilisateur depuis le cookie de session
+  const cookieStore = await cookies();
+  const supabaseAuth = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => { } } }
+  );
+  const { data: { user } } = await supabaseAuth.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+
+  // Vérifier que l'appelant EST admin (pas adminId fourni)
+  const supabaseCheck = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
-
-  const { data: adminProfile } = await supabase
+  const { data: callerProfile } = await supabaseCheck
     .from("profiles")
     .select("role")
-    .eq("id", adminId)
+    .eq("id", user.id)
     .single();
 
-  if (!adminProfile || (adminProfile.role !== "admin" && adminProfile.role !== "superadmin")) {
+  if (!callerProfile || (callerProfile.role !== "admin" && callerProfile.role !== "superadmin")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
+  // ✅ Empêcher suppression de soi-même ou d'un superadmin par un admin simple
+  if (userId === user.id) return NextResponse.json({ error: "Impossible" }, { status: 400 });
 
   // Supprimer avec le service_role (droits admin)
   const supabaseAdmin = createClient(

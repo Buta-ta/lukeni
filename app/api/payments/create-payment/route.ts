@@ -7,10 +7,35 @@ export async function POST(req: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
+    // ✅ FIX LUK-011: Ne JAMAIS faire confiance à userId/userEmail du body
+    // On récupère l'utilisateur depuis le cookie de session
+    const { createServerClient } = await import('@supabase/ssr');
+    const { cookies } = await import('next/headers');
+    const cookieStore = await cookies();
+    const supabaseAuth = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { cookies: { getAll: () => cookieStore.getAll() } }
+    );
+    const { data: { user } } = await supabaseAuth.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'Non authentifié' }, { status: 401 });
+    }
 
     const bodyText = await req.text();
     const body = JSON.parse(bodyText);
-    const { productType, productId, currency, userId, userEmail } = body;
+    const { productType, productId, currency } = body;
+    // ✅ Forcer userId et userEmail depuis la session — ignorer le body
+    const userId = user.id;
+    const userEmail = user.email || 'joueur@lukeni.com';
+
+    // ✅ Validation stricte
+    if (!productType || !['investigation','book'].includes(productType)) {
+      return NextResponse.json({ success: false, error: 'productType invalide' }, { status: 400 });
+    }
+    if (!productId || typeof productId !== 'string' || productId.length > 100) {
+      return NextResponse.json({ success: false, error: 'productId invalide' }, { status: 400 });
+    }
 
     const { data: pricing, error: pricingError } = await supabaseAdmin
       .from('product_pricing')

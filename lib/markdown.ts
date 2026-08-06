@@ -4,6 +4,7 @@ import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import remarkHtml from 'remark-html';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import katex from 'katex';
 
 /**
@@ -21,12 +22,41 @@ const mathPlugin = () => {
     };
 };
 
+// ✅ FIX XSS LUK-009: Ajout de rehype-sanitize pour filtrer HTML dangereux
+// On garde la compatibilité avec les balises de style mais on bloque script/iframe/onerror
+const sanitizeSchema = {
+  ...defaultSchema,
+  tagNames: [
+    ...(defaultSchema.tagNames || []),
+    // Ajouter les balises utiles pour ton style presse mais sans script
+    'span', 'div', 'h1', 'h2', 'h3', 'h4', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'blockquote', 'pre', 'code', 'a', 'ul', 'ol', 'li', 'strong', 'em', 'p', 'br', 'hr'
+  ],
+  attributes: {
+    ...defaultSchema.attributes,
+    // Autoriser class pour tes styles Tailwind mais bloquer on* handlers
+    span: ['class'],
+    div: ['class'],
+    h1: ['class'], h2: ['class'], h3: ['class'], h4: ['class'],
+    p: ['class'], a: ['href', 'target', 'rel', 'class'],
+    table: ['class'], th: ['class'], td: ['class'],
+    blockquote: ['class'], pre: ['class'], code: ['class'],
+    ul: ['class'], ol: ['class'], li: ['class'], strong: ['class'], em: ['class'],
+    // Bloquer explicitement les handlers d'événements
+    '*': ['class', 'id']
+  },
+  // Supprimer les protocoles dangereux
+  protocols: {
+    href: ['http', 'https', 'mailto'],
+    src: ['http', 'https']
+  }
+};
+
 const processor = unified()
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkMath)
-    .use(remarkHtml, { sanitize: false });
-
+    .use(remarkHtml, { sanitize: false })
+    .use(rehypeSanitize as any, sanitizeSchema);
 /**
  * Transforme du markdown en HTML avec support complet
  * Applique les styles presse premium

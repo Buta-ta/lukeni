@@ -51,6 +51,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Supabase admin not configured' }, { status: 500 });
     }
 
+    // ✅ FIX: Auth admin — placé APRÈS le check supabaseAdmin
+    const { createServerClient } = await import('@supabase/ssr');
+    const { cookies } = await import('next/headers');
+    const cookieStore = await cookies();
+    const supabaseAuth = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { cookies: { getAll: () => cookieStore.getAll() } }
+    );
+    const { data: { user } } = await supabaseAuth.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+    const { data: profile } = await supabaseAdmin.from('profiles').select('role').eq('id', user.id).single();
+    if (!profile || !['admin', 'superadmin'].includes(profile.role)) {
+      return NextResponse.json({ error: 'admin uniquement' }, { status: 403 });
+    }
+
     const body = await request.json();
     console.log('POST macro-globe body:', body);
 
@@ -88,6 +104,16 @@ export async function PUT(request: NextRequest) {
     if (!supabaseAdmin) {
       return NextResponse.json({ error: 'Supabase admin not configured' }, { status: 500 });
     }
+
+    // ✅ FIX: Auth admin
+    const { createServerClient } = await import('@supabase/ssr');
+    const { cookies } = await import('next/headers');
+    const cookieStore = await cookies();
+    const supabaseAuth = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { cookies: { getAll: () => cookieStore.getAll() } });
+    const { data: { user } } = await supabaseAuth.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+    const { data: profile } = await supabaseAdmin.from('profiles').select('role').eq('id', user.id).single();
+    if (!profile || !['admin','superadmin'].includes(profile.role)) return NextResponse.json({ error: 'admin uniquement' }, { status: 403 });
 
     const body = await request.json();
     console.log('PUT macro-globe body:', body);
@@ -132,6 +158,16 @@ export async function DELETE(request: NextRequest) {
     if (!supabaseAdmin) {
       return NextResponse.json({ error: 'Supabase admin not configured' }, { status: 500 });
     }
+
+    // ✅ FIX: Auth admin
+    const { createServerClient } = await import('@supabase/ssr');
+    const { cookies } = await import('next/headers');
+    const cookieStore = await cookies();
+    const supabaseAuth = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, { cookies: { getAll: () => cookieStore.getAll() } });
+    const { data: { user } } = await supabaseAuth.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+    const { data: profile } = await supabaseAdmin.from('profiles').select('role').eq('id', user.id).single();
+    if (!profile || !['admin','superadmin'].includes(profile.role)) return NextResponse.json({ error: 'admin uniquement' }, { status: 403 });
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');

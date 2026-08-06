@@ -29,12 +29,33 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+    // ✅ FIX LUK-007: Client anon pour vérifier le JWT, puis service_role pour écrire
+  const supabaseAnon = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_ANON_KEY')!
+  );
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   );
 
   try {
+    // ✅ FIX: Vérifier que l'appelant est admin
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Missing Authorization' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabaseAnon.auth.getUser(token);
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Invalid token' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    if (!profile || !['admin','superadmin'].includes(profile.role)) {
+      return new Response(JSON.stringify({ error: 'Forbidden: admin only' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    console.log(`[MANUAL-PUSH] Autorisé pour admin ${user.id} (${profile.role})`);
+
     const body = await req.json().catch(() => ({}));
     
     // Si c'est un push manuel venu de NotificationsTab.tsx

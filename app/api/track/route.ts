@@ -43,22 +43,22 @@ async function geolocateIP(ip: string): Promise<{
     // ip-api.com : gratuit, pas de clé API, 45 req/min
     const res = await fetch(
       `http://ip-api.com/json/${ip}?fields=status,country,countryCode,regionName,city&lang=fr`,
-      { 
+      {
         signal: AbortSignal.timeout(3000),
         headers: { 'User-Agent': 'Lukeni/1.0' }
       }
     );
 
     if (!res.ok) throw new Error(`ip-api status: ${res.status}`);
-    
+
     const data = await res.json();
 
     if (data.status === 'success') {
       return {
-        country:      data.country      || null,
-        country_code: data.countryCode  || null,
-        city:         data.city         || null,
-        region:       data.regionName   || null,
+        country: data.country || null,
+        country_code: data.countryCode || null,
+        city: data.city || null,
+        region: data.regionName || null,
       };
     }
 
@@ -66,7 +66,7 @@ async function geolocateIP(ip: string): Promise<{
 
   } catch (err1) {
     console.warn('[TRACK] ip-api.com failed, trying fallback...', err1);
-    
+
     // Fallback : ipwho.is (aussi gratuit)
     try {
       const res2 = await fetch(
@@ -75,15 +75,15 @@ async function geolocateIP(ip: string): Promise<{
       );
 
       if (!res2.ok) throw new Error('ipwho.is failed');
-      
+
       const data2 = await res2.json();
 
       if (data2.success) {
         return {
-          country:      data2.country      || null,
+          country: data2.country || null,
           country_code: data2.country_code || null,
-          city:         data2.city         || null,
-          region:       data2.region       || null,
+          city: data2.city || null,
+          region: data2.region || null,
         };
       }
 
@@ -99,26 +99,39 @@ async function geolocateIP(ip: string): Promise<{
 // ── Handler principal ─────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
+
+    // ✅ FIX: Rate-limit 20 requêtes/min/IP
+    const ipForLimit = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+    // Simple map en mémoire (pour prod, passer à Upstash)
+    // @ts-ignore
+    globalThis._trackLimit = globalThis._trackLimit || new Map();
+    const m: Map<string, number[]> = globalThis._trackLimit;
+    const now = Date.now();
+    const arr = m.get(ipForLimit) || [];
+    const recent = arr.filter(t => now - t < 60_000);
+    if (recent.length >= 20) return NextResponse.json({ error: 'Too Many Requests' }, { status: 429 });
+    recent.push(now);
+    m.set(ipForLimit, recent);
     const body = await req.json();
     const { session_id, user_id, page, referrer } = body;
 
     // Validation
     if (!session_id || !page) {
       return NextResponse.json(
-        { error: 'Missing session_id or page' }, 
+        { error: 'Missing session_id or page' },
         { status: 400 }
       );
     }
 
     // ── Récupérer l'IP réelle ──────────────────────────────────────────────────
     // Priorité : Cloudflare → X-Forwarded-For → X-Real-IP → fallback
-    const cfIP      = req.headers.get('cf-connecting-ip');
+    const cfIP = req.headers.get('cf-connecting-ip');
     const forwarded = req.headers.get('x-forwarded-for');
-    const realIP    = req.headers.get('x-real-ip');
+    const realIP = req.headers.get('x-real-ip');
 
-    let rawIP = cfIP 
-      || (forwarded ? forwarded.split(',')[0].trim() : null) 
-      || realIP 
+    let rawIP = cfIP
+      || (forwarded ? forwarded.split(',')[0].trim() : null)
+      || realIP
       || '127.0.0.1';
 
     // Nettoyer l'IP (enlever ::ffff: préfixe IPv6-mapped IPv4)
@@ -126,15 +139,15 @@ export async function POST(req: NextRequest) {
       rawIP = rawIP.replace('::ffff:', '');
     }
 
-    const anonIP    = anonymizeIP(rawIP);
+    const anonIP = anonymizeIP(rawIP);
     const userAgent = req.headers.get('user-agent') || '';
-    const mobile    = isMobileUA(userAgent);
+    const mobile = isMobileUA(userAgent);
 
     console.log(`[TRACK] IP: ${rawIP} → ${anonIP} | Page: ${page} | User: ${user_id || 'anon'}`);
 
     // ── Anti-doublon : même session + même page dans les 5 minutes ───────────
     const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-    
+
     const { data: existing } = await supabaseAdmin
       .from('page_visits')
       .select('id')
@@ -151,7 +164,7 @@ export async function POST(req: NextRequest) {
 
     // ── Géolocalisation ───────────────────────────────────────────────────────
     const geo = await geolocateIP(rawIP);
-    
+
     console.log(`[TRACK] Geo result:`, geo);
 
     // ── Insérer en base ───────────────────────────────────────────────────────
@@ -159,16 +172,16 @@ export async function POST(req: NextRequest) {
       .from('page_visits')
       .insert({
         session_id,
-        user_id:      user_id || null,
+        user_id: user_id || null,
         page,
-        referrer:     referrer || null,
-        country:      geo.country,
+        referrer: referrer || null,
+        country: geo.country,
         country_code: geo.country_code,
-        city:         geo.city,
-        region:       geo.region,
-        ip:           anonIP,
-        user_agent:   userAgent.substring(0, 255),
-        is_mobile:    mobile,
+        city: geo.city,
+        region: geo.region,
+        ip: anonIP,
+        user_agent: userAgent.substring(0, 255),
+        is_mobile: mobile,
       });
 
     if (insertError) {
@@ -178,7 +191,7 @@ export async function POST(req: NextRequest) {
 
     console.log(`[TRACK] ✅ Saved: ${page} | ${geo.city}, ${geo.country}`);
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       status: 'ok',
       debug: {
         ip: anonIP,
@@ -192,7 +205,7 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error('[TRACK] Fatal error:', err);
     return NextResponse.json(
-      { error: err.message || 'Internal error' }, 
+      { error: err.message || 'Internal error' },
       { status: 500 }
     );
   }
@@ -202,18 +215,18 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const testIP = req.nextUrl.searchParams.get('ip') || '8.8.8.8';
   const geo = await geolocateIP(testIP);
-  
-  const cfIP      = req.headers.get('cf-connecting-ip');
+
+  const cfIP = req.headers.get('cf-connecting-ip');
   const forwarded = req.headers.get('x-forwarded-for');
-  const realIP    = req.headers.get('x-real-ip');
+  const realIP = req.headers.get('x-real-ip');
 
   return NextResponse.json({
     test_ip: testIP,
     geo,
     headers: {
       'cf-connecting-ip': cfIP,
-      'x-forwarded-for':  forwarded,
-      'x-real-ip':        realIP,
+      'x-forwarded-for': forwarded,
+      'x-real-ip': realIP,
     }
   });
 }

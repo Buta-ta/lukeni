@@ -328,25 +328,66 @@ function buildWelcomeEmailEN(fullName: string, email: string): string {
   `;
 }
 
+// ✅ Rate-limit welcome (3/min par IP)
+const welcomeLastSent = new Map<string, number[]>();
+function isWelcomeRateLimited(key: string): boolean {
+  const now = Date.now();
+  const arr = welcomeLastSent.get(key) || [];
+  const recent = arr.filter(t => now - t < 60_000);
+  if (recent.length >= 3) return true;
+  recent.push(now);
+  welcomeLastSent.set(key, recent);
+  return false;
+}
+
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+    if (isWelcomeRateLimited(ip)) {
+      return NextResponse.json({ error: 'Trop de requêtes, réessayez dans 1 min' }, { status: 429 });
+    }
+
     const { email, fullName, lang = 'fr' } = await req.json();
 
-    if (!email) {
-      return NextResponse.json({ error: 'Email requis' }, { status: 400 });
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ error: 'Email invalide' }, { status: 400 });
     }
+    if (fullName && fullName.length > 100) {
+      return NextResponse.json({ error: 'Nom trop long' }, { status: 400 });
+    }
+    // ✅ FIX: Si l'utilisateur est connecté, il ne peut spammer que son propre email
+    // On importe dynamiquement pour ne pas casser le build si déjà importé
+    const { createServerClient } = await import('@supabase/ssr');
+    const { cookies } = await import('next/headers');
+    try {
+      const cookieStore = await cookies();
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { cookies: { getAll: () => cookieStore.getAll() } }
+      );
+      const { data: { user } } = await supabase.auth.getUser();
+      // Si connecté et email différent → bloquer (anti-spam)
+      if (user && user.email && email.toLowerCase() !== user.email.toLowerCase()) {
+        // Autoriser seulement si superadmin veut tester
+        const { supabaseAdmin } = await import('@/lib/supabase');
+        const { data: profile } = await supabaseAdmin!.from('profiles').select('role').eq('id', user.id).single();
+        if (profile?.role !== 'superadmin') {
+          return NextResponse.json({ error: 'Vous ne pouvez envoyer qu’à votre propre email' }, { status: 403 });
+        }
+      }
+    } catch {}
 
     // ✅ Déterminer la langue et construire le bon template
     const isFrench = lang === 'fr';
     const htmlContent = isFrench 
-      ? buildWelcomeEmailFR(fullName, email)
-      : buildWelcomeEmailEN(fullName, email);
+      ? buildWelcomeEmailFR(fullName?.slice(0,100) || '', email)
+      : buildWelcomeEmailEN(fullName?.slice(0,100) || '', email);
 
     const subject = isFrench
       ? '✦ Bienvenue dans la Constellation Lukeni'
       : '✦ Welcome to the Lukeni Constellation';
 
-    // ✅ Envoyer un seul email (dans la langue de l'utilisateur)
     await transporter.sendMail({
       from: `"Lukeni ✦" <${process.env.GMAIL_USER}>`,
       to: email,
@@ -354,7 +395,7 @@ export async function POST(req: NextRequest) {
       html: htmlContent,
     });
 
-    console.log(`✅ Email de bienvenue envoyé à ${email} (${lang})`);
+    console.log(`✅ Welcome ${email} (${lang}) IP:${ip}`);
 
     return NextResponse.json({ 
       success: true,

@@ -4,12 +4,17 @@ import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
 const PUBLIC_PATHS = ['/', '/auth', '/admin/auth', '/qui-sommes-nous'];
-const PUBLIC_PREFIXES = ['/auth/', '/api/', '/_next/', '/favicon.ico', '/manifest.json', '/sw.js', '/icon-', '/screenshot', '/apple-touch-icon'];
+const PUBLIC_PREFIXES = ['/auth/', '/_next/', '/favicon.ico', '/manifest.json', '/sw.js', '/icon-', '/screenshot', '/apple-touch-icon'];
+// ✅ FIX SÉCURITÉ: On retire '/api/' qui rendait TOUTES les API publiques
+// On whitelist uniquement les API vraiment publiques
+const PUBLIC_API_PREFIXES = ['/api/auth/', '/api/geoip', '/api/track', '/api/proxy/', '/api/epub-proxy', '/api/lingua', '/api/investigation-intro'];
 const INACTIVITY_TIMEOUT = 8 * 60 * 60 * 1000; // 8 heures
 
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true;
   if (PUBLIC_PREFIXES.some(prefix => pathname.startsWith(prefix))) return true;
+  // ✅ FIX: Les API ne sont plus toutes publiques — seulement celles whitelistées
+  if (PUBLIC_API_PREFIXES.some(prefix => pathname.startsWith(prefix))) return true;
   if (/\.(svg|png|jpg|jpeg|gif|webp|ico|css|js|woff|woff2|txt|xml)$/.test(pathname)) return true;
   return false;
 }

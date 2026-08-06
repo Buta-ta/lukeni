@@ -1,6 +1,8 @@
 // /app/api/macro/sync/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,6 +16,23 @@ const AFRICAN_COUNTRIES = [
 
 export async function POST(request: Request) {
   try {
+    // ✅ FIX LUK-006: Auth superadmin OU CRON_SECRET
+    const authHeader = request.headers.get('authorization');
+    const isCron = authHeader === `Bearer ${process.env.CRON_SECRET}`;
+    if (!isCron) {
+      const cookieStore = await cookies();
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { cookies: { getAll: () => cookieStore.getAll() } }
+      );
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+      const { data: profile } = await supabaseAdmin.from('profiles').select('role').eq('id', user.id).single();
+      if (!profile || profile.role !== 'superadmin') {
+        return NextResponse.json({ error: 'superadmin uniquement' }, { status: 403 });
+      }
+    }
     const { data: indicators, error: indError } = await supabaseAdmin
       .from('macro_indicators')
       .select('code, source_api')

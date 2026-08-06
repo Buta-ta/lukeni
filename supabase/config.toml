@@ -1,7 +1,7 @@
 
 [functions.send-manual-push]
 enabled = true
-verify_jwt = false
+verify_jwt = true
 import_map = "./functions/send-manual-push/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
