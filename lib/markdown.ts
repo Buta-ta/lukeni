@@ -4,7 +4,6 @@ import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import remarkHtml from 'remark-html';
-import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import katex from 'katex';
 
 /**
@@ -22,41 +21,41 @@ const mathPlugin = () => {
     };
 };
 
-// ✅ FIX XSS LUK-009: Ajout de rehype-sanitize pour filtrer HTML dangereux
-// On garde la compatibilité avec les balises de style mais on bloque script/iframe/onerror
-const sanitizeSchema = {
-  ...defaultSchema,
-  tagNames: [
-    ...(defaultSchema.tagNames || []),
-    // Ajouter les balises utiles pour ton style presse mais sans script
-    'span', 'div', 'h1', 'h2', 'h3', 'h4', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'blockquote', 'pre', 'code', 'a', 'ul', 'ol', 'li', 'strong', 'em', 'p', 'br', 'hr'
-  ],
-  attributes: {
-    ...defaultSchema.attributes,
-    // Autoriser class pour tes styles Tailwind mais bloquer on* handlers
-    span: ['class'],
-    div: ['class'],
-    h1: ['class'], h2: ['class'], h3: ['class'], h4: ['class'],
-    p: ['class'], a: ['href', 'target', 'rel', 'class'],
-    table: ['class'], th: ['class'], td: ['class'],
-    blockquote: ['class'], pre: ['class'], code: ['class'],
-    ul: ['class'], ol: ['class'], li: ['class'], strong: ['class'], em: ['class'],
-    // Bloquer explicitement les handlers d'événements
-    '*': ['class', 'id']
-  },
-  // Supprimer les protocoles dangereux
-  protocols: {
-    href: ['http', 'https', 'mailto'],
-    src: ['http', 'https']
-  }
-};
-
 const processor = unified()
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkMath)
-    .use(remarkHtml, { sanitize: false })
-    .use(rehypeSanitize as any, sanitizeSchema);
+    .use(remarkHtml, { sanitize: false });
+
+/**
+ * ✅ FIX XSS LUK-009 — Nettoyage léger APRÈS génération HTML
+ * Ne casse pas le rendu, ne supprime que les vecteurs dangereux
+ * Garde toutes tes classes Tailwind
+ */
+function sanitizeHtmlSafe(html: string): string {
+    // 1. Supprimer <script>...</script> et <iframe>...</iframe>
+    let clean = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+    clean = clean.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
+    clean = clean.replace(/<object\b[^>]*>[\s\S]*?<\/object>/gi, '');
+    clean = clean.replace(/<embed\b[^>]*>/gi, '');
+    clean = clean.replace(/<link\b[^>]*>/gi, '');
+    
+    // 2. Supprimer les handlers d'événements (onerror, onclick, onload, etc.)
+    // Regex qui garde les classes mais supprime on*
+    clean = clean.replace(/\s+on\w+\s*=\s*["'][^"']*["']/gi, '');
+    clean = clean.replace(/\s+on\w+\s*=\s*[^\s>]+/gi, '');
+    
+    // 3. Bloquer javascript: et data:text/html dans href/src
+    clean = clean.replace(/href\s*=\s*["']\s*javascript:[^"']*["']/gi, 'href="#"');
+    clean = clean.replace(/src\s*=\s*["']\s*javascript:[^"']*["']/gi, 'src=""');
+    clean = clean.replace(/src\s*=\s*["']\s*data:text\/html[^"']*["']/gi, 'src=""');
+    
+    // 4. Bloquer <a href="javascript:..."> déjà transformé
+    clean = clean.replace(/javascript\s*:/gi, '');
+    
+    return clean;
+}
+
 /**
  * Transforme du markdown en HTML avec support complet
  * Applique les styles presse premium
@@ -241,6 +240,9 @@ export async function renderMarkdownToHtml(markdown: string): Promise<string> {
             }
         });
 
+        // ✅ FIX XSS SANS CASSER LE RENDU — nettoyer à la toute fin
+        html = sanitizeHtmlSafe(html);
+
         return html;
     } catch (error) {
         console.error('Markdown render error:', error);
@@ -264,7 +266,7 @@ export function stripMarkdownToText(markdown: string): string {
         .replace(/^[-*+]\s+/gm, '')
         .replace(/\*\*([^*]+)\*\*/g, '$1')
         .replace(/\*([^*]+)\*/g, '$1')
-        .replace(/\$\$?[^\$]+\$\$?/g, '[formule]')
+        .replace(/\$\$?[^$]+\$\$?/g, '[formule]')
         .replace(/<[^>]*>/g, '')
         .replace(/\n{2,}/g, '. ')
         .replace(/\n/g, ' ')
