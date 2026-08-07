@@ -1,0 +1,35 @@
+export interface UnifiedItem {
+  itemType: "article" | "archive";
+  id: string;
+  article_type?: "written" | "audio";
+  title_fr: string;
+  title_en: string;
+  summary_fr: string;
+  summary_en: string;
+  content_fr: string;
+  content_en: string;
+  cover_url: string;
+  audio_url?: string;
+  author_or_source: string;
+  date: string;
+  published_at?: string;
+  category_id: string;
+  category_color: string;
+  category_name_fr: string;
+  category_name_en: string;
+  location_city?: string;
+  location_country?: string;
+  media_items?: any[];
+  sources?: any[];
+  reading_time_minutes?: number;
+  related_articles_ids?: string[];
+  related_charts_ids?: string[];
+  font_size?: string;
+  font_family?: string;
+  status?: string;
+  is_live?: boolean;
+  is_breaking?: boolean;
+  cover_type?: string;
+  cover_video_url?: string;
+  format?: string;
+}

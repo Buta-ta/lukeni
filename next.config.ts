@@ -43,18 +43,17 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              // ✅ FIX: retirer 'unsafe-eval' et restreindre https: à domaines précis
-              "script-src 'self' 'unsafe-inline' https://vercel.live https://va.vercel-scripts.com https://translate.googleapis.com blob:",
+              // ✅ FIX: autorise pdf.js + epub.js + jszip hébergés sur unpkg/cdnjs
+              "script-src 'self' 'unsafe-inline' https://vercel.live https://va.vercel-scripts.com https://translate.googleapis.com https://unpkg.com https://cdn.jsdelivr.net blob:",
               "frame-src 'self' https://www.youtube.com https://player.vimeo.com blob:",
               "object-src 'none'",
-              // ✅ FIX: restreindre connect-src aux APIs utilisées
-              "connect-src 'self' https://lcemtmzdvcgxgpircumh.supabase.co https://*.supabase.co https://api.exchangerate-api.com https://translate.googleapis.com https://api.worldbank.org https://ip-api.com https://ipwho.is https://api.openweathermap.org https://res.cloudinary.com wss://lcemtmzdvcgxgpircumh.supabase.co blob: data:",
-              "img-src 'self' data: blob: https://res.cloudinary.com https://images.unsplash.com https://upload.wikimedia.org https://*.wikipedia.org https://archive.org https://*.archive.org https://covers.openlibrary.org https:",
-              "media-src 'self' blob: https://res.cloudinary.com",
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "font-src 'self' data: https://fonts.gstatic.com",
+              "connect-src 'self' https://lcemtmzdvcgxgpircumh.supabase.co https://*.supabase.co https://api.exchangerate-api.com https://translate.googleapis.com https://api.worldbank.org https://ip-api.com https://ipwho.is https://api.openweathermap.org https://res.cloudinary.com https://unpkg.com https://cdn.jsdelivr.net wss://lcemtmzdvcgxgpircumh.supabase.co blob: data: https: wss:",
+              "img-src 'self' data: blob: https://res.cloudinary.com https://images.unsplash.com https://upload.wikimedia.org https://*.wikipedia.org https://archive.org https://*.archive.org https://covers.openlibrary.org https: https://unpkg.com https://cdn.jsdelivr.net",
+              "media-src 'self' blob: https://res.cloudinary.com https: http:",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://cdn.jsdelivr.net",
+              "font-src 'self' data: https://fonts.gstatic.com https://unpkg.com https://cdn.jsdelivr.net",
               "manifest-src 'self'",
-              "worker-src 'self' blob:",
+              "worker-src 'self' blob: https://unpkg.com https://cdn.jsdelivr.net",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",

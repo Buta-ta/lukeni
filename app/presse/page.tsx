@@ -417,7 +417,6 @@ export type UnifiedItem = {
 
   font_size?: 'small' | 'normal' | 'large' | 'xlarge';
   font_family?: string;
-
   status?: string;
 };
 
@@ -2613,18 +2612,18 @@ export const TableOfContents = ({
                 <button
                   key={i}
                   onClick={() => scrollToHeading(h.text)}
-                  className={`w-full text-left flex items-center gap-2 py-1.5 px-2 rounded-lg transition-all text-xs group ${activeId === h.text
-                    ? "bg-[#0466c8]/15 text-[#90e0ef]"
-                    : "text-[#90e0ef]/40 hover:text-[#90e0ef] hover:bg-[#0466c8]/5"
-                    } ${h.level === 3 ? "ml-4" : ""}`}
+                  className={`w-full text-left flex items-center gap-2 py-2 px-3 rounded-lg transition-all text-sm group ${activeId === h.text
+                    ? "bg-[#0466c8]/20 text-white border border-[#0466c8]/30"
+                    : "text-zinc-300 hover:text-white hover:bg-white/5 border border-transparent"
+                    } ${h.level === 3 ? "ml-4 text-[13px]" : "font-medium"}`}
                 >
                   <span
-                    className={`flex-shrink-0 font-mono text-[8px] ${h.level === 2 ? "text-[#0466c8]" : "text-[#0466c8]/40"
+                    className={`flex-shrink-0 font-mono text-[10px] font-bold ${h.level === 2 ? "text-[#D4AF37]" : "text-zinc-500"
                       }`}
                   >
                     {String(i + 1).padStart(2, "0")}
                   </span>
-                  <span className="line-clamp-1 group-hover:text-[#90e0ef] transition-colors">
+                  <span className="line-clamp-1 transition-colors">
                     {h.text}
                   </span>
                 </button>
@@ -2997,301 +2996,32 @@ const KenteSeparator = ({ className = "" }: { className?: string }) => (
 // ─── Digest Designs ───────────────────────────────────────────────────────────
 
 const DigestClassic = ({ items, lang, onSelect, accent }: { items: UnifiedItem[]; lang: "fr" | "en"; onSelect: (a: UnifiedItem) => void; accent: string }) => (
-  <div className="space-y-3">
-    {items.map((article, i) => {
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    {items.slice(0,4).map((article, i) => {
       const title = lang === "fr" ? article.title_fr : article.title_en;
       const cat = lang === "fr" ? article.category_name_fr : article.category_name_en;
       const thumb = getThumbnailUrl(article.cover_url, article.format);
-      const dateStr = formatPublishedDate(article.published_at || article.date, lang);
-      const isAudio = article.article_type === "audio";
       return (
-        <motion.button
-          key={article.id}
-          initial={{ opacity: 0, x: -10 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: i * 0.07 }}
-          onClick={() => onSelect(article)}
-          className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/10 transition-all group text-left"
-        >
-          {thumb ? (
-            <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0" style={{ borderColor: `${accent}30`, borderWidth: 1 }}>
-              <img src={thumb} alt={title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-            </div>
-          ) : (
-            <div className="w-14 h-14 rounded-lg flex-shrink-0 flex items-center justify-center" style={{ backgroundColor: `${accent}10` }}>
-              {isAudio ? <Radio size={18} style={{ color: accent, opacity: 0.4 }} /> : <Newspaper size={18} style={{ color: accent, opacity: 0.4 }} />}
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[8px] font-black uppercase tracking-wider" style={{ color: accent }}>{cat}</span>
-              {dateStr && <span className="ml-auto text-[8px] text-[#90e0ef]/25">{dateStr}</span>}
-            </div>
-            <p className="text-white text-sm font-serif leading-snug group-hover:text-[#90e0ef] transition-colors line-clamp-2">{title}</p>
+        <button key={article.id} onClick={() => onSelect(article)} className="group text-left bg-[#0A1930] rounded-xl overflow-hidden border border-white/10 hover:border-[#D4AF37]/30 transition">
+          {thumb && <div className="aspect-[16/9] overflow-hidden"><img src={thumb} alt={title} className="w-full h-full object-cover group-hover:scale-[1.03] transition duration-500" /></div>}
+          <div className="p-3">
+            <div className="text-[10px] font-bold tracking-widest uppercase" style={{ color: accent }}>{cat}</div>
+            <div className="font-sans font-bold text-[15px] leading-snug text-white mt-1 line-clamp-2 group-hover:text-[#D4AF37]">{title}</div>
           </div>
-          <ChevronRight size={14} className="flex-shrink-0 opacity-20 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" style={{ color: accent }} />
-        </motion.button>
+        </button>
       );
     })}
   </div>
 );
 
-const DigestGrid = ({ items, lang, onSelect, accent }: { items: UnifiedItem[]; lang: "fr" | "en"; onSelect: (a: UnifiedItem) => void; accent: string }) => (
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-    {items.map((article, i) => {
-      const title = lang === "fr" ? article.title_fr : article.title_en;
-      const cat = lang === "fr" ? article.category_name_fr : article.category_name_en;
-      const thumb = getThumbnailUrl(article.cover_url, article.format);
-      return (
-        <motion.button
-          key={article.id}
-          initial={{ opacity: 0, y: 15 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: i * 0.08 }}
-          onClick={() => onSelect(article)}
-          className="group relative rounded-2xl overflow-hidden border text-left transition-all hover:-translate-y-1"
-          style={{ borderColor: `${accent}20`, backgroundColor: `${accent}05` }}
-        >
-          {thumb && (
-            <div className="aspect-[4/3] overflow-hidden">
-              <img src={thumb} alt={title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-            </div>
-          )}
-          <div className="p-4">
-            <span className="text-[8px] font-black uppercase tracking-wider" style={{ color: accent }}>{cat}</span>
-            <p className="text-white text-sm font-serif leading-snug mt-1 line-clamp-3 group-hover:text-[#90e0ef] transition-colors">{title}</p>
-          </div>
-        </motion.button>
-      );
-    })}
-  </div>
-);
+const DigestGrid = DigestClassic;
+const DigestCarousel = DigestClassic;
+const DigestRanked = DigestClassic;
+const DigestHeroList = DigestClassic;
+const DigestTimeline = DigestClassic;
+const DigestDiptych = DigestClassic;
 
-const DigestCarousel = ({ items, lang, onSelect, accent }: { items: UnifiedItem[]; lang: "fr" | "en"; onSelect: (a: UnifiedItem) => void; accent: string }) => {
-  const [current, setCurrent] = useState(0);
-  return (
-    <div className="relative">
-      <div className="overflow-hidden rounded-2xl">
-        <motion.div
-          className="flex"
-          animate={{ x: `-${current * 100}%` }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          style={{ width: `${items.length * 100}%` }}
-        >
-          {items.map((article) => {
-            const title = lang === "fr" ? article.title_fr : article.title_en;
-            const summary = lang === "fr" ? article.summary_fr : article.summary_en;
-            const cat = lang === "fr" ? article.category_name_fr : article.category_name_en;
-            const thumb = getThumbnailUrl(article.cover_url, article.format);
-            return (
-              <div
-                key={article.id}
-                style={{ width: `${100 / items.length}%` }}
-                className="flex-shrink-0 cursor-pointer group"
-                onClick={() => onSelect(article)}
-              >
-                <div className="relative rounded-2xl overflow-hidden border" style={{ borderColor: `${accent}20` }}>
-                  {thumb && (
-                    <div className="aspect-video overflow-hidden">
-                      <img src={thumb} alt={title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                    </div>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#000814] via-[#000814]/40 to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-5">
-                    <span className="text-[8px] font-black uppercase tracking-wider" style={{ color: accent }}>{cat}</span>
-                    <h4 className="text-white font-serif text-lg leading-snug mt-1 group-hover:text-[#90e0ef] transition-colors line-clamp-2">{title}</h4>
-                    {summary && <p className="text-[#90e0ef]/50 text-xs mt-2 line-clamp-2">{summary}</p>}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </motion.div>
-      </div>
-      {items.length > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-4">
-          <button onClick={() => setCurrent(p => (p - 1 + items.length) % items.length)} className="p-1.5 rounded-full border border-white/10 hover:border-white/30 text-white/40 hover:text-white transition-all"><ChevronLeft size={14} /></button>
-          {items.map((_, i) => (
-            <button key={i} onClick={() => setCurrent(i)} className={`rounded-full transition-all ${i === current ? 'w-5 h-1.5' : 'w-1.5 h-1.5 opacity-30'}`} style={{ backgroundColor: i === current ? accent : '#fff' }} />
-          ))}
-          <button onClick={() => setCurrent(p => (p + 1) % items.length)} className="p-1.5 rounded-full border border-white/10 hover:border-white/30 text-white/40 hover:text-white transition-all"><ChevronRight size={14} /></button>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const DigestRanked = ({ items, lang, onSelect, accent }: { items: UnifiedItem[]; lang: "fr" | "en"; onSelect: (a: UnifiedItem) => void; accent: string }) => (
-  <div className="space-y-4">
-    {items.map((article, i) => {
-      const title = lang === "fr" ? article.title_fr : article.title_en;
-      const cat = lang === "fr" ? article.category_name_fr : article.category_name_en;
-      const thumb = getThumbnailUrl(article.cover_url, article.format);
-      return (
-        <motion.button
-          key={article.id}
-          initial={{ opacity: 0, x: -20 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: i * 0.09 }}
-          onClick={() => onSelect(article)}
-          className="w-full flex items-center gap-5 group text-left py-3 border-b border-white/5 last:border-0 hover:pl-2 transition-all"
-        >
-          <span className="font-serif text-4xl font-black leading-none flex-shrink-0 tabular-nums" style={{ color: `${accent}30` }}>
-            {String(i + 1).padStart(2, '0')}
-          </span>
-          {thumb && (
-            <div className="w-16 h-14 rounded-xl overflow-hidden flex-shrink-0 border border-white/10">
-              <img src={thumb} alt={title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <span className="text-[8px] font-black uppercase tracking-wider" style={{ color: accent }}>{cat}</span>
-            <p className="text-white text-sm font-serif leading-snug mt-0.5 line-clamp-2 group-hover:text-[#90e0ef] transition-colors">{title}</p>
-          </div>
-        </motion.button>
-      );
-    })}
-  </div>
-);
-
-const DigestHeroList = ({ items, lang, onSelect, accent }: { items: UnifiedItem[]; lang: "fr" | "en"; onSelect: (a: UnifiedItem) => void; accent: string }) => {
-  const [hero, ...rest] = items;
-  if (!hero) return null;
-  const heroTitle = lang === "fr" ? hero.title_fr : hero.title_en;
-  const heroSummary = lang === "fr" ? hero.summary_fr : hero.summary_en;
-  const heroCat = lang === "fr" ? hero.category_name_fr : hero.category_name_en;
-  const heroThumb = getThumbnailUrl(hero.cover_url, hero.format);
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-5 gap-5">
-      <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        onClick={() => onSelect(hero)}
-        className="md:col-span-3 cursor-pointer group"
-      >
-        <div className="relative rounded-2xl overflow-hidden border aspect-[4/3]" style={{ borderColor: `${accent}25` }}>
-          {heroThumb && <img src={heroThumb} alt={heroTitle} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#000814] via-[#000814]/30 to-transparent" />
-          <div className="absolute bottom-0 left-0 right-0 p-5">
-            <span className="text-[8px] font-black uppercase tracking-wider" style={{ color: accent }}>{heroCat}</span>
-            <h4 className="text-white font-serif text-xl leading-snug mt-1 group-hover:text-[#90e0ef] transition-colors">{heroTitle}</h4>
-            {heroSummary && <p className="text-[#90e0ef]/50 text-xs mt-2 line-clamp-2">{heroSummary}</p>}
-          </div>
-        </div>
-      </motion.div>
-      <div className="md:col-span-2 space-y-3">
-        {rest.map((article, i) => {
-          const title = lang === "fr" ? article.title_fr : article.title_en;
-          const cat = lang === "fr" ? article.category_name_fr : article.category_name_en;
-          const thumb = getThumbnailUrl(article.cover_url, article.format);
-          return (
-            <motion.button
-              key={article.id}
-              initial={{ opacity: 0, x: 15 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.08 }}
-              onClick={() => onSelect(article)}
-              className="w-full flex gap-3 p-3 rounded-xl border border-transparent hover:border-white/10 hover:bg-white/5 transition-all group text-left"
-            >
-              {thumb && (
-                <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0">
-                  <img src={thumb} alt={title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <span className="text-[8px] font-black uppercase tracking-wider" style={{ color: accent }}>{cat}</span>
-                <p className="text-white text-sm font-serif leading-snug mt-0.5 line-clamp-3 group-hover:text-[#90e0ef] transition-colors">{title}</p>
-              </div>
-            </motion.button>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-const DigestTimeline = ({ items, lang, onSelect, accent }: { items: UnifiedItem[]; lang: "fr" | "en"; onSelect: (a: UnifiedItem) => void; accent: string }) => (
-  <div className="space-y-0">
-    {items.map((article, i) => {
-      const title = lang === "fr" ? article.title_fr : article.title_en;
-      const cat = lang === "fr" ? article.category_name_fr : article.category_name_en;
-      const thumb = getThumbnailUrl(article.cover_url, article.format);
-      const dateStr = formatPublishedDate(article.published_at || article.date, lang);
-      return (
-        <motion.div
-          key={article.id}
-          initial={{ opacity: 0, y: 10 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: i * 0.08 }}
-          className="flex gap-4"
-        >
-          <div className="flex flex-col items-center">
-            <div className="w-3 h-3 rounded-full flex-shrink-0 mt-1.5 border-2" style={{ backgroundColor: accent, borderColor: `${accent}50` }} />
-            {i < items.length - 1 && <div className="w-px flex-1 my-1" style={{ backgroundColor: `${accent}20` }} />}
-          </div>
-          <button
-            onClick={() => onSelect(article)}
-            className="flex-1 pb-5 flex gap-3 text-left group hover:pl-1 transition-all"
-          >
-            {thumb && (
-              <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 border border-white/10">
-                <img src={thumb} alt={title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
-              {dateStr && <p className="text-[9px] font-mono mb-1" style={{ color: `${accent}80` }}>{dateStr}</p>}
-              <span className="text-[8px] font-black uppercase tracking-wider" style={{ color: accent }}>{cat}</span>
-              <p className="text-white text-sm font-serif leading-snug mt-0.5 line-clamp-2 group-hover:text-[#90e0ef] transition-colors">{title}</p>
-            </div>
-          </button>
-        </motion.div>
-      );
-    })}
-  </div>
-);
-
-const DigestDiptych = ({ items, lang, onSelect, accent }: { items: UnifiedItem[]; lang: "fr" | "en"; onSelect: (a: UnifiedItem) => void; accent: string }) => (
-  <div className="space-y-4">
-    {items.map((article, i) => {
-      const title = lang === "fr" ? article.title_fr : article.title_en;
-      const summary = lang === "fr" ? article.summary_fr : article.summary_en;
-      const cat = lang === "fr" ? article.category_name_fr : article.category_name_en;
-      const thumb = getThumbnailUrl(article.cover_url, article.format);
-      const isEven = i % 2 === 0;
-      return (
-        <motion.button
-          key={article.id}
-          initial={{ opacity: 0, y: 10 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: i * 0.08 }}
-          onClick={() => onSelect(article)}
-          className={`w-full flex gap-4 p-3 rounded-2xl border border-white/5 hover:border-white/15 hover:bg-white/5 transition-all group text-left ${isEven ? 'flex-row' : 'flex-row-reverse'}`}
-        >
-          {thumb && (
-            <div className="w-32 h-24 rounded-xl overflow-hidden flex-shrink-0 border border-white/10">
-              <img src={thumb} alt={title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-            </div>
-          )}
-          <div className="flex-1 min-w-0 flex flex-col justify-center">
-            <span className="text-[8px] font-black uppercase tracking-wider" style={{ color: accent }}>{cat}</span>
-            <p className="text-white text-sm font-serif leading-snug mt-1 line-clamp-2 group-hover:text-[#90e0ef] transition-colors">{title}</p>
-            {summary && <p className="text-[#90e0ef]/40 text-xs mt-1.5 line-clamp-2">{summary}</p>}
-          </div>
-        </motion.button>
-      );
-    })}
-  </div>
-);
-
-// ─── DigestWidget orchestrateur ───────────────────────────────────────────────
-
+// ─── DigestWidget Numerama — 1 seul UX parfait : blanc sur sombre
 const DigestWidget = ({
   digest,
   feedItems,
@@ -3304,89 +3034,25 @@ const DigestWidget = ({
   onSelect: (a: UnifiedItem) => void;
 }) => {
   if (!digest.article_ids || digest.article_ids.length === 0) return null;
-
-  const items = digest.article_ids
-    .map((id) => feedItems.find((a) => a.id === id))
-    .filter(Boolean) as UnifiedItem[];
-
+  const items = digest.article_ids.map((id) => feedItems.find((a) => a.id === id)).filter(Boolean) as UnifiedItem[];
   if (items.length === 0) return null;
-
   const label = lang === "fr" ? digest.label_fr : digest.label_en;
-  const accent = digest.accent_color || "#0466c8";
-
-  const mostRecentDate = items.reduce<string>((latest, a) => {
-    const d = a.published_at || a.date;
-    if (!d) return latest;
-    if (!latest) return d;
-    return new Date(d).getTime() > new Date(latest).getTime() ? d : latest;
-  }, "");
-  const editionDate = formatPublishedDate(mostRecentDate, lang);
-
-  const designComponents: Record<DigestItem["design"], React.ReactNode> = {
-    classic: <DigestClassic items={items} lang={lang} onSelect={onSelect} accent={accent} />,
-    grid: <DigestGrid items={items} lang={lang} onSelect={onSelect} accent={accent} />,
-    carousel: <DigestCarousel items={items} lang={lang} onSelect={onSelect} accent={accent} />,
-    ranked: <DigestRanked items={items} lang={lang} onSelect={onSelect} accent={accent} />,
-    hero_list: <DigestHeroList items={items} lang={lang} onSelect={onSelect} accent={accent} />,
-    timeline: <DigestTimeline items={items} lang={lang} onSelect={onSelect} accent={accent} />,
-    diptych: <DigestDiptych items={items} lang={lang} onSelect={onSelect} accent={accent} />,
-  };
-
+  const accent = digest.accent_color || "#D4AF37";
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      className="my-12 p-5 bg-gradient-to-br from-[#001233]/60 to-[#000814] rounded-2xl border"
-      style={{
-        borderColor: `${accent}25`,
-        boxShadow: `0 0 40px ${accent}06`,
-      }}
-    >
-      {/* Masthead renforcé */}
-      <div className="flex items-center justify-between gap-3 mb-4 pb-4 border-b" style={{ borderColor: `${accent}15` }}>
-        <div className="flex items-center gap-2.5">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-          >
-            <div style={{ color: accent }}>
-              <CaurisIcon className="w-5 h-5" />
-            </div>
-          </motion.div>
-          <span className="font-serif tracking-[0.25em] text-sm text-white">
-            LE CONTINENT
-          </span>
+    <div className="my-12 bg-gradient-to-br from-[#001233]/60 to-[#000814] rounded-2xl border border-white/10 overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+        <div className="flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: accent }} />
+          <span className="text-[11px] font-black tracking-[0.2em] uppercase" style={{ color: accent }}>{label}</span>
         </div>
-        {editionDate && (
-          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest" style={{ color: `${accent}80` }}>
-            <Calendar size={11} style={{ color: accent }} />
-            <span className="text-[#90e0ef]/60">{editionDate}</span>
-          </div>
-        )}
+        <span className="text-[10px] text-zinc-500 hidden md:inline">{items.length} articles</span>
       </div>
-
-      {/* Label */}
-      <div className="flex items-center gap-3 mb-5">
-        <motion.div
-          className="w-2 h-2 rounded-full"
-          style={{ backgroundColor: accent }}
-          animate={{ opacity: [1, 0.3, 1] }}
-          transition={{ duration: 1.5, repeat: Infinity }}
-        />
-        <h3 className="text-[11px] font-black uppercase tracking-[0.4em]" style={{ color: accent }}>
-          {label}
-        </h3>
-        <div className="flex-1 h-px" style={{ backgroundColor: `${accent}20` }} />
+      <div className="p-5">
+        <DigestClassic items={items} lang={lang} onSelect={onSelect} accent={accent} />
       </div>
-
-      {/* Contenu selon le design */}
-      {designComponents[digest.design] || designComponents.classic}
-    </motion.div>
+    </div>
   );
 };
-
-
 
 // ─── Sidebar Article ──────────────────────────────────────────────────────────
 
@@ -3917,6 +3583,34 @@ export const ArticleView = ({
     };
   }, [article.id]);
 
+  // ✅ FIX lisibilité: charger Google Fonts + tailles enrichies (16→22px)
+  useEffect(() => {
+    if (!article.font_family) return;
+    const fontName = article.font_family.replace(/\s+/g, "+");
+    const linkId = `google-font-${fontName}`;
+    if (!document.getElementById(linkId)) {
+      const link = document.createElement("link");
+      link.id = linkId;
+      link.href = `https://fonts.googleapis.com/css2?family=${fontName}:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,700&display=swap`;
+      link.rel = "stylesheet";
+      document.head.appendChild(link);
+    }
+  }, [article.font_family]);
+
+  const fontSizeMap: Record<string, string> = {
+    small: "16px",
+    normal: "18px",
+    large: "20px",
+    xlarge: "22px",
+  };
+
+  console.log("[FONT DEBUG ArticleView page.tsx]", {
+    font_family: article.font_family,
+    font_size: article.font_size,
+    mapped: fontSizeMap[article.font_size || "normal"],
+    articleId: article.id,
+  });
+
   const toggleAudio = useCallback(() => {
     const audioUrl = isAudio
       ? article.audio_content_url
@@ -3986,40 +3680,7 @@ export const ArticleView = ({
       ? "0:00"
       : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
-  // Charger Google Fonts dynamiquement
-  useEffect(() => {
-    if (!article.font_family) return;
-    
-    // Nettoyer les anciens liens de polices non utilisés (optionnel mais propre)
-    // On garde juste le dernier chargé pour éviter les conflits
-    
-    const fontName = article.font_family.replace(/\s+/g, '+');
-    const linkId = `google-font-${fontName}`;
-    
-    // Vérifier si le lien existe déjà
-    if (!document.getElementById(linkId)) {
-      const link = document.createElement('link');
-      link.id = linkId;
-      // On demande toutes les graisses possibles
-      link.href = `https://fonts.googleapis.com/css2?family=${fontName}:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,700&display=swap`;
-      link.rel = 'stylesheet';
-      
-      document.head.appendChild(link);
-      
-      // Petit délai pour s'assurer que la font est chargée avant le rendu
-      // (souvent géré par le browser, mais ça aide parfois)
-    }
-  }, [article.font_family]);
-
-  const fontSizeMap = {
-    small: '14px',
-    normal: '16px',
-    large: '18px',
-    xlarge: '20px',
-  };
-
   return (
-      
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -4150,41 +3811,28 @@ export const ArticleView = ({
             <div className="hidden xl:block" aria-hidden="true" />
 
             {/* Colonne centrale — corps de l'article */}
-                        {/* Colonne centrale — corps de l'article */}
             <div
               ref={articleBodyRef}
               className="min-w-0 press-article-container"
               style={{
-                '--article-font-family': article.font_family || 'Merriweather',
-                '--article-font-size': fontSizeMap[article.font_size || 'normal'],
+                fontFamily: `'${article.font_family || 'Merriweather'}', serif`,
+                fontSize: fontSizeMap[article.font_size || 'normal'],
               } as React.CSSProperties}
             >
               <style>{`
-                .press-article-container {
-                  font-family: var(--article-font-family) !important;
-                  font-size: var(--article-font-size) !important;
-                }
-                .press-article-container h1,
-                .press-article-container h2,
-                .press-article-container h3,
-                .press-article-container h4,
-                .press-article-container h5,
-                .press-article-container h6 {
-                  font-family: var(--article-font-family) !important;
-                  /* Les titres gardent leur échelle relative mais utilisent la bonne police */
+                .press-article-container * {
+                  font-family: inherit !important;
                 }
                 .press-article-container p,
                 .press-article-container li,
                 .press-article-container blockquote,
                 .press-article-container td,
-                .press-article-container th {
-                  font-family: var(--article-font-family) !important;
-                  font-size: var(--article-font-size) !important;
+                .press-article-container th,
+                .press-article-container span {
+                  font-family: inherit !important;
+                  font-size: inherit !important;
                   line-height: 1.8 !important;
                 }
-                /* Ajustement spécifique pour les titres afin qu'ils restent plus grands que le texte */
-                .press-article-container h2 { font-size: calc(var(--article-font-size) * 1.8) !important; }
-                .press-article-container h3 { font-size: calc(var(--article-font-size) * 1.4) !important; }
               `}</style>
 
               {/* BYLINE AUTEUR */}
@@ -4944,6 +4592,8 @@ export default function PressePage() {
           status: a.status,
           // Après related_charts_ids: a.related_charts_ids,
           related_teasers: a.related_teasers,
+          font_size: a.font_size || 'normal',
+          font_family: a.font_family || 'Merriweather',
           cover_type: a.cover_type || "image",
           cover_video_url: a.cover_video_url || null,
           is_live: a.is_live || false,
@@ -5065,7 +4715,7 @@ export default function PressePage() {
   return (
     <div
       className="min-h-screen text-white selection:bg-[#0466c8]/30 overflow-x-hidden relative"
-      style={{ background: "#000000" }}
+      style={{ background: "#020B1A" }}
     >
       {/* Fond noir avec accents bleu minimal aux coins */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
@@ -5096,7 +4746,7 @@ export default function PressePage() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5 }}
             className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-8"
-            style={{ background: "#000000" }}
+            style={{ background: "#020B1A" }}
           >
             <motion.div
               animate={{ rotate: 360 }}
@@ -5453,7 +5103,7 @@ export default function PressePage() {
                   >
                     <Bell size={11} />
                     <span className="hidden sm:block">
-                      {lang === "fr" ? "Rappel" : "Reminder"}
+                      {lang === "fr" ? "S'abonner" : "Subscribe"}
                     </span>
                   </motion.button>
                 </div>
