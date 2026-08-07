@@ -3989,14 +3989,25 @@ export const ArticleView = ({
   // Charger Google Fonts dynamiquement
   useEffect(() => {
     if (!article.font_family) return;
+    
+    // Nettoyer les anciens liens de polices non utilisés (optionnel mais propre)
+    // On garde juste le dernier chargé pour éviter les conflits
+    
     const fontName = article.font_family.replace(/\s+/g, '+');
     const linkId = `google-font-${fontName}`;
+    
+    // Vérifier si le lien existe déjà
     if (!document.getElementById(linkId)) {
       const link = document.createElement('link');
       link.id = linkId;
-      link.href = `https://fonts.googleapis.com/css2?family=${fontName}:wght@300;400;500;600;700&display=swap`;
+      // On demande toutes les graisses possibles
+      link.href = `https://fonts.googleapis.com/css2?family=${fontName}:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,700&display=swap`;
       link.rel = 'stylesheet';
+      
       document.head.appendChild(link);
+      
+      // Petit délai pour s'assurer que la font est chargée avant le rendu
+      // (souvent géré par le browser, mais ça aide parfois)
     }
   }, [article.font_family]);
 
@@ -4008,11 +4019,15 @@ export const ArticleView = ({
   };
 
   return (
+      
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5 }}
+      style={{
+        fontFamily: article.font_family ? `'${article.font_family}', serif` : "'Merriweather', serif",
+      }}
     >
       <ReadingProgressBar />
 
@@ -4135,15 +4150,42 @@ export const ArticleView = ({
             <div className="hidden xl:block" aria-hidden="true" />
 
             {/* Colonne centrale — corps de l'article */}
-            {/* Colonne centrale — corps de l'article */}
+                        {/* Colonne centrale — corps de l'article */}
             <div
               ref={articleBodyRef}
-              className="min-w-0"
+              className="min-w-0 press-article-container"
               style={{
-                fontFamily: article.font_family || 'Merriweather, serif',
-                fontSize: fontSizeMap[article.font_size || 'normal'],
-              }}
+                '--article-font-family': article.font_family || 'Merriweather',
+                '--article-font-size': fontSizeMap[article.font_size || 'normal'],
+              } as React.CSSProperties}
             >
+              <style>{`
+                .press-article-container {
+                  font-family: var(--article-font-family) !important;
+                  font-size: var(--article-font-size) !important;
+                }
+                .press-article-container h1,
+                .press-article-container h2,
+                .press-article-container h3,
+                .press-article-container h4,
+                .press-article-container h5,
+                .press-article-container h6 {
+                  font-family: var(--article-font-family) !important;
+                  /* Les titres gardent leur échelle relative mais utilisent la bonne police */
+                }
+                .press-article-container p,
+                .press-article-container li,
+                .press-article-container blockquote,
+                .press-article-container td,
+                .press-article-container th {
+                  font-family: var(--article-font-family) !important;
+                  font-size: var(--article-font-size) !important;
+                  line-height: 1.8 !important;
+                }
+                /* Ajustement spécifique pour les titres afin qu'ils restent plus grands que le texte */
+                .press-article-container h2 { font-size: calc(var(--article-font-size) * 1.8) !important; }
+                .press-article-container h3 { font-size: calc(var(--article-font-size) * 1.4) !important; }
+              `}</style>
 
               {/* BYLINE AUTEUR */}
               <AuthorByline article={article} lang={lang} />
