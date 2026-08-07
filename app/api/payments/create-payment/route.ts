@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     const userEmail = user.email || 'joueur@lukeni.com';
 
     // ✅ Validation stricte
-    if (!productType || !['investigation','book'].includes(productType)) {
+    if (!productType || !['investigation', 'book'].includes(productType)) {
       return NextResponse.json({ success: false, error: 'productType invalide' }, { status: 400 });
     }
     if (!productId || typeof productId !== 'string' || productId.length > 100) {
@@ -70,6 +70,7 @@ export async function POST(req: Request) {
     };
 
     const createRes = await fetch(`${fedapayBaseUrl}/transactions`, {
+
       method: 'POST',
       headers: { 'Authorization': `Bearer ${secretKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(fedapayPayload),
@@ -82,6 +83,7 @@ export async function POST(req: Request) {
 
     // --- ÉTAPE 2 : TOKEN ET URL ---
     const tokenRes = await fetch(`${fedapayBaseUrl}/transactions/${transactionId}/token`, {
+
       method: 'POST',
       headers: { 'Authorization': `Bearer ${secretKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({})
