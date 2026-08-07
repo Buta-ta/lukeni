@@ -415,6 +415,9 @@ export type UnifiedItem = {
     insert_index: number;
   }[];
 
+  font_size?: 'small' | 'normal' | 'large' | 'xlarge';
+  font_family?: string;
+
   status?: string;
 };
 
@@ -3983,6 +3986,27 @@ export const ArticleView = ({
       ? "0:00"
       : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
+  // Charger Google Fonts dynamiquement
+  useEffect(() => {
+    if (!article.font_family) return;
+    const fontName = article.font_family.replace(/\s+/g, '+');
+    const linkId = `google-font-${fontName}`;
+    if (!document.getElementById(linkId)) {
+      const link = document.createElement('link');
+      link.id = linkId;
+      link.href = `https://fonts.googleapis.com/css2?family=${fontName}:wght@300;400;500;600;700&display=swap`;
+      link.rel = 'stylesheet';
+      document.head.appendChild(link);
+    }
+  }, [article.font_family]);
+
+  const fontSizeMap = {
+    small: '14px',
+    normal: '16px',
+    large: '18px',
+    xlarge: '20px',
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -4111,7 +4135,15 @@ export const ArticleView = ({
             <div className="hidden xl:block" aria-hidden="true" />
 
             {/* Colonne centrale — corps de l'article */}
-            <div ref={articleBodyRef} className="min-w-0">
+            {/* Colonne centrale — corps de l'article */}
+            <div
+              ref={articleBodyRef}
+              className="min-w-0"
+              style={{
+                fontFamily: article.font_family || 'Merriweather, serif',
+                fontSize: fontSizeMap[article.font_size || 'normal'],
+              }}
+            >
 
               {/* BYLINE AUTEUR */}
               <AuthorByline article={article} lang={lang} />

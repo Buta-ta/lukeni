@@ -94,6 +94,8 @@ interface PressArticle {
     insert_index: number;
   }[];
   categories: Category;
+    font_size?: 'small' | 'normal' | 'large' | 'xlarge';
+  font_family?: string;
 }
 
 
@@ -595,6 +597,9 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
   const [status, setStatus] = useState('draft');
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [sources, setSources] = useState<Source[]>([]);
+
+    const [fontSize, setFontSize] = useState<'small' | 'normal' | 'large' | 'xlarge'>('normal');
+  const [fontFamily, setFontFamily] = useState<string>('Merriweather');
   const [scheduledPublishAt, setScheduledPublishAt] = useState('');
   const [geographicScope, setGeographicScope] = useState<'local' | 'national' | 'regional' | 'international' | ''>('');
   const [locationCity, setLocationCity] = useState('');
@@ -834,9 +839,13 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
     setLocationCountry(a.location_country || '');
     setLocationLatitude(a.location_latitude);
     setLocationLongitude(a.location_longitude);
+        setFontSize(a.font_size || 'normal');
+    setFontFamily(a.font_family || 'Merriweather');
+    
     if (a.scheduled_publish_at) {
       setScheduledPublishAt(new Date(a.scheduled_publish_at).toISOString().slice(0, 16));
     }
+    
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -851,6 +860,9 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
     const payload = {
       article_type: articleType,
       title_fr: titleFr,
+            font_size: fontSize,
+      font_family: fontFamily,
+
       title_en: titleEn || null,
       content_fr: contentFr || null,
       content_en: contentEn || null,
@@ -882,6 +894,7 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
       location_longitude: locationLongitude || null,
       scheduled_publish_at: scheduledPublishAt ? new Date(scheduledPublishAt).toISOString() : null,
       published_at: finalStatus === 'published' && !editingId ? new Date().toISOString() : undefined
+
     };
 
     try {
@@ -1292,59 +1305,106 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
     setSources(sources.filter((_, i) => i !== index));
   };
 
-  const insertMarkdown = (syntax: string, cursorField: 'fr' | 'en') => {
-    const textareaId = cursorField === 'fr' ? 'content-fr' : 'content-en';
-    const textarea = document.getElementById(textareaId) as HTMLTextAreaElement;
-    if (!textarea) {
-      const field = cursorField === 'fr' ? contentFr : contentEn;
-      const setter = cursorField === 'fr' ? setContentFr : setContentEn;
-      setter(field + syntax);
-      return;
-    }
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
+const insertMarkdown = (syntax: string, cursorField: 'fr' | 'en') => {
+  const textareaId = cursorField === 'fr' ? 'content-fr' : 'content-en';
+  const textarea = document.getElementById(textareaId) as HTMLTextAreaElement;
+  if (!textarea) {
     const field = cursorField === 'fr' ? contentFr : contentEn;
     const setter = cursorField === 'fr' ? setContentFr : setContentEn;
-    const selectedText = field.substring(start, end);
-    let newText = '';
-    let cursorOffset = 0;
-    if (syntax.includes('**texte gras**') || syntax.includes('**bold text**')) {
-      if (selectedText) {
-        newText = field.substring(0, start) + '**' + selectedText + '**' + field.substring(end);
-        cursorOffset = end + 4;
-      } else {
-        const placeholder = syntax.includes('gras') ? 'texte gras' : 'bold text';
-        newText = field.substring(0, start) + '**' + placeholder + '**' + field.substring(end);
-        cursorOffset = start + 2 + placeholder.length + 2;
-      }
-    } else if (syntax.includes('*texte italique*') || syntax.includes('*italic text*')) {
-      if (selectedText) {
-        newText = field.substring(0, start) + '*' + selectedText + '*' + field.substring(end);
-        cursorOffset = end + 2;
-      } else {
-        const placeholder = syntax.includes('italique') ? 'texte italique' : 'italic text';
-        newText = field.substring(0, start) + '*' + placeholder + '*' + field.substring(end);
-        cursorOffset = start + 1 + placeholder.length + 1;
-      }
-    } else if (syntax.includes('[texte') || syntax.includes('[link')) {
-      const linkText = syntax.includes('texte') ? 'texte du lien' : 'link text';
-      if (selectedText) {
-        newText = field.substring(0, start) + '[' + selectedText + '](url)' + field.substring(end);
-        cursorOffset = start + selectedText.length + 3;
-      } else {
-        newText = field.substring(0, start) + '[' + linkText + '](url)' + field.substring(end);
-        cursorOffset = start + 1 + linkText.length + 2;
-      }
+    setter(field + syntax);
+    return;
+  }
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const field = cursorField === 'fr' ? contentFr : contentEn;
+  const setter = cursorField === 'fr' ? setContentFr : setContentEn;
+  const selectedText = field.substring(start, end);
+  let newText = '';
+  let cursorOffset = 0;
+
+  // Gras
+  if (syntax.includes('**texte gras**') || syntax.includes('**bold text**')) {
+    if (selectedText) {
+      newText = field.substring(0, start) + '**' + selectedText + '**' + field.substring(end);
+      cursorOffset = end + 4;
     } else {
-      newText = field.substring(0, start) + syntax + field.substring(end);
-      cursorOffset = start + syntax.length;
+      const placeholder = syntax.includes('gras') ? 'texte gras' : 'bold text';
+      newText = field.substring(0, start) + '**' + placeholder + '**' + field.substring(end);
+      cursorOffset = start + 2 + placeholder.length + 2;
     }
-    setter(newText);
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(cursorOffset, cursorOffset);
-    }, 0);
-  };
+  }
+  // Italique
+  else if (syntax.includes('*texte italique*') || syntax.includes('*italic text*')) {
+    if (selectedText) {
+      newText = field.substring(0, start) + '*' + selectedText + '*' + field.substring(end);
+      cursorOffset = end + 2;
+    } else {
+      const placeholder = syntax.includes('italique') ? 'texte italique' : 'italic text';
+      newText = field.substring(0, start) + '*' + placeholder + '*' + field.substring(end);
+      cursorOffset = start + 1 + placeholder.length + 1;
+    }
+  }
+  // Lien
+  else if (syntax.includes('[texte') || syntax.includes('[link')) {
+    const linkText = syntax.includes('texte') ? 'texte du lien' : 'link text';
+    if (selectedText) {
+      newText = field.substring(0, start) + '[' + selectedText + '](url)' + field.substring(end);
+      cursorOffset = start + selectedText.length + 3;
+    } else {
+      newText = field.substring(0, start) + '[' + linkText + '](url)' + field.substring(end);
+      cursorOffset = start + 1 + linkText.length + 2;
+    }
+  }
+  // Titre (## ou ###)
+  else if (syntax.startsWith('## ') || syntax.startsWith('### ')) {
+    if (selectedText) {
+      newText = field.substring(0, start) + syntax + selectedText + field.substring(end);
+      cursorOffset = start + syntax.length + selectedText.length;
+    } else {
+      const placeholder = syntax.includes('Title') ? 'Title' : 'Titre';
+      newText = field.substring(0, start) + syntax + placeholder + field.substring(end);
+      cursorOffset = start + syntax.length + placeholder.length;
+    }
+  }
+  // Citation (> )
+  else if (syntax.startsWith('> ')) {
+    if (selectedText) {
+      newText = field.substring(0, start) + '> ' + selectedText + field.substring(end);
+      cursorOffset = start + 2 + selectedText.length;
+    } else {
+      const placeholder = syntax.includes('Quote') ? 'Quote' : 'Citation';
+      newText = field.substring(0, start) + '> ' + placeholder + field.substring(end);
+      cursorOffset = start + 2 + placeholder.length;
+    }
+  }
+  // Liste (- )
+  else if (syntax.startsWith('- ')) {
+    if (selectedText) {
+      newText = field.substring(0, start) + '- ' + selectedText + field.substring(end);
+      cursorOffset = start + 2 + selectedText.length;
+    } else {
+      const placeholder = syntax.includes('Item') ? 'Item' : 'Élément';
+      newText = field.substring(0, start) + '- ' + placeholder + field.substring(end);
+      cursorOffset = start + 2 + placeholder.length;
+    }
+  }
+  // Annonce
+  else if (syntax === '[ANNOUNCEMENT]') {
+    newText = field.substring(0, start) + syntax + field.substring(end);
+    cursorOffset = start + syntax.length;
+  }
+  // Autres
+  else {
+    newText = field.substring(0, start) + syntax + field.substring(end);
+    cursorOffset = start + syntax.length;
+  }
+
+  setter(newText);
+  setTimeout(() => {
+    textarea.focus();
+    textarea.setSelectionRange(cursorOffset, cursorOffset);
+  }, 0);
+};
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, field: 'fr' | 'en') => {
     if (e.ctrlKey || e.metaKey) {
@@ -1940,6 +2000,87 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
 
 
 
+                                            {/* TYPOGRAPHIE */}
+                      <div className="p-5 bg-gradient-to-br from-purple-500/5 to-transparent border border-purple-500/20 rounded-2xl">
+                        <div className="flex items-start gap-3 mb-4">
+                          <Type className="text-purple-400" />
+                          <div>
+                            <h4 className="text-white font-bold text-sm">Typographie de l'article</h4>
+                            <p className="text-xs text-gray-500 mt-0.5">Personnalisez la taille et la police pour une meilleure lisibilité</p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Taille de police */}
+                          <div>
+                            <label className="text-xs font-semibold text-gray-400 mb-2 block">Taille de police</label>
+                            <div className="grid grid-cols-4 gap-2">
+                              {([
+                                { val: 'small', label: 'S', size: '14px' },
+                                { val: 'normal', label: 'M', size: '16px' },
+                                { val: 'large', label: 'L', size: '18px' },
+                                { val: 'xlarge', label: 'XL', size: '20px' },
+                              ] as const).map(opt => (
+                                <button
+                                  key={opt.val}
+                                  type="button"
+                                  onClick={() => setFontSize(opt.val)}
+                                  className={`p-2 rounded-lg border-2 text-xs font-bold transition-all ${
+                                    fontSize === opt.val
+                                      ? 'border-purple-500 bg-purple-500/20 text-white'
+                                      : 'border-white/10 text-gray-500 hover:border-white/20'
+                                  }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Police de caractères */}
+                          <div>
+                            <label className="text-xs font-semibold text-gray-400 mb-2 block">Police de caractères</label>
+                            <select
+                              value={fontFamily}
+                              onChange={e => setFontFamily(e.target.value)}
+                              className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm focus:border-purple-500 focus:outline-none"
+                            >
+                              <optgroup label="Sérif (Classique, Presse)">
+                                <option value="Merriweather">Merriweather</option>
+                                <option value="Playfair Display">Playfair Display</option>
+                                <option value="Lora">Lora</option>
+                                <option value="EB Garamond">EB Garamond</option>
+                                <option value="Crimson Text">Crimson Text</option>
+                              </optgroup>
+                              <optgroup label="Sans-sérif (Moderne, Digital)">
+                                <option value="Inter">Inter</option>
+                                <option value="Source Sans Pro">Source Sans Pro</option>
+                                <option value="Roboto">Roboto</option>
+                                <option value="Open Sans">Open Sans</option>
+                              </optgroup>
+                              <optgroup label="Créative (Magazine, Éditorial)">
+                                <option value="Montserrat">Montserrat</option>
+                                <option value="Poppins">Poppins</option>
+                                <option value="Raleway">Raleway</option>
+                              </optgroup>
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Aperçu */}
+                        <div className="mt-4 p-4 bg-[#1a1a1a] rounded-xl border border-white/10">
+                          <p className="text-xs text-gray-500 mb-2">Aperçu :</p>
+                          <p
+                            style={{
+                              fontFamily: fontFamily,
+                              fontSize: fontSize === 'small' ? '14px' : fontSize === 'normal' ? '16px' : fontSize === 'large' ? '18px' : '20px',
+                            }}
+                            className="text-white leading-relaxed"
+                          >
+                            Le Congo est pris dans un étau monétaire. Le pays utilise le franc CFA...
+                          </p>
+                        </div>
+                      </div>
 
 
                       {/* TITRES */}
