@@ -44,8 +44,8 @@ const nextConfig = {
             value: [
               "default-src 'self'",
               // ✅ FIX: autorise pdf.js + epub.js + jszip hébergés sur unpkg/cdnjs
-              "script-src 'self' 'unsafe-inline' https://vercel.live https://va.vercel-scripts.com https://translate.googleapis.com https://unpkg.com https://cdn.jsdelivr.net blob:",
-              "frame-src 'self' https://www.youtube.com https://player.vimeo.com blob:",
+              "script-src 'self' 'unsafe-inline' https://vercel.live https://va.vercel-scripts.com https://translate.googleapis.com https://unpkg.com https://cdn.jsdelivr.net https://upload-widget.cloudinary.com blob:",
+              "frame-src 'self' https://www.youtube.com https://player.vimeo.com https://upload-widget.cloudinary.com blob:",
               "object-src 'none'",
               "connect-src 'self' https://lcemtmzdvcgxgpircumh.supabase.co https://*.supabase.co https://api.exchangerate-api.com https://translate.googleapis.com https://api.worldbank.org https://ip-api.com https://ipwho.is https://api.openweathermap.org https://res.cloudinary.com https://unpkg.com https://cdn.jsdelivr.net wss://lcemtmzdvcgxgpircumh.supabase.co blob: data: https: wss:",
               "img-src 'self' data: blob: https://res.cloudinary.com https://images.unsplash.com https://upload.wikimedia.org https://*.wikipedia.org https://archive.org https://*.archive.org https://covers.openlibrary.org https: https://unpkg.com https://cdn.jsdelivr.net",
