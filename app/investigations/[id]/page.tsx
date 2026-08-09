@@ -577,7 +577,8 @@ export default function InvestigationGame(props: {
 
     // ✅ TUTORIEL : conseil sur le panneau PREUVES (1re preuve)
     const tutorialKey = `lukeni_tutorial_done_${invId}`;
-    if (!localStorage.getItem(tutorialKey) && (session?.collected_evidences?.length || 0) === 0) {
+
+    if (!showTutorial && !localStorage.getItem(tutorialKey) && (session?.collected_evidences?.length || 0) === 0) {
       setTutorialToast(lang === "fr"
         ? "Vous avez une preuve ! Consultez le panneau PREUVES (💼)."
         : "You have evidence! Check the EVIDENCE panel (💼).");
@@ -1559,6 +1560,7 @@ export default function InvestigationGame(props: {
   // ✅ TUTORIEL PROGRESSIF : mini-conseils contextuels au fil du jeu
   useEffect(() => {
     if (showIntro || showCharacterSelect || isLoading || !session || isSessionLoading || !invId) return;
+    if (showTutorial) return; // ✅ ne pas montrer le toast pendant le modal tutorial
     const tutorialKey = `lukeni_tutorial_done_${invId}`;
     if (localStorage.getItem(tutorialKey)) return;
 

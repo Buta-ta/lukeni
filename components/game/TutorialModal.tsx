@@ -54,6 +54,26 @@ export default function TutorialModal({ isOpen, onClose, lang, hasWordSearch, ha
         </div>
       )
     },
+
+        // --- SLIDE SCANNER: MODE SCANNER ---
+    {
+      icon: <ScanSearch size={32} className="text-[#06b6d4]" />,
+      title_fr: "Le Scanner",
+      title_en: "The Scanner",
+      desc_fr: "Utilisez la jumelle 🔭 (en bas à gauche) pour scanner la zone. Les hotspots cachés apparaissent brièvement, puis se re-cachent. Mémorisez leur position !",
+      desc_en: "Use the binoculars 🔭 (bottom left) to scan the area. Hidden hotspots appear briefly, then hide again. Memorize their position!",
+      visual: (
+        <div className="flex items-center justify-center gap-3 my-4 text-3xl">
+          <span>🔭</span>
+          <span className="text-gray-500">→</span>
+          <span className="text-[#06b6d4] animate-pulse">📡</span>
+          <span className="text-gray-500">→</span>
+          <span className="text-[#D4AF37]">✨</span>
+        </div>
+      )
+    },
+
+    
     // --- SLIDE 3: CAURIS ECONOMY ---
     {
       icon: <Coins size={32} className="text-[#D4AF37]" />,

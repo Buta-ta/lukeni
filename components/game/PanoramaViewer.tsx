@@ -959,7 +959,7 @@ export default function PanoramaViewer({
             setScannerCooldown(true);
             setTimeout(() => setScannerCooldown(false), 5000);
           }}
-          className={`absolute bottom-48 left-5 z-50 w-11 h-11 rounded-full flex items-center justify-center border transition-colors ${scannerActive ? "bg-[#06b6d4] text-black border-[#06b6d4] animate-pulse" : "bg-black/60 text-white border-white/20 hover:bg-black/80"}`}
+          className={`absolute bottom-56 left-5 z-50 w-11 h-11 rounded-full flex items-center justify-center border transition-colors ${scannerActive ? "bg-[#06b6d4] text-black border-[#06b6d4] animate-pulse" : "bg-black/60 text-white border-white/20 hover:bg-black/80"}`}
           title={lang === "fr" ? "Scanner la zone" : "Scan the area"}
         >
           <Binoculars size={20} />
