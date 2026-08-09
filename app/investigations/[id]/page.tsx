@@ -1546,27 +1546,6 @@ export default function InvestigationGame(props: {
     if (showIntro || showCharacterSelect || isLoading || !session || isSessionLoading || !invId) return;
 
     const tutorialKey = `lukeni_tutorial_done_${invId}`;
-
-
-    // ✅ TUTORIEL PROGRESSIF : mini-conseils contextuels au fil du jeu
-    useEffect(() => {
-      if (showIntro || showCharacterSelect || isLoading || !session || isSessionLoading || !invId) return;
-      const tutorialKey = `lukeni_tutorial_done_${invId}`;
-      if (localStorage.getItem(tutorialKey)) return;
-
-      // Conseil 1 : MISSION (au début de la 1re scène)
-      const t1 = setTimeout(() => {
-        setActiveMilestone({
-          fr: "💡 Ouvrez MISSION (🎯) pour voir vos objectifs et votre indice.",
-          en: "💡 Open MISSION (🎯) to see your objectives and hint.",
-        });
-        setTimeout(() => setActiveMilestone(null), 4500);
-      }, 2500);
-
-      return () => clearTimeout(t1);
-    }, [showIntro, showCharacterSelect, isLoading, session, isSessionLoading, invId]);
-
-
     const hasSeenTutorial = localStorage.getItem(tutorialKey);
 
     if (!hasSeenTutorial && !showTutorial) {
@@ -1574,6 +1553,24 @@ export default function InvestigationGame(props: {
       return () => clearTimeout(timer);
     }
   }, [showIntro, showCharacterSelect, isLoading, session, isSessionLoading, invId, showTutorial]);
+
+  // ✅ TUTORIEL PROGRESSIF : mini-conseils contextuels au fil du jeu
+  useEffect(() => {
+    if (showIntro || showCharacterSelect || isLoading || !session || isSessionLoading || !invId) return;
+    const tutorialKey = `lukeni_tutorial_done_${invId}`;
+    if (localStorage.getItem(tutorialKey)) return;
+
+    // Conseil 1 : MISSION (au début de la 1re scène)
+    const t1 = setTimeout(() => {
+      setActiveMilestone({
+        fr: "💡 Ouvrez MISSION (🎯) pour voir vos objectifs et votre indice.",
+        en: "💡 Open MISSION (🎯) to see your objectives and hint.",
+      });
+      setTimeout(() => setActiveMilestone(null), 4500);
+    }, 2500);
+
+    return () => clearTimeout(t1);
+  }, [showIntro, showCharacterSelect, isLoading, session, isSessionLoading, invId]);
 
 
 
