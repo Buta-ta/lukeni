@@ -361,10 +361,13 @@ export default function InvestigationGame(props: {
   const [saveProgress, setSaveProgress] = useState(0); // 0-100
 
   const [timeRewardPopup, setTimeRewardPopup] = useState<number | null>(null);
+  const [tutorialToast, setTutorialToast] = useState<string | null>(null);
   const [activeMilestone, setActiveMilestone] = useState<{
     fr: string;
     en: string;
   } | null>(null);
+
+
   const [shownMilestones, setShownMilestones] = useState<number[]>([]);
 
   const [characters, setCharacters] = useState<Character[]>([]);
@@ -601,13 +604,10 @@ export default function InvestigationGame(props: {
   // ✅ TUTORIEL : conseil sur le panneau PREUVES (1re preuve)
   const tutorialKey = `lukeni_tutorial_done_${invId}`;
   if (!localStorage.getItem(tutorialKey) && (session?.collected_evidences?.length || 0) === 0) {
-    setTimeout(() => {
-      setActiveMilestone({
-        fr: "💡 Vous avez une preuve ! Consultez le panneau PREUVES (💼) à tout moment.",
-        en: "💡 You have evidence! Check the EVIDENCE panel (💼) anytime.",
-      });
-      setTimeout(() => setActiveMilestone(null), 4500);
-    }, 800);
+    setTutorialToast(lang === "fr"
+      ? "Vous avez une preuve ! Consultez le panneau PREUVES (💼)."
+      : "You have evidence! Check the EVIDENCE panel (💼).");
+    setTimeout(() => setTutorialToast(null), 7000);
   }
 
   const {
@@ -1561,14 +1561,10 @@ export default function InvestigationGame(props: {
     if (localStorage.getItem(tutorialKey)) return;
 
     // Conseil 1 : MISSION (au début de la 1re scène)
-    const t1 = setTimeout(() => {
-      setActiveMilestone({
-        fr: "💡 Ouvrez MISSION (🎯) pour voir vos objectifs et votre indice.",
-        en: "💡 Open MISSION (🎯) to see your objectives and hint.",
-      });
-      setTimeout(() => setActiveMilestone(null), 4500);
-    }, 2500);
-
+    setTutorialToast(lang === "fr"
+      ? "Ouvrez MISSION (🎯) pour voir vos objectifs et votre indice."
+      : "Open MISSION (🎯) to see your objectives and hint.");
+    const t1 = setTimeout(() => setTutorialToast(null), 7000);
     return () => clearTimeout(t1);
   }, [showIntro, showCharacterSelect, isLoading, session, isSessionLoading, invId]);
 
@@ -4257,6 +4253,22 @@ export default function InvestigationGame(props: {
             className="fixed top-24 left-1/2 z-[80] bg-blue-500/90 text-white px-6 py-3 rounded-full font-bold shadow-[0_0_20px_rgba(59,130,246,0.5)] flex items-center gap-3 pointer-events-none"
           >
             <span>{clueToast}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+
+      {/* 💡 TOAST TUTORIEL (juste au-dessus des instructions) */}
+      <AnimatePresence>
+        {tutorialToast && (
+          <motion.div
+            initial={{ opacity: 0, y: -30, x: "-50%" }}
+            animate={{ opacity: 1, y: 0, x: "-50%" }}
+            exit={{ opacity: 0, y: -20, x: "-50%" }}
+            className="fixed top-40 left-1/2 z-[85] bg-[#06b6d4]/95 text-white px-6 py-3 rounded-full font-bold shadow-[0_0_20px_rgba(6,182,212,0.5)] flex items-center gap-3 max-w-[90vw]"
+          >
+            <span className="text-lg">💡</span>
+            <span>{tutorialToast}</span>
           </motion.div>
         )}
       </AnimatePresence>

@@ -959,19 +959,19 @@ export default function PanoramaViewer({
             setScannerCooldown(true);
             setTimeout(() => setScannerCooldown(false), 5000);
           }}
-          className={`absolute bottom-40 left-5 z-50 w-11 h-11 rounded-full flex items-center justify-center border transition-colors ${scannerActive ? "bg-[#06b6d4] text-black border-[#06b6d4] animate-pulse" : "bg-black/60 text-white border-white/20 hover:bg-black/80"}`}
+          className={`absolute bottom-44 left-5 z-50 w-11 h-11 rounded-full flex items-center justify-center border transition-colors ${scannerActive ? "bg-[#06b6d4] text-black border-[#06b6d4] animate-pulse" : "bg-black/60 text-white border-white/20 hover:bg-black/80"}`}
           title={lang === "fr" ? "Scanner la zone" : "Scan the area"}
         >
           <Binoculars size={20} />
         </button>
       )}
       {scannerActive && (
-        <div className="absolute bottom-40 left-20 z-40 px-3 py-1.5 bg-[#06b6d4]/90 text-black rounded-full text-[10px] font-bold font-mono whitespace-nowrap">
+        <div className="absolute bottom-44 left-20 z-40 px-3 py-1.5 bg-[#06b6d4]/90 text-black rounded-full text-[10px] font-bold font-mono whitespace-nowrap">
           {lang === "fr" ? "SCANNER..." : "SCANNING..."}
         </div>
       )}
       {scannerCooldown && !scannerActive && (
-        <div className="absolute bottom-40 left-20 z-40 px-3 py-1.5 bg-black/80 text-gray-400 rounded-full text-[10px] font-bold font-mono whitespace-nowrap">
+        <div className="absolute bottom-44 left-20 z-40 px-3 py-1.5 bg-black/80 text-gray-400 rounded-full text-[10px] font-bold font-mono whitespace-nowrap">
           {lang === "fr" ? "Recharge..." : "Recharging..."}
         </div>
       )}
