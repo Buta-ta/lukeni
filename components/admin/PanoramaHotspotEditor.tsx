@@ -15,6 +15,7 @@ import {
   HOTSPOT_ICONS_PRESET, HOTSPOT_COLORS, PanoramaScene, TRANSITION_ICONS_PRESET
 } from "@/types/panorama";
 import { autoTranslate } from "@/lib/lingua";
+import JudgmentModal from "@/components/game/JudgmentModal";
 import { supabase } from "@/lib/supabase";
 
 const MiniPanoramaViewer = dynamic(
@@ -625,7 +626,9 @@ export default function PanoramaHotspotEditor({
   const [scenes, setScenes] = useState<PanoramaScene[]>(initialScenes || []);
   const [characters, setCharacters] = useState<any[]>([]);
   const [introExpanded, setIntroExpanded] = useState(false);
-  const [judgmentExpanded, setJudgmentExpanded] = useState(false);
+  const [judgmentExpanded, setJudgmentExpanded] = useState(false); 
+
+  const [showJudgmentPreview, setShowJudgmentPreview] = useState(false);
   const [dialogueSpeakers, setDialogueSpeakers] = useState<any[]>([]);
 
   const [wordSearchesState, setWordSearchesState] = useState<any[]>([])
@@ -1074,7 +1077,7 @@ export default function PanoramaHotspotEditor({
   };
 
 
-    const uploadHotspotAmbientAudio = () => {
+  const uploadHotspotAmbientAudio = () => {
     const createWidget = () => {
       // @ts-ignore
       const widget = window.cloudinary.createUploadWidget({
@@ -1096,7 +1099,7 @@ export default function PanoramaHotspotEditor({
     } else createWidget();
   };
 
-  
+
   const uploadIntroAudio = () => {
     const createWidget = () => {
       // @ts-ignore
@@ -1664,7 +1667,7 @@ export default function PanoramaHotspotEditor({
                   </div>
 
 
-                                    {/* 🔊 AUDIO DE PROXIMITÉ */}
+                  {/* 🔊 AUDIO DE PROXIMITÉ */}
                   <div className="pt-3 border-t border-white/10 space-y-2">
                     <p className="text-xs font-bold text-white flex items-center gap-2">🔊 Audio de proximité</p>
                     <p className="text-[9px] text-gray-500">Le volume monte quand le joueur s'approche du hotspot.</p>
@@ -1730,6 +1733,18 @@ export default function PanoramaHotspotEditor({
               )}
             </div>
           </div>
+
+                {/* ⚖️ APERÇU DU JUGEMENT */}
+      {showJudgmentPreview && (
+        <JudgmentModal
+          isOpen={showJudgmentPreview}
+          config={activeScene.judgment_config || null}
+          suspects={dialogueSpeakers}
+          lang={lang || 'fr'}
+          onClose={() => setShowJudgmentPreview(false)}
+          onComplete={() => setShowJudgmentPreview(false)}
+        />
+      )}
 
           {showPreview && (
             <div className="mt-4 rounded-xl overflow-hidden border border-green-500/20 shadow-2xl">
@@ -2005,11 +2020,11 @@ export default function PanoramaHotspotEditor({
                   {/* Suspects + Coupables */}
                   <div>
                     <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Suspects proposés & Bons coupables</label>
-                    {characters.length === 0 ? (
-                      <p className="text-xs text-gray-500 italic">Créez d'abord des personnages dans la section PNJ.</p>
+                    {dialogueSpeakers.length === 0 ? (
+                      <p className="text-xs text-gray-500 italic">Créez d'abord des PNJ dans la section PNJ & Arbres de dialogue.</p>
                     ) : (
                       <div className="space-y-1 max-h-48 overflow-y-auto bg-black/20 p-2 rounded">
-                        {characters.map((char: any) => {
+                        {dialogueSpeakers.map((char: any) => {
                           const jc = activeScene.judgment_config || {};
                           const isSuspect = (jc.suspects || []).includes(char.id);
                           const isCulprit = (jc.culprits || []).includes(char.id);
@@ -2128,6 +2143,13 @@ export default function PanoramaHotspotEditor({
                       </div>
                     );
                   })}
+
+                                  <button
+                  onClick={() => setShowJudgmentPreview(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded text-xs font-bold"
+                >
+                  <Eye size={14} /> {lang === "fr" ? "Aperçu" : "Preview"}
+                </button>
 
                   {/* Sauvegarder le jugement */}
                   <button

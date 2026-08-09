@@ -12,7 +12,9 @@ interface Suspect {
   name_fr: string;
   name_en?: string;
   role?: string;
+  role_fr?: string;
   avatar_url?: string;
+
 }
 
 interface JudgmentConfig {
@@ -168,7 +170,7 @@ export default function JudgmentModal({
                       <span className="text-sm font-bold text-white block">
                         {lang === "fr" ? s.name_fr : s.name_en || s.name_fr}
                       </span>
-                      {s.role && <span className="text-[10px] text-gray-400">{s.role}</span>}
+                                        {(s.role || s.role_fr) && <span className="text-[10px] text-gray-400">{s.role_fr || s.role}</span>}
                     </span>
                     {/* Checkbox */}
                     <span className={`w-5 h-5 rounded border-2 flex items-center justify-center ${isSel ? "bg-[#D4AF37] border-[#D4AF37]" : "border-gray-500"}`}>

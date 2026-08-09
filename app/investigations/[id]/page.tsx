@@ -598,17 +598,17 @@ export default function InvestigationGame(props: {
 
 
 
-      // ✅ TUTORIEL : conseil sur le panneau PREUVES (1re preuve)
-    const tutorialKey = `lukeni_tutorial_done_${invId}`;
-    if (!localStorage.getItem(tutorialKey) && (session?.collected_evidences?.length || 0) === 0) {
-      setTimeout(() => {
-        setActiveMilestone({
-          fr: "💡 Vous avez une preuve ! Consultez le panneau PREUVES (💼) à tout moment.",
-          en: "💡 You have evidence! Check the EVIDENCE panel (💼) anytime.",
-        });
-        setTimeout(() => setActiveMilestone(null), 4500);
-      }, 800);
-    }
+  // ✅ TUTORIEL : conseil sur le panneau PREUVES (1re preuve)
+  const tutorialKey = `lukeni_tutorial_done_${invId}`;
+  if (!localStorage.getItem(tutorialKey) && (session?.collected_evidences?.length || 0) === 0) {
+    setTimeout(() => {
+      setActiveMilestone({
+        fr: "💡 Vous avez une preuve ! Consultez le panneau PREUVES (💼) à tout moment.",
+        en: "💡 You have evidence! Check the EVIDENCE panel (💼) anytime.",
+      });
+      setTimeout(() => setActiveMilestone(null), 4500);
+    }, 800);
+  }
 
   const {
     messages: chatMessages,
@@ -1548,23 +1548,23 @@ export default function InvestigationGame(props: {
     const tutorialKey = `lukeni_tutorial_done_${invId}`;
 
 
-      // ✅ TUTORIEL PROGRESSIF : mini-conseils contextuels au fil du jeu
-  useEffect(() => {
-    if (showIntro || showCharacterSelect || isLoading || !session || isSessionLoading || !invId) return;
-    const tutorialKey = `lukeni_tutorial_done_${invId}`;
-    if (localStorage.getItem(tutorialKey)) return;
+    // ✅ TUTORIEL PROGRESSIF : mini-conseils contextuels au fil du jeu
+    useEffect(() => {
+      if (showIntro || showCharacterSelect || isLoading || !session || isSessionLoading || !invId) return;
+      const tutorialKey = `lukeni_tutorial_done_${invId}`;
+      if (localStorage.getItem(tutorialKey)) return;
 
-    // Conseil 1 : MISSION (au début de la 1re scène)
-    const t1 = setTimeout(() => {
-      setActiveMilestone({
-        fr: "💡 Ouvrez MISSION (🎯) pour voir vos objectifs et votre indice.",
-        en: "💡 Open MISSION (🎯) to see your objectives and hint.",
-      });
-      setTimeout(() => setActiveMilestone(null), 4500);
-    }, 2500);
+      // Conseil 1 : MISSION (au début de la 1re scène)
+      const t1 = setTimeout(() => {
+        setActiveMilestone({
+          fr: "💡 Ouvrez MISSION (🎯) pour voir vos objectifs et votre indice.",
+          en: "💡 Open MISSION (🎯) to see your objectives and hint.",
+        });
+        setTimeout(() => setActiveMilestone(null), 4500);
+      }, 2500);
 
-    return () => clearTimeout(t1);
-  }, [showIntro, showCharacterSelect, isLoading, session, isSessionLoading, invId]);
+      return () => clearTimeout(t1);
+    }, [showIntro, showCharacterSelect, isLoading, session, isSessionLoading, invId]);
 
 
     const hasSeenTutorial = localStorage.getItem(tutorialKey);
@@ -6460,7 +6460,7 @@ export default function InvestigationGame(props: {
         <JudgmentModal
           isOpen={judgmentOpen}
           config={chapters.flatMap(c => c.scenes || []).find(s => s.id === judgmentSceneId)?.judgment_config || null}
-          suspects={characters}
+          suspects={dialogueSpeakers}
           lang={lang}
           onClose={() => setJudgmentOpen(false)}
           onComplete={(result, selectedIds, closeOnJudge) => {
