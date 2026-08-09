@@ -2,7 +2,7 @@
 "use client";
 
 import React, { Suspense, useRef, useState, useEffect } from "react";
-import { Volume2, VolumeX, Volume1 } from "lucide-react";
+import { Volume2, VolumeX, Volume1, Binoculars } from "lucide-react";
 import { Canvas, useThree, useFrame } from "@react-three/fiber";
 import { useTexture, Html } from "@react-three/drei";
 import * as THREE from "three";
@@ -777,7 +777,7 @@ export default function PanoramaViewer({
     };
   }, [panoramaUrl, ambientAudioUrl, ambientAudioVolume, userVolume, isMuted]);
 
-    // 🔊 AUDIO DE PROXIMITÉ : gère les audios des hotspots selon la proximité
+  // 🔊 AUDIO DE PROXIMITÉ : gère les audios des hotspots selon la proximité
   const hotspotAudioRefs = useRef<Record<string, HTMLAudioElement>>({});
   useEffect(() => {
     // Nettoyer les audios des hotspots précédents
@@ -790,7 +790,7 @@ export default function PanoramaViewer({
       audio.loop = true;
       audio.volume = 0;
       audio.muted = isMuted;
-      audio.play().catch(() => {});
+      audio.play().catch(() => { });
       hotspotAudioRefs.current[h.id] = audio;
     });
 
@@ -949,23 +949,31 @@ export default function PanoramaViewer({
 
 
 
-            {/* 🔬 BOUTON SCANNER (flash 3s) */}
+      {/* 🔭 BOUTON SCANNER (flash 3s) - au-dessus du joystick */}
       {!isEditorPreview && (
         <button
           onClick={() => {
             if (scannerCooldown) return;
             setScannerActive(true);
-            // flash de 3s puis désactivation
             setTimeout(() => setScannerActive(false), 3000);
-            // cooldown de re-scan (2s après la fin du flash)
             setScannerCooldown(true);
             setTimeout(() => setScannerCooldown(false), 5000);
           }}
-          className={`absolute top-4 left-4 z-50 w-11 h-11 rounded-full flex items-center justify-center border transition-colors ${scannerActive ? "bg-[#06b6d4] text-black border-[#06b6d4] animate-pulse" : "bg-black/60 text-white border-white/20 hover:bg-black/80"}`}
+          className={`absolute bottom-40 left-5 z-50 w-11 h-11 rounded-full flex items-center justify-center border transition-colors ${scannerActive ? "bg-[#06b6d4] text-black border-[#06b6d4] animate-pulse" : "bg-black/60 text-white border-white/20 hover:bg-black/80"}`}
           title={lang === "fr" ? "Scanner la zone" : "Scan the area"}
         >
-          <span className="text-lg">🔬</span>
+          <Binoculars size={20} />
         </button>
+      )}
+      {scannerActive && (
+        <div className="absolute bottom-40 left-20 z-40 px-3 py-1.5 bg-[#06b6d4]/90 text-black rounded-full text-[10px] font-bold font-mono whitespace-nowrap">
+          {lang === "fr" ? "SCANNER..." : "SCANNING..."}
+        </div>
+      )}
+      {scannerCooldown && !scannerActive && (
+        <div className="absolute bottom-40 left-20 z-40 px-3 py-1.5 bg-black/80 text-gray-400 rounded-full text-[10px] font-bold font-mono whitespace-nowrap">
+          {lang === "fr" ? "Recharge..." : "Recharging..."}
+        </div>
       )}
       {scannerActive && (
         <div className="absolute top-16 left-4 z-40 px-3 py-1.5 bg-[#06b6d4]/90 text-black rounded-full text-[10px] font-bold font-mono">
