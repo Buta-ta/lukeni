@@ -575,6 +575,15 @@ export default function InvestigationGame(props: {
   const handleCollectEvidence = async (evidenceId: string) => {
     await collectEvidence(evidenceId);
 
+    // ✅ TUTORIEL : conseil sur le panneau PREUVES (1re preuve)
+    const tutorialKey = `lukeni_tutorial_done_${invId}`;
+    if (!localStorage.getItem(tutorialKey) && (session?.collected_evidences?.length || 0) === 0) {
+      setTutorialToast(lang === "fr"
+        ? "Vous avez une preuve ! Consultez le panneau PREUVES (💼)."
+        : "You have evidence! Check the EVIDENCE panel (💼).");
+      setTimeout(() => setTutorialToast(null), 7000);
+    }
+
 
     // ✅ DÉCOUVERTE TIMELINE : si cette preuve est attendue par un slot de la timeline
     if (timeline?.slots?.some((s: any) => s.expected_evidence_id === evidenceId)) {
@@ -601,14 +610,7 @@ export default function InvestigationGame(props: {
 
 
 
-  // ✅ TUTORIEL : conseil sur le panneau PREUVES (1re preuve)
-  const tutorialKey = `lukeni_tutorial_done_${invId}`;
-  if (!localStorage.getItem(tutorialKey) && (session?.collected_evidences?.length || 0) === 0) {
-    setTutorialToast(lang === "fr"
-      ? "Vous avez une preuve ! Consultez le panneau PREUVES (💼)."
-      : "You have evidence! Check the EVIDENCE panel (💼).");
-    setTimeout(() => setTutorialToast(null), 7000);
-  }
+
 
   const {
     messages: chatMessages,
