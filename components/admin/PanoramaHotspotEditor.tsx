@@ -7,7 +7,8 @@ import dynamic from "next/dynamic";
 import {
   X, Plus, Trash2, Eye, EyeOff, Move, Save, AlertCircle, Languages,
   Loader2, Palette, Upload, ChevronDown, ChevronUp, PlusCircle, Layers,
-  ArrowRight, Music, Camera, Clock, ImagePlus, User, FileQuestion, Paperclip, AlertTriangle, Zap, Lightbulb
+  ArrowRight, Music, Camera, Clock, ImagePlus, User, FileQuestion, Paperclip, AlertTriangle, Zap, Lightbulb, Film, Type, AlignLeft
+
 } from "lucide-react";
 import {
   Hotspot, HotspotType, HOTSPOT_CONFIG,
@@ -612,7 +613,7 @@ export default function PanoramaHotspotEditor({
 }: Props) {
   const [scenes, setScenes] = useState<PanoramaScene[]>(initialScenes || []);
   const [characters, setCharacters] = useState<any[]>([]);
-
+  const [introExpanded, setIntroExpanded] = useState(false);
   const [dialogueSpeakers, setDialogueSpeakers] = useState<any[]>([]);
 
   const [wordSearchesState, setWordSearchesState] = useState<any[]>([])
@@ -988,6 +989,71 @@ export default function PanoramaHotspotEditor({
       widget.open();
     };
 
+    // @ts-ignore
+    if (!window.cloudinary) {
+      const script = document.createElement('script');
+      script.src = 'https://upload-widget.cloudinary.com/global/all.js';
+      script.onload = createWidget;
+      document.body.appendChild(script);
+    } else {
+      createWidget();
+    }
+  };
+
+
+
+  const uploadIntroMedia = (kind: 'video' | 'image') => {
+    const createWidget = () => {
+      // @ts-ignore
+      const widget = window.cloudinary.createUploadWidget({
+        cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+        uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET,
+        sources: ['local', 'url'],
+        resourceType: kind === 'video' ? 'video' : 'image',
+        folder: 'lukeni/intros'
+      }, async (error: any, result: any) => {
+        if (result?.event === 'success') {
+          const url = result.info.secure_url;
+          setScenes(prev => prev.map((sc, i) =>
+            i === activeSceneIndex ? { ...sc, intro_media_url: url, intro_media_type: kind } : sc
+          ));
+          setIsDirty(true);
+        }
+      });
+      widget.open();
+    };
+    // @ts-ignore
+    if (!window.cloudinary) {
+      const script = document.createElement('script');
+      script.src = 'https://upload-widget.cloudinary.com/global/all.js';
+      script.onload = createWidget;
+      document.body.appendChild(script);
+    } else {
+      createWidget();
+    }
+  };
+
+
+    const uploadIntroAudio = () => {
+    const createWidget = () => {
+      // @ts-ignore
+      const widget = window.cloudinary.createUploadWidget({
+        cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+        uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET,
+        sources: ['local', 'url'],
+        resourceType: 'video',
+        folder: 'lukeni/intros'
+      }, async (error: any, result: any) => {
+        if (result?.event === 'success') {
+          const url = result.info.secure_url;
+          setScenes(prev => prev.map((sc, i) =>
+            i === activeSceneIndex ? { ...sc, intro_audio_url: url } : sc
+          ));
+          setIsDirty(true);
+        }
+      });
+      widget.open();
+    };
     // @ts-ignore
     if (!window.cloudinary) {
       const script = document.createElement('script');
@@ -1578,6 +1644,228 @@ export default function PanoramaHotspotEditor({
               />
             </div>
           )}
+
+          {/* ── INTRO DE TRANSITION (repliable) ── */}
+          <div className="bg-[#111] rounded-xl border border-purple-500/20 overflow-hidden">
+            <div
+              className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-white/[0.02] transition-colors"
+              onClick={() => setIntroExpanded(!introExpanded)}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-[#D4AF37]">🎬</span>
+                <span className="text-sm font-bold text-white">Intro de Transition</span>
+                {activeScene.intro_media_url && (
+                  <span className="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full">
+                    {activeScene.intro_media_type === 'video' ? 'Vidéo' : 'Image'}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {activeScene.intro_media_url && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, intro_media_url: null, intro_media_type: null } : s));
+                      setIsDirty(true);
+                    }}
+                    className="text-gray-500 hover:text-red-500"
+                    title="Retirer l'intro"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
+                {introExpanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+              </div>
+            </div>
+
+            {introExpanded && (
+              <div className="p-4 space-y-4 border-t border-white/10">
+                {/* Aperçu */}
+                {activeScene.intro_media_url && (
+                  <div className="space-y-2">
+                    <label className="text-[10px] text-gray-500 font-bold uppercase">Aperçu</label>
+                    {activeScene.intro_media_type === 'video' ? (
+                      <video src={activeScene.intro_media_url} controls className="w-full max-h-48 rounded border border-white/10" />
+                    ) : (
+                      <img src={activeScene.intro_media_url} alt="Intro" className="w-full max-h-48 object-contain rounded border border-white/10" />
+                    )}
+                  </div>
+                )}
+
+                {/* Média */}
+                <div>
+                  <label className="text-[10px] text-gray-500 font-bold uppercase mb-2 block">Média (vidéo ≤ 30s ou image)</label>
+                  <div className="flex gap-2">
+                    <button onClick={() => uploadIntroMedia('video')} className="flex items-center gap-2 px-3 py-2 bg-purple-600/20 text-purple-400 border border-purple-500/30 rounded-lg text-xs font-bold hover:bg-purple-600/40">
+                      <Film size={14} /> Ajouter une vidéo
+                    </button>
+                    <button onClick={() => uploadIntroMedia('image')} className="flex items-center gap-2 px-3 py-2 bg-purple-600/20 text-purple-400 border border-purple-500/30 rounded-lg text-xs font-bold hover:bg-purple-600/40">
+                      <ImagePlus size={14} /> Ajouter une image
+                    </button>
+                  </div>
+                  <p className="text-[9px] text-gray-600 mt-1 italic">L'extrait vidéo d'archive s'affichera avant d'entrer dans cette scène.</p>
+                </div>
+
+                {/* Texte FR / EN avec traduction auto */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Texte (FR)</label>
+                    <textarea
+                      rows={2}
+                      value={activeScene.intro_text_fr || ''}
+                      onChange={e => setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, intro_text_fr: e.target.value } : s))}
+                      placeholder="Ex: 12 août 1960, Léopoldville..."
+                      className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white resize-none outline-none focus:border-purple-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Texte (EN)</label>
+                    <div className="flex gap-2">
+                      <textarea
+                        rows={2}
+                        value={activeScene.intro_text_en || ''}
+                        onChange={e => setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, intro_text_en: e.target.value } : s))}
+                        placeholder="Ex: August 12, 1960, Leopoldville..."
+                        className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white resize-none outline-none focus:border-purple-500"
+                      />
+                      <button
+                        onClick={async () => {
+                          if (!activeScene.intro_text_fr?.trim()) return;
+                          try {
+                            const t = await autoTranslate(activeScene.intro_text_fr, 'fr');
+                            setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, intro_text_en: t } : s));
+                          } catch { }
+                        }}
+                        className="p-2 bg-white/5 rounded hover:bg-white/10 mt-1 flex-shrink-0"
+                        title="Traduire en anglais"
+                      >
+                        <Languages size={14} className="text-gray-400" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Position du texte (important pour vidéo) */}
+                <div>
+                  <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">
+                    <AlignLeft size={10} className="inline mr-1" /> Position du texte
+                  </label>
+                  <div className="flex gap-2 bg-[#1a1a1a] p-1 rounded-lg border border-white/10">
+                    {[{ v: 'top', l: 'Haut' }, { v: 'center', l: 'Centre' }, { v: 'bottom', l: 'Bas' }].map(p => (
+                      <div
+                        key={p.v}
+                        onClick={() => setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, intro_text_position: p.v } : s))}
+                        className={`flex-1 text-center py-2 rounded text-xs font-bold cursor-pointer transition-all ${activeScene.intro_text_position === p.v ? 'bg-purple-600/30 text-purple-300 border border-purple-500/30' : 'text-gray-500 hover:text-gray-300'}`}
+                      >
+                        {p.l}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[9px] text-gray-600 mt-1 italic">Où le texte apparaît par-dessus l'image/vidéo.</p>
+                </div>
+
+                {/* Couleur + Police */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Couleur du texte</label>
+                    <div className="flex items-center gap-2">
+                      <input type="color" value={activeScene.intro_text_color || '#FFFFFF'} onChange={e => setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, intro_text_color: e.target.value } : s))} className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent" />
+                      <input type="text" value={activeScene.intro_text_color || '#FFFFFF'} onChange={e => setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, intro_text_color: e.target.value } : s))} className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none font-mono" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block"><Type size={10} className="inline mr-1" /> Police du texte</label>
+                    <select value={activeScene.intro_text_font || 'serif'} onChange={e => setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, intro_text_font: e.target.value } : s))} className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white">
+                      <option value="serif">Serif (Classique)</option>
+                      <option value="sans">Sans-Serif (Moderne)</option>
+                      <option value="mono">Monospace (Machine)</option>
+                      <option value="courier">Courier (Télétype)</option>
+                      <option value="georgia">Georgia (Élégant)</option>
+                      <option value="times">Times (Journal)</option>
+                      <option value="cursive">Cursive (Manuscrit)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Effet de texte */}
+                <div>
+                  <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Effet de texte</label>
+                  <select value={activeScene.intro_text_effect || 'typewriter'} onChange={e => setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, intro_text_effect: e.target.value } : s))} className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white">
+                    <option value="none">Aucun (Texte fixe)</option>
+                    <option value="typewriter">Machine à écrire</option>
+                    <option value="fade">Fondu</option>
+                    <option value="blur">Flou cinématique</option>
+                    <option value="slide">Glissement vertical</option>
+                  </select>
+                </div>
+
+                {/* Filtre visuel */}
+                <div>
+                  <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Filtre visuel (sur le média)</label>
+                  <select value={activeScene.intro_media_filter || 'none'} onChange={e => setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, intro_media_filter: e.target.value } : s))} className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white">
+                    <option value="none">Aucun (Original)</option>
+                    <option value="sepia">Sépia (Années 1900)</option>
+                    <option value="grayscale">Noir & Blanc (Archives)</option>
+                    <option value="vintage">Vintage (Contraste élevé)</option>
+                    <option value="noir">Film Noir (Sombre)</option>
+                  </select>
+                </div>
+
+                {/* Audio narratif */}
+                <div>
+                  <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Audio narratif (optionnel)</label>
+                  {activeScene.intro_audio_url ? (
+                    <div className="flex items-center gap-2 bg-white/5 p-2 rounded">
+                      <audio src={activeScene.intro_audio_url} controls className="h-6 flex-1" />
+                      <button onClick={() => setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, intro_audio_url: null } : s))} className="text-red-500">
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button onClick={uploadIntroAudio} className="w-full py-2 bg-white/5 hover:bg-white/10 rounded text-xs text-gray-400 flex items-center justify-center gap-2">
+                      <Music size={14} /> Uploader un audio
+                    </button>
+                  )}
+                </div>
+
+                {/* Skip */}
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={activeScene.intro_skip_allowed !== false}
+                    onChange={e => setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, intro_skip_allowed: e.target.checked } : s))}
+                    className="w-4 h-4 accent-purple-500"
+                  />
+                  <span className="text-xs text-gray-300">Autoriser le joueur à passer l'intro</span>
+                </label>
+
+                {/* Sauvegarder */}
+                <button
+                  onClick={async () => {
+                    if (!activeScene) return;
+                    setIsSaving(true);
+                    await supabase.from('investigation_scenes').update({
+                      intro_media_url: activeScene.intro_media_url || null,
+                      intro_media_type: activeScene.intro_media_type || null,
+                      intro_text_fr: activeScene.intro_text_fr || null,
+                      intro_text_en: activeScene.intro_text_en || null,
+                      intro_skip_allowed: activeScene.intro_skip_allowed !== false,
+                      intro_text_color: activeScene.intro_text_color || '#FFFFFF',
+                      intro_text_font: activeScene.intro_text_font || 'serif',
+                      intro_text_effect: activeScene.intro_text_effect || 'typewriter',
+                      intro_text_position: activeScene.intro_text_position || 'bottom',
+                      intro_audio_url: activeScene.intro_audio_url || null,
+                      intro_media_filter: activeScene.intro_media_filter || 'none',
+                    }).eq('id', activeScene.id);
+                    setIsDirty(false); setIsSaving(false);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600/20 text-purple-400 border border-purple-500/30 rounded text-xs font-bold hover:bg-purple-600/40"
+                >
+                  {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Sauvegarder l'intro
+                </button>
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>

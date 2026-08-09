@@ -47,6 +47,8 @@ import { useInvestigationChat } from "@/lib/hooks/useInvestigationChat";
 import { useInvestigationPresence } from "@/lib/hooks/useInvestigationPresence";
 import { CaurisIcon } from "@/components/logo";
 import InvestigationIntro from "@/components/game/InvestigationIntro";
+
+import SceneIntro from "@/components/game/SceneIntro";
 import InvestigationOutro from "@/components/game/InvestigationOutro";
 import CharacterDialogModal from "@/components/game/CharacterDialogModal";
 import ContextualEnding from "@/components/game/ContextualEnding";
@@ -142,6 +144,19 @@ interface Scene {
 
   historical_context_fr?: string | null;
   historical_context_en?: string | null;
+  // ── INTRO DE TRANSITION (configurée par l'admin) ──
+  intro_media_url?: string | null;   // vidéo OU image
+  intro_media_type?: "video" | "image" | null;   // 'video' | 'image'
+  intro_text_fr?: string | null;
+  intro_text_en?: string | null;
+  intro_skip_allowed?: boolean | null;
+
+  intro_text_color?: string | null;
+  intro_text_font?: string | null;
+  intro_text_effect?: string | null;
+  intro_text_position?: "top" | "center" | "bottom" | null;
+  intro_audio_url?: string | null;
+  intro_media_filter?: string | null;
 }
 interface Clue {
   id: string;
@@ -207,6 +222,18 @@ const normalizeAnswer = (str: string): string =>
     .trim();
 
 
+// ── Préchargement de l'intro de transition (vidéo ou image) ──
+function preloadMedia(url: string, type: string | null | undefined) {
+  if (!url || typeof window === "undefined") return;
+  if (type === "video") {
+    const vid = document.createElement("video");
+    vid.preload = "auto";
+    vid.src = url;
+  } else {
+    const img = new Image();
+    img.src = url;
+  }
+}
 
 // ── Préchargement d'images (miniature + full) dans le cache navigateur ──
 function preloadImages(urls: string[]) {
@@ -330,9 +357,10 @@ export default function InvestigationGame(props: {
     Record<string, number>
   >({});
   const [isLoading, setIsLoading] = useState(true);
-
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
   const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
+  // ✅ INTRO DE TRANSITION : true = on affiche l'intro avant d'entrer dans la scène
+  const [showSceneIntro, setShowSceneIntro] = useState(false);
   const [showCharacterSelect, setShowCharacterSelect] = useState(true);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(
     null,
@@ -634,6 +662,33 @@ export default function InvestigationGame(props: {
   const currentChapter = chapters[currentChapterIndex] || null;
   const currentScene = currentChapter?.scenes?.[currentSceneIndex] || null;
   const hotspots = currentScene?.hotspots || [];
+
+
+  // ✅ INTRO DE TRANSITION : déclenche l'intro quand on change de scène
+  const prevSceneIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!currentScene) return;
+    if (prevSceneIdRef.current === null) {
+      prevSceneIdRef.current = currentScene.id;
+      const nextScene = currentChapter?.scenes?.[currentSceneIndex + 1];
+      if (nextScene?.intro_media_url) {
+        preloadMedia(nextScene.intro_media_url, nextScene.intro_media_type);
+      }
+      return;
+    }
+    if (prevSceneIdRef.current !== currentScene.id) {
+      prevSceneIdRef.current = currentScene.id;
+      if (currentScene.intro_media_url) {
+        setShowSceneIntro(true);
+      }
+      const nextScene = currentChapter?.scenes?.[currentSceneIndex + 1];
+      if (nextScene?.intro_media_url) {
+        preloadMedia(nextScene.intro_media_url, nextScene.intro_media_type);
+      }
+    }
+  }, [currentScene?.id, currentScene]);
+
+
   // ✅ NOUVEAU : Filtrer les énigmes par scène
   const allChapterEnigmas = (currentChapter?.enigmas || []).filter(
     (enig: any) => {
@@ -740,7 +795,7 @@ export default function InvestigationGame(props: {
   };
 
   const handleMiniGameComplete = async (score: number, caurisEarned: number) => {
-    
+
 
     if (!miniGameSessionActive || !activeMiniGame) {
       console.log("⚠️ [2] Sortie précoce - données manquantes");
@@ -1878,6 +1933,8 @@ export default function InvestigationGame(props: {
     setShowOutro(false);
     setShowTimeOver(false);
     setShowContextualEnding(null);
+    setShowSceneIntro(false); // ✅ réinitialiser l'intro de transition au replay
+    prevSceneIdRef.current = null; // ✅ forcer un nouveau "premier montage" au replay
     setBudgetCauris(startBudget);
     setEnigmaAttempts({});
     setRevealedClues([]);
@@ -2011,7 +2068,7 @@ export default function InvestigationGame(props: {
             .replace("wordsearch_", "")
             .replace("_completed", "");
           console.log("🔓 Word Search ID à vérifier:", wsId);
-          
+
 
           isConditionMet =
             Array.isArray((session as any)?.completed_word_searches) &&
@@ -2038,7 +2095,7 @@ export default function InvestigationGame(props: {
             .replace("dialogue_", "")
             .replace("_completed", "");
           console.log("🔓 Dialogue ID à vérifier:", dlgId);
-          
+
 
           // ✅ Vérifier avec le format canonique dialogue_<id>_completed
           isConditionMet =
@@ -2998,7 +3055,34 @@ export default function InvestigationGame(props: {
 
 
 
-
+  // ✅ INTRO DE TRANSITION : affiche l'intro si l'admin l'a configurée
+  if (
+    showSceneIntro &&
+    currentScene?.intro_media_url &&
+    !showIntro &&
+    !showOutro &&
+    !showCharacterSelect
+  ) {
+    return (
+            <SceneIntro
+        mediaUrl={currentScene.intro_media_url}
+        mediaType={currentScene.intro_media_type || "image"}
+        textFr={currentScene.intro_text_fr || undefined}
+        textEn={currentScene.intro_text_en || undefined}
+        sceneTitle={sceneTitle}
+        sceneIndex={currentSceneIndex + 1}
+        skipAllowed={currentScene.intro_skip_allowed !== false}
+        lang={lang}
+        onComplete={() => setShowSceneIntro(false)}
+        textColor={currentScene.intro_text_color || "#FFFFFF"}
+        textFont={currentScene.intro_text_font || "serif"}
+        textEffect={currentScene.intro_text_effect || "typewriter"}
+        textPosition={currentScene.intro_text_position || "bottom"}
+        audioUrl={currentScene.intro_audio_url || null}
+        mediaFilter={currentScene.intro_media_filter || "none"}
+      />
+    );
+  }
 
 
 
@@ -3036,7 +3120,7 @@ export default function InvestigationGame(props: {
 
 
   // ✅ DEBUG : Vérifier que validatedConditions contient les dialogues complétés
- 
+
 
 
   return (
@@ -4468,7 +4552,7 @@ export default function InvestigationGame(props: {
                       {/* ✅ INDICES PAYANTS - TOUJOURS VISIBLES */}
                       {(() => {
                         // ✅ FIX : Chercher dans allChapterEnigmas au lieu de currentChapter.enigmas
-                        
+
                         const enigmaClues = enigma.clues || [];
                         if (enigmaClues.length === 0 || isSolved) return null;
 

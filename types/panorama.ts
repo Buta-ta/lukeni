@@ -169,6 +169,21 @@ export interface PanoramaScene {
   historical_context_fr?: string | null; 
   historical_context_en?: string | null; 
 
+  // ── INTRO DE TRANSITION (configurée par l'admin) ──
+  intro_media_url?: string | null;   // vidéo OU image
+  intro_media_type?: "video" | "image" | null;   // 'video' | 'image'
+  intro_text_fr?: string | null;
+  intro_text_en?: string | null;
+  intro_skip_allowed?: boolean | null;
+
+  // ── Options avancées ──
+  intro_text_color?: string | null;
+  intro_text_font?: string | null;
+  intro_text_effect?: string | null;
+    intro_text_position?: string | null;   // 'top' | 'center' | 'bottom'
+  intro_audio_url?: string | null;
+  intro_media_filter?: string | null;
+
 }
 
 
