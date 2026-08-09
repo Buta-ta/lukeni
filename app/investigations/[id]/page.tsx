@@ -578,12 +578,6 @@ export default function InvestigationGame(props: {
     // ✅ TUTORIEL : conseil sur le panneau PREUVES (1re preuve)
     const tutorialKey = `lukeni_tutorial_done_${invId}`;
 
-    if (!showTutorial && !localStorage.getItem(tutorialKey) && (session?.collected_evidences?.length || 0) === 0) {
-      setTutorialToast(lang === "fr"
-        ? "Vous avez une preuve ! Consultez le panneau PREUVES (💼)."
-        : "You have evidence! Check the EVIDENCE panel (💼).");
-      setTimeout(() => setTutorialToast(null), 7000);
-    }
 
 
     // ✅ DÉCOUVERTE TIMELINE : si cette preuve est attendue par un slot de la timeline
@@ -1557,20 +1551,7 @@ export default function InvestigationGame(props: {
     }
   }, [showIntro, showCharacterSelect, isLoading, session, isSessionLoading, invId, showTutorial]);
 
-  // ✅ TUTORIEL PROGRESSIF : mini-conseils contextuels au fil du jeu
-  useEffect(() => {
-    if (showIntro || showCharacterSelect || isLoading || !session || isSessionLoading || !invId) return;
-    if (showTutorial) return; // ✅ ne pas montrer le toast pendant le modal tutorial
-    const tutorialKey = `lukeni_tutorial_done_${invId}`;
-    if (localStorage.getItem(tutorialKey)) return;
-
-    // Conseil 1 : MISSION (au début de la 1re scène)
-    setTutorialToast(lang === "fr"
-      ? "Ouvrez MISSION (🎯) pour voir vos objectifs et votre indice."
-      : "Open MISSION (🎯) to see your objectives and hint.");
-    const t1 = setTimeout(() => setTutorialToast(null), 7000);
-    return () => clearTimeout(t1);
-  }, [showIntro, showCharacterSelect, isLoading, session, isSessionLoading, invId]);
+  
 
 
 
@@ -4262,20 +4243,7 @@ export default function InvestigationGame(props: {
       </AnimatePresence>
 
 
-      {/* 💡 TOAST TUTORIEL (juste au-dessus des instructions) */}
-      <AnimatePresence>
-        {tutorialToast && (
-          <motion.div
-            initial={{ opacity: 0, y: -30, x: "-50%" }}
-            animate={{ opacity: 1, y: 0, x: "-50%" }}
-            exit={{ opacity: 0, y: -20, x: "-50%" }}
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[85] bg-[#06b6d4]/95 text-white px-6 py-3 rounded-full font-bold shadow-[0_0_20px_rgba(6,182,212,0.5)] flex items-center gap-3 max-w-[90vw]"
-          >
-            <span className="text-lg">💡</span>
-            <span>{tutorialToast}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      
 
       {/* 🟢 TOAST D'ENCOURAGEMENT (PALIERS) 🟢 */}
       <AnimatePresence>
