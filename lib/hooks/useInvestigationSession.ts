@@ -646,6 +646,7 @@ export function useInvestigationSession(
         completed_mini_games: [],
         current_mini_game_id: null,
         mini_game_progress: {},
+        completed_dialogues: [],
       };
 
       const { error: err } = await supabase
