@@ -206,6 +206,30 @@ const normalizeAnswer = (str: string): string =>
     .replace(/\s+/g, " ") // normalise les espaces multiples
     .trim();
 
+
+
+// ── Préchargement d'images (miniature + full) dans le cache navigateur ──
+function preloadImages(urls: string[]) {
+  urls.forEach((u) => {
+    if (!u || typeof window === "undefined") return;
+    const img = new Image();
+    img.src = u;
+  });
+}
+
+// Générateur de miniature Cloudinary (même logique que dans PanoramaViewer)
+function cloudinaryThumb(url: string, maxW = 800): string {
+  try {
+    const marker = "/image/upload/";
+    const idx = url.indexOf(marker);
+    if (idx === -1) return url;
+    return url.slice(0, idx + marker.length) + `w_${maxW},q_60,f_auto/` + url.slice(idx + marker.length);
+  } catch {
+    return url;
+  }
+}
+
+
 export default function InvestigationGame(props: {
   params: Promise<{ id: string }>;
 }) {
@@ -1350,6 +1374,36 @@ export default function InvestigationGame(props: {
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentChapter?.id, currentScene?.id]); // ✅ Retiré updateProgress
+
+
+  // ✅ PRÉCHARGEMENT : image de la scène suivante pendant que le joueur est sur la scène actuelle
+  useEffect(() => {
+    if (!currentChapter || !currentScene) return;
+
+    const urls: string[] = [];
+
+    // Scène suivante dans le même chapitre
+    const scenes = currentChapter.scenes || [];
+    const nextScene = scenes[currentSceneIndex + 1];
+    if (nextScene?.panorama_url) {
+      urls.push(nextScene.panorama_url);
+      urls.push(cloudinaryThumb(nextScene.panorama_url));
+    }
+
+    // Première scène du chapitre suivant
+    const nextChapter = chapters[currentChapterIndex + 1];
+    const nextChapterFirst = nextChapter?.scenes?.[0];
+    if (nextChapterFirst?.panorama_url) {
+      urls.push(nextChapterFirst.panorama_url);
+      urls.push(cloudinaryThumb(nextChapterFirst.panorama_url));
+    }
+
+    if (urls.length > 0) {
+      // Petit délai pour laisser la scène actuelle respirer, puis précharge en arrière-plan
+      const t = setTimeout(() => preloadImages(urls), 600);
+      return () => clearTimeout(t);
+    }
+  }, [currentChapter, currentSceneIndex, chapters, currentScene]);
 
   useEffect(() => {
     if (!session || isSessionLoading) return;
@@ -6023,7 +6077,7 @@ export default function InvestigationGame(props: {
         hasGroup={!!session?.group_id}
         hasMiniGames={availableMiniGames.length > 0}  // ✅ NOUVEAU
         hasWordSearch={!!currentWordSearch}            // ✅ NOUVEAU
-        hasDialogues={allDialogues.length > 0}  
+        hasDialogues={allDialogues.length > 0}
         onShowTutorial={() => setShowTutorial(true)}       // ✅ NOUVEAU
       />
 

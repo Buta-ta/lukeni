@@ -9,11 +9,54 @@ import * as THREE from "three";
 import { motion, AnimatePresence } from "framer-motion";
 import { Hotspot, HOTSPOT_CONFIG, flatToSpherical } from "@/types/panorama";
 
+
+
+// ── Générateur de miniature Cloudinary (chargement progressif) ──
+// Transforme https://res.cloudinary.com/xx/image/upload/v123/fichier.png
+// en https://res.cloudinary.com/xx/image/upload/w_800,q_60,f_auto/v123/fichier.png
+// → image légère affichée immédiatement, la full se charge ensuite.
+function cloudinaryThumb(url: string, maxW = 800): string {
+  try {
+    const marker = "/image/upload/";
+    const idx = url.indexOf(marker);
+    if (idx === -1) return url;
+    return url.slice(0, idx + marker.length) + `w_${maxW},q_60,f_auto/` + url.slice(idx + marker.length);
+  } catch {
+    return url;
+  }
+}
+
 // ── Sphère 360° ──
-function PanoramaSphere({ url }: { url: string }) {
-  const texture = useTexture(url);
-  texture.mapping = THREE.EquirectangularReflectionMapping;
-  texture.colorSpace = THREE.SRGBColorSpace;
+// ── Sphère 360° avec chargement progressif (miniature → full) ──
+function PanoramaSphere({ url, onFullLoaded }: { url: string; onFullLoaded?: () => void }) {
+  const [fullTexture, setFullTexture] = useState<THREE.Texture | null>(null);
+
+  // Miniature légère : s'affiche quasi instantanément
+  const thumbTexture = useTexture(cloudinaryThumb(url));
+  thumbTexture.mapping = THREE.EquirectangularReflectionMapping;
+  thumbTexture.colorSpace = THREE.SRGBColorSpace;
+
+  // Full résolution : chargée en arrière-plan
+  useEffect(() => {
+    let cancelled = false;
+    const loader = new THREE.TextureLoader();
+    loader.load(
+      url,
+      (tex) => {
+        tex.mapping = THREE.EquirectangularReflectionMapping;
+        tex.colorSpace = THREE.SRGBColorSpace;
+        if (!cancelled) {
+          setFullTexture(tex);
+          onFullLoaded?.();
+        }
+      },
+      undefined,
+      () => { onFullLoaded?.(); }, // même en erreur, on retire le loader
+    );
+    return () => { cancelled = true; };
+  }, [url, onFullLoaded]);
+
+  const texture = fullTexture || thumbTexture;
 
   return (
     <mesh scale={[-1, 1, 1]}>
@@ -562,6 +605,11 @@ export default function PanoramaViewer({
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   // ── Détection d'un "tap propre" sur la scène (hors hotspot/UI) ──
+  const [panoramaReady, setPanoramaReady] = useState(false);
+
+  useEffect(() => {
+    setPanoramaReady(false);
+  }, [panoramaUrl]);
   // Desktop : 1 clic net déclenche le callback. Mobile : double-tap requis.
   const tapStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const lastTapRef = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -836,9 +884,15 @@ export default function PanoramaViewer({
       )}
 
       {/* ✅ L'écran de fondu au noir pour la transition Street View */}
+      {/* ✅ Écran de chargement progressif (remplace l'écran noir muet) */}
       <div
-        className={`absolute inset-0 z-40 bg-black transition-opacity duration-500 pointer-events-none ${isTransitioning ? 'opacity-100' : 'opacity-0'}`}
-      />
+        className={`absolute inset-0 z-40 bg-black flex flex-col items-center justify-center gap-3 transition-opacity duration-500 pointer-events-none ${isTransitioning || !panoramaReady ? 'opacity-100' : 'opacity-0'}`}
+      >
+        <div className="w-10 h-10 border-2 border-[#D4AF37]/30 border-t-[#D4AF37] rounded-full animate-spin" />
+        <p className="text-[#D4AF37] font-mono text-xs tracking-widest uppercase animate-pulse">
+          {lang === 'fr' ? 'Chargement de la scène…' : 'Loading scene…'}
+        </p>
+      </div>
 
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-black/60 backdrop-blur-sm px-4 py-2 rounded-full text-xs text-gray-300 pointer-events-none whitespace-nowrap">
         🖱️ {lang === 'fr' ? 'Cliquez et glissez pour explorer • Molette pour zoomer' : 'Click and drag to explore • Scroll to zoom'}
@@ -848,7 +902,10 @@ export default function PanoramaViewer({
         {/* On force le re-render du Canvas quand la photo change pour reset la caméra */}
         <Canvas key={panoramaUrl} camera={{ position: [0, 0, 0.1], fov: 90 }} gl={{ antialias: true }} style={{ background: '#000' }}>
           <Suspense fallback={null}>
-            <PanoramaSphere url={panoramaUrl} />
+            <PanoramaSphere
+              url={panoramaUrl}
+              onFullLoaded={() => setPanoramaReady(true)}
+            />
             <CameraRotationTracker onRotationChange={(rot) => {
               const newProximities: Record<string, 'FAR' | 'CLOSE' | 'VERY_CLOSE'> = {};
               hotspots.forEach(h => {
