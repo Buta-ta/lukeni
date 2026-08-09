@@ -740,12 +740,7 @@ export default function InvestigationGame(props: {
   };
 
   const handleMiniGameComplete = async (score: number, caurisEarned: number) => {
-    console.log("🎮 [1] handleMiniGameComplete APPELÉ", {
-      miniGameSessionActive: miniGameSessionActive?.id,
-      activeMiniGame: activeMiniGame?.id,
-      score,
-      caurisEarned,
-    });
+    
 
     if (!miniGameSessionActive || !activeMiniGame) {
       console.log("⚠️ [2] Sortie précoce - données manquantes");
@@ -2016,10 +2011,7 @@ export default function InvestigationGame(props: {
             .replace("wordsearch_", "")
             .replace("_completed", "");
           console.log("🔓 Word Search ID à vérifier:", wsId);
-          console.log(
-            "🔓 completed_word_searches en session:",
-            (session as any)?.completed_word_searches,
-          );
+          
 
           isConditionMet =
             Array.isArray((session as any)?.completed_word_searches) &&
@@ -2046,10 +2038,7 @@ export default function InvestigationGame(props: {
             .replace("dialogue_", "")
             .replace("_completed", "");
           console.log("🔓 Dialogue ID à vérifier:", dlgId);
-          console.log(
-            "🔓 completed_dialogues en session:",
-            (session as any)?.completed_dialogues,
-          );
+          
 
           // ✅ Vérifier avec le format canonique dialogue_<id>_completed
           isConditionMet =
@@ -3047,13 +3036,7 @@ export default function InvestigationGame(props: {
 
 
   // ✅ DEBUG : Vérifier que validatedConditions contient les dialogues complétés
-  console.log('🔍 [DEBUG] validatedConditions:', [
-    ...(session?.solved_enigmas || []),
-    ...(session as any)?.completed_word_searches || [],
-    ...(session as any)?.completed_mini_games || [],
-    ...(session as any)?.validated_deductions || [],
-    ...(session as any)?.completed_dialogues || [],
-  ]);
+ 
 
 
   return (
@@ -4485,12 +4468,7 @@ export default function InvestigationGame(props: {
                       {/* ✅ INDICES PAYANTS - TOUJOURS VISIBLES */}
                       {(() => {
                         // ✅ FIX : Chercher dans allChapterEnigmas au lieu de currentChapter.enigmas
-                        console.log(
-                          "Énigme:",
-                          enigma.id,
-                          "Clues:",
-                          enigma.clues,
-                        );
+                        
                         const enigmaClues = enigma.clues || [];
                         if (enigmaClues.length === 0 || isSolved) return null;
 

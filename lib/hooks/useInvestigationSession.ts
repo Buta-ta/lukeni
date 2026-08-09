@@ -751,12 +751,7 @@ export function useInvestigationSession(
   const completeMiniGameInSession = useCallback(
     async (miniGameId: string, newBudget: number) => {
 
-      console.log("🔄 [HOOK] completeMiniGameInSession APPELÉ", {
-        miniGameId,
-        newBudget,
-        sessionExists: !!session,
-        sessionId: session?.id,
-      });
+      
       if (!session) return;
 
       const currentCompleted = session.completed_mini_games || [];
