@@ -113,7 +113,13 @@ export interface Hotspot {
   dialogue_typewriter_speed?: number;
   dialogue_style?: string;
   dialogue_size?: 'small' | 'medium' | 'large';
-  dialogue_id?: string;
+  dialogue_id?: string; 
+  trigger_judgment?: boolean;   // ⚖️ ouvrir le jugement de la scène à l'activation
+  discover_mode?: "none" | "hidden" | "proximity" | "scanner";
+
+  ambient_hotspot_audio_url?: string;        // audio de proximité (optionnel)
+  ambient_hotspot_audio_volume?: number;     // volume de base (0-1)
+
 }
 
 
@@ -183,6 +189,24 @@ export interface PanoramaScene {
     intro_text_position?: string | null;   // 'top' | 'center' | 'bottom'
   intro_audio_url?: string | null;
   intro_media_filter?: string | null;
+
+
+  // ── JUGEMENT (par scène) ──
+  judgment_config?: {
+    enabled?: boolean;
+    suspects?: string[];
+    culprits?: string[];
+    close_on_judge?: boolean;
+    background_image?: string | null;
+    title_fr?: string;
+    title_en?: string;
+    message_exact_fr?: string;
+    message_exact_en?: string;
+    message_partial_fr?: string;
+    message_partial_en?: string;
+    message_wrong_fr?: string;
+    message_wrong_en?: string;
+  } | null;
 
 }
 

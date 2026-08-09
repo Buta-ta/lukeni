@@ -16,6 +16,9 @@ interface DialogueNodeData {
   is_entry_point: boolean;
   auto_next_node_id: string | null;
   order_index: number;
+
+  required_flag?: string | null;
+  set_flag?: string | null;
 }
 
 interface DialogueChoiceData {
@@ -29,6 +32,9 @@ interface DialogueChoiceData {
   trigger_event_id: string | null;
   disappears_after_use: boolean;
   order_index: number;
+  required_flag?: string | null;
+  set_flag?: string | null;
+
 }
 
 interface Props {
@@ -42,6 +48,9 @@ interface Props {
   onUnlockEvidence?: (evidenceId: string) => void;
   onTriggerEvent?: (eventId: string) => void;
   sessionId?: string;
+  narrativeFlags?: string[];
+  onSetFlag?: (flag: string) => void;
+
   onDialogueComplete?: () => void;
 }
 
@@ -56,6 +65,8 @@ export default function DialoguePlayer({
   onUnlockEvidence,
   onTriggerEvent,
   sessionId,
+  narrativeFlags = [],
+  onSetFlag,
   onDialogueComplete,
 }: Props) {
   const [isLoading, setIsLoading] = useState(true);
@@ -217,6 +228,7 @@ export default function DialoguePlayer({
     ? choices
       .filter(c => c.node_id === currentNode.id)
       .filter(c => !c.required_evidence_id || unlockedEvidenceIds.includes(c.required_evidence_id))
+      .filter(c => !c.required_flag || (narrativeFlags || []).includes(c.required_flag))
       .filter(c => !usedChoiceIds.includes(c.id))
     : [];
 
@@ -267,7 +279,7 @@ export default function DialoguePlayer({
 
     if (currentNode.speaker_type === 'npc') {
       if (currentNode.auto_next_node_id) {
-        setCurrentNodeId(currentNode.auto_next_node_id);
+                goToNode(currentNode.auto_next_node_id);
       } else {
 
         console.log('🏁 [DIALOGUE] Fin du dialogue (NPC sans auto_next)');
@@ -278,13 +290,33 @@ export default function DialoguePlayer({
     }
   };
 
+    // ✅ Navigation vers un nœud en vérifiant les flags conditionnels
+  const goToNode = (nodeId: string) => {
+    const target = nodes.find(n => n.id === nodeId);
+    // Si le nœud cible a un required_flag non satisfait → le sauter (trouver le suivant ou terminer)
+    if (target?.required_flag && !(narrativeFlags || []).includes(target.required_flag)) {
+      // Chercher un nœud alternatif : le premier nœud non conditionnel du dialogue
+      const fallback = nodes.find(n => !n.required_flag || (narrativeFlags || []).includes(n.required_flag));
+      if (fallback) {
+        setCurrentNodeId(fallback.id);
+      } else {
+        markDialogueComplete();
+        onClose();
+      }
+      return;
+    }
+    setCurrentNodeId(nodeId);
+  };
+
   const handleChoiceClick = (choice: DialogueChoiceData) => {
+
+    if (choice.set_flag && onSetFlag) onSetFlag(choice.set_flag);
     if (choice.unlocks_evidence_id) onUnlockEvidence?.(choice.unlocks_evidence_id);
     if (choice.trigger_event_id) onTriggerEvent?.(choice.trigger_event_id);
     if (choice.disappears_after_use) setUsedChoiceIds(prev => [...prev, choice.id]);
 
     if (choice.next_node_id) {
-      setCurrentNodeId(choice.next_node_id);
+            goToNode(choice.next_node_id);
     } else {
       console.log('🏁 [DIALOGUE] Fin du dialogue (choix sans next_node)');
       // ✅ Dialogue terminé

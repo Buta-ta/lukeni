@@ -23,7 +23,7 @@ import {
   User,
   Clock,
   CreditCard,
-  ShieldCheck,
+  ShieldCheck, Trophy
 } from "lucide-react";
 import { User as UserIcon } from "lucide-react";
 import PaywallModal from "@/components/PaywallModal";
@@ -145,6 +145,12 @@ export default function InvestigationsHub() {
   const [userSessions, setUserSessions] = useState<Record<string, any>>({});
   const [userRanks, setUserRanks] = useState<Record<string, any>>({});
 
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [friendIds, setFriendIds] = useState<string[]>([]);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+
+  const [dailyChallenge, setDailyChallenge] = useState<any | null>(null);
+
   const [trialConfigDuration, setTrialConfigDuration] = useState(30);
   const [accessMap, setAccessMap] = useState<Record<string, AccessInfo>>({});
 
@@ -254,6 +260,37 @@ export default function InvestigationsHub() {
         setUserRanks(map);
       });
   }, [userId]);
+
+
+  // ✅ Charger le classement global (grades) + les amis
+  useEffect(() => {
+    if (!userId) return;
+    // Amis
+    supabase
+      .from("user_friends")
+      .select("friend_id")
+      .eq("user_id", userId)
+      .then(({ data }) => setFriendIds((data || []).map((f: any) => f.friend_id)));
+    // Classement : tous les user_ranks avec profils
+    supabase
+      .from("user_ranks")
+      .select("*, profiles:profiles(full_name, username, avatar_url)")
+      .order("score_percent", { ascending: false })
+      .limit(50)
+      .then(({ data }) => setLeaderboard(data || []));
+  }, [userId]);
+
+
+    // ✅ Charger le défi du jour
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    supabase
+      .from("daily_challenge")
+      .select("*")
+      .eq("challenge_date", today)
+      .maybeSingle()
+      .then(({ data }) => setDailyChallenge(data || null));
+  }, []);
 
   const refreshTrialData = useCallback(async () => {
     if (!userId || !investigations.length) return;
@@ -670,10 +707,102 @@ export default function InvestigationsHub() {
                   <User size={14} className="text-gray-400" />
                 )}
               </Link>
+
+
+
+            )}
+
+
+            {/* 🏆 BOUTON CLASSEMENT */}
+            {userId && (
+              <button
+                onClick={() => setShowLeaderboard(!showLeaderboard)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-black/40 border border-[#D4AF37]/40 rounded-full text-[#D4AF37] hover:bg-[#D4AF37]/20 transition-colors text-xs font-mono font-bold"
+              >
+                <Trophy size={14} /> {lang === "fr" ? "Classement" : "Ranking"}
+              </button>
             )}
           </div>
         </div>
       </nav>
+
+
+            {/* 🌟 DÉFI DU JOUR */}
+      {dailyChallenge && (
+        <section className="max-w-6xl mx-auto px-4 mt-6 relative z-10 w-full">
+          <div className="bg-gradient-to-r from-[#D4AF37]/10 to-transparent border border-[#D4AF37]/40 rounded-2xl p-4 flex items-center gap-4">
+            <span className="text-3xl">🌟</span>
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-[#D4AF37] font-mono uppercase tracking-widest">
+                {lang === "fr" ? "Défi du jour" : "Daily challenge"}
+              </h3>
+              <p className="text-xs text-gray-300">
+                {lang === "fr" ? dailyChallenge.title_fr : dailyChallenge.title_en || dailyChallenge.title_fr}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-[#D4AF37] font-mono font-bold flex items-center gap-1">
+                <CaurisIcon className="w-3.5 h-3.5" /> +{dailyChallenge.reward_cauris || 50}
+              </span>
+              {dailyChallenge.scene_id && (
+                <Link
+                  href={`/investigations/${dailyChallenge.investigation_id}`}
+                  className="px-4 py-2 bg-[#D4AF37] hover:bg-white text-black rounded-lg text-xs font-bold font-mono"
+                >
+                  {lang === "fr" ? "Jouer" : "Play"}
+                </Link>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+
+
+      {/* 🏆 CLASSEMENT */}
+      {showLeaderboard && (
+        <section className="max-w-6xl mx-auto px-4 mt-6 mb-4 relative z-10 w-full">
+          <div className="bg-[#1E1C1A] border border-[#D4AF37]/30 rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-[#D4AF37] flex items-center gap-2">
+                <Trophy size={16} /> {lang === "fr" ? "Classement des enquêteurs" : "Investigator ranking"}
+              </h3>
+              <button onClick={() => setShowLeaderboard(false)} className="text-gray-400 hover:text-white"><X size={16} /></button>
+            </div>
+
+            {leaderboard.length === 0 ? (
+              <p className="text-gray-500 text-sm text-center py-8 font-mono">
+                {lang === "fr" ? "Aucun grade pour l'instant. Terminez une enquête !" : "No ranks yet. Finish an investigation!"}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {leaderboard.map((entry, idx) => {
+                  const profile = entry.profiles;
+                  const isFriend = friendIds.includes(entry.user_id);
+                  const isMe = entry.user_id === userId;
+                  return (
+                    <div key={entry.id} className={`flex items-center gap-3 p-3 rounded-xl border ${isMe ? "bg-[#D4AF37]/10 border-[#D4AF37]/40" : isFriend ? "bg-blue-500/10 border-blue-500/30" : "bg-white/5 border-white/10"}`}>
+                      <span className="w-6 text-center font-mono font-bold text-[#D4AF37]">#{idx + 1}</span>
+                      {profile?.avatar_url ? (
+                        <img src={profile.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center"><User size={14} className="text-gray-400" /></div>
+                      )}
+                      <span className="flex-1 text-sm font-bold text-white truncate">
+                        {isMe ? (lang === "fr" ? "Vous" : "You") : (profile?.full_name || profile?.username || "Joueur")}
+                        {isFriend && <span className="ml-1 text-[9px] text-blue-400 font-mono">• {lang === "fr" ? "Ami" : "Friend"}</span>}
+                      </span>
+                      {entry.icon_url && <img src={entry.icon_url} alt="" className="w-6 h-6 rounded" />}
+                      <span className="font-mono text-[#D4AF37] font-bold text-xs">{entry.score_percent}%</span>
+                      <span className="text-xs text-gray-400 hidden sm:inline">{lang === "fr" ? entry.rank_title_fr : entry.rank_title_en}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* TERMINAL D'ARCHIVES */}
       <section className="max-w-6xl mx-auto px-4 mt-12 mb-16 relative z-10 w-full">
@@ -1039,5 +1168,7 @@ export default function InvestigationsHub() {
         )}
       </AnimatePresence>
     </div>
+
+
   );
 }

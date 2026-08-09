@@ -409,6 +409,17 @@ function HotspotContentForm({
               </optgroup>
             )}
 
+
+            <optgroup label="⚖️ Jugements">
+              {scenes.map((sc: any) => (
+                <>
+                  <option value={`judgment_${sc.id}_exact`}>Scène {sc.title_fr} — Jugement exact</option>
+                  <option value={`judgment_${sc.id}_partial`}>Scène {sc.title_fr} — Jugement partiel</option>
+                  <option value={`judgment_${sc.id}_wrong`}>Scène {sc.title_fr} — Jugement faux</option>
+                </>
+              ))}
+            </optgroup>
+
             <optgroup label="💬 Dialogues Interactifs">
               {(dialoguesList || []).map((dlg: any) => (
                 <option key={dlg.id} value={`dialogue_${dlg.id}_completed`}>
@@ -614,6 +625,7 @@ export default function PanoramaHotspotEditor({
   const [scenes, setScenes] = useState<PanoramaScene[]>(initialScenes || []);
   const [characters, setCharacters] = useState<any[]>([]);
   const [introExpanded, setIntroExpanded] = useState(false);
+  const [judgmentExpanded, setJudgmentExpanded] = useState(false);
   const [dialogueSpeakers, setDialogueSpeakers] = useState<any[]>([]);
 
   const [wordSearchesState, setWordSearchesState] = useState<any[]>([])
@@ -1034,7 +1046,58 @@ export default function PanoramaHotspotEditor({
   };
 
 
-    const uploadIntroAudio = () => {
+  const uploadJudgmentBackground = () => {
+    const createWidget = () => {
+      // @ts-ignore
+      const widget = window.cloudinary.createUploadWidget({
+        cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+        uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET,
+        sources: ['local', 'url'], resourceType: 'image', folder: 'lukeni/judgments'
+      }, (error: any, result: any) => {
+        if (result?.event === 'success') {
+          const url = result.info.secure_url;
+          setScenes(prev => prev.map((sc, i) =>
+            i === activeSceneIndex ? { ...sc, judgment_config: { ...(sc.judgment_config || {}), background_image: url } } : sc
+          ));
+          setIsDirty(true);
+        }
+      });
+      widget.open();
+    };
+    // @ts-ignore
+    if (!window.cloudinary) {
+      const script = document.createElement('script');
+      script.src = 'https://upload-widget.cloudinary.com/global/all.js';
+      script.onload = createWidget;
+      document.body.appendChild(script);
+    } else createWidget();
+  };
+
+
+    const uploadHotspotAmbientAudio = () => {
+    const createWidget = () => {
+      // @ts-ignore
+      const widget = window.cloudinary.createUploadWidget({
+        cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+        uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET,
+        sources: ['local', 'url'], resourceType: 'video', folder: 'lukeni/hotspot-audio'
+      }, (error: any, result: any) => {
+        if (result?.event === 'success') {
+          updateHotspot(selectedHotspot.id, { ambient_hotspot_audio_url: result.info.secure_url });
+        }
+      });
+      widget.open();
+    };
+    // @ts-ignore
+    if (!window.cloudinary) {
+      const script = document.createElement('script');
+      script.src = 'https://upload-widget.cloudinary.com/global/all.js';
+      script.onload = createWidget; document.body.appendChild(script);
+    } else createWidget();
+  };
+
+  
+  const uploadIntroAudio = () => {
     const createWidget = () => {
       // @ts-ignore
       const widget = window.cloudinary.createUploadWidget({
@@ -1569,38 +1632,63 @@ export default function PanoramaHotspotEditor({
 
 
 
-                  {/* ── MODE INVISIBLE ── */}
+                  {/* ── MODE DE DÉCOUVERTE ── */}
                   <div className="pt-3 border-t border-white/10">
-                    <div
-                      className="flex items-center justify-between cursor-pointer group"
-                      onClick={() => updateHotspot(selectedHotspot.id, { invisible: !selectedHotspot.invisible })}
-                    >
-                      <div className="space-y-0.5">
-                        <p className="text-xs font-bold text-white flex items-center gap-2">
-                          <span>{selectedHotspot.invisible ? '👻' : '👁️'}</span>
-                          Hotspot Invisible
-                        </p>
-                        <p className="text-[10px] text-gray-500">
-                          {selectedHotspot.invisible
-                            ? 'Le joueur ne voit rien — il doit cliquer par lui-même'
-                            : 'Le joueur voit l\'icône et l\'animation'}
-                        </p>
-                      </div>
-                      <div className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${selectedHotspot.invisible ? 'bg-purple-600' : 'bg-white/10'}`}>
-                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${selectedHotspot.invisible ? 'translate-x-6' : 'translate-x-1'}`} />
-                      </div>
+                    <p className="text-xs font-bold text-white flex items-center gap-2 mb-2">
+                      <span>🔍</span> Mode de découverte
+                    </p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        { v: "none", l: "👁️ Visible", d: "Icône toujours visible" },
+                        { v: "hidden", l: "👻 Objet caché", d: "Invisible, clic au hasard" },
+                        { v: "proximity", l: "📡 Proximité", d: "Se révèle près de la caméra" },
+                        { v: "scanner", l: "🔬 Scanner", d: "Révélé par le bouton scanner" },
+                      ].map((mode) => (
+                        <div
+                          key={mode.v}
+                          onClick={() => updateHotspot(selectedHotspot.id, { discover_mode: mode.v as any, invisible: mode.v === "hidden" })}
+                          className={`p-2 rounded-lg cursor-pointer border transition-all ${(selectedHotspot.discover_mode || (selectedHotspot.invisible ? "hidden" : "none")) === mode.v ? "bg-purple-600/30 border-purple-500/50" : "bg-white/5 border-white/10 hover:bg-white/10"}`}
+                        >
+                          <p className="text-xs font-bold text-white">{mode.l}</p>
+                          <p className="text-[9px] text-gray-500">{mode.d}</p>
+                        </div>
+                      ))}
                     </div>
-
-                    {selectedHotspot.invisible && (
+                    {(selectedHotspot.discover_mode === "hidden" || selectedHotspot.invisible) && (
                       <div className="mt-2 px-3 py-2 bg-purple-900/20 border border-purple-500/20 rounded-lg">
                         <p className="text-[10px] text-purple-300">
-                          ⚠️ En mode admin, le hotspot reste visible (contour pointillé violet).
-                          Seul le joueur ne le verra pas.
+                          ⚠️ En mode admin, le hotspot reste visible (contour pointillé). Seul le joueur ne le verra pas.
                         </p>
                       </div>
                     )}
                   </div>
 
+
+                                    {/* 🔊 AUDIO DE PROXIMITÉ */}
+                  <div className="pt-3 border-t border-white/10 space-y-2">
+                    <p className="text-xs font-bold text-white flex items-center gap-2">🔊 Audio de proximité</p>
+                    <p className="text-[9px] text-gray-500">Le volume monte quand le joueur s'approche du hotspot.</p>
+                    {selectedHotspot.ambient_hotspot_audio_url ? (
+                      <div className="flex items-center gap-2 bg-white/5 p-2 rounded">
+                        <audio src={selectedHotspot.ambient_hotspot_audio_url} controls className="h-6 flex-1" />
+                        <button onClick={() => updateHotspot(selectedHotspot.id, { ambient_hotspot_audio_url: undefined })} className="text-red-500"><X size={14} /></button>
+                      </div>
+                    ) : (
+                      <button onClick={() => uploadHotspotAmbientAudio()} className="w-full py-2 bg-white/5 hover:bg-white/10 rounded text-xs text-gray-400 flex items-center justify-center gap-2">
+                        <Music size={14} /> Uploader un son de proximité
+                      </button>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-gray-500">Volume de base</span>
+                      <input
+                        type="range" min="0" max="1" step="0.05"
+                        value={selectedHotspot.ambient_hotspot_audio_volume ?? 0.5}
+                        onChange={(e) => updateHotspot(selectedHotspot.id, { ambient_hotspot_audio_volume: Number(e.target.value) })}
+                        className="flex-1 accent-red-500"
+                      />
+                      <span className="text-[10px] text-gray-400 font-mono">{Math.round((selectedHotspot.ambient_hotspot_audio_volume ?? 0.5) * 100)}%</span>
+                    </div>
+                  </div>
 
 
                   {/* ✅ ÉVÉNEMENT NARRATIF (COMMUN À TOUS LES HOTSPOTS) */}
@@ -1619,6 +1707,22 @@ export default function PanoramaHotspotEditor({
                       ))}
                     </select>
                     <p className="text-[9px] text-gray-600">Si défini, cet événement se déclenchera quand le joueur interagit avec ce hotspot (avec un léger délai).</p>
+                  </div>
+
+
+
+                  {/* ⚖️ DÉCLENCHER LE JUGEMENT */}
+                  <div className="pt-3 border-t border-white/10">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!selectedHotspot.trigger_judgment}
+                        onChange={e => updateHotspot(selectedHotspot.id, { trigger_judgment: e.target.checked })}
+                        className="w-4 h-4 accent-red-500"
+                      />
+                      <span className="text-xs font-bold text-white">⚖️ Déclencher le jugement de cette scène à l'activation</span>
+                    </label>
+                    <p className="text-[9px] text-gray-600 mt-1">La condition d'accès du hotspot doit être remplie pour que le jugement s'ouvre.</p>
                   </div>
                 </div>
               ) : (
@@ -1865,6 +1969,181 @@ export default function PanoramaHotspotEditor({
                 </button>
               </div>
             )}
+
+
+
+            {/* ⚖️ JUGEMENT (repliable) */}
+            <div className="bg-[#111] rounded-xl border border-red-500/20 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-white/[0.02] transition-colors" onClick={() => setJudgmentExpanded(!judgmentExpanded)}>
+                <div className="flex items-center gap-2">
+                  <span className="text-red-400">⚖️</span>
+                  <span className="text-sm font-bold text-white">Jugement</span>
+                  {activeScene.judgment_config?.enabled && (
+                    <span className="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">Activé</span>
+                  )}
+                </div>
+                {judgmentExpanded ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+              </div>
+
+              {judgmentExpanded && (
+                <div className="p-4 space-y-4 border-t border-white/10">
+                  {/* Activer */}
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!!activeScene.judgment_config?.enabled}
+                      onChange={e => {
+                        const jc = activeScene.judgment_config || {};
+                        setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, judgment_config: { ...jc, enabled: e.target.checked } } : s));
+                        setIsDirty(true);
+                      }}
+                      className="w-4 h-4 accent-red-500"
+                    />
+                    <span className="text-xs text-gray-300">Activer l'écran de jugement sur cette scène</span>
+                  </label>
+
+                  {/* Suspects + Coupables */}
+                  <div>
+                    <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Suspects proposés & Bons coupables</label>
+                    {characters.length === 0 ? (
+                      <p className="text-xs text-gray-500 italic">Créez d'abord des personnages dans la section PNJ.</p>
+                    ) : (
+                      <div className="space-y-1 max-h-48 overflow-y-auto bg-black/20 p-2 rounded">
+                        {characters.map((char: any) => {
+                          const jc = activeScene.judgment_config || {};
+                          const isSuspect = (jc.suspects || []).includes(char.id);
+                          const isCulprit = (jc.culprits || []).includes(char.id);
+                          return (
+                            <div key={char.id} className="flex items-center gap-2 p-1.5 hover:bg-white/5 rounded">
+                              <input
+                                type="checkbox"
+                                checked={isSuspect}
+                                onChange={e => {
+                                  const jc2 = activeScene.judgment_config || {};
+                                  const suspects = e.target.checked ? [...(jc2.suspects || []), char.id] : (jc2.suspects || []).filter(id => id !== char.id);
+                                  setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, judgment_config: { ...jc2, suspects } } : s));
+                                  setIsDirty(true);
+                                }}
+                                className="w-3.5 h-3.5 accent-red-500"
+                                title="Suspect proposé"
+                              />
+                              {char.avatar_url && <img src={char.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover" />}
+                              <span className="flex-1 text-xs text-gray-300">{char.name_fr}</span>
+                              <label className="flex items-center gap-1 text-[9px] text-red-400 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={isCulprit}
+                                  onChange={e => {
+                                    const jc2 = activeScene.judgment_config || {};
+                                    const culprits = e.target.checked ? [...(jc2.culprits || []), char.id] : (jc2.culprits || []).filter(id => id !== char.id);
+                                    setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, judgment_config: { ...jc2, culprits } } : s));
+                                    setIsDirty(true);
+                                  }}
+                                  className="w-3.5 h-3.5 accent-red-500"
+                                />
+                                <span>Coupable</span>
+                              </label>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <p className="text-[9px] text-gray-600 mt-1 italic">Cochez les suspects proposés (gauche) et les bons coupables (droite).</p>
+                  </div>
+
+                  {/* Clôt l'enquête */}
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!!activeScene.judgment_config?.close_on_judge}
+                      onChange={e => {
+                        const jc = activeScene.judgment_config || {};
+                        setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, judgment_config: { ...jc, close_on_judge: e.target.checked } } : s));
+                        setIsDirty(true);
+                      }}
+                      className="w-4 h-4 accent-red-500"
+                    />
+                    <span className="text-xs text-gray-300">Ce jugement clôt l'enquête (selon le résultat → fin)</span>
+                  </label>
+
+                  {/* Image de fond */}
+                  <div>
+                    <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">Image de fond (optionnel)</label>
+                    <div className="flex items-center gap-2">
+                      {activeScene.judgment_config?.background_image && (
+                        <img src={activeScene.judgment_config.background_image} alt="" className="w-16 h-10 rounded object-cover border border-white/10" />
+                      )}
+                      <button onClick={uploadJudgmentBackground} className="px-3 py-2 bg-white/5 hover:bg-white/10 rounded text-xs text-gray-300 flex items-center gap-2">
+                        <ImagePlus size={14} /> {activeScene.judgment_config?.background_image ? 'Changer' : 'Uploader une image'}
+                      </button>
+                      {activeScene.judgment_config?.background_image && (
+                        <button onClick={() => { const jc = activeScene.judgment_config || {}; setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, judgment_config: { ...jc, background_image: null } } : s)); setIsDirty(true); }} className="text-red-500 p-1"><Trash2 size={14} /></button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Titre + Messages FR/EN avec traduction */}
+                  {[["title", "Titre", "title"], ["message_exact", "Message (réussite exacte)", "message_exact"], ["message_partial", "Message (partiel)", "message_partial"], ["message_wrong", "Message (mauvaise réponse)", "message_wrong"]].map(([key, label, field]) => {
+                    const jc = activeScene.judgment_config || {};
+                    return (
+                      <div key={field}>
+                        <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">{label}</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={jc[`${field}_fr`] || ''}
+                            onChange={e => {
+                              const jc2 = activeScene.judgment_config || {};
+                              setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, judgment_config: { ...jc2, [`${field}_fr`]: e.target.value } } : s));
+                            }}
+                            placeholder="FR"
+                            className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none focus:border-red-500"
+                          />
+                          <input
+                            type="text"
+                            value={jc[`${field}_en`] || ''}
+                            onChange={e => {
+                              const jc2 = activeScene.judgment_config || {};
+                              setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, judgment_config: { ...jc2, [`${field}_en`]: e.target.value } } : s));
+                            }}
+                            placeholder="EN"
+                            className="flex-1 bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-xs text-white outline-none"
+                          />
+                          <button
+                            onClick={async () => {
+                              const fr = (activeScene.judgment_config || {})[`${field}_fr`] || '';
+                              if (!fr.trim()) return;
+                              try {
+                                const t = await autoTranslate(fr, 'fr');
+                                const jc2 = activeScene.judgment_config || {};
+                                setScenes(prev => prev.map((s, i) => i === activeSceneIndex ? { ...s, judgment_config: { ...jc2, [`${field}_en`]: t } } : s));
+                              } catch { }
+                            }}
+                            className="p-1.5 bg-white/5 rounded hover:bg-white/10 flex items-center"
+                            title="Traduire en anglais"
+                          >
+                            <Languages size={12} className="text-gray-400" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Sauvegarder le jugement */}
+                  <button
+                    onClick={async () => {
+                      if (!activeScene) return;
+                      setIsSaving(true);
+                      await supabase.from('investigation_scenes').update({ judgment_config: activeScene.judgment_config || {} }).eq('id', activeScene.id);
+                      setIsDirty(false); setIsSaving(false);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600/20 text-red-400 border border-red-500/30 rounded text-xs font-bold hover:bg-red-600/40"
+                  >
+                    {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Sauvegarder le jugement
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </>
       )}

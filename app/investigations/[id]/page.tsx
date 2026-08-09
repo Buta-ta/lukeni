@@ -49,6 +49,7 @@ import { CaurisIcon } from "@/components/logo";
 import InvestigationIntro from "@/components/game/InvestigationIntro";
 
 import SceneIntro from "@/components/game/SceneIntro";
+import JudgmentModal from "@/components/game/JudgmentModal";
 import InvestigationOutro from "@/components/game/InvestigationOutro";
 import CharacterDialogModal from "@/components/game/CharacterDialogModal";
 import ContextualEnding from "@/components/game/ContextualEnding";
@@ -151,12 +152,32 @@ interface Scene {
   intro_text_en?: string | null;
   intro_skip_allowed?: boolean | null;
 
+
+
   intro_text_color?: string | null;
   intro_text_font?: string | null;
   intro_text_effect?: string | null;
   intro_text_position?: "top" | "center" | "bottom" | null;
   intro_audio_url?: string | null;
   intro_media_filter?: string | null;
+
+
+  // ── JUGEMENT (par scène) ──
+  judgment_config?: {
+    enabled?: boolean;
+    suspects?: string[];
+    culprits?: string[];
+    close_on_judge?: boolean;
+    background_image?: string | null;
+    title_fr?: string;
+    title_en?: string;
+    message_exact_fr?: string;
+    message_exact_en?: string;
+    message_partial_fr?: string;
+    message_partial_en?: string;
+    message_wrong_fr?: string;
+    message_wrong_en?: string;
+  } | null;
 }
 interface Clue {
   id: string;
@@ -362,6 +383,8 @@ export default function InvestigationGame(props: {
   const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
   // ✅ INTRO DE TRANSITION : true = on affiche l'intro avant d'entrer dans la scène
   const [showSceneIntro, setShowSceneIntro] = useState(false);
+  const [judgmentOpen, setJudgmentOpen] = useState(false);
+  const [judgmentSceneId, setJudgmentSceneId] = useState<string | null>(null);
   const [showCharacterSelect, setShowCharacterSelect] = useState(true);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(
     null,
@@ -538,14 +561,32 @@ export default function InvestigationGame(props: {
     saveWordSearchProgress,
     forceRefreshSession,
     completeMiniGameInSession,
+    setNarrativeFlag,
+    saveNotebook,
+
   } = useInvestigationSession(invId, user);
+
+
 
   // ✅ Wrapper pour collectEvidence avec gestion du badge "NOUVEAU"
   const handleCollectEvidence = async (evidenceId: string) => {
     await collectEvidence(evidenceId);
 
+
+    // ✅ DÉCOUVERTE TIMELINE : si cette preuve est attendue par un slot de la timeline
+    if (timeline?.slots?.some((s: any) => s.expected_evidence_id === evidenceId)) {
+      setActiveMilestone({
+        fr: "📅 Vous avez un nouvel élément à placer dans la chronologie !",
+        en: "📅 You have a new item to place in the timeline!",
+      });
+      setTimeout(() => setActiveMilestone(null), 4000);
+    }
+
     // ✅ Ajouter au tableau "recentlyAdded" pour le badge NOUVEAU
     setRecentlyAddedEvidences((prev) => [...prev, evidenceId]);
+
+
+
 
     // ✅ Retirer le badge après 10 secondes
     setTimeout(() => {
@@ -554,6 +595,20 @@ export default function InvestigationGame(props: {
       );
     }, 10000);
   };
+
+
+
+      // ✅ TUTORIEL : conseil sur le panneau PREUVES (1re preuve)
+    const tutorialKey = `lukeni_tutorial_done_${invId}`;
+    if (!localStorage.getItem(tutorialKey) && (session?.collected_evidences?.length || 0) === 0) {
+      setTimeout(() => {
+        setActiveMilestone({
+          fr: "💡 Vous avez une preuve ! Consultez le panneau PREUVES (💼) à tout moment.",
+          en: "💡 You have evidence! Check the EVIDENCE panel (💼) anytime.",
+        });
+        setTimeout(() => setActiveMilestone(null), 4500);
+      }, 800);
+    }
 
   const {
     messages: chatMessages,
@@ -664,7 +719,7 @@ export default function InvestigationGame(props: {
   const currentScene = currentChapter?.scenes?.[currentSceneIndex] || null;
   const hotspots = currentScene?.hotspots || [];
 
-    // ✅ PRÉCHARGEMENT MOBILE : charge en arrière-plan les panoramas et intros
+  // ✅ PRÉCHARGEMENT MOBILE : charge en arrière-plan les panoramas et intros
   // de toutes les scènes du chapitre courant (pour réduire la latence sur 3G/4G).
   useEffect(() => {
     if (!currentChapter) return;
@@ -1491,6 +1546,27 @@ export default function InvestigationGame(props: {
     if (showIntro || showCharacterSelect || isLoading || !session || isSessionLoading || !invId) return;
 
     const tutorialKey = `lukeni_tutorial_done_${invId}`;
+
+
+      // ✅ TUTORIEL PROGRESSIF : mini-conseils contextuels au fil du jeu
+  useEffect(() => {
+    if (showIntro || showCharacterSelect || isLoading || !session || isSessionLoading || !invId) return;
+    const tutorialKey = `lukeni_tutorial_done_${invId}`;
+    if (localStorage.getItem(tutorialKey)) return;
+
+    // Conseil 1 : MISSION (au début de la 1re scène)
+    const t1 = setTimeout(() => {
+      setActiveMilestone({
+        fr: "💡 Ouvrez MISSION (🎯) pour voir vos objectifs et votre indice.",
+        en: "💡 Open MISSION (🎯) to see your objectives and hint.",
+      });
+      setTimeout(() => setActiveMilestone(null), 4500);
+    }, 2500);
+
+    return () => clearTimeout(t1);
+  }, [showIntro, showCharacterSelect, isLoading, session, isSessionLoading, invId]);
+
+
     const hasSeenTutorial = localStorage.getItem(tutorialKey);
 
     if (!hasSeenTutorial && !showTutorial) {
@@ -1498,6 +1574,8 @@ export default function InvestigationGame(props: {
       return () => clearTimeout(timer);
     }
   }, [showIntro, showCharacterSelect, isLoading, session, isSessionLoading, invId, showTutorial]);
+
+
 
   useEffect(() => {
     if (!currentScene?.timer_duration || currentScene.timer_duration <= 0) {
@@ -1942,6 +2020,17 @@ export default function InvestigationGame(props: {
       .eq("id", session.id);
   };
 
+
+  // ✅ Ouvrir l'écran de jugement d'une scène
+  const openJudgment = (sceneId: string) => {
+    const scene = chapters.flatMap(c => c.scenes || []).find(s => s.id === sceneId);
+    const jc = scene?.judgment_config;
+    if (jc?.enabled) {
+      setJudgmentSceneId(sceneId);
+      setJudgmentOpen(true);
+    }
+  };
+
   // ── RESET COMPLET POUR REJOUER (Option A) ──
   // ── RESET COMPLET POUR REJOUER (Option A) ──
   const handleReplay = async () => {
@@ -1994,7 +2083,7 @@ export default function InvestigationGame(props: {
   };
 
 
-    // ✅ Sauvegarde le meilleur grade du joueur pour cette enquête
+  // ✅ Sauvegarde le meilleur grade du joueur pour cette enquête
   const saveBestRank = async () => {
     if (!user?.id || !invId) return;
     // Calcul du même score que l'outro
@@ -2204,6 +2293,20 @@ export default function InvestigationGame(props: {
         console.log("✅ Condition rencontrée ! Hotspot déverrouillé");
       } else {
         console.log("🔓 Pas de condition - Hotspot toujours accessible");
+      }
+
+
+      // ✅ JUGEMENT : si le hotspot doit déclencher le jugement de la scène
+      if (hotspot.trigger_judgment && hotspot.condition && session) {
+        // Vérifier que la condition d'accès est remplie (même logique que plus bas)
+        const conditionMet = session?.solved_enigmas?.includes(hotspot.condition) ||
+          (session as any)?.completed_word_searches?.includes(hotspot.condition) ||
+          (session as any)?.completed_dialogues?.includes(hotspot.condition) ||
+          (session as any)?.completed_mini_games?.includes(hotspot.condition);
+        if (conditionMet && currentScene?.id) {
+          openJudgment(currentScene.id);
+          return;
+        }
       }
 
       // ✅ FIX 2 : Fin alternative avec titre et message séparés
@@ -2697,6 +2800,27 @@ export default function InvestigationGame(props: {
 
   const [showTaskReport, setShowTaskReport] = useState(false);
 
+  const [missionTab, setMissionTab] = useState<"mission" | "notes">("mission");
+
+
+  const [notebookLocal, setNotebookLocal] = useState("");
+
+  // Sauvegarde automatique du carnet (debounce ~800ms)
+  useEffect(() => {
+    if (missionTab !== "notes") return;
+    const t = setTimeout(() => {
+      if (saveNotebook) saveNotebook(notebookLocal);
+    }, 800);
+    return () => clearTimeout(t);
+  }, [notebookLocal, missionTab, saveNotebook]);
+
+  // Charger le carnet existant quand le panneau s'ouvre
+  useEffect(() => {
+    if (activeUI === "mission" && missionTab === "notes") {
+      setNotebookLocal((session as any)?.notebook || "");
+    }
+  }, [activeUI, missionTab, session]);
+
 
   const shouldShowDeductionButton = (() => {
     // Si chapterTimeline ou chapterBoard sont null, les recharger à la demande
@@ -3132,7 +3256,7 @@ export default function InvestigationGame(props: {
     !showCharacterSelect
   ) {
     return (
-            <SceneIntro
+      <SceneIntro
         mediaUrl={currentScene.intro_media_url}
         mediaType={currentScene.intro_media_type || "image"}
         textFr={currentScene.intro_text_fr || undefined}
@@ -3368,6 +3492,36 @@ export default function InvestigationGame(props: {
                 </button>
               </div>
             )}
+
+
+            {/* ✅ CLORE L'ENQUÊTE - visible sur le dernier chapitre */}
+            {currentChapterIndex === chapters.length - 1 && chapters.length > 0 && (
+              <button
+                onClick={async () => {
+                  const { data: freshProfile } = await supabase
+                    .from("profiles")
+                    .select("cauris")
+                    .eq("id", user.id)
+                    .single();
+                  const currentCauris = freshProfile?.cauris || 0;
+                  const totalReward = budgetCauris + (investigation.reward_cauris || 0);
+                  if (totalReward > 0 && user) {
+                    await supabase
+                      .from("profiles")
+                      .update({ cauris: currentCauris + totalReward })
+                      .eq("id", user.id);
+                  }
+                  await completeInvestigation();
+                  await saveBestRank();
+                  setShowOutro(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#D4AF37] hover:bg-white text-black font-mono text-xs font-bold tracking-widest transition-colors"
+              >
+                ✦ {lang === "fr" ? "CLORE L'ENQUÊTE" : "CLOSE INVESTIGATION"}
+              </button>
+            )}
+
+
             {selectedCharacter && userProfile && (
               <div className="flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px]">
                 {renderAvatar(userProfile.avatar_url)}
@@ -4135,10 +4289,27 @@ export default function InvestigationGame(props: {
           className="absolute z-30 bottom-24 inset-x-4 md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:bottom-24 md:w-[600px] bg-black/90 backdrop-blur-xl border border-green-500/30 rounded-2xl flex flex-col overflow-hidden shadow-2xl"
         >
           <div className="bg-green-500/20 px-4 py-3 flex items-center justify-between border-b border-green-500/30">
-            <span className="font-mono text-xs text-green-400 tracking-widest font-bold flex items-center gap-2">
-              <Target size={14} />{" "}
-              {lang === "fr" ? "MISSION ACTUELLE" : "CURRENT MISSION"}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-xs text-green-400 tracking-widest font-bold flex items-center gap-2">
+                <Target size={14} />{" "}
+                {lang === "fr" ? "MISSION" : "MISSION"}
+              </span>
+              {/* Onglets Mission / Notes */}
+              <div className="flex gap-1 ml-2">
+                <button
+                  onClick={() => setMissionTab("mission")}
+                  className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${missionTab === "mission" ? "bg-green-600 text-white" : "bg-white/5 text-gray-400 hover:text-white"}`}
+                >
+                  {lang === "fr" ? "Mission" : "Mission"}
+                </button>
+                <button
+                  onClick={() => setMissionTab("notes")}
+                  className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${missionTab === "notes" ? "bg-green-600 text-white" : "bg-white/5 text-gray-400 hover:text-white"}`}
+                >
+                  📓 {lang === "fr" ? "Notes" : "Notes"}
+                </button>
+              </div>
+            </div>
             <button
               onClick={() => setActiveUI(null)}
               className="text-green-400 hover:text-white"
@@ -4147,93 +4318,126 @@ export default function InvestigationGame(props: {
             </button>
           </div>
           <div className="p-6 overflow-y-auto flex-1 space-y-4">
-            {/* Nom de la scène */}
-            <div className="text-center pb-4 border-b border-white/10">
-              <p className="text-gray-500 text-xs font-mono uppercase tracking-widest mb-1">
-                {lang === "fr" ? "Scène actuelle" : "Current scene"}
-              </p>
-              <h3 className="text-lg font-serif font-bold text-white">
-                {lang === "fr"
-                  ? currentScene?.title_fr
-                  : currentScene?.title_en || currentScene?.title_fr}
-              </h3>
-            </div>
-
-            {/* Mission principale */}
-            {(currentScene?.mission_fr || currentScene?.mission_en) && (
-              <div className="bg-green-900/10 p-4 rounded-xl border border-green-500/20">
-                <p className="text-green-400 text-xs font-mono uppercase tracking-widest mb-2">
-                  {lang === "fr" ? "🎯 Mission" : "🎯 Mission"}
-                </p>
-                <p className="text-gray-200 text-sm leading-relaxed font-serif">
-                  {lang === "fr"
-                    ? currentScene.mission_fr
-                    : currentScene.mission_en || currentScene.mission_fr}
-                </p>
-              </div>
-            )}
-
-            {/* Objectifs */}
-            {(currentScene?.mission_objectives_fr || []).length > 0 && (
-              <div>
-                <p className="text-gray-500 text-xs font-mono uppercase tracking-widest mb-3">
-                  {lang === "fr" ? "Objectifs" : "Objectives"}
-                </p>
-                <div className="space-y-2">
-                  {(currentScene.mission_objectives_fr || []).map(
-                    (obj: string, idx: number) => (
-                      <div
-                        key={idx}
-                        className="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-white/10"
-                      >
-                        <div className="w-5 h-5 rounded border-2 border-green-500/50 flex items-center justify-center">
-                          {/* Case à cocher (non interactive pour l'instant) */}
-                          <div className="w-2.5 h-2.5 rounded-sm bg-green-500/20" />
-                        </div>
-                        <span className="text-gray-300 text-sm">
-                          {lang === "fr"
-                            ? obj
-                            : (currentScene.mission_objectives_en || [])[idx] ||
-                            obj}
-                        </span>
-                      </div>
-                    ),
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Indice */}
-            {(currentScene?.mission_hint_fr ||
-              currentScene?.mission_hint_en) && (
-                <div className="bg-blue-900/10 p-4 rounded-xl border border-blue-500/20">
-                  <p className="text-blue-400 text-xs font-mono uppercase tracking-widest mb-2 flex items-center gap-1">
-                    💡 {lang === "fr" ? "Indice" : "Hint"}
+            {missionTab === "mission" && (
+              <div className="space-y-4">
+                {/* Nom de la scène */}
+                <div className="text-center pb-4 border-b border-white/10">
+                  <p className="text-gray-500 text-xs font-mono uppercase tracking-widest mb-1">
+                    {lang === "fr" ? "Scène actuelle" : "Current scene"}
                   </p>
-                  <p className="text-gray-300 text-sm italic font-serif">
+                  <h3 className="text-lg font-serif font-bold text-white">
                     {lang === "fr"
-                      ? currentScene.mission_hint_fr
-                      : currentScene.mission_hint_en ||
-                      currentScene.mission_hint_fr}
+                      ? currentScene?.title_fr
+                      : currentScene?.title_en || currentScene?.title_fr}
+                  </h3>
+                </div>
+
+                {/* Mission principale */}
+                {(currentScene?.mission_fr || currentScene?.mission_en) && (
+                  <div className="bg-green-900/10 p-4 rounded-xl border border-green-500/20">
+                    <p className="text-green-400 text-xs font-mono uppercase tracking-widest mb-2">
+                      {lang === "fr" ? "🎯 Mission" : "🎯 Mission"}
+                    </p>
+                    <p className="text-gray-200 text-sm leading-relaxed font-serif">
+                      {lang === "fr"
+                        ? currentScene.mission_fr
+                        : currentScene.mission_en || currentScene.mission_fr}
+                    </p>
+                  </div>
+                )}
+
+                {/* Objectifs */}
+                {(currentScene?.mission_objectives_fr || []).length > 0 && (
+                  <div>
+                    <p className="text-gray-500 text-xs font-mono uppercase tracking-widest mb-3">
+                      {lang === "fr" ? "Objectifs" : "Objectives"}
+                    </p>
+                    <div className="space-y-2">
+                      {(currentScene.mission_objectives_fr || []).map(
+                        (obj: string, idx: number) => (
+                          <div
+                            key={idx}
+                            className="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-white/10"
+                          >
+                            <div className="w-5 h-5 rounded border-2 border-green-500/50 flex items-center justify-center">
+                              {/* Case à cocher (non interactive pour l'instant) */}
+                              <div className="w-2.5 h-2.5 rounded-sm bg-green-500/20" />
+                            </div>
+                            <span className="text-gray-300 text-sm">
+                              {lang === "fr"
+                                ? obj
+                                : (currentScene.mission_objectives_en || [])[idx] ||
+                                obj}
+                            </span>
+                          </div>
+                        ),
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Indice */}
+                {(currentScene?.mission_hint_fr ||
+                  currentScene?.mission_hint_en) && (
+                    <div className="bg-blue-900/10 p-4 rounded-xl border border-blue-500/20">
+                      <p className="text-blue-400 text-xs font-mono uppercase tracking-widest mb-2 flex items-center gap-1">
+                        💡 {lang === "fr" ? "Indice" : "Hint"}
+                      </p>
+                      <p className="text-gray-300 text-sm italic font-serif">
+                        {lang === "fr"
+                          ? currentScene.mission_hint_fr
+                          : currentScene.mission_hint_en ||
+                          currentScene.mission_hint_fr}
+                      </p>
+                    </div>
+                  )}
+
+                {/* Si aucune mission */}
+                {!currentScene?.mission_fr &&
+                  (!currentScene?.mission_objectives_fr ||
+                    currentScene.mission_objectives_fr.length === 0) && (
+                    <div className="text-center py-10 text-gray-600 font-mono text-sm">
+                      <Target size={32} className="mx-auto mb-2 opacity-50" />
+                      {lang === "fr"
+                        ? "Aucune mission pour cette scène"
+                        : "No mission for this scene"}
+                    </div>
+                  )}
+
+
+              </div>
+            )}
+
+            {/* ── CARNET DE NOTES (onglet Notes) ── */}
+            {missionTab === "notes" && (
+              <div className="space-y-4">
+                {/* Logo Lukeni ambiance */}
+                <div className="text-center pb-4 border-b border-white/10">
+                  <div className="flex justify-center mb-2">
+                    <CaurisIcon className="w-10 h-10 text-[#D4AF37] drop-shadow-[0_0_10px_rgba(212,175,55,0.3)]" />
+                  </div>
+                  <p className="text-[#D4AF37] font-mono text-[10px] tracking-[0.3em] uppercase">
+                    {lang === "fr" ? "Archives personnelles" : "Personal archives"}
+                  </p>
+                  <p className="text-gray-500 text-xs font-serif italic mt-1">
+                    {lang === "fr" ? "Notes de l'enquêteur" : "Investigator's notes"}
                   </p>
                 </div>
-              )}
 
-            {/* Si aucune mission */}
-            {!currentScene?.mission_fr &&
-              (!currentScene?.mission_objectives_fr ||
-                currentScene.mission_objectives_fr.length === 0) && (
-                <div className="text-center py-10 text-gray-600 font-mono text-sm">
-                  <Target size={32} className="mx-auto mb-2 opacity-50" />
-                  {lang === "fr"
-                    ? "Aucune mission pour cette scène"
-                    : "No mission for this scene"}
-                </div>
-              )}
+                <textarea
+                  value={(session as any)?.notebook || ""}
+                  onChange={(e) => setNotebookLocal(e.target.value)}
+                  placeholder={lang === "fr" ? "Écrivez vos hypothèses, suspects, indices à retenir..." : "Write your hypotheses, suspects, clues to remember..."}
+                  className="w-full min-h-[160px] bg-[#1a1a1a] border border-[#D4AF37]/20 rounded-xl px-4 py-3 text-sm text-white leading-relaxed font-serif resize-none outline-none focus:border-[#D4AF37]/50"
+                />
+                <p className="text-[10px] text-gray-500 text-center font-mono">
+                  {lang === "fr" ? "Sauvegardé automatiquement" : "Auto-saved"}
+                </p>
+              </div>
+            )}
           </div>
         </motion.div>
       )}
-
       {/* PANNEAUX DYNAMIQUES COMPLETS */}
       <AnimatePresence>
         {activeUI === "story" && (
@@ -4775,35 +4979,9 @@ export default function InvestigationGame(props: {
                     {lang === "fr" ? "CHAPITRE SUIVANT →" : "NEXT CHAPTER →"}
                   </button>
                 ) : (
-                  <button
-                    onClick={async () => {
-                      const { data: freshProfile } = await supabase
-                        .from("profiles")
-                        .select("cauris")
-                        .eq("id", user.id)
-                        .single();
-
-                      const currentCauris = freshProfile?.cauris || 0;
-                      const totalReward =
-                        budgetCauris + (investigation.reward_cauris || 0);
-
-                      if (totalReward > 0 && user) {
-                        await supabase
-                          .from("profiles")
-                          .update({ cauris: currentCauris + totalReward })
-                          .eq("id", user.id);
-                      }
-                      await completeInvestigation();
-                      // ✅ Sauvegarder le meilleur grade atteint
-                      await saveBestRank();
-
-                      setShowOutro(true);
-                    }}
-                    className="flex-1 py-2 text-xs font-mono font-bold rounded bg-[#D4AF37] text-black hover:bg-white transition-colors"
-                  >
-                    ✦{" "}
-                    {lang === "fr" ? "CLORE L'ENQUÊTE" : "CLOSE INVESTIGATION"}
-                  </button>
+                  <p className="flex-1 py-2 text-center text-[10px] text-gray-500 font-mono">
+                    ✦ {lang === "fr" ? "Clore l'enquête via le bouton doré en haut" : "Close the investigation via the gold button above"}
+                  </p>
                 )}
               </div>
             </div>
@@ -5927,6 +6105,8 @@ export default function InvestigationGame(props: {
             preloadedData={allDialogues.find(d => d.id === activeDialogueId)}
             unlockedEvidenceIds={session?.collected_evidences || []}
             sessionId={session?.id}
+            narrativeFlags={(session as any)?.narrative_flags || []}
+            onSetFlag={(flag) => setNarrativeFlag && setNarrativeFlag(flag)}
             onClose={() => {
               setActiveDialogueId(null);
               setDialogueNodes([]);
@@ -6273,6 +6453,44 @@ export default function InvestigationGame(props: {
         onNavigate={handleNavigateEvidence}
       />
 
+
+
+      {/* ⚖️ MODAL DE JUGEMENT */}
+      {judgmentOpen && (
+        <JudgmentModal
+          isOpen={judgmentOpen}
+          config={chapters.flatMap(c => c.scenes || []).find(s => s.id === judgmentSceneId)?.judgment_config || null}
+          suspects={characters}
+          lang={lang}
+          onClose={() => setJudgmentOpen(false)}
+          onComplete={(result, selectedIds, closeOnJudge) => {
+            const sceneId = judgmentSceneId;
+            if (sceneId && session) {
+              const current = (session as any)?.judgment_results || [];
+              const updated = [...current, { scene_id: sceneId, result, selected: selectedIds, at: new Date().toISOString() }];
+              // ✅ Ajouter la condition de déblocage : judgment_<sceneId>_<result>
+              const condString = `judgment_${sceneId}_${result}`;
+              const existingConds = (session as any)?.solved_enigmas || [];
+              if (!existingConds.includes(condString)) {
+                const newConds = [...existingConds, condString];
+                supabase
+                  .from("investigation_sessions")
+                  .update({ judgment_results: updated, solved_enigmas: newConds })
+                  .eq("id", session.id);
+              } else {
+                supabase.from("investigation_sessions").update({ judgment_results: updated }).eq("id", session.id);
+              }
+            }
+            setJudgmentOpen(false);
+            // ✅ Si le jugement clôt l'enquête → on termine (feedback déjà montré, on peut clore)
+            if (closeOnJudge) {
+              // On peut déclencher une fin ici, ou juste clore
+              setShowOutro(true);
+            }
+            // sinon le jeu continue (rien à faire, le modal se ferme)
+          }}
+        />
+      )}
 
 
       {/* ✅ Mini-Jeu Actif (UNIQUE BLOC) */}

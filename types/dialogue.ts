@@ -20,6 +20,8 @@ export interface DialogueNode {
   order_index: number;
   choices?: DialogueChoice[];
   speaker?: any; // Sera peuplé dynamiquement en jeu avec les données de dialogueSpeakers
+  required_flag?: string | null;   // ✅ flag requis pour afficher CE nœud
+  set_flag?: string | null;        // ✅ flag ajouté quand on passe par ce nœud
 }
 
 export interface DialogueChoice {
@@ -32,5 +34,8 @@ export interface DialogueChoice {
   unlocks_evidence_id: string | null;
   trigger_event_id: string | null;
   disappears_after_use: boolean;
+  required_flag?: string | null;   // flag requis pour afficher ce choix
+  set_flag?: string | null;        // flag ajouté quand le joueur choisit
+
   order_index: number;
 }

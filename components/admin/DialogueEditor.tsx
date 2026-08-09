@@ -32,75 +32,75 @@ export default function DialogueEditor({ investigationId, dialogueSpeakers, evid
         fetchDialogues();
     }, [investigationId]);
 
-  const fetchDialogues = async () => {
-    setIsLoading(true);
-    
-    // 1. Charger les dialogues
-    const { data: dialoguesData, error: dialoguesError } = await supabase
-      .from("investigation_dialogues")
-      .select("*")
-      .eq("investigation_id", investigationId)
-      .order("created_at", { ascending: true });
+    const fetchDialogues = async () => {
+        setIsLoading(true);
 
-    if (dialoguesError) {
-      console.error("❌ Erreur chargement dialogues:", dialoguesError);
-      showMsg("error", "Erreur de chargement des dialogues");
-      setIsLoading(false);
-      return;
-    }
+        // 1. Charger les dialogues
+        const { data: dialoguesData, error: dialoguesError } = await supabase
+            .from("investigation_dialogues")
+            .select("*")
+            .eq("investigation_id", investigationId)
+            .order("created_at", { ascending: true });
 
-    if (!dialoguesData || dialoguesData.length === 0) {
-      setDialogues([]);
-      setIsLoading(false);
-      return;
-    }
+        if (dialoguesError) {
+            console.error("❌ Erreur chargement dialogues:", dialoguesError);
+            showMsg("error", "Erreur de chargement des dialogues");
+            setIsLoading(false);
+            return;
+        }
 
-    // 2. Charger tous les nodes de ces dialogues
-    const dialogueIds = dialoguesData.map(d => d.id);
-    const { data: nodesData, error: nodesError } = await supabase
-      .from("investigation_dialogue_nodes")
-      .select("*")
-      .in("dialogue_id", dialogueIds)
-      .order("order_index", { ascending: true });
+        if (!dialoguesData || dialoguesData.length === 0) {
+            setDialogues([]);
+            setIsLoading(false);
+            return;
+        }
 
-    if (nodesError) {
-      console.error("❌ Erreur chargement nodes:", nodesError);
-      setIsLoading(false);
-      return;
-    }
+        // 2. Charger tous les nodes de ces dialogues
+        const dialogueIds = dialoguesData.map(d => d.id);
+        const { data: nodesData, error: nodesError } = await supabase
+            .from("investigation_dialogue_nodes")
+            .select("*")
+            .in("dialogue_id", dialogueIds)
+            .order("order_index", { ascending: true });
 
-    // 3. Charger tous les choices de ces nodes
-    const nodeIds = (nodesData || []).map(n => n.id);
-    let choicesData: any[] = [];
-    
-    if (nodeIds.length > 0) {
-      const { data: choices, error: choicesError } = await supabase
-        .from("investigation_dialogue_choices")
-        .select("*")
-        .in("node_id", nodeIds)
-        .order("order_index", { ascending: true });
+        if (nodesError) {
+            console.error("❌ Erreur chargement nodes:", nodesError);
+            setIsLoading(false);
+            return;
+        }
 
-      if (choicesError) {
-        console.error("❌ Erreur chargement choices:", choicesError);
-      } else {
-        choicesData = choices || [];
-      }
-    }
+        // 3. Charger tous les choices de ces nodes
+        const nodeIds = (nodesData || []).map(n => n.id);
+        let choicesData: any[] = [];
 
-    // 4. Assembler les données
-    const assembledData = dialoguesData.map(dialogue => ({
-      ...dialogue,
-      nodes: (nodesData || [])
-        .filter(n => n.dialogue_id === dialogue.id)
-        .map(node => ({
-          ...node,
-          choices: choicesData.filter(c => c.node_id === node.id)
-        }))
-    }));
+        if (nodeIds.length > 0) {
+            const { data: choices, error: choicesError } = await supabase
+                .from("investigation_dialogue_choices")
+                .select("*")
+                .in("node_id", nodeIds)
+                .order("order_index", { ascending: true });
 
-    setDialogues(assembledData);
-    setIsLoading(false);
-  };
+            if (choicesError) {
+                console.error("❌ Erreur chargement choices:", choicesError);
+            } else {
+                choicesData = choices || [];
+            }
+        }
+
+        // 4. Assembler les données
+        const assembledData = dialoguesData.map(dialogue => ({
+            ...dialogue,
+            nodes: (nodesData || [])
+                .filter(n => n.dialogue_id === dialogue.id)
+                .map(node => ({
+                    ...node,
+                    choices: choicesData.filter(c => c.node_id === node.id)
+                }))
+        }));
+
+        setDialogues(assembledData);
+        setIsLoading(false);
+    };
 
     const createDialogue = async () => {
         const { data, error } = await supabase
@@ -167,55 +167,57 @@ export default function DialogueEditor({ investigationId, dialogueSpeakers, evid
         ));
     };
 
-     const saveNode = async (dialogueId: string, node: DialogueNode) => {
-    setIsSaving(true);
-    
-    // 1. Sauvegarder le nœud
-    const { error } = await supabase
-      .from("investigation_dialogue_nodes")
-      .update({
-        speaker_type: node.speaker_type,
-        speaker_npc_id: node.speaker_npc_id,
-        text_fr: node.text_fr,
-        text_en: node.text_en,
-        is_entry_point: node.is_entry_point,
-        auto_next_node_id: node.auto_next_node_id
-      })
-      .eq("id", node.id);
+    const saveNode = async (dialogueId: string, node: DialogueNode) => {
+        setIsSaving(true);
 
-    if (error) {
-      showMsg("error", "Erreur sauvegarde nœud");
-      setIsSaving(false);
-      return;
-    }
+        // 1. Sauvegarder le nœud
+        const { error } = await supabase
+            .from("investigation_dialogue_nodes")
+            .update({
+                speaker_type: node.speaker_type,
+                speaker_npc_id: node.speaker_npc_id,
+                text_fr: node.text_fr,
+                text_en: node.text_en,
+                is_entry_point: node.is_entry_point,
+                auto_next_node_id: node.auto_next_node_id
+            })
+            .eq("id", node.id);
 
-    // 2. Sauvegarder TOUS les choix de ce nœud
-    if (node.choices && node.choices.length > 0) {
-      for (const choice of node.choices) {
-        await supabase
-          .from("investigation_dialogue_choices")
-          .update({
-            text_fr: choice.text_fr,
-            text_en: choice.text_en,
-            next_node_id: choice.next_node_id,
-            required_evidence_id: choice.required_evidence_id,
-            unlocks_evidence_id: choice.unlocks_evidence_id,
-            trigger_event_id: choice.trigger_event_id,
-            disappears_after_use: choice.disappears_after_use
-          })
-          .eq("id", choice.id);
-      }
-    }
+        if (error) {
+            showMsg("error", "Erreur sauvegarde nœud");
+            setIsSaving(false);
+            return;
+        }
 
-    // 3. Si c'est le point d'entrée, mettre à jour le dialogue parent
-    if (node.is_entry_point) {
-      await supabase.from("investigation_dialogues").update({ entry_node_id: node.id }).eq("id", dialogueId);
-      setDialogues(prev => prev.map(d => d.id === dialogueId ? { ...d, entry_node_id: node.id } : d));
-    }
-    
-    showMsg("success", "Nœud et choix sauvegardés !");
-    setIsSaving(false);
-  };
+        // 2. Sauvegarder TOUS les choix de ce nœud
+        if (node.choices && node.choices.length > 0) {
+            for (const choice of node.choices) {
+                await supabase
+                    .from("investigation_dialogue_choices")
+                    .update({
+                        text_fr: choice.text_fr,
+                        text_en: choice.text_en,
+                        next_node_id: choice.next_node_id,
+                        required_evidence_id: choice.required_evidence_id,
+                        unlocks_evidence_id: choice.unlocks_evidence_id,
+                        trigger_event_id: choice.trigger_event_id,
+                        disappears_after_use: choice.disappears_after_use,
+                        required_flag: choice.required_flag || null,
+                        set_flag: choice.set_flag || null
+                    })
+                    .eq("id", choice.id);
+            }
+        }
+
+        // 3. Si c'est le point d'entrée, mettre à jour le dialogue parent
+        if (node.is_entry_point) {
+            await supabase.from("investigation_dialogues").update({ entry_node_id: node.id }).eq("id", dialogueId);
+            setDialogues(prev => prev.map(d => d.id === dialogueId ? { ...d, entry_node_id: node.id } : d));
+        }
+
+        showMsg("success", "Nœud et choix sauvegardés !");
+        setIsSaving(false);
+    };
     const deleteNode = async (dialogueId: string, nodeId: string) => {
         if (!confirm("Supprimer ce nœud et ses choix ?")) return;
         await supabase.from("investigation_dialogue_nodes").delete().eq("id", nodeId);
@@ -549,6 +551,21 @@ export default function DialogueEditor({ investigationId, dialogueSpeakers, evid
                                                                                 <input type="checkbox" checked={choice.disappears_after_use} onChange={e => updateChoiceLocal(dialogue.id, node.id, choice.id, { disappears_after_use: e.target.checked })} className="accent-blue-500" />
                                                                                 Disparaît après utilisation
                                                                             </label>
+                                                                        </div>
+
+
+
+
+
+                                                                        <div className="flex gap-2 border-t border-white/10 pt-2">
+                                                                            <div className="flex-1">
+                                                                                <label className="text-[8px] text-gray-500 font-bold uppercase flex items-center gap-1 mb-1">🧠 Requiert un flag</label>
+                                                                                <input type="text" value={choice.required_flag || ''} onChange={e => updateChoiceLocal(dialogue.id, node.id, choice.id, { required_flag: e.target.value || null })} placeholder="ex: caught_lying" className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-[10px] text-white outline-none font-mono" />
+                                                                            </div>
+                                                                            <div className="flex-1">
+                                                                                <label className="text-[8px] text-gray-500 font-bold uppercase flex items-center gap-1 mb-1">🏷️ Ajoute un flag</label>
+                                                                                <input type="text" value={choice.set_flag || ''} onChange={e => updateChoiceLocal(dialogue.id, node.id, choice.id, { set_flag: e.target.value || null })} placeholder="ex: told_truth" className="w-full bg-[#1a1a1a] border border-white/10 rounded px-2 py-1.5 text-[10px] text-white outline-none font-mono" />
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                 ))}

@@ -48,7 +48,11 @@ export interface InvestigationSession {
   completed_mini_games?: string[];
   current_mini_game_id?: string | null;
   mini_game_progress?: Record<string, any>;
-  completed_dialogues?: string[]; 
+  completed_dialogues?: string[];
+  notebook?: string;
+
+  narrative_flags?: string[];
+
 }
 
 // ── Générateur de code de groupe ──
@@ -88,10 +92,12 @@ const serializeSession = (data: any): InvestigationSession | null => {
     completed_word_searches: Array.isArray(data.completed_word_searches) ? data.completed_word_searches : [],
     revealed_hotspot_ids: Array.isArray(data.revealed_hotspot_ids) ? data.revealed_hotspot_ids : [],
     word_search_progress: (data.word_search_progress && typeof data.word_search_progress === "object") ? data.word_search_progress : {},
-    completed_mini_games: Array.isArray(data.completed_mini_games) ? data.completed_mini_games : [], 
+    completed_mini_games: Array.isArray(data.completed_mini_games) ? data.completed_mini_games : [],
     completed_dialogues: Array.isArray(data.completed_dialogues) ? data.completed_dialogues : [],
     current_mini_game_id: data.current_mini_game_id ?? null,
+    notebook: typeof data.notebook === 'string' ? data.notebook : '',
     mini_game_progress: (data.mini_game_progress && typeof data.mini_game_progress === "object") ? data.mini_game_progress : {},
+    narrative_flags: Array.isArray(data.narrative_flags) ? data.narrative_flags : [],
 
   };
 };
@@ -668,6 +674,38 @@ export function useInvestigationSession(
   }, [session]);
 
 
+    const setNarrativeFlag = useCallback(async (flag: string) => {
+    if (!session) return;
+    const current = session.narrative_flags || [];
+    if (current.includes(flag)) return;
+    const newFlags = [...current, flag];
+    try {
+      const { error } = await supabase
+        .from('investigation_sessions')
+        .update({ narrative_flags: newFlags })
+        .eq('id', session.id);
+      if (error) throw error;
+      setSession(prev => prev ? serializeSession({ ...prev, narrative_flags: newFlags }) : null);
+    } catch (e) { console.error('Set flag error:', e); }
+  }, [session]);
+
+
+  const saveNotebook = useCallback(
+    async (text: string) => {
+      if (!session) return;
+      try {
+        const { error: err } = await supabase
+          .from('investigation_sessions')
+          .update({ notebook: text })
+          .eq('id', session.id);
+        if (err) throw err;
+        setSession(prev => prev ? serializeSession({ ...prev, notebook: text }) : null);
+      } catch (err: any) {
+        console.error('Save notebook error:', err);
+      }
+    },
+    [session]
+  );
 
 
   // ✅ Sauvegarder la progression des mots mêlés
@@ -697,6 +735,9 @@ export function useInvestigationSession(
     },
     [session]
   );
+
+
+
 
 
   // ✅ NOUVEAU : Forcer le refresh de la session depuis la BDD
@@ -751,7 +792,7 @@ export function useInvestigationSession(
   const completeMiniGameInSession = useCallback(
     async (miniGameId: string, newBudget: number) => {
 
-      
+
       if (!session) return;
 
       const currentCompleted = session.completed_mini_games || [];
@@ -871,7 +912,9 @@ export function useInvestigationSession(
     completeInvestigation,
     abandonInvestigation,
     resetSession,
-    saveWordSearchProgress,
+    saveWordSearchProgress, 
+    setNarrativeFlag,
+    saveNotebook,
     refreshSession,
     forceRefreshSession,
     completeMiniGameInSession,

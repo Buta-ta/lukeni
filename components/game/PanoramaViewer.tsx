@@ -305,7 +305,8 @@ function calculateHotspotProximity(cameraRotation: { x: number; y: number }, hot
 
 // ── Hotspot 3D ──
 function HotspotMarker({
-  hotspot, onActivate, solvedEnigmas, completedWordSearches, validatedConditions, lang, characters, proximityState, isTransitioning
+  hotspot, onActivate, solvedEnigmas, completedWordSearches, validatedConditions, lang, characters, proximityState, isTransitioning, scannerActive
+
 }: any) {
   const { position } = flatToSpherical(hotspot.x_percent, hotspot.y_percent);
   const [hovered, setHovered] = useState(false);
@@ -315,6 +316,22 @@ function HotspotMarker({
     ? !validatedConditions.includes(hotspot.condition)
     : false;
   const isTransition = hotspot.type === 'transition';
+
+
+
+  // ✅ MODE DE DÉCOUVERTE : mapper vers invisible existant
+  const discoverMode = hotspot.discover_mode || (hotspot.invisible ? "hidden" : "none");
+  const isProximity = discoverMode === "proximity";
+  const isScanner = discoverMode === "scanner";
+  // Révélé si : visible, OU proximité proche, OU scanner actif
+  const isRevealed =
+    discoverMode === "none" ||
+    (isProximity && proximityState === "VERY_CLOSE") ||
+    (isScanner && scannerActive);
+  // hidden = non révélé et pas un halo de proximité
+  const effectivelyInvisible = !isRevealed && !(isProximity && proximityState === "CLOSE");
+  // pour "hidden" et "proximity" non proche → quasi invisible
+  const showMarker = isRevealed || isProximity; // proximité montre un léger halo même loin
   const state = isTransition ? (proximityState || 'FAR') : null;
 
 
@@ -339,7 +356,7 @@ function HotspotMarker({
         rotation={[-Math.PI / 2, 0, -angleY]}
         distanceFactor={6}
       >
-        {hotspot.invisible ? (
+        {effectivelyInvisible ? (
           /* ── INVISIBLE : zone cliquable transparente uniquement ── */
           <div data-hotspot-marker="true"
             className={`relative w-20 h-20 rounded-full cursor-pointer transition-all duration-300 ${isTransitioning ? 'pointer-events-none opacity-0' : 'opacity-0 hover:opacity-10'}`}
@@ -369,7 +386,7 @@ function HotspotMarker({
   // ── RENDU POUR HOTSPOT FLOTTANT CLASSIQUE (Face Caméra) ──
   return (
     <Html position={position} center distanceFactor={8}>
-      {hotspot.invisible ? (
+      {effectivelyInvisible ? (
         /* ── INVISIBLE : zone cliquable transparente + tooltip au hover ── */
         <div data-hotspot-marker="true"
           className={`relative select-none w-16 h-16 rounded-full ${isTransitioning ? 'pointer-events-none opacity-0' : 'cursor-pointer opacity-0 hover:opacity-10 transition-opacity duration-300'}`}
@@ -604,6 +621,12 @@ export default function PanoramaViewer({
   const [proximities, setProximities] = useState<Record<string, 'FAR' | 'CLOSE' | 'VERY_CLOSE'>>({});
   const [isTransitioning, setIsTransitioning] = useState(false);
 
+  const [scannerActive, setScannerActive] = useState(false);
+
+  const [scannerCooldown, setScannerCooldown] = useState(false);
+
+
+
   // ── Détection d'un "tap propre" sur la scène (hors hotspot/UI) ──
   const [panoramaReady, setPanoramaReady] = useState(false);
 
@@ -728,7 +751,7 @@ export default function PanoramaViewer({
     }
 
     // ✅ NETTOYAGE : Stopper l'audio à la fermeture/scene change
-        // ✅ NETTOYAGE : Stopper l'audio à la fermeture/scene change
+    // ✅ NETTOYAGE : Stopper l'audio à la fermeture/scene change
     // avec un FADE-OUT progressif pour éviter le "couic" net
     return () => {
       if (fadeInInterval) clearInterval(fadeInInterval);
@@ -753,6 +776,44 @@ export default function PanoramaViewer({
       }
     };
   }, [panoramaUrl, ambientAudioUrl, ambientAudioVolume, userVolume, isMuted]);
+
+    // 🔊 AUDIO DE PROXIMITÉ : gère les audios des hotspots selon la proximité
+  const hotspotAudioRefs = useRef<Record<string, HTMLAudioElement>>({});
+  useEffect(() => {
+    // Nettoyer les audios des hotspots précédents
+    Object.values(hotspotAudioRefs.current).forEach(a => { a.pause(); a.currentTime = 0; });
+    hotspotAudioRefs.current = {};
+
+    const audioHotspots = hotspots.filter(h => h.ambient_hotspot_audio_url);
+    audioHotspots.forEach(h => {
+      const audio = new Audio(h.ambient_hotspot_audio_url!);
+      audio.loop = true;
+      audio.volume = 0;
+      audio.muted = isMuted;
+      audio.play().catch(() => {});
+      hotspotAudioRefs.current[h.id] = audio;
+    });
+
+    return () => {
+      Object.values(hotspotAudioRefs.current).forEach(a => a.pause());
+      hotspotAudioRefs.current = {};
+    };
+  }, [panoramaUrl, hotspots, isMuted]);
+
+  // Ajuster le volume selon la proximité
+  useEffect(() => {
+    Object.entries(proximities).forEach(([id, state]) => {
+      const audio = hotspotAudioRefs.current[id];
+      const hotspot = hotspots.find(h => h.id === id);
+      if (!audio || !hotspot?.ambient_hotspot_audio_volume) return;
+      const baseVol = hotspot.ambient_hotspot_audio_volume ?? 0.5;
+      // FAR = silencieux, CLOSE = 60% du volume, VERY_CLOSE = 100%
+      const target = state === "VERY_CLOSE" ? baseVol : state === "CLOSE" ? baseVol * 0.6 : 0;
+      // transition douce
+      audio.volume = Math.max(0, Math.min(1, target));
+      audio.muted = isMuted;
+    });
+  }, [proximities, hotspots, isMuted]);
 
   const handleHotspotActivate = (hotspot: Hotspot) => {
     if (hotspot.type === 'transition') {
@@ -886,6 +947,38 @@ export default function PanoramaViewer({
       )}
 
 
+
+
+            {/* 🔬 BOUTON SCANNER (flash 3s) */}
+      {!isEditorPreview && (
+        <button
+          onClick={() => {
+            if (scannerCooldown) return;
+            setScannerActive(true);
+            // flash de 3s puis désactivation
+            setTimeout(() => setScannerActive(false), 3000);
+            // cooldown de re-scan (2s après la fin du flash)
+            setScannerCooldown(true);
+            setTimeout(() => setScannerCooldown(false), 5000);
+          }}
+          className={`absolute top-4 left-4 z-50 w-11 h-11 rounded-full flex items-center justify-center border transition-colors ${scannerActive ? "bg-[#06b6d4] text-black border-[#06b6d4] animate-pulse" : "bg-black/60 text-white border-white/20 hover:bg-black/80"}`}
+          title={lang === "fr" ? "Scanner la zone" : "Scan the area"}
+        >
+          <span className="text-lg">🔬</span>
+        </button>
+      )}
+      {scannerActive && (
+        <div className="absolute top-16 left-4 z-40 px-3 py-1.5 bg-[#06b6d4]/90 text-black rounded-full text-[10px] font-bold font-mono">
+          {lang === "fr" ? "SCANNER..." : "SCANNING..."}
+        </div>
+      )}
+      {scannerCooldown && !scannerActive && (
+        <div className="absolute top-16 left-4 z-40 px-3 py-1.5 bg-black/80 text-gray-400 rounded-full text-[10px] font-bold font-mono">
+          {lang === "fr" ? "Recharge..." : "Recharging..."}
+        </div>
+      )}
+
+
       {/* ✅ Joystick Virtuel */}
       {!isEditorPreview && (
         <VirtualJoystick
@@ -949,6 +1042,7 @@ export default function PanoramaViewer({
                 characters={characters}
                 proximityState={proximities[hotspot.id]}
                 isTransitioning={isTransitioning}
+                scannerActive={scannerActive}
               />
             ))}
           </Suspense>
