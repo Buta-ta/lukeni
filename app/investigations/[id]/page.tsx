@@ -4267,7 +4267,7 @@ export default function InvestigationGame(props: {
             initial={{ opacity: 0, y: -30, x: "-50%" }}
             animate={{ opacity: 1, y: 0, x: "-50%" }}
             exit={{ opacity: 0, y: -20, x: "-50%" }}
-            className="fixed top-40 left-1/2 z-[85] bg-[#06b6d4]/95 text-white px-6 py-3 rounded-full font-bold shadow-[0_0_20px_rgba(6,182,212,0.5)] flex items-center gap-3 max-w-[90vw]"
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[85] bg-[#06b6d4]/95 text-white px-6 py-3 rounded-full font-bold shadow-[0_0_20px_rgba(6,182,212,0.5)] flex items-center gap-3 max-w-[90vw]"
           >
             <span className="text-lg">💡</span>
             <span>{tutorialToast}</span>
