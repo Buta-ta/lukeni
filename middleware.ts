@@ -8,7 +8,7 @@ const PUBLIC_PREFIXES = ['/auth/', '/_next/', '/favicon.ico', '/manifest.json', 
 // ✅ FIX SÉCURITÉ: On retire '/api/' qui rendait TOUTES les API publiques
 // On whitelist uniquement les API vraiment publiques
 const PUBLIC_API_PREFIXES = ['/api/auth/', '/api/geoip', '/api/track', '/api/proxy/', '/api/epub-proxy', '/api/lingua', '/api/investigation-intro'];
-const INACTIVITY_TIMEOUT = 8 * 60 * 60 * 1000; // 8 heures
+const INACTIVITY_TIMEOUT = 60 * 60 * 1000; // 1 heure
 
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true;
@@ -69,7 +69,7 @@ export async function middleware(req: NextRequest) {
         httpOnly: false,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 8 * 60 * 60, // 8 heures en secondes
+        maxAge: 60 * 60, // 1 heure en secondes
         path: '/',
       });
     }
