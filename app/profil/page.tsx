@@ -12,7 +12,7 @@ import {
   Bell, BellOff, Star, Calendar, FileText,
   Edit3, ChevronRight, TrendingUp, Clock,
   CheckCircle, Search,
-  Trash2, ShieldAlert, TriangleAlert, Users, AlertCircle, XCircle, Fingerprint, AlertTriangle
+  Trash2, ShieldAlert, TriangleAlert, Users, AlertCircle, XCircle, Fingerprint, AlertTriangle, Trophy
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
@@ -262,6 +262,7 @@ NotificationModal.displayName = 'NotificationModal';
 
 function UserInvestigations({ lang, userId }: { lang: 'fr' | 'en'; userId?: string }) {
   const [sessions, setSessions] = useState<any[]>([]);
+  const [ranks, setRanks] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Modal de suppression
@@ -285,9 +286,35 @@ function UserInvestigations({ lang, userId }: { lang: 'fr' | 'en'; userId?: stri
     setIsLoading(false);
   };
 
+
+
+
   useEffect(() => {
     fetchSessions();
+    fetchRanks();
   }, [userId]);
+
+
+
+
+
+
+  useEffect(() => {
+    fetchRanks();
+  }, [userId]);
+
+
+  const fetchRanks = async () => {
+    if (!userId) return;
+    const { data } = await supabase
+      .from('user_ranks')
+      .select('*, investigations(id, title_fr, title_en)')
+      .eq('user_id', userId)
+      .order('score_percent', { ascending: false });
+    if (data) setRanks(data);
+  };
+
+
 
   const handleDeleteSession = async () => {
     if (!deleteModal || !userId) return;
@@ -358,6 +385,35 @@ function UserInvestigations({ lang, userId }: { lang: 'fr' | 'en'; userId?: stri
         )}
       </AnimatePresence>
 
+
+
+      {/* ── Grades obtenus ── */}
+      {ranks.length > 0 && (
+        <div className="mb-6">
+          <h3 className="text-sm font-bold text-[#D4AF37] flex items-center gap-2 mb-3">
+            <Trophy size={16} /> {lang === 'fr' ? 'Mes grades d\'enquête' : 'My investigation ranks'}
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {ranks.map(r => (
+              <div key={r.id} className="bg-black/30 border border-[#D4AF37]/20 rounded-xl p-3 flex items-center gap-3">
+                {r.icon_url ? (
+                  <img src={r.icon_url} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                ) : (
+                  <div className="w-10 h-10 rounded-lg bg-[#D4AF37]/10 flex items-center justify-center text-lg">🏆</div>
+                )}
+                <div className="min-w-0">
+                  <p className="text-[10px] text-gray-500 truncate">{r.investigations?.title_fr || ''}</p>
+                  <p className="text-xs font-bold text-[#D4AF37] truncate">{lang === 'fr' ? r.rank_title_fr : r.rank_title_en}</p>
+                  <p className="text-[9px] text-gray-400">{r.score_percent}%</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      
+
       {/* ── Liste des sessions ── */}
       <div className="space-y-3">
         {sessions.map(s => {
@@ -394,10 +450,10 @@ function UserInvestigations({ lang, userId }: { lang: 'fr' | 'en'; userId?: stri
 
                   {/* Badge statut */}
                   <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${s.status === 'completed'
-                      ? 'bg-green-500/10 text-green-400'
-                      : s.status === 'abandoned'
-                        ? 'bg-red-500/10 text-red-400'
-                        : 'bg-amber-500/10 text-amber-400'
+                    ? 'bg-green-500/10 text-green-400'
+                    : s.status === 'abandoned'
+                      ? 'bg-red-500/10 text-red-400'
+                      : 'bg-amber-500/10 text-amber-400'
                     }`}>
                     {s.status === 'completed'
                       ? (lang === 'fr' ? '✓ Terminée' : '✓ Completed')
@@ -449,6 +505,9 @@ function UserInvestigations({ lang, userId }: { lang: 'fr' | 'en'; userId?: stri
           );
         })}
       </div>
+
+
+
 
       {/* ════════════════════════════════════════
           MODAL SUPPRESSION (dans le profil)

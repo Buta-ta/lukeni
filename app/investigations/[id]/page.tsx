@@ -232,6 +232,7 @@ function preloadMedia(url: string, type: string | null | undefined) {
   } else {
     const img = new Image();
     img.src = url;
+    img.decoding = "async";
   }
 }
 
@@ -662,6 +663,28 @@ export default function InvestigationGame(props: {
   const currentChapter = chapters[currentChapterIndex] || null;
   const currentScene = currentChapter?.scenes?.[currentSceneIndex] || null;
   const hotspots = currentScene?.hotspots || [];
+
+    // ✅ PRÉCHARGEMENT MOBILE : charge en arrière-plan les panoramas et intros
+  // de toutes les scènes du chapitre courant (pour réduire la latence sur 3G/4G).
+  useEffect(() => {
+    if (!currentChapter) return;
+    const urls: { url: string; type: string | null | undefined }[] = [];
+    const collectScenes = (ch: any) => {
+      (ch?.scenes || []).forEach((sc: any) => {
+        if (sc.panorama_url) urls.push({ url: sc.panorama_url, type: "image" });
+        if (sc.intro_media_url) urls.push({ url: sc.intro_media_url, type: sc.intro_media_type || "image" });
+      });
+    };
+    collectScenes(currentChapter);
+    const nextCh = chapters[currentChapterIndex + 1];
+    if (nextCh) collectScenes(nextCh);
+
+    // Petit délai pour laisser la scène actuelle s'afficher d'abord
+    const t = setTimeout(() => {
+      urls.forEach(u => preloadMedia(u.url, u.type));
+    }, 800);
+    return () => clearTimeout(t);
+  }, [currentChapter?.id, currentChapterIndex, chapters]);
 
 
   // ✅ INTRO DE TRANSITION : déclenche l'intro quand on change de scène
@@ -1967,6 +1990,51 @@ export default function InvestigationGame(props: {
     // Cela vide Supabase ET l'état local React (session) en même temps
     if (session?.id) {
       await resetSession(startBudget);
+    }
+  };
+
+
+    // ✅ Sauvegarde le meilleur grade du joueur pour cette enquête
+  const saveBestRank = async () => {
+    if (!user?.id || !invId) return;
+    // Calcul du même score que l'outro
+    const totalEnigmas = chapters.flatMap((c) => c.enigmas || []).length;
+    const totalEvidences = evidences.length;
+    const maxPoints = totalEnigmas * 100 + totalEvidences * 50;
+    const pointsEnigmas = (session?.solved_enigmas?.length || 0) * 100;
+    const pointsEvidences = (session?.collected_evidences?.length || 0) * 50;
+    const percent = maxPoints > 0 ? Math.round(((pointsEnigmas + pointsEvidences) / maxPoints) * 100) : 100;
+
+    const sortedRanks = [...(outroConfig?.ranks || [])].sort((a: any, b: any) => b.min_percent - a.min_percent);
+    const achievedRank = sortedRanks.find((r: any) => percent >= r.min_percent) || sortedRanks[sortedRanks.length - 1];
+    if (!achievedRank) return;
+
+    const newRank = {
+      rank_name: achievedRank.name || "",
+      rank_title_fr: achievedRank.title_fr || "",
+      rank_title_en: achievedRank.title_en || "",
+      icon_url: achievedRank.icon_url || "",
+      score_percent: percent,
+      achieved_at: new Date().toISOString(),
+    };
+
+    // Lire le grade existant
+    const { data: existing } = await supabase
+      .from("user_ranks")
+      .select("score_percent")
+      .eq("user_id", user.id)
+      .eq("investigation_id", invId)
+      .maybeSingle();
+
+    // Garder le meilleur (Option 2) : ne mettre à jour que si score supérieur
+    if (!existing || (existing.score_percent ?? 0) < percent) {
+      await supabase
+        .from("user_ranks")
+        .upsert({
+          user_id: user.id,
+          investigation_id: invId,
+          ...newRank,
+        }, { onConflict: "user_id,investigation_id" });
     }
   };
 
@@ -4726,6 +4794,9 @@ export default function InvestigationGame(props: {
                           .eq("id", user.id);
                       }
                       await completeInvestigation();
+                      // ✅ Sauvegarder le meilleur grade atteint
+                      await saveBestRank();
+
                       setShowOutro(true);
                     }}
                     className="flex-1 py-2 text-xs font-mono font-bold rounded bg-[#D4AF37] text-black hover:bg-white transition-colors"

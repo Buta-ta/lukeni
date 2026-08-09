@@ -728,14 +728,28 @@ export default function PanoramaViewer({
     }
 
     // ✅ NETTOYAGE : Stopper l'audio à la fermeture/scene change
+        // ✅ NETTOYAGE : Stopper l'audio à la fermeture/scene change
+    // avec un FADE-OUT progressif pour éviter le "couic" net
     return () => {
       if (fadeInInterval) clearInterval(fadeInInterval);
       if (audioEl) {
-        audioEl.pause();
-        audioEl.currentTime = 0;
-        audioEl.src = ''; // Force le navigateur à libérer la ressource
-        audioEl.load(); // Réinitialise complètement l'élément audio
-        console.log('🔇 [PANORAMA] Audio stoppé et nettoyé');
+        // ✅ Fade-out rapide (~300ms) puis coupure propre
+        const startVol = audioEl.volume;
+        const fadeSteps = 8; // ~8 étapes de ~37ms
+        let step = 0;
+        const fadeOut = setInterval(() => {
+          step++;
+          const progress = 1 - step / fadeSteps;
+          audioEl.volume = Math.max(0, startVol * progress);
+          if (step >= fadeSteps) {
+            clearInterval(fadeOut);
+            audioEl.pause();
+            audioEl.currentTime = 0;
+            audioEl.src = '';
+            audioEl.load();
+            console.log('🔇 [PANORAMA] Audio stoppé et nettoyé');
+          }
+        }, 37);
       }
     };
   }, [panoramaUrl, ambientAudioUrl, ambientAudioVolume, userVolume, isMuted]);

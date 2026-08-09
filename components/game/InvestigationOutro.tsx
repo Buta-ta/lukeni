@@ -25,8 +25,8 @@ interface InvestigationOutroProps {
   totalEnigmas: number;
   collectedEvidences: string[];
   totalEvidences: number;
-  config?: any; 
-  isTimeout?: boolean; 
+  config?: any;
+  isTimeout?: boolean;
   forcedPreview?: { title: string; message: string; color?: string; score?: number };
   onReplay: () => void; // <-- LIGNE À RAJOUTER ICI
   onExit: () => void;
@@ -46,13 +46,15 @@ export default function InvestigationOutro({
 
   // 1. On trie les rangs du plus haut % au plus bas
   const sortedRanks = [...(config?.ranks || [])].sort((a: any, b: any) => b.min_percent - a.min_percent);
-  
+
   // 2. On trouve le rang atteint par le joueur
   const achievedRank = sortedRanks.find((r: any) => percentage >= r.min_percent) || sortedRanks[sortedRanks.length - 1] || { title_fr: "DÉTECTIVE", title_en: "DETECTIVE", main_title_fr: "ENQUÊTE TERMINÉE", main_title_en: "INVESTIGATION COMPLETE", messages: [] };
 
   // 3. Maintenant on peut utiliser achievedRank pour calculer le titre
-  const mainTitle = lang === "fr" 
-    ? (achievedRank.main_title_fr || config?.title_fr || "ENQUÊTE TERMINÉE") 
+  const mainTitle = lang === "fr"
+
+
+    ? (achievedRank.main_title_fr || config?.title_fr || "ENQUÊTE TERMINÉE")
     : (achievedRank.main_title_en || config?.title_en || "INVESTIGATION COMPLETE");
 
   useEffect(() => {
@@ -113,6 +115,15 @@ export default function InvestigationOutro({
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}><LukeniLogo /></motion.div>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: showContent ? 1 : 0, y: showContent ? 0 : 20 }} transition={{ delay: 0.6 }} className="space-y-2">
+
+          {/* Icône du grade */}
+          {achievedRank.icon_url ? (
+            <img src={achievedRank.icon_url} alt="" className="w-16 h-16 md:w-20 md:h-20 rounded-xl object-cover border-2 border-[#D4AF37]/40 shadow-[0_0_20px_rgba(212,175,55,0.3)] mx-auto" />
+          ) : (
+            <div className="w-16 h-16 md:w-20 md:h-20 rounded-xl bg-[#D4AF37]/10 border-2 border-[#D4AF37]/40 flex items-center justify-center text-4xl mx-auto">🏆</div>
+          )}
+
+
           <p className="text-[#D4AF37] font-mono text-xs tracking-[0.4em] uppercase">{mainTitle}</p>
           <h1 className="text-2xl md:text-4xl font-serif font-bold text-white">{lang === "fr" ? investigation.title_fr : investigation.title_en}</h1>
           {displayMessage && <p className="text-gray-300 text-sm mt-4 font-serif italic leading-relaxed">"{displayMessage}"</p>}

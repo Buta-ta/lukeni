@@ -2509,6 +2509,51 @@ export default function InvestigationsTab({
                       key={rank.id || rIdx}
                       className="bg-black/30 p-4 rounded-xl border border-white/10 space-y-4"
                     >
+
+
+
+                      {/* Icône / Image du grade */}
+                      <div className="border-b border-white/10 pb-4 mb-4">
+                        <label className="text-[10px] text-gray-500 font-bold mb-1 block">Icône / Image du grade</label>
+                        <div className="flex items-center gap-2">
+                          {rank.icon_url && (
+                            <img src={rank.icon_url} alt="" className="w-10 h-10 rounded-lg object-cover border border-white/10" />
+                          )}
+                          <button
+                            onClick={() => {
+                              const createWidget = () => {
+                                // @ts-ignore
+                                const w = window.cloudinary.createUploadWidget({
+                                  cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+                                  uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET,
+                                  sources: ['local', 'url'], resourceType: 'image', folder: 'lukeni/ranks'
+                                }, (error: any, result: any) => {
+                                  if (result?.event === 'success') {
+                                    const r = [...outroConfig.ranks];
+                                    r[rIdx].icon_url = result.info.secure_url;
+                                    setOutroConfig({ ...outroConfig, ranks: r });
+                                  }
+                                });
+                                w.open();
+                              };
+                              // @ts-ignore
+                              if (!window.cloudinary) {
+                                const s = document.createElement('script');
+                                s.src = 'https://upload-widget.cloudinary.com/global/all.js';
+                                s.onload = createWidget; document.body.appendChild(s);
+                              } else createWidget();
+                            }}
+                            className="px-3 py-2 bg-white/5 hover:bg-white/10 rounded text-xs text-gray-300 flex items-center gap-2"
+                          >
+                            <ImagePlus size={14} /> {rank.icon_url ? 'Changer' : 'Uploader une icône'}
+                          </button>
+                          {rank.icon_url && (
+                            <button onClick={() => { const r = [...outroConfig.ranks]; r[rIdx].icon_url = ''; setOutroConfig({ ...outroConfig, ranks: r }); }} className="text-red-500 p-1">
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
                       <div className="mb-4">
                         <label className="text-[10px] text-gray-500 font-bold">
                           Nom de la règle (interne, pour bibliothèque)

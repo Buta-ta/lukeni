@@ -143,6 +143,8 @@ export default function InvestigationsHub() {
   const [userId, setUserId] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<any | null>(null);
   const [userSessions, setUserSessions] = useState<Record<string, any>>({});
+  const [userRanks, setUserRanks] = useState<Record<string, any>>({});
+
   const [trialConfigDuration, setTrialConfigDuration] = useState(30);
   const [accessMap, setAccessMap] = useState<Record<string, AccessInfo>>({});
 
@@ -152,6 +154,7 @@ export default function InvestigationsHub() {
     invTitle: string;
     pricing: any;
   } | null>(null);
+
 
 
 
@@ -236,6 +239,20 @@ export default function InvestigationsHub() {
         return updated;
       });
     }
+  }, [userId]);
+
+
+  useEffect(() => {
+    if (!userId) return;
+    supabase
+      .from('user_ranks')
+      .select('*')
+      .eq('user_id', userId)
+      .then(({ data }) => {
+        const map: Record<string, any> = {};
+        (data || []).forEach(r => { map[r.investigation_id] = r; });
+        setUserRanks(map);
+      });
   }, [userId]);
 
   const refreshTrialData = useCallback(async () => {
@@ -778,6 +795,18 @@ export default function InvestigationsHub() {
                   {hasFullAccess && (
                     <div className="absolute top-2 right-2 bg-[#D4AF37] text-black px-2 py-1 rounded text-[9px] font-bold font-mono flex items-center gap-1 shadow-lg">
                       <ShieldCheck size={10} /> {lang === "fr" ? "ACCÈS ILLIMITÉ" : "UNLIMITED"}
+                    </div>
+                  )}
+
+
+                  {userRanks[inv.id] && (
+                    <div className="absolute top-2 left-2 bg-black/80 border border-[#D4AF37]/40 px-2 py-1 rounded text-[9px] font-bold flex items-center gap-1 shadow-lg">
+                      {userRanks[inv.id].icon_url
+                        ? <img src={userRanks[inv.id].icon_url} alt="" className="w-3.5 h-3.5 rounded" />
+                        : <span>🏆</span>}
+                      <span className="text-[#D4AF37]">
+                        {lang === "fr" ? userRanks[inv.id].rank_title_fr : userRanks[inv.id].rank_title_en}
+                      </span>
                     </div>
                   )}
                 </div>
