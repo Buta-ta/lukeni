@@ -92,13 +92,7 @@ function QRCodeSVG({ data, size = 200 }: { data: string; size?: number }) {
   );
 }
 
- // ✅ Appliquer l'attribut data-landing-page au HTML
-  useEffect(() => {
-    document.documentElement.setAttribute('data-profil-page', 'true');
-    return () => {
-      document.documentElement.setAttribute('data-profil-page', 'false');
-    };
-  }, []);
+
 // ─── Page principale ─────────────────────────────────────────────────────────
 
 function TicketContent() {
