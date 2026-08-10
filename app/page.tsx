@@ -1422,7 +1422,7 @@ export default function LandingPage() {
           LUKENI
         </h1>
         <p className="text-white/40 text-[9px] md:text-[10px] tracking-[0.2em] md:tracking-[0.3em] uppercase relative z-20">
-          {lang === 'fr' ? 'Peuple • Mémoire • Mission' : 'People • Memory • Mission'}
+          {lang === 'fr' ? 'Une plateforme pour explorer, apprendre et contribuer au patrimoine africain.' : 'Platform to explore, learn and contribute to African heritage.'}
         </p>
       </motion.div>
 
@@ -1624,7 +1624,7 @@ export default function LandingPage() {
             whileTap={{ scale: 0.95 }}
             className="px-6 md:px-8 py-3 md:py-3.5 bg-gradient-to-r from-[#D4AF37] to-[#E5C158] text-black rounded-full font-bold text-sm hover:shadow-lg transition-all shadow-[0_0_30px_rgba(212,175,55,0.3)]"
           >
-            {lang === 'fr' ? 'Entrer dans l\'Encyclopédie' : 'Enter the Encyclopedia'}
+            {lang === 'fr' ? 'Entrez !' : 'Enter !'}
           </motion.button>
         </Link>
         <motion.button
