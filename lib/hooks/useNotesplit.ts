@@ -44,8 +44,15 @@ export function useNotesplit({
     const [shadowIntensity, setShadowIntensity] = useState(0);
 
     const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
-    const localKey = `notesplit_${itemId}`;
-    const localTagKey = `notesplit_tags_${itemId}`;
+
+    const localKey = userId
+        ? `notesplit_${userId}_${itemType}_${itemId}`
+        : null;
+
+    const localTagKey = userId
+        ? `notesplit_tags_${userId}_${itemType}_${itemId}`
+        : null;
+
     const noteIdRef = useRef<string | null>(null);
     const isLoadedRef = useRef(false);
 
@@ -67,13 +74,37 @@ export function useNotesplit({
 
     // ── Load note on mount ──────────────────────────────────────────────────
     useEffect(() => {
-        if (!itemId || isLoadedRef.current) return;
+        isLoadedRef.current = false;
+        noteIdRef.current = null;
+
+        setContent('');
+        setTags([]);
+        setLastSaved(null);
+
+        if (!itemId || !userId) return;
+
         isLoadedRef.current = true;
 
         const loadNote = async () => {
-            // 1. Charger depuis localStorage d'abord (instantané)
-            const localContent = localStorage.getItem(localKey) || '';
-            const localTags = JSON.parse(localStorage.getItem(localTagKey) || '[]');
+            const localContent = localKey
+                ? localStorage.getItem(localKey) || ''
+                : '';
+
+            let localTags: string[] = [];
+
+            if (localTagKey) {
+                try {
+                    const parsed = JSON.parse(
+                        localStorage.getItem(localTagKey) || '[]'
+                    );
+
+                    if (Array.isArray(parsed)) {
+                        localTags = parsed;
+                    }
+                } catch {
+                    localTags = [];
+                }
+            }
             setContent(localContent);
             setTags(localTags);
 
@@ -111,7 +142,7 @@ export function useNotesplit({
         };
 
         loadNote();
-    }, [itemId, userId, itemType]);
+    }, [itemId, userId, itemType, localKey, localTagKey]);
 
     // ── Sync to Supabase ────────────────────────────────────────────────────
     const syncToSupabase = useCallback(
@@ -173,7 +204,9 @@ export function useNotesplit({
         (value: string) => {
             setContent(value);
             // Sauvegarde locale immédiate
-            localStorage.setItem(localKey, value);
+            if (userId && localKey) {
+  localStorage.setItem(localKey, value);
+}
 
             // Debounce 2s pour Supabase
             if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -195,7 +228,12 @@ export function useNotesplit({
             if (!trimmed || tags.includes(trimmed)) return;
             const newTags = [...tags, trimmed];
             setTags(newTags);
-            localStorage.setItem(localTagKey, JSON.stringify(newTags));
+            if (userId && localTagKey) {
+  localStorage.setItem(
+    localTagKey,
+    JSON.stringify(newTags)
+  );
+}
             // Auto-save avec nouveaux tags
             if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
             saveTimerRef.current = setTimeout(() => {
@@ -246,8 +284,8 @@ export function useNotesplit({
     }, []);
 
     // ── Dummy resize handlers (handled in component) ─────────────────────────
-    const handleResizeStart = useCallback((_e: React.MouseEvent) => {}, []);
-    const handleTouchStart = useCallback((_e: React.TouchEvent) => {}, []);
+    const handleResizeStart = useCallback((_e: React.MouseEvent) => { }, []);
+    const handleTouchStart = useCallback((_e: React.TouchEvent) => { }, []);
 
     // ── Cleanup ──────────────────────────────────────────────────────────────
     useEffect(() => {

@@ -69,7 +69,7 @@ const nextConfig = {
                 'data:',
               ].join(' '),
               // Images
-              "img-src 'self' data: blob: https://res.cloudinary.com https://images.unsplash.com https://upload.wikimedia.org https://*.wikipedia.org https://archive.org https://*.archive.org https://covers.openlibrary.org https://openlibrary.org https://img.youtube.com https://a.tile.openstreetmap.org https://b.tile.openstreetmap.org https://c.tile.openstreetmap.org https://tiles.openfreemap.org",
+              "img-src 'self' data: blob: https://res.cloudinary.com https://images.unsplash.com https://upload.wikimedia.org https://*.wikipedia.org https://archive.org https://*.archive.org https://covers.openlibrary.org https://openlibrary.org https://img.youtube.com https://a.tile.openstreetmap.org https://b.tile.openstreetmap.org https://c.tile.openstreetmap.org https://tiles.openfreemap.org https://openweathermap.org" ,
               // Médias (audio/vidéo)
               "media-src 'self' blob: https://res.cloudinary.com",
               // Styles : inline obligatoire pour Tailwind/Next.js

@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 
-const WEATHER_API_KEY = process.env.WEATHER_API_KEY;
-const WEATHER_BASE_URL = 'http://api.openweathermap.org/data/2.5/weather';
+const WEATHER_API_KEY =
+  process.env.WEATHER_API_KEY?.trim() ||
+  process.env.OPENWEATHER_API_KEY?.trim();
+
+const WEATHER_BASE_URL =
+  'https://api.openweathermap.org/data/2.5/weather';
 
 export async function POST(request: NextRequest) {
   if (!WEATHER_API_KEY) {

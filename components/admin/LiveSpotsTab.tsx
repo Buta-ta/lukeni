@@ -1254,7 +1254,7 @@ export default function LiveSpotsTab({ showMsg }: { showMsg: (type: 'success' | 
                       >
                         <div className="flex items-center gap-3">
                           <img 
-                            src={`http://openweathermap.org/img/wn/${weatherPreview.icon}@2x.png`}
+                            src={`https://openweathermap.org/img/wn/${weatherPreview.icon}@2x.png`}
                             alt="Weather"
                             className="w-12 h-12"
                           />

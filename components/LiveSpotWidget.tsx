@@ -452,7 +452,7 @@ export default function LiveSpotWidget() {
                 <div className="flex items-center gap-2">
                   {currentSpot?.last_weather_icon && (
                     <img
-                      src={`http://openweathermap.org/img/wn/${currentSpot.last_weather_icon}@2x.png`}
+                      src={`https://openweathermap.org/img/wn/${currentSpot.last_weather_icon}@2x.png`}
                       alt="Weather"
                       className="w-12 h-12 -my-1"
                     />

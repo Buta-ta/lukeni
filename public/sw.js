@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lukeni-v1';
+const CACHE_NAME = 'lukeni-v2';
 
 self.addEventListener('install', () => {
   console.log('[SW] Installing service worker');
@@ -112,6 +112,19 @@ self.addEventListener('fetch', (event) => {
   
   // ✅ Ignorer Supabase et googleapis
   if (url.hostname.includes('supabase') || url.hostname.includes('googleapis')) return;
+
+  // Ne mettre en cache que les assets statiques publics
+const isStaticAsset =
+  url.pathname.startsWith('/_next/static/') ||
+  url.pathname.startsWith('/icons/') ||
+  url.pathname.startsWith('/images/') ||
+  /\.(css|js|png|jpg|jpeg|gif|webp|svg|woff|woff2)$/.test(
+    url.pathname
+  );
+
+if (!isStaticAsset) {
+  return;
+}
 
   // ✅ NETWORK FIRST pour les pages HTML
   if (event.request.mode === 'navigate') {

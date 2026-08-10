@@ -56,16 +56,21 @@ export default function SocialMediaTab({
 
   async function fetchLinks() {
     setIsLoading(true);
+
     const { data, error } = await supabase
       .from("site_settings")
-      .select("*")
-      .eq("key", "social_links")
+      .select("social_links")
+      .eq("id", 1)
       .single();
 
-    if (error && error.code !== "PGRST116") {
+    if (error) {
       showMsg("error", error.message);
-    } else if (data?.value) {
-      setLinks(data.value as SocialLink[]);
+    } else {
+      setLinks(
+        Array.isArray(data?.social_links)
+          ? (data.social_links as SocialLink[])
+          : []
+      );
     }
 
     setIsLoading(false);
@@ -102,13 +107,13 @@ export default function SocialMediaTab({
       updatedLinks = links.map((l) =>
         l.id === editingId
           ? {
-              ...l,
-              platform: platform.trim(),
-              url: url.trim(),
-              icon: icon.trim() || "🔗",
-              is_active: isActive,
-              sort_order: sortOrder,
-            }
+            ...l,
+            platform: platform.trim(),
+            url: url.trim(),
+            icon: icon.trim() || "🔗",
+            is_active: isActive,
+            sort_order: sortOrder,
+          }
           : l
       );
     } else {
@@ -126,14 +131,13 @@ export default function SocialMediaTab({
     }
 
     try {
-      const { error } = await supabase.from("site_settings").upsert(
-        {
-          key: "social_links",
-          value: updatedLinks,
+      const { error } = await supabase
+        .from("site_settings")
+        .update({
+          social_links: updatedLinks,
           updated_at: new Date().toISOString(),
-        },
-        { onConflict: "key" }
-      );
+        })
+        .eq("id", 1);
 
       if (error) throw error;
       setLinks(updatedLinks);
@@ -153,14 +157,13 @@ export default function SocialMediaTab({
     const updatedLinks = links.filter((l) => l.id !== linkToDelete);
 
     try {
-      const { error } = await supabase.from("site_settings").upsert(
-        {
-          key: "social_links",
-          value: updatedLinks,
+      const { error } = await supabase
+        .from("site_settings")
+        .update({
+          social_links: updatedLinks,
           updated_at: new Date().toISOString(),
-        },
-        { onConflict: "key" }
-      );
+        })
+        .eq("id", 1);
 
       if (error) throw error;
       setLinks(updatedLinks);
@@ -287,14 +290,12 @@ export default function SocialMediaTab({
             <label className="flex items-center gap-3 cursor-pointer w-full">
               <div
                 onClick={() => setIsActive(!isActive)}
-                className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${
-                  isActive ? "bg-green-600" : "bg-gray-700"
-                }`}
+                className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${isActive ? "bg-green-600" : "bg-gray-700"
+                  }`}
               >
                 <div
-                  className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                    isActive ? "translate-x-6" : "translate-x-1"
-                  }`}
+                  className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${isActive ? "translate-x-6" : "translate-x-1"
+                    }`}
                 />
               </div>
               <span className="text-sm text-white">
@@ -334,11 +335,10 @@ export default function SocialMediaTab({
           .map((link) => (
             <div
               key={link.id}
-              className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
-                link.is_active
-                  ? "bg-white/[0.02] border-white/10 hover:border-white/20"
-                  : "bg-black/20 border-white/5 opacity-60"
-              }`}
+              className={`flex items-center justify-between p-4 rounded-xl border transition-all ${link.is_active
+                ? "bg-white/[0.02] border-white/10 hover:border-white/20"
+                : "bg-black/20 border-white/5 opacity-60"
+                }`}
             >
               <div className="flex items-center gap-3 flex-1">
                 <span className="text-2xl">{link.icon}</span>

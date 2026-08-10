@@ -92,7 +92,32 @@ function AuthContent() {
     localStorage.setItem('lukeni_lang', newLang);
   };
 
-  const getRedirectPath = () => searchParams.get('redirect') || '/explore';
+  const getRedirectPath = () => {
+  const raw = searchParams.get('redirect');
+
+  if (!raw) {
+    return '/explore';
+  }
+
+  try {
+    const target = new URL(raw, window.location.origin);
+
+    if (target.origin !== window.location.origin) {
+      return '/explore';
+    }
+
+    if (
+      !target.pathname.startsWith('/') ||
+      target.pathname.startsWith('//')
+    ) {
+      return '/explore';
+    }
+
+    return `${target.pathname}${target.search}${target.hash}`;
+  } catch {
+    return '/explore';
+  }
+};
 
   useEffect(() => {
     const reason = searchParams.get('reason');
@@ -117,7 +142,7 @@ function AuthContent() {
       if (session) {
         console.log('✅ Session existante');
         setIsRedirecting(true);
-        window.location.href = redirectTo;
+        router.replace(redirectTo);
       }
     });
 
@@ -128,7 +153,7 @@ function AuthContent() {
         console.log('✅ SIGNED_IN → redirection');
         setIsRedirecting(true);
         setTimeout(() => {
-          window.location.href = getRedirectPath();
+          router.replace(getRedirectPath());
         }, 300);
       }
 
@@ -228,7 +253,7 @@ function AuthContent() {
         await supabase.auth.setSession(data.session);
 
         setTimeout(() => {
-          window.location.href = getRedirectPath();
+          router.replace(getRedirectPath());
         }, 1000);
       } else {
         setSuccess(lang === 'fr' ? '✅ Compte créé ! Connecte-toi.' : '✅ Account created! Please log in.');

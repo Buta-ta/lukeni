@@ -439,7 +439,7 @@ interface PressComment {
   id: string;
   article_id: string;
   user_id: string;
-  user_email: string;
+
   user_name: string;
   content: string;
   parent_comment_id?: string;
@@ -1416,7 +1416,9 @@ export const CommentsSection = ({
     setIsLoading(true);
     const { data } = await supabase
       .from("press_comments")
-      .select("*")
+      .select(
+        "id, article_id, user_id, user_name, content, parent_comment_id, is_blocked, created_at, updated_at"
+      )
       .eq("article_id", articleId)
       .eq("is_blocked", false)
       .order("created_at", { ascending: false });
@@ -1449,7 +1451,9 @@ export const CommentsSection = ({
         content: newComment.trim(),
         is_blocked: false,
       })
-      .select()
+      .select(
+        "id, article_id, user_id, user_name, content, parent_comment_id, is_blocked, created_at, updated_at"
+      )
       .single();
 
     if (!error && data) {
@@ -2997,7 +3001,7 @@ const KenteSeparator = ({ className = "" }: { className?: string }) => (
 
 const DigestClassic = ({ items, lang, onSelect, accent }: { items: UnifiedItem[]; lang: "fr" | "en"; onSelect: (a: UnifiedItem) => void; accent: string }) => (
   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-    {items.slice(0,4).map((article, i) => {
+    {items.slice(0, 4).map((article, i) => {
       const title = lang === "fr" ? article.title_fr : article.title_en;
       const cat = lang === "fr" ? article.category_name_fr : article.category_name_en;
       const thumb = getThumbnailUrl(article.cover_url, article.format);
