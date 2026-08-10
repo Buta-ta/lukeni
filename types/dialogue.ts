@@ -22,6 +22,7 @@ export interface DialogueNode {
   speaker?: any; // Sera peuplé dynamiquement en jeu avec les données de dialogueSpeakers
   required_flag?: string | null;   // ✅ flag requis pour afficher CE nœud
   set_flag?: string | null;        // ✅ flag ajouté quand on passe par ce nœud
+  audio_url?: string | null;
 }
 
 export interface DialogueChoice {

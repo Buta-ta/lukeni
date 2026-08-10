@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase-browser";
 import { autoTranslate } from "@/lib/lingua";
 import {
     Plus, Trash2, Save, Loader2, Languages, ChevronDown, ChevronUp,
-    MessageSquare, User, Bot, ArrowRight, Lock, Gift, Zap, X
+    MessageSquare, User, Bot, ArrowRight, Lock, Gift, Zap, X, Music
 } from "lucide-react";
 import { Dialogue, DialogueNode, DialogueChoice } from "@/types/dialogue";
 
@@ -159,6 +159,28 @@ export default function DialogueEditor({ investigationId, dialogueSpeakers, evid
         }
     };
 
+        const uploadNodeAudio = (dialogueId: string, nodeId: string) => {
+        const createWidget = () => {
+            // @ts-ignore
+            const widget = window.cloudinary.createUploadWidget({
+                cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+                uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET,
+                sources: ['local', 'url'], resourceType: 'video', folder: 'lukeni/dialogue-audio'
+            }, (error: any, result: any) => {
+                if (result?.event === 'success') {
+                    updateNodeLocal(dialogueId, nodeId, { audio_url: result.info.secure_url });
+                }
+            });
+            widget.open();
+        };
+        // @ts-ignore
+        if (!window.cloudinary) {
+            const script = document.createElement('script');
+            script.src = 'https://upload-widget.cloudinary.com/global/all.js';
+            script.onload = createWidget; document.body.appendChild(script);
+        } else createWidget();
+    };
+
     const updateNodeLocal = (dialogueId: string, nodeId: string, updates: Partial<DialogueNode>) => {
         setDialogues(prev => prev.map(d =>
             d.id === dialogueId
@@ -179,7 +201,8 @@ export default function DialogueEditor({ investigationId, dialogueSpeakers, evid
                 text_fr: node.text_fr,
                 text_en: node.text_en,
                 is_entry_point: node.is_entry_point,
-                auto_next_node_id: node.auto_next_node_id
+                auto_next_node_id: node.auto_next_node_id,
+                audio_url: node.audio_url || null
             })
             .eq("id", node.id);
 
@@ -458,6 +481,25 @@ export default function DialogueEditor({ investigationId, dialogueSpeakers, evid
                                                                 </div>
                                                             </div>
                                                         </div>
+
+
+                                                                                                                {/* 🔊 Audio de la réplique (voix du PNJ) */}
+                                                        {node.speaker_type === 'npc' && (
+                                                            <div className="border-t border-white/10 pt-4">
+                                                                <label className="text-[10px] text-gray-500 font-bold uppercase mb-1 block">🔊 Audio de la réplique (voix du PNJ)</label>
+                                                                {node.audio_url ? (
+                                                                    <div className="flex items-center gap-2 bg-white/5 p-2 rounded">
+                                                                        <audio src={node.audio_url} controls className="h-6 flex-1" />
+                                                                        <button onClick={() => updateNodeLocal(dialogue.id, node.id, { audio_url: null })} className="text-red-500"><X size={14} /></button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <button onClick={() => uploadNodeAudio(dialogue.id, node.id)} className="w-full py-2 bg-white/5 hover:bg-white/10 rounded text-xs text-gray-400 flex items-center justify-center gap-2">
+                                                                        <Music size={14} /> Uploader l'audio de la réplique
+                                                                    </button>
+                                                                )}
+                                                                <p className="text-[9px] text-gray-600 mt-1 italic">Enregistrez la voix du PNJ pour cette réplique. L'audio se jouera quand le personnage parle.</p>
+                                                            </div>
+                                                        )}
 
                                                         {/* Settings */}
                                                         <div className="flex gap-4 items-center border-t border-white/10 pt-4 flex-wrap">

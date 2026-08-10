@@ -2,7 +2,8 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import { supabase } from "@/lib/supabase-browser";
+import { supabase } from "@/lib/supabase-browser"; 
+import AnimatedPortrait from "./AnimatedPortrait";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Loader2, MessageCircle } from "lucide-react";
 
@@ -19,6 +20,7 @@ interface DialogueNodeData {
 
   required_flag?: string | null;
   set_flag?: string | null;
+  audio_url?: string | null;
 }
 
 interface DialogueChoiceData {
@@ -74,6 +76,8 @@ export default function DialoguePlayer({
   const [choices, setChoices] = useState<DialogueChoiceData[]>([]);
   const [speakers, setSpeakers] = useState<any[]>([]);
   const [currentNodeId, setCurrentNodeId] = useState<string | null>(null);
+
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [displayedText, setDisplayedText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [usedChoiceIds, setUsedChoiceIds] = useState<string[]>([]);
@@ -348,7 +352,16 @@ export default function DialoguePlayer({
     );
   }
 
-  const isNpcTurn = currentNode.speaker_type === 'npc';
+  const isNpcTurn = currentNode.speaker_type === 'npc'; 
+
+    // ✅ Lancer l'audio + animation quand un nœud PNJ parle
+  useEffect(() => {
+    if (isNpcTurn && currentNode?.audio_url) {
+      setIsSpeaking(true);
+    } else {
+      setIsSpeaking(false);
+    }
+  }, [currentNodeId, isNpcTurn, currentNode?.audio_url]);
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
@@ -367,8 +380,14 @@ export default function DialoguePlayer({
       >
         {/* ── En-tête speaker ── */}
         <div className="flex items-center gap-3 p-4 border-b border-white/10 bg-white/5">
-          {speaker?.avatar_url ? (
-            <img src={speaker.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover border-2 border-teal-500/50" />
+                    {isNpcTurn ? (
+            <AnimatedPortrait
+              avatarUrl={speaker?.avatar_url}
+              name={speaker ? (lang === "fr" ? speaker.name_fr : speaker.name_en || speaker.name_fr) : undefined}
+              role={speaker?.role_fr}
+              audioUrl={currentNode?.audio_url}
+              isSpeaking={isNpcTurn && isSpeaking}
+            />
           ) : (
             <div className="w-10 h-10 rounded-full bg-teal-500/20 flex items-center justify-center text-teal-400">
               <MessageCircle size={18} />
