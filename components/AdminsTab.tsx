@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Loader2, ShieldCheck, UserPlus, Trash2, Check, X,
   Mail, Lock, User, Search, AlertCircle, CheckCircle,
-  Edit2, Key, Shield, Crown, Pencil
+  Edit2, Key, Shield, Crown, Pencil, Star, BookOpen, Activity
 } from 'lucide-react';
 
 const ALL_TABS = [
@@ -28,6 +28,7 @@ const ALL_TABS = [
   { id: 'reading_circles', label: 'Clubs Lecture', icon: '👥' },
   { id: 'investigations', label: 'Enquêtes', icon: '🕵️' }, 
   { id: 'investigation_board', label: 'Mur Enquêtes', icon: '🗺️' },
+  { id: "daily_challenge", label: "Défi du jour 🌟", icon: "🌟" },
   { id: 'investigation_analytics', label: 'Stats Enquêtes', icon: '📊' },
   { id: 'macro', label: 'Chiffres & Macro', icon: '📈' },
   { id: 'payments', label: 'Paiements', icon: '💳' }, // 👈 AJOUT ICI
