@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef } from "react";
-import { supabase } from "@/lib/supabase-browser"; 
+import { supabase } from "@/lib/supabase-browser";
 import AnimatedPortrait from "./AnimatedPortrait";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Loader2, MessageCircle } from "lucide-react";
@@ -20,9 +20,9 @@ interface DialogueNodeData {
 
   required_flag?: string | null;
   set_flag?: string | null;
-  audio_url?: string | null; 
+  audio_url?: string | null;
   audio_url_fr?: string | null;
-audio_url_en?: string | null;
+  audio_url_en?: string | null;
 }
 
 interface DialogueChoiceData {
@@ -98,48 +98,48 @@ export default function DialoguePlayer({
     }
 
     try {
-  const { data: session } = await supabase
-    .from('investigation_sessions')
-    .select('completed_dialogues')
-    .eq('id', sessionId)
-    .single();
+      const { data: session } = await supabase
+        .from('investigation_sessions')
+        .select('completed_dialogues')
+        .eq('id', sessionId)
+        .single();
 
-  const completed = session?.completed_dialogues || [];
-  console.log('🔍 [DIALOGUE] completed_dialogues actuel:', completed);
+      const completed = session?.completed_dialogues || [];
+      console.log('🔍 [DIALOGUE] completed_dialogues actuel:', completed);
 
-  // ✅ Format canonique : dialogue_<id>_completed
-  const completionKey = `dialogue_${dialogueId}_completed`;
+      // ✅ Format canonique : dialogue_<id>_completed
+      const completionKey = `dialogue_${dialogueId}_completed`;
 
-  if (!completed.includes(completionKey)) {
-    const updated = [...completed, completionKey];
-    console.log('💾 [DIALOGUE] Sauvegarde:', { completionKey, updated });
+      if (!completed.includes(completionKey)) {
+        const updated = [...completed, completionKey];
+        console.log('💾 [DIALOGUE] Sauvegarde:', { completionKey, updated });
 
-    const { data, error } = await supabase
-      .from('investigation_sessions')
-      .update({ completed_dialogues: updated })
-      .eq('id', sessionId)
-      .select();
+        const { data, error } = await supabase
+          .from('investigation_sessions')
+          .update({ completed_dialogues: updated })
+          .eq('id', sessionId)
+          .select();
 
-    if (error) {
-      console.error('❌ [DIALOGUE] Erreur Supabase:', error);
-    } else {
-      console.log('✅ [DIALOGUE] Sauvegardé avec succès:', data);
-      // ✅ Toujours appeler onDialogueComplete après sauvegarde réussie
-      if (onDialogueComplete) {
-        onDialogueComplete();
+        if (error) {
+          console.error('❌ [DIALOGUE] Erreur Supabase:', error);
+        } else {
+          console.log('✅ [DIALOGUE] Sauvegardé avec succès:', data);
+          // ✅ Toujours appeler onDialogueComplete après sauvegarde réussie
+          if (onDialogueComplete) {
+            onDialogueComplete();
+          }
+        }
+      } else {
+        console.log('⚠️ [DIALOGUE] Déjà dans completed_dialogues, refresh quand même');
+        // ✅ Appeler onDialogueComplete même si déjà en base
+        // pour forcer le refresh du state React côté page
+        if (onDialogueComplete) {
+          onDialogueComplete();
+        }
       }
+    } catch (err) {
+      console.error('❌ [DIALOGUE] Erreur catch:', err);
     }
-  } else {
-    console.log('⚠️ [DIALOGUE] Déjà dans completed_dialogues, refresh quand même');
-    // ✅ Appeler onDialogueComplete même si déjà en base
-    // pour forcer le refresh du state React côté page
-    if (onDialogueComplete) {
-      onDialogueComplete();
-    }
-  }
-} catch (err) {
-  console.error('❌ [DIALOGUE] Erreur catch:', err);
-}
   };
   // ── Chargement initial ──
   useEffect(() => {
@@ -247,28 +247,28 @@ export default function DialoguePlayer({
     : '';
 
 
-    const currentAudioUrl = currentNode
-  ? lang === "fr"
-    ? currentNode.audio_url_fr ||
+  const currentAudioUrl = currentNode
+    ? lang === "fr"
+      ? currentNode.audio_url_fr ||
       currentNode.audio_url ||
       null
-    : currentNode.audio_url_en ||
+      : currentNode.audio_url_en ||
       currentNode.audio_url_fr ||
       currentNode.audio_url ||
       null
-  : null;
+    : null;
 
-const isNpcTurn = currentNode?.speaker_type === "npc";
+  const isNpcTurn = currentNode?.speaker_type === "npc";
 
 
-useEffect(() => {
-  setIsSpeaking(Boolean(isNpcTurn && currentAudioUrl));
-}, [
-  currentNodeId,
-  isNpcTurn,
-  currentAudioUrl,
-  lang,
-]);
+  useEffect(() => {
+    setIsSpeaking(Boolean(isNpcTurn && currentAudioUrl));
+  }, [
+    currentNodeId,
+    isNpcTurn,
+    currentAudioUrl,
+    lang,
+  ]);
 
   // ── Effet machine à écrire (uniquement pour les répliques PNJ) ──
   useEffect(() => {
@@ -309,7 +309,7 @@ useEffect(() => {
 
     if (currentNode.speaker_type === 'npc') {
       if (currentNode.auto_next_node_id) {
-                goToNode(currentNode.auto_next_node_id);
+        goToNode(currentNode.auto_next_node_id);
       } else {
 
         console.log('🏁 [DIALOGUE] Fin du dialogue (NPC sans auto_next)');
@@ -320,7 +320,7 @@ useEffect(() => {
     }
   };
 
-    // ✅ Navigation vers un nœud en vérifiant les flags conditionnels
+  // ✅ Navigation vers un nœud en vérifiant les flags conditionnels
   const goToNode = (nodeId: string) => {
     const target = nodes.find(n => n.id === nodeId);
     // Si le nœud cible a un required_flag non satisfait → le sauter (trouver le suivant ou terminer)
@@ -346,7 +346,7 @@ useEffect(() => {
     if (choice.disappears_after_use) setUsedChoiceIds(prev => [...prev, choice.id]);
 
     if (choice.next_node_id) {
-            goToNode(choice.next_node_id);
+      goToNode(choice.next_node_id);
     } else {
       console.log('🏁 [DIALOGUE] Fin du dialogue (choix sans next_node)');
       // ✅ Dialogue terminé
@@ -378,7 +378,7 @@ useEffect(() => {
     );
   }
 
- 
+
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
@@ -397,31 +397,39 @@ useEffect(() => {
       >
         {/* ── En-tête speaker ── */}
         <div className="flex items-center gap-3 p-4 border-b border-white/10 bg-white/5">
-                    {isNpcTurn ? (
+          {isNpcTurn ? (
             <AnimatedPortrait
               avatarUrl={speaker?.avatar_url}
-              name={speaker ? (lang === "fr" ? speaker.name_fr : speaker.name_en || speaker.name_fr) : undefined}
-              role={speaker?.role_fr}
+              name={
+                speaker
+                  ? lang === "fr"
+                    ? speaker.name_fr
+                    : speaker.name_en || speaker.name_fr
+                  : undefined
+              }
+              role={
+                speaker
+                  ? lang === "fr"
+                    ? speaker.role_fr
+                    : speaker.role_en || speaker.role_fr
+                  : undefined
+              }
               audioUrl={currentAudioUrl}
               isSpeaking={isNpcTurn && isSpeaking}
             />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-teal-500/20 flex items-center justify-center text-teal-400">
-              <MessageCircle size={18} />
-            </div>
+            <>
+              <div className="w-10 h-10 rounded-full bg-teal-500/20 flex items-center justify-center text-teal-400">
+                <MessageCircle size={18} />
+              </div>
+
+              <div>
+                <p className="text-sm font-bold text-white">
+                  {lang === "fr" ? "Vous" : "You"}
+                </p>
+              </div>
+            </>
           )}
-          <div>
-            <p className="text-sm font-bold text-white">
-              {isNpcTurn
-                ? (speaker ? (lang === 'fr' ? speaker.name_fr : (speaker.name_en || speaker.name_fr)) : (lang === 'fr' ? 'Inconnu' : 'Unknown'))
-                : (lang === 'fr' ? 'Vous' : 'You')}
-            </p>
-            {isNpcTurn && speaker?.role_fr && (
-              <p className="text-[10px] text-gray-500">
-                {lang === 'fr' ? speaker.role_fr : (speaker.role_en || speaker.role_fr)}
-              </p>
-            )}
-          </div>
         </div>
 
         {/* ── Réplique PNJ (machine à écrire) ── */}
