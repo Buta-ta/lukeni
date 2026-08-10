@@ -1418,7 +1418,13 @@ function UserFavorites({ lang }: { lang: 'fr' | 'en' }) {
   const [filter, setFilter] = useState<'all' | 'article' | 'press' | 'book' | 'event' | 'wiki'>('all');
 
 
- 
+  // ✅ Appliquer l'attribut data-landing-page au HTML
+  useEffect(() => {
+    document.documentElement.setAttribute('data-profil-page', 'true');
+    return () => {
+      document.documentElement.setAttribute('data-profil-page', 'false');
+    };
+  }, []);
 
   useEffect(() => {
     const fetchFavorites = async () => {
