@@ -429,7 +429,7 @@ export default function DialoguePlayer({
                 </p>
               </div>
             </>
-          )}
+          )} 
         </div>
 
         {/* ── Réplique PNJ (machine à écrire) ── */}
