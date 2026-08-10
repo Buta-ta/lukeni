@@ -13,7 +13,7 @@ import {
   Globe, Volume2, VolumeX, SkipForward,
   ChevronLeft, RefreshCw, Check,
   AlertCircle, Loader2, ArrowRight,
-  CheckCircle, Download, ExternalLink, Newspaper, BookOpen
+  CheckCircle, Download, ExternalLink, Newspaper, BookOpen, ChevronDown
 } from 'lucide-react';
 import ContributeModal from '@/components/ContributeModal';
 import { useAudio } from '@/lib/contexts/AudioContext';
@@ -191,12 +191,11 @@ function isYouTubeTrack(track: Track | null): boolean {
 }
 
 // ─── Panneau pays ─────────────────────────────────────────────────────────────
-// ─── Carte résumé article lié ─────────────────────────────────────────────────
+// ─── Article lié inline (collapsible) ───────────────────────────────────────
 
-const LinkedArticleCard = ({
-  trackId, articleType, articleId, lang,
+const LinkedArticleInline = ({
+  articleType, articleId, lang,
 }: {
-  trackId: string;
   articleType: 'press' | 'encyclopedia';
   articleId: string;
   lang: 'fr' | 'en';
@@ -205,14 +204,19 @@ const LinkedArticleCard = ({
     title: string; summary: string; image_url: string | null; slug: string | null;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(true); // déroulé par défaut
 
   useEffect(() => {
     let mounted = true;
-    const table = articleType === 'press' ? 'press_articles' : 'articles';
-    const imgCol = articleType === 'press' ? 'cover_url' : 'image_url';
+    const isPress = articleType === 'press';
+    const table = isPress ? 'press_articles' : 'articles';
+    const imgCol = isPress ? 'cover_url' : 'image_url';
+    const selectCols = isPress
+      ? `title_fr, title_en, summary_fr, summary_en, ${imgCol}`
+      : `title_fr, title_en, summary_fr, summary_en, ${imgCol}, slug`;
     supabase
       .from(table)
-      .select(`title_fr, title_en, summary_fr, summary_en, ${imgCol}, slug`)
+      .select(selectCols)
       .eq('id', articleId)
       .maybeSingle()
       .then(({ data }) => {
@@ -220,8 +224,8 @@ const LinkedArticleCard = ({
         setArticle({
           title: lang === 'fr' ? (data.title_fr || data.title_en || '') : (data.title_en || data.title_fr || ''),
           summary: lang === 'fr' ? (data.summary_fr || data.summary_en || '') : (data.summary_en || data.summary_fr || ''),
-          image_url: data[imgCol] || null,
-          slug: data.slug || null,
+          image_url: (data as any)[imgCol] || null,
+          slug: (data as any).slug || null,
         });
         setLoading(false);
       });
@@ -229,17 +233,10 @@ const LinkedArticleCard = ({
   }, [articleType, articleId, lang]);
 
   if (loading) return (
-    <motion.div
-      initial={{ opacity: 0, height: 0 }}
-      animate={{ opacity: 1, height: 'auto' }}
-      exit={{ opacity: 0, height: 0 }}
-      className="mx-1 mb-2"
-    >
-      <div className="flex items-center gap-2 p-3 bg-white/[0.02] rounded-xl border border-white/5">
-        <Loader2 size={12} className="animate-spin text-white/20" />
-        <span className="text-[10px] text-white/20">{lang === 'fr' ? 'Chargement…' : 'Loading…'}</span>
-      </div>
-    </motion.div>
+    <div className="flex items-center gap-2 px-3 py-2">
+      <Loader2 size={10} className="animate-spin text-white/15" />
+      <span className="text-[9px] text-white/15">{lang === 'fr' ? 'Chargement…' : 'Loading…'}</span>
+    </div>
   );
 
   if (!article) return null;
@@ -249,56 +246,74 @@ const LinkedArticleCard = ({
     : `/encyclopedie/${article.slug || articleId}`;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, height: 0 }}
-      animate={{ opacity: 1, height: 'auto' }}
-      exit={{ opacity: 0, height: 0 }}
-      transition={{ duration: 0.25 }}
-      className="mx-1 mb-2"
-    >
-      <Link href={href}>
-        <div className="flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer group
-          bg-gradient-to-r from-white/[0.02] to-white/[0.04] border-white/5 hover:border-[#D4AF37]/30 hover:from-[#D4AF37]/[0.03]">
-          {/* Image */}
-          {article.image_url ? (
-            <img src={article.image_url} alt=""
-              className="w-12 h-12 rounded-lg object-cover flex-shrink-0 border border-white/10" />
-          ) : (
-            <div className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0 border border-white/10">
-              {articleType === 'press'
-                ? <Newspaper size={16} className="text-blue-400/60" />
-                : <BookOpen size={16} className="text-purple-400/60" />}
-            </div>
-          )}
+    <div className="mt-2 mx-0.5 rounded-xl overflow-hidden border border-white/[0.06] bg-white/[0.02]">
+      {/* Bandeau toggle */}
+      <button
+        onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/[0.04] transition-colors"
+      >
+        <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider ${
+          articleType === 'press'
+            ? 'bg-blue-500/15 text-blue-400'
+            : 'bg-purple-500/15 text-purple-400'
+        }`}>
+          {articleType === 'press' ? '📰' : '📖'}
+        </span>
+        <span className="text-[9px] text-white/40 flex-1 text-left">
+          {lang === 'fr' ? 'Article lié' : 'Linked article'}
+        </span>
+        <motion.div
+          animate={{ rotate: expanded ? 180 : 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          <ChevronDown size={12} className="text-white/25" />
+        </motion.div>
+      </button>
 
-          {/* Contenu */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 mb-1">
-              <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider ${articleType === 'press'
-                  ? 'bg-blue-500/15 text-blue-400'
-                  : 'bg-purple-500/15 text-purple-400'
-                }`}>
-                {articleType === 'press' ? '📰 Presse' : '📖 Encyclopédie'}
-              </span>
-              <span className="text-[8px] text-white/20">
-                {lang === 'fr' ? 'Article lié' : 'Linked article'}
-              </span>
-            </div>
-            <p className="text-[11px] font-medium text-white/80 group-hover:text-[#D4AF37] transition-colors line-clamp-1">
-              {article.title}
-            </p>
-            {article.summary && (
-              <p className="text-[9px] text-white/30 leading-relaxed line-clamp-2 mt-0.5">
-                {article.summary}
-              </p>
-            )}
-          </div>
+      {/* Contenu déroulable */}
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            className="overflow-hidden"
+          >
+            <Link href={href} onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-start gap-2.5 px-3 pb-3 pt-1 group cursor-pointer">
+                {/* Image */}
+                {article.image_url ? (
+                  <img src={article.image_url} alt=""
+                    className="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-white/[0.06]" />
+                ) : (
+                  <div className="w-10 h-10 rounded-lg bg-white/[0.04] flex items-center justify-center flex-shrink-0">
+                    {articleType === 'press'
+                      ? <Newspaper size={14} className="text-blue-400/50" />
+                      : <BookOpen size={14} className="text-purple-400/50" />}
+                  </div>
+                )}
 
-          {/* Flèche */}
-          <ArrowRight size={12} className="text-white/10 group-hover:text-[#D4AF37] mt-3 flex-shrink-0 transition-colors" />
-        </div>
-      </Link>
-    </motion.div>
+                {/* Texte */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-medium text-white/70 group-hover:text-[#D4AF37] transition-colors line-clamp-1">
+                    {article.title}
+                  </p>
+                  {article.summary && (
+                    <p className="text-[9px] text-white/25 leading-relaxed line-clamp-3 mt-0.5">
+                      {article.summary}
+                    </p>
+                  )}
+                  <span className="inline-flex items-center gap-1 text-[8px] text-[#D4AF37]/60 mt-1 group-hover:text-[#D4AF37] transition-colors">
+                    {lang === 'fr' ? 'Lire l\'article →' : 'Read article →'}
+                  </span>
+                </div>
+              </div>
+            </Link>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 };
 
@@ -425,7 +440,7 @@ const CountryPanel = ({
 
               if (!track) return null;
 
-              console.log("🎵 Track:", track.title_fr, "allow_download:", track.allow_download);  // ✅ DEBUG
+              console.log("🎵 Track:", track.title_fr, "linked:", track.linked_article_type, track.linked_article_id);
 
 
               const isCurrentTrack = currentTrack?.id === track.id;
@@ -433,17 +448,17 @@ const CountryPanel = ({
               const isYT = isYouTubeTrack(track);
               const genreColor = GOLD;
               return (
-                <React.Fragment key={track.id}>
                   <motion.div
-                    key={`card-${track.id}`}
+                    key={track.id}
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.04 }}
-                    className={`w-full flex items-center gap-3 p-3 rounded-2xl border transition-all ${isCurrentTrack
+                    className={`w-full p-3 rounded-2xl border transition-all ${isCurrentTrack
                       ? 'bg-[#D4AF37]/10 border-[#D4AF37]/30'
                       : 'bg-white/[0.02] border-white/5 hover:border-white/15 hover:bg-white/[0.04]'
                       }`}
                   >
+                    <div className="flex items-center gap-3">
                     {/* Cover / Play */}
                     <div
                       className="relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-white/5 cursor-pointer group"
@@ -552,21 +567,17 @@ const CountryPanel = ({
                         {lang === 'fr' ? track.music_genres.nom_fr : track.music_genres.nom_en}
                       </span>
                     )}
-                  </motion.div>
+                    </div>
 
-                  {/* Carte article lié (visible uniquement pour le morceau en lecture) */}
-                  <AnimatePresence>
-                    {isCurrentTrack && isPlaying && track.linked_article_id && track.linked_article_type && (
-                      <LinkedArticleCard
-                        key={`article-${track.id}`}
-                        trackId={track.id}
+                    {/* Article lié inline — collapsible, intégré dans la carte */}
+                    {track.linked_article_id && track.linked_article_type && (
+                      <LinkedArticleInline
                         articleType={track.linked_article_type}
                         articleId={track.linked_article_id}
                         lang={lang}
                       />
                     )}
-                  </AnimatePresence>
-                </React.Fragment>
+                  </motion.div>
 
               );
             })}
@@ -950,6 +961,10 @@ export default function VoyageMusicalPage() {
 
     const { data, error } = await query.order('era_decade', { ascending: true });
     console.log("📦 Tracks for", cluster.city || cluster.country_code, ":", data?.length, error);
+    // DEBUG: vérifier les champs linked_article
+    (data || []).forEach((t: any) => {
+      console.log("🔗 Track:", t.title_fr, "| linked_type:", t.linked_article_type, "| linked_id:", t.linked_article_id);
+    });
     setCountryTracks((data as unknown as Track[]) || []);
     setIsLoadingTracks(false);
   }, [countriesData]);

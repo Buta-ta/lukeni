@@ -39,10 +39,12 @@ export default function ArticleLinkSearch({
     }
 
     async function fetchLinked() {
-      const table = linkedType === 'press' ? 'press_articles' : 'articles';
+      const isPress = linkedType === 'press';
+      const table = isPress ? 'press_articles' : 'articles';
+      const imgCol = isPress ? 'cover_url' : 'image_url';
       const { data } = await supabase
         .from(table)
-        .select('id, title_fr, title_en, summary_fr, summary_en, image_url, cover_url')
+        .select(`id, title_fr, title_en, summary_fr, summary_en, ${imgCol}`)
         .eq('id', linkedId)
         .maybeSingle();
 
@@ -52,7 +54,7 @@ export default function ArticleLinkSearch({
           type: linkedType!,
           title: lang === 'fr' ? (data.title_fr || data.title_en) : (data.title_en || data.title_fr),
           summary: lang === 'fr' ? (data.summary_fr || data.summary_en || '') : (data.summary_en || data.summary_fr || ''),
-          image_url: data.cover_url || data.image_url || null,
+          image_url: (data as any)[imgCol] || null,
         });
       }
     }

@@ -1359,6 +1359,7 @@ export default function MusicTracksTab({
           linkedId={linkedArticleId}
           onChange={(type, id) => { setLinkedArticleType(type); setLinkedArticleId(id); }}
         />
+        
 
         {/* Bouton save */}
         <div className="flex items-center justify-between pt-4 border-t border-white/5">
