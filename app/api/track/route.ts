@@ -212,21 +212,10 @@ export async function POST(req: NextRequest) {
 }
 
 // ── GET de debug (à supprimer en production) ──────────────────────────────────
-export async function GET(req: NextRequest) {
-  const testIP = req.nextUrl.searchParams.get('ip') || '8.8.8.8';
-  const geo = await geolocateIP(testIP);
-
-  const cfIP = req.headers.get('cf-connecting-ip');
-  const forwarded = req.headers.get('x-forwarded-for');
-  const realIP = req.headers.get('x-real-ip');
-
-  return NextResponse.json({
-    test_ip: testIP,
-    geo,
-    headers: {
-      'cf-connecting-ip': cfIP,
-      'x-forwarded-for': forwarded,
-      'x-real-ip': realIP,
-    }
-  });
+// ── GET désactivé (l'ancien endpoint de debug exposait les IP) ────────────────
+export async function GET() {
+  return NextResponse.json(
+    { error: 'Method not allowed' },
+    { status: 405, headers: { Allow: 'POST' } }
+  );
 }
