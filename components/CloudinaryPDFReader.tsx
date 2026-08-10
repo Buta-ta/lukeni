@@ -334,7 +334,7 @@ export default function CloudinaryPDFReader({
         style={{ WebkitUserSelect: 'text', userSelect: 'text' }}
       >
         {!isLoadingDB && (
-          <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.worker.min.js">
+          <Worker workerUrl="/vendor/pdf.worker-3.11.174.min.js">
             <div style={{ height: '100%', width: '100%' }}>
               <Viewer
                 fileUrl={url}

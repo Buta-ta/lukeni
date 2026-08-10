@@ -5,7 +5,8 @@ import { useEffect, useState } from 'react';
 interface PaymentStatus {
   success: boolean;
   status: 'pending' | 'completed' | 'failed';
-  transaction: any;
+  product_type?: 'investigation' | 'book';
+  product_id?: string;
 }
 
 export function useCheckPaymentStatus(transactionId: string | null) {

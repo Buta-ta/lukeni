@@ -3,41 +3,36 @@ import { NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// Ce endpoint est appelé par Vercel Cron chaque jour à 08h00 (cf. vercel.json).
+// Il relaie vers l'Edge Function Supabase "send-daily-push" qui se charge
+// d'envoyer les notifications d'anniversaire.
 export async function GET(request: Request) {
   try {
-    // ✅ Vérifier le CRON_SECRET
+    // 1. Vérifier que l'appel provient bien de Vercel Cron
     const authHeader = request.headers.get('authorization');
     const expected = `Bearer ${process.env.CRON_SECRET}`;
-    
     if (authHeader !== expected) {
-      console.log('❌ CRON_SECRET incorrect');
+      console.warn('❌ CRON_SECRET incorrect');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     console.log('✅ CRON Anniversary lancé');
 
-    // ✅ Appeler la Supabase Edge Function
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!supabaseUrl) throw new Error('NEXT_PUBLIC_SUPABASE_URL manquant');
 
-    if (!supabaseUrl || !anonKey) {
-      throw new Error('Variables Supabase manquantes');
-    }
-
-    const response = await fetch(
-      `${supabaseUrl}/functions/v1/send-notifications`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${anonKey}`,
-        },
-        body: JSON.stringify({
-          type: 'anniversary',
-          timestamp: new Date().toISOString(),
-        }),
-      }
-    );
+    // 2. Appeler l'Edge Function avec le CRON_SECRET (et non plus la clé anon)
+    //    La fonction s'attend à recevoir :
+    //      header  Authorization: Bearer <CRON_SECRET>
+    //      body    {}  (déclenche la branche anniversaire)
+    const response = await fetch(`${supabaseUrl}/functions/v1/send-daily-push`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.CRON_SECRET}`,
+      },
+      body: JSON.stringify({ timestamp: new Date().toISOString() }),
+    });
 
     const data = await response.json();
 
@@ -49,15 +44,13 @@ export async function GET(request: Request) {
       );
     }
 
-    console.log('✅ Push notifications sent:', data);
-
+    console.log('✅ Notifications anniversaire envoyées:', data);
     return NextResponse.json({
       success: true,
       message: 'Anniversary notifications sent',
-      data: data,
+      data,
       timestamp: new Date().toISOString(),
     });
-
   } catch (error: any) {
     console.error('❌ CRON error:', error.message);
     return NextResponse.json(

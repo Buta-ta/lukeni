@@ -300,25 +300,21 @@ export default function NotificationsTab({ showMsg }: { showMsg: (type: 'success
 
     setIsSending(true);
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/notify`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
-          },
-          body: JSON.stringify({
-            type: 'manual_push',
-            title: pushTitle,
-            body: pushBody,
-            icon: pushIcon,
-            url: pushUrl,
-            sound: enableSound,
-            vibrate: enableVibration,
-          }),
-        }
-      );
+      // 🔒 FIX SÉCURITÉ : on passe par une route Next.js qui vérifie
+      // le rôle superadmin côté serveur, au lieu d'appeler directement
+      // la fonction Edge Supabase (qui était ouverte à tous).
+      const response = await fetch('/api/notifications/send-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: pushTitle,
+          body: pushBody,
+          icon: pushIcon,
+          url: pushUrl,
+          sound: enableSound,
+          vibrate: enableVibration,
+        }),
+      });
 
       const result = await response.json();
 

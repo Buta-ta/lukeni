@@ -65,15 +65,20 @@ export default function PaymentSuccess() {
         const data = await response.json();
 
         if (data.success && data.status === 'completed') {
-          setPaymentData(data.transaction);
+          // 🔒 La route ne renvoie plus l'objet transaction complet
+          // (éviter toute fuite), mais les champs utiles pour la redirection.
+          setPaymentData({
+            product_type: data.product_type,
+            product_id: data.product_id,
+          });
           setStatus('success');
 
           // Redirection automatique après 5 secondes
           const timer = setTimeout(() => {
-            if (data.transaction?.product_type === 'investigation') {
-              router.push(`/investigations/${data.transaction.product_id}`);
-            } else if (data.transaction?.product_type === 'book') {
-              router.push(`/bibliotheque/${data.transaction.product_id}`);
+            if (data.product_type === 'investigation') {
+              router.push(`/investigations/${data.product_id}`);
+            } else if (data.product_type === 'book') {
+              router.push(`/bibliotheque/${data.product_id}`);
             }
           }, 5000);
 

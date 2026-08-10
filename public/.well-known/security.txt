@@ -1,0 +1,11 @@
+Contact: mailto:lukeni.team@gmail.com
+Expires: 2027-12-31T23:59:59.000Z
+Preferred-Languages: fr, en
+Canonical: https://lukeni.app/.well-known/security.txt
+Policy: https://lukeni.app/qui-sommes-nous
+
+# Lukeni Security
+# Signalez toute vulnérabilité par email à lukeni.team@gmail.com.
+# Merci de ne pas accéder aux données d'autres utilisateurs,
+# de ne pas rendre le signalement public avant correction,
+# et d'inclure un PoC minimal.

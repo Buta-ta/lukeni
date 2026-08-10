@@ -43,17 +43,42 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              // ✅ FIX: autorise pdf.js + epub.js + jszip hébergés sur unpkg/cdnjs
-              "script-src 'self' 'unsafe-inline' https://vercel.live https://va.vercel-scripts.com https://translate.googleapis.com https://unpkg.com https://cdn.jsdelivr.net https://upload-widget.cloudinary.com blob:",
-              "frame-src 'self' https://www.youtube.com https://player.vimeo.com https://upload-widget.cloudinary.com blob:",
+              // Scripts : 'self' + widgets Cloudinary (upload de fichiers dans /profil, /contribuer)
+              // 'unsafe-inline' reste requis par Next.js (hydratation) et le widget Cloudinary.
+              "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com https://upload-widget.cloudinary.com blob:",
+              // Iframes : YouTube/Vimeo intégrés dans les articles + widget Cloudinary
+              "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://upload-widget.cloudinary.com blob:",
               "object-src 'none'",
-              "connect-src 'self' https://lcemtmzdvcgxgpircumh.supabase.co https://*.supabase.co https://api.exchangerate-api.com https://translate.googleapis.com https://api.worldbank.org https://ip-api.com https://ipwho.is https://api.openweathermap.org https://res.cloudinary.com https://unpkg.com https://cdn.jsdelivr.net wss://lcemtmzdvcgxgpircumh.supabase.co blob: data: https: wss:",
-              "img-src 'self' data: blob: https://res.cloudinary.com https://images.unsplash.com https://upload.wikimedia.org https://*.wikipedia.org https://archive.org https://*.archive.org https://covers.openlibrary.org https: https://unpkg.com https://cdn.jsdelivr.net",
-              "media-src 'self' blob: https://res.cloudinary.com https: http:",
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://cdn.jsdelivr.net",
-              "font-src 'self' data: https://fonts.gstatic.com https://unpkg.com https://cdn.jsdelivr.net",
+              // Connexions réseau (fetch, WS, Supabase Realtime)
+              // Plus de joker https: — seuls les domaines réellement utilisés sont listés.
+              [
+                "connect-src 'self'",
+                'https://lcemtmzdvcgxgpircumh.supabase.co',
+                'https://*.supabase.co',
+                'wss://lcemtmzdvcgxgpircumh.supabase.co',
+                'https://api.cloudinary.com',
+                'https://res.cloudinary.com',
+                'https://api.exchangerate-api.com',
+                'https://api.worldbank.org',
+                'https://ipwho.is',
+                'https://nominatim.openstreetmap.org',
+                'https://api.openweathermap.org',
+                'https://tiles.openfreemap.org',
+                'https://fonts.openmaptiles.org',
+                'blob:',
+                'data:',
+              ].join(' '),
+              // Images
+              "img-src 'self' data: blob: https://res.cloudinary.com https://images.unsplash.com https://upload.wikimedia.org https://*.wikipedia.org https://archive.org https://*.archive.org https://covers.openlibrary.org https://openlibrary.org https://img.youtube.com https://a.tile.openstreetmap.org https://b.tile.openstreetmap.org https://c.tile.openstreetmap.org https://tiles.openfreemap.org",
+              // Médias (audio/vidéo)
+              "media-src 'self' blob: https://res.cloudinary.com",
+              // Styles : inline obligatoire pour Tailwind/Next.js
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              // Polices
+              "font-src 'self' data: https://fonts.gstatic.com",
               "manifest-src 'self'",
-              "worker-src 'self' blob: https://unpkg.com https://cdn.jsdelivr.net",
+              // Workers (pdf.js est auto-hébergé dans /vendor)
+              "worker-src 'self' blob:",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",

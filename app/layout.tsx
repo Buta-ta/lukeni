@@ -151,26 +151,26 @@ export default function RootLayout({
         />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
-        {/* ✅ JSZIP ET EPUB.JS POUR LA LECTURE EPUB */}
+        {/* ✅ JSZIP ET EPUB.JS — auto-hébergés (CSP stricte, pas de CDN) */}
         <script
-          src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"
+          src="/vendor/epub/jszip.min.js"
           async
           suppressHydrationWarning
         ></script>
         <script
-          src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"
+          src="/vendor/epub/epub.min.js"
           async
           suppressHydrationWarning
         ></script>
 
-        {/* ✅ MAPLIBRE GL POUR LES CARTES (UNE SEULE FOIS) */}
+        {/* ✅ MAPLIBRE GL — auto-hébergé (CSP stricte, pas de CDN) */}
         <script
-          src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"
+          src="/vendor/maplibre/maplibre-gl.js"
           async
           suppressHydrationWarning
         ></script>
         <link
-          href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css"
+          href="/vendor/maplibre/maplibre-gl.css"
           rel="stylesheet"
           suppressHydrationWarning
         />

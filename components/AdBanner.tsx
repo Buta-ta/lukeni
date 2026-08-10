@@ -183,7 +183,14 @@ export default function AdBanner({ position, lang = 'fr' }: AdBannerProps) {
         .update({ clicks: (ad.clicks ?? 0) + 1 })
         .eq('id', ad.id);
     } catch {}
-    window.open(ad.link_url, '_blank', 'noopener,noreferrer');
+    // 🔒 N'ouvrir que des URLs http/https — bloque javascript:, data:, etc.
+    try {
+      const url = new URL(ad.link_url, window.location.origin);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+      window.open(url.toString(), '_blank', 'noopener,noreferrer');
+    } catch {
+      // URL invalide : on ne fait rien
+    }
   }, []);
 
   // ── Render ─────────────────────────────────────────────────────────────────

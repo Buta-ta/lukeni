@@ -5,7 +5,7 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import remarkHtml from 'remark-html';
 import katex from 'katex';
-
+import { sanitizeHtml } from './sanitize';
 /**
  * Processeur Markdown avec support complet :
  * - GFM (tableaux, listes, texte barré)
@@ -53,7 +53,8 @@ function sanitizeHtmlSafe(html: string): string {
     // 4. Bloquer <a href="javascript:..."> déjà transformé
     clean = clean.replace(/javascript\s*:/gi, '');
     
-    return clean;
+    return sanitizeHtml(html);
+
 }
 
 /**
