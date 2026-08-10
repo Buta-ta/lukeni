@@ -8,62 +8,62 @@ import {
   Loader2, Globe, Users, Eye, MapPin,
   Monitor, Smartphone, RefreshCw, User, UserX,
   BarChart3, ArrowUpRight, Activity, Mail, X,
-  Trash2, AlertTriangle, CheckCircle,
+  Trash2, AlertTriangle, CheckCircle, ExternalLink, Copy, Check, Ticket, Clock, UserPlus
 } from 'lucide-react';
 import { type LucideIcon } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface VisitProfile {
-  full_name:  string | null;
-  email:      string | null;
+  full_name: string | null;
+  email: string | null;
   avatar_url: string | null;
-  username:   string | null;
-  role:       string | null;
+  username: string | null;
+  role: string | null;
 }
 
 interface Visit {
-  id:           string;
-  session_id:   string;
-  user_id:      string | null;
-  page:         string;
-  referrer:     string | null;
-  country:      string | null;
+  id: string;
+  session_id: string;
+  user_id: string | null;
+  page: string;
+  referrer: string | null;
+  country: string | null;
   country_code: string | null;
-  city:         string | null;
-  region:       string | null;
-  ip:           string;
-  user_agent:   string;
-  is_mobile:    boolean;
-  created_at:   string;
-  profile?:     VisitProfile | null;
+  city: string | null;
+  region: string | null;
+  ip: string;
+  user_agent: string;
+  is_mobile: boolean;
+  created_at: string;
+  profile?: VisitProfile | null;
 }
 
 interface Stats {
-  totalVisits:    number;
+  totalVisits: number;
   uniqueSessions: number;
-  knownUsers:     number;
+  knownUsers: number;
   anonymousUsers: number;
-  mobileVisits:   number;
-  desktopVisits:  number;
+  mobileVisits: number;
+  desktopVisits: number;
 }
 
 interface CountryData {
-  country:      string;
+  country: string;
   country_code: string;
-  count:        number;
-  flag:         string;
+  count: number;
+  flag: string;
 }
 
 interface CityData {
-  city:         string;
-  country:      string;
+  city: string;
+  country: string;
   country_code: string;
-  count:        number;
+  count: number;
 }
 
 interface PageData {
-  page:  string;
+  page: string;
   count: number;
 }
 
@@ -79,26 +79,26 @@ function countryCodeToFlag(code: string | null): string {
 }
 
 function formatPage(page: string): string {
-  if (page === '/')                    return '🏠 Accueil';
-  if (page === '/explore')             return '🔍 Explorer';
-  if (page === '/voyage-musical')      return '🎵 Voyage Musical';
-  if (page === '/bibliotheque')        return '📚 Bibliothèque';
-  if (page === '/presse')              return '📰 Presse';
-  if (page === '/encyclopedie')        return '📖 Encyclopédie';
-  if (page === '/profil')              return '👤 Profil';
-  if (page === '/auth')                return '🔐 Auth';
+  if (page === '/') return '🏠 Accueil';
+  if (page === '/explore') return '🔍 Explorer';
+  if (page === '/voyage-musical') return '🎵 Voyage Musical';
+  if (page === '/bibliotheque') return '📚 Bibliothèque';
+  if (page === '/presse') return '📰 Presse';
+  if (page === '/encyclopedie') return '📖 Encyclopédie';
+  if (page === '/profil') return '👤 Profil';
+  if (page === '/auth') return '🔐 Auth';
   if (page.startsWith('/encyclopedie/')) return `📖 ${page.replace('/encyclopedie/', '')}`;
   return page;
 }
 
 function timeAgo(dateStr: string): string {
-  const diff    = Date.now() - new Date(dateStr).getTime();
+  const diff = Date.now() - new Date(dateStr).getTime();
   const minutes = Math.floor(diff / 60000);
-  const hours   = Math.floor(diff / 3600000);
-  const days    = Math.floor(diff / 86400000);
-  if (minutes < 1)  return 'À l\'instant';
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  if (minutes < 1) return 'À l\'instant';
   if (minutes < 60) return `il y a ${minutes}min`;
-  if (hours < 24)   return `il y a ${hours}h`;
+  if (hours < 24) return `il y a ${hours}h`;
   return `il y a ${days}j`;
 }
 
@@ -107,20 +107,37 @@ function safeHostname(url: string): string {
   catch { return url.slice(0, 30); }
 }
 
+
+// ─── Types visiteur tickets ─────────────────────────────────────────────────
+
+interface VisitorTicket {
+  id: string;
+  code: string;
+  user_id: string;
+  created_at: string;
+  expires_at: string;
+  renewed: boolean;
+  renewed_at: string | null;
+  new_expires_at: string | null;
+  status: 'active' | 'expired' | 'converted';
+  ip_address: string | null;
+  profile?: VisitProfile | null;
+}
+
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
 function StatCard({
   icon: Icon, label, value, color = 'blue',
 }: {
-  icon: LucideIcon;   
+  icon: LucideIcon;
   label: string;
   value: number | string;
   color?: 'red' | 'blue' | 'green' | 'purple' | 'orange';
 }) {
   const colors = {
-    red:    'bg-red-500/10    text-red-400    border-red-500/20',
-    blue:   'bg-blue-500/10   text-blue-400   border-blue-500/20',
-    green:  'bg-green-500/10  text-green-400  border-green-500/20',
+    red: 'bg-red-500/10    text-red-400    border-red-500/20',
+    blue: 'bg-blue-500/10   text-blue-400   border-blue-500/20',
+    green: 'bg-green-500/10  text-green-400  border-green-500/20',
     purple: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
     orange: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
   };
@@ -230,22 +247,26 @@ export default function VisitorsTab({
   showMsg: (type: 'success' | 'error', text: string) => void;
 }) {
   // ── State ─────────────────────────────────────────────────────────────────
-  const [visits, setVisits]                   = useState<Visit[]>([]);
-  const [stats, setStats]                     = useState<Stats | null>(null);
-  const [countries, setCountries]             = useState<CountryData[]>([]);
-  const [cities, setCities]                   = useState<CityData[]>([]);
-  const [pages, setPages]                     = useState<PageData[]>([]);
-  const [isLoading, setIsLoading]             = useState(true);
-  const [isRefreshing, setIsRefreshing]       = useState(false);
-  const [activeSection, setActiveSection]     = useState<'overview' | 'live' | 'geo' | 'pages'>('overview');
-  const [selectedVisit, setSelectedVisit]     = useState<Visit | null>(null);
+  const [visits, setVisits] = useState<Visit[]>([]);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [countries, setCountries] = useState<CountryData[]>([]);
+  const [cities, setCities] = useState<CityData[]>([]);
+  const [pages, setPages] = useState<PageData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [activeSection, setActiveSection] = useState<'overview' | 'live' | 'geo' | 'pages' | 'tickets'>('overview');
+  const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
 
   // Suppression
-  const [deleteModal, setDeleteModal]         = useState<{ type: 'single' | 'all' | 'period'; id?: string; count?: number } | null>(null);
-  const [isDeleting, setIsDeleting]           = useState(false);
+  const [deleteModal, setDeleteModal] = useState<{ type: 'single' | 'all' | 'period'; id?: string; count?: number } | null>(null);
+
+  // ── State tickets visiteurs ──────────────────────────────────────────
+  const [visitorTickets, setVisitorTickets] = useState<VisitorTicket[]>([]);
+  const [ticketsLoading, setTicketsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Filtres
-  const [period, setPeriod]         = useState<'1h' | '24h' | '7d' | '30d' | 'all'>('24h');
+  const [period, setPeriod] = useState<'1h' | '24h' | '7d' | '30d' | 'all'>('24h');
   const [filterType, setFilterType] = useState<'all' | 'known' | 'anonymous'>('all');
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
@@ -257,9 +278,9 @@ export default function VisitorsTab({
       // Période
       const now = new Date();
       let startDate: string | null = null;
-      if (period === '1h')  startDate = new Date(now.getTime() - 3_600_000).toISOString();
+      if (period === '1h') startDate = new Date(now.getTime() - 3_600_000).toISOString();
       if (period === '24h') startDate = new Date(now.getTime() - 86_400_000).toISOString();
-      if (period === '7d')  startDate = new Date(now.getTime() - 7  * 86_400_000).toISOString();
+      if (period === '7d') startDate = new Date(now.getTime() - 7 * 86_400_000).toISOString();
       if (period === '30d') startDate = new Date(now.getTime() - 30 * 86_400_000).toISOString();
 
       // ── 1. Visites ──────────────────────────────────────────────────────────
@@ -268,8 +289,8 @@ export default function VisitorsTab({
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (startDate)                  query = query.gte('created_at', startDate);
-      if (filterType === 'known')     query = query.not('user_id', 'is', null);
+      if (startDate) query = query.gte('created_at', startDate);
+      if (filterType === 'known') query = query.not('user_id', 'is', null);
       if (filterType === 'anonymous') query = query.is('user_id', null);
 
       const { data, error } = await query.limit(500);
@@ -298,11 +319,11 @@ export default function VisitorsTab({
         if (profiles) {
           (profiles as any[]).forEach(p => {
             profileMap.set(p.id, {
-              full_name:  p.full_name  || null,
-              email:      p.email      || null,
+              full_name: p.full_name || null,
+              email: p.email || null,
               avatar_url: p.avatar_url || null,
-              username:   p.username   || null,
-              role:       p.role       || null,
+              username: p.username || null,
+              role: p.role || null,
             });
           });
         }
@@ -317,17 +338,17 @@ export default function VisitorsTab({
       setVisits(enrichedVisits);
 
       // ── 5. Stats ────────────────────────────────────────────────────────────
-      const sessions   = new Set(enrichedVisits.map(v => v.session_id));
+      const sessions = new Set(enrichedVisits.map(v => v.session_id));
       const knownUsers = new Set(enrichedVisits.filter(v => v.user_id).map(v => v.user_id));
-      const anonSess   = new Set(enrichedVisits.filter(v => !v.user_id).map(v => v.session_id));
+      const anonSess = new Set(enrichedVisits.filter(v => !v.user_id).map(v => v.session_id));
 
       setStats({
-        totalVisits:    enrichedVisits.length,
+        totalVisits: enrichedVisits.length,
         uniqueSessions: sessions.size,
-        knownUsers:     knownUsers.size,
+        knownUsers: knownUsers.size,
         anonymousUsers: anonSess.size,
-        mobileVisits:   enrichedVisits.filter(v => v.is_mobile).length,
-        desktopVisits:  enrichedVisits.filter(v => !v.is_mobile).length,
+        mobileVisits: enrichedVisits.filter(v => v.is_mobile).length,
+        desktopVisits: enrichedVisits.filter(v => !v.is_mobile).length,
       });
 
       // ── 6. Pays ─────────────────────────────────────────────────────────────
@@ -380,6 +401,50 @@ export default function VisitorsTab({
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+
+  // ── Fetch tickets visiteurs ──────────────────────────────────────────
+  useEffect(() => {
+    async function fetchTickets() {
+      setTicketsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('visitor_tickets')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(200);
+
+        if (error) throw error;
+
+        const raw = (data || []) as VisitorTicket[];
+        const userIds = [...new Set(raw.map(t => t.user_id))];
+
+        const profileMap = new Map<string, VisitProfile>();
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, full_name, email, avatar_url, username, role')
+            .in('id', userIds);
+          if (profiles) {
+            (profiles as any[]).forEach(p => {
+              profileMap.set(p.id, {
+                full_name: p.full_name || null, email: p.email || null,
+                avatar_url: p.avatar_url || null, username: p.username || null, role: p.role || null,
+              });
+            });
+          }
+        }
+
+        const enriched = raw.map(t => ({ ...t, profile: profileMap.get(t.user_id) ?? null }));
+        setVisitorTickets(enriched);
+      } catch (err: any) {
+        console.error('Tickets fetch error:', err.message);
+      } finally {
+        setTicketsLoading(false);
+      }
+    }
+    fetchTickets();
+  }, []);
+
   // Auto-refresh en direct
   useEffect(() => {
     if (activeSection !== 'live') return;
@@ -415,9 +480,9 @@ export default function VisitorsTab({
       const now = new Date();
       let startDate: string | null = null;
 
-      if (period === '1h')  startDate = new Date(now.getTime() - 3_600_000).toISOString();
+      if (period === '1h') startDate = new Date(now.getTime() - 3_600_000).toISOString();
       if (period === '24h') startDate = new Date(now.getTime() - 86_400_000).toISOString();
-      if (period === '7d')  startDate = new Date(now.getTime() - 7  * 86_400_000).toISOString();
+      if (period === '7d') startDate = new Date(now.getTime() - 7 * 86_400_000).toISOString();
       if (period === '30d') startDate = new Date(now.getTime() - 30 * 86_400_000).toISOString();
 
       let query = supabase.from('page_visits').delete();
@@ -469,7 +534,7 @@ export default function VisitorsTab({
   }
 
   const maxCountry = countries[0]?.count || 1;
-  const maxPage    = pages[0]?.count    || 1;
+  const maxPage = pages[0]?.count || 1;
 
   // ── Rendu ─────────────────────────────────────────────────────────────────
   return (
@@ -494,9 +559,8 @@ export default function VisitorsTab({
               <button
                 key={p}
                 onClick={() => setPeriod(p)}
-                className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all ${
-                  period === p ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-                }`}
+                className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all ${period === p ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+                  }`}
               >
                 {p === 'all' ? 'Tout' : p}
               </button>
@@ -506,16 +570,15 @@ export default function VisitorsTab({
           {/* Type visiteur */}
           <div className="flex bg-white/5 rounded-lg p-1 gap-1">
             {([
-              { value: 'all',       label: 'Tous' },
-              { value: 'known',     label: '✓ Connus' },
+              { value: 'all', label: 'Tous' },
+              { value: 'known', label: '✓ Connus' },
               { value: 'anonymous', label: '? Anonymes' },
             ] as const).map(f => (
               <button
                 key={f.value}
                 onClick={() => setFilterType(f.value)}
-                className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all ${
-                  filterType === f.value ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-                }`}
+                className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all ${filterType === f.value ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+                  }`}
               >
                 {f.label}
               </button>
@@ -561,12 +624,12 @@ export default function VisitorsTab({
       {/* ── Stat Cards ───────────────────────────────────────────────────────── */}
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-          <StatCard icon={Eye}        label="Pages vues"    value={stats.totalVisits}    color="blue"   />
-          <StatCard icon={Activity}   label="Sessions"      value={stats.uniqueSessions} color="purple" />
-          <StatCard icon={User}       label="Connus"        value={stats.knownUsers}     color="green"  />
-          <StatCard icon={UserX}      label="Anonymes"      value={stats.anonymousUsers} color="orange" />
-          <StatCard icon={Monitor}    label="Desktop"       value={stats.desktopVisits}  color="blue"   />
-          <StatCard icon={Smartphone} label="Mobile"        value={stats.mobileVisits}   color="red"    />
+          <StatCard icon={Eye} label="Pages vues" value={stats.totalVisits} color="blue" />
+          <StatCard icon={Activity} label="Sessions" value={stats.uniqueSessions} color="purple" />
+          <StatCard icon={User} label="Connus" value={stats.knownUsers} color="green" />
+          <StatCard icon={UserX} label="Anonymes" value={stats.anonymousUsers} color="orange" />
+          <StatCard icon={Monitor} label="Desktop" value={stats.desktopVisits} color="blue" />
+          <StatCard icon={Smartphone} label="Mobile" value={stats.mobileVisits} color="red" />
         </div>
       )}
 
@@ -574,18 +637,18 @@ export default function VisitorsTab({
       <div className="flex gap-2 border-b border-white/5 pb-2 flex-wrap">
         {([
           { id: 'overview', label: 'Vue d\'ensemble', icon: BarChart3 },
-          { id: 'live',     label: 'En direct',       icon: Activity  },
-          { id: 'geo',      label: 'Géographie',      icon: Globe     },
-          { id: 'pages',    label: 'Pages',           icon: Eye       },
+          { id: 'live', label: 'En direct', icon: Activity },
+          { id: 'geo', label: 'Géographie', icon: Globe },
+          { id: 'pages', label: 'Pages', icon: Eye },
+          { id: 'tickets', label: 'Tickets 🎟️', icon: Ticket },
         ] as const).map(s => (
           <button
             key={s.id}
             onClick={() => setActiveSection(s.id)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-              activeSection === s.id
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeSection === s.id
                 ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
                 : 'text-gray-500 hover:text-white hover:bg-white/5'
-            }`}
+              }`}
           >
             <s.icon size={12} />
             {s.label}
@@ -989,6 +1052,152 @@ export default function VisitorsTab({
             </div>
           </motion.div>
         )}
+
+
+
+
+        {/* ── TICKETS VISITEURS ──────────────────────────────────────────── */}
+        {activeSection === 'tickets' && (
+          <motion.div
+            key="tickets"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-4"
+          >
+            {/* Stats rapides tickets */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <StatCard
+                icon={Ticket}
+                label="Total tickets"
+                value={visitorTickets.length}
+                color="purple"
+              />
+              <StatCard
+                icon={Activity}
+                label="Actifs"
+                value={visitorTickets.filter(t => t.status === 'active').length}
+                color="green"
+              />
+              <StatCard
+                icon={Clock}
+                label="Expirés"
+                value={visitorTickets.filter(t => t.status === 'expired').length}
+                color="orange"
+              />
+              <StatCard
+                icon={UserPlus}
+                label="Convertis"
+                value={visitorTickets.filter(t => t.status === 'converted').length}
+                color="blue"
+              />
+            </div>
+
+            {/* Liste des tickets */}
+            <div className="bg-[#0f0f0f] border border-white/5 rounded-xl overflow-hidden">
+              <div className="p-4 border-b border-white/5 flex items-center justify-between">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Ticket size={14} className="text-purple-400" />
+                  Tickets visiteurs
+                </h3>
+                <span className="text-xs text-gray-500">{visitorTickets.length} tickets</span>
+              </div>
+
+              {ticketsLoading ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="animate-spin text-purple-400" size={32} />
+                </div>
+              ) : visitorTickets.length === 0 ? (
+                <div className="text-center py-12">
+                  <Ticket size={40} className="mx-auto text-gray-700 mb-3" />
+                  <p className="text-gray-500 text-sm">Aucun ticket visiteur</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-white/[0.03]">
+                  {visitorTickets.map((ticket) => {
+                    const effectiveExpiry = ticket.renewed && ticket.new_expires_at
+                      ? new Date(ticket.new_expires_at)
+                      : new Date(ticket.expires_at);
+                    const isExpired = new Date() > effectiveExpiry || ticket.status !== 'active';
+                    const remainingMs = effectiveExpiry.getTime() - Date.now();
+                    const remainingMin = Math.max(0, Math.floor(remainingMs / 60000));
+
+                    return (
+                      <div
+                        key={ticket.id}
+                        className="flex items-center gap-3 p-3 hover:bg-white/[0.02] transition-colors"
+                      >
+                        {/* Status dot */}
+                        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${ticket.status === 'active' && !isExpired
+                            ? 'bg-green-400'
+                            : ticket.status === 'converted'
+                              ? 'bg-blue-400'
+                              : 'bg-gray-600'
+                          }`} />
+
+                        {/* Infos */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                            <span className="text-xs font-mono font-bold text-[#D4AF37]">
+                              {ticket.code}
+                            </span>
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${ticket.status === 'active' && !isExpired
+                                ? 'bg-green-500/20 text-green-400'
+                                : ticket.status === 'converted'
+                                  ? 'bg-blue-500/20 text-blue-400'
+                                  : 'bg-gray-500/20 text-gray-500'
+                              }`}>
+                              {ticket.status === 'active' && !isExpired
+                                ? '✓ ACTIF'
+                                : ticket.status === 'converted'
+                                  ? '→ CONVERTI'
+                                  : '✗ EXPIRÉ'}
+                            </span>
+                            {ticket.renewed && (
+                              <span className="text-[9px] px-1.5 py-0.5 bg-purple-500/20 text-purple-400 rounded-full font-bold">
+                                RENOUVELÉ
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] text-gray-500">
+                            <span className="truncate max-w-[120px]">
+                              {ticket.profile?.full_name || `User ${ticket.user_id.slice(0, 8)}`}
+                            </span>
+                            <span>•</span>
+                            <span>{new Date(ticket.created_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                            {ticket.ip_address && (
+                              <>
+                                <span>•</span>
+                                <span className="font-mono">{ticket.ip_address}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Temps restant */}
+                        <div className="text-right flex-shrink-0">
+                          {!isExpired && ticket.status === 'active' ? (
+                            <div>
+                              <span className={`text-sm font-mono font-bold ${remainingMin < 30 ? 'text-red-400' : remainingMin < 60 ? 'text-orange-400' : 'text-green-400'
+                                }`}>
+                                {Math.floor(remainingMin / 60)}h{String(remainingMin % 60).padStart(2, '0')}
+                              </span>
+                              <p className="text-[9px] text-gray-600">restant</p>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-gray-600">
+                              {ticket.status === 'converted' ? 'Converti' : 'Expiré'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* ── MODAL DÉTAIL VISITEUR ─────────────────────────────────────────────── */}
@@ -1088,13 +1297,13 @@ export default function VisitorsTab({
               {/* Détails visite */}
               <div className="space-y-0">
                 {[
-                  { label: 'Page',     value: formatPage(selectedVisit.page)                                           },
-                  { label: 'Pays',     value: `${countryCodeToFlag(selectedVisit.country_code)} ${selectedVisit.country || '—'}` },
-                  { label: 'Ville',    value: selectedVisit.city   || '—'                                              },
-                  { label: 'Région',   value: selectedVisit.region || '—'                                              },
-                  { label: 'IP',       value: selectedVisit.ip     || '—'                                              },
-                  { label: 'Appareil', value: selectedVisit.is_mobile ? '📱 Mobile' : '🖥️ Desktop'                     },
-                  { label: 'Date',     value: new Date(selectedVisit.created_at).toLocaleString('fr-FR')               },
+                  { label: 'Page', value: formatPage(selectedVisit.page) },
+                  { label: 'Pays', value: `${countryCodeToFlag(selectedVisit.country_code)} ${selectedVisit.country || '—'}` },
+                  { label: 'Ville', value: selectedVisit.city || '—' },
+                  { label: 'Région', value: selectedVisit.region || '—' },
+                  { label: 'IP', value: selectedVisit.ip || '—' },
+                  { label: 'Appareil', value: selectedVisit.is_mobile ? '📱 Mobile' : '🖥️ Desktop' },
+                  { label: 'Date', value: new Date(selectedVisit.created_at).toLocaleString('fr-FR') },
                   { label: 'Referrer', value: selectedVisit.referrer ? safeHostname(selectedVisit.referrer) : 'Direct' },
                 ].map(({ label, value }) => (
                   <div

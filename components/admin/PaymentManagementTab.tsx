@@ -1648,10 +1648,10 @@ export default function PaymentManagementTab({
     'overview' | 'trial' | 'pricing' | 'access' | 'history'
   >('overview');
 
-  useEffect(() => {
+ useEffect(() => {
     const saved = localStorage.getItem('lukeni_lang');
-    if (saved) setLang(JSON.parse(saved));
-  }, []);
+    if (saved === 'fr' || saved === 'en') setLang(saved);
+}, []);
 
   const t = translations[lang];
 
@@ -1690,7 +1690,7 @@ export default function PaymentManagementTab({
           onClick={() => {
             const newLang = lang === 'fr' ? 'en' : 'fr';
             setLang(newLang);
-            localStorage.setItem('lukeni_lang', JSON.stringify(newLang));
+            localStorage.setItem('lukeni_lang', newLang);
           }}
           className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-xs font-bold text-gray-500 hover:text-white hover:border-white/30 transition-all uppercase tracking-wider"
         >

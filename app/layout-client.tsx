@@ -14,7 +14,7 @@ import GlobalAudioPlayer from '@/components/GlobalAudioPlayer';
 import LiveSpotWidget from '@/components/LiveSpotWidget';
 import MacroTicker from '@/components/MacroTicker'; // 👈 NOUVEAU
 import { LanguageProvider, useLanguage } from '@/lib/contexts/LanguageContext';
-
+import { VisitorBadge, VisitorExpiredOverlay } from '@/components/VisitorGate';
 function LayoutInner({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
@@ -73,6 +73,10 @@ function LayoutInner({
       </TrackingProvider>
 
       <PWAInstallButton lang={lang} />
+
+            {/* ─── Visiteur : badge + overlay d'expiration ─────────────────── */}
+      <VisitorBadge />
+      <VisitorExpiredOverlay />
     </>
   );
 }

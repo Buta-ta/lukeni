@@ -12,6 +12,8 @@ import {
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
+import { Ticket, Loader2 as LoaderIcon } from 'lucide-react'; // 👈 LoaderIcon pour éviter conflit
+
 
 
 type AuthView = 'login' | 'register' | 'forgot' | 'reset';
@@ -137,6 +139,16 @@ function AuthContent() {
 
     const type = searchParams.get('type');
     if (type === 'recovery') setView('reset');
+
+        // Auto-trigger visiteur
+    const mode = searchParams.get('mode');
+    if (mode === 'visitor') {
+      // Petit délai pour laisser le composant se monter
+      setTimeout(() => {
+        const btn = document.querySelector('[data-visitor-btn]') as HTMLButtonElement;
+        if (btn) btn.click();
+      }, 500);
+    }
 
     return () => subscription.unsubscribe();
   }, [searchParams, lang]);
@@ -299,6 +311,40 @@ function AuthContent() {
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+
+    // ─── VISITEUR : Créer un ticket ───────────────────────────────────
+  const [isCreatingTicket, setIsCreatingTicket] = useState(false);
+
+  const handleVisitorTicket = async () => {
+    setError(null);
+    setIsCreatingTicket(true);
+    try {
+      const res = await fetch('/api/visitor/create-ticket', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || (lang === 'fr' ? 'Impossible de créer le ticket.' : 'Unable to create ticket.'));
+        return;
+      }
+      // Connecter avec la session retournée
+      if (data.session) {
+        await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        });
+        setSuccess(lang === 'fr'
+          ? `✅ Ticket ${data.code} créé ! Redirection...`
+          : `✅ Ticket ${data.code} created! Redirecting...`);
+        setTimeout(() => {
+          window.location.href = `/visitor/ticket?code=${data.code}`;
+        }, 800);
+      }
+    } catch {
+      setError(lang === 'fr' ? 'Erreur de connexion.' : 'Connection error.');
+    } finally {
+      setIsCreatingTicket(false);
     }
   };
 
@@ -773,6 +819,37 @@ function AuthContent() {
                 <span className="hidden md:inline">{lang === 'fr' ? 'Continuer avec Google' : 'Continue with Google'}</span>
                 <span className="md:hidden">{lang === 'fr' ? 'Google' : 'Google'}</span>
               </motion.button>
+            </motion.div>
+          )}
+
+                    {/* ─── Visiter sans compte ─────────────────────────────────── */}
+          {(view === 'login' || view === 'register') && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="relative z-10 mt-4 md:mt-6"
+            >
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                                data-visitor-btn
+                onClick={handleVisitorTicket}
+                disabled={isCreatingTicket}
+                className="w-full flex items-center justify-center gap-2 md:gap-3 bg-white/5 border border-[#D4AF37]/20 hover:border-[#D4AF37]/50 hover:bg-[#D4AF37]/10 text-[#D4AF37] py-2.5 md:py-3.5 rounded-lg md:rounded-xl font-bold text-xs md:text-sm uppercase tracking-widest transition-all duration-300 disabled:opacity-50"
+              >
+                {isCreatingTicket ? (
+                  <Loader2 size={14} className="md:w-4 md:h-4 animate-spin" />
+                ) : (
+                  <Ticket size={14} className="md:w-4 md:h-4" />
+                )}
+                <span>{lang === 'fr' ? 'Visiter sans compte' : 'Visit without account'}</span>
+              </motion.button>
+              <p className="text-center text-gray-600 text-[9px] mt-2">
+                {lang === 'fr'
+                  ? 'Accès 2h gratuit, aucune donnée sauvegardée'
+                  : 'Free 2h access, no data saved'}
+              </p>
             </motion.div>
           )}
         </div>

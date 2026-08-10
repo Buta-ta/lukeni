@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
-const PUBLIC_PATHS = ['/', '/auth', '/admin/auth', '/qui-sommes-nous'];
+const PUBLIC_PATHS = ['/', '/auth', '/admin/auth', '/qui-sommes-nous', '/visitor/ticket'];
 const PUBLIC_PREFIXES = ['/auth/', '/_next/', '/favicon.ico', '/manifest.json', '/sw.js', '/icon-', '/screenshot', '/apple-touch-icon'];
 // ✅ FIX SÉCURITÉ: On retire '/api/' qui rendait TOUTES les API publiques
 // On whitelist uniquement les API vraiment publiques
