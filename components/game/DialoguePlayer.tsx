@@ -20,7 +20,9 @@ interface DialogueNodeData {
 
   required_flag?: string | null;
   set_flag?: string | null;
-  audio_url?: string | null;
+  audio_url?: string | null; 
+  audio_url_fr?: string | null;
+audio_url_en?: string | null;
 }
 
 interface DialogueChoiceData {
@@ -244,6 +246,30 @@ export default function DialoguePlayer({
     ? (lang === 'fr' ? currentNode.text_fr : (currentNode.text_en || currentNode.text_fr)) || ''
     : '';
 
+
+    const currentAudioUrl = currentNode
+  ? lang === "fr"
+    ? currentNode.audio_url_fr ||
+      currentNode.audio_url ||
+      null
+    : currentNode.audio_url_en ||
+      currentNode.audio_url_fr ||
+      currentNode.audio_url ||
+      null
+  : null;
+
+const isNpcTurn = currentNode?.speaker_type === "npc";
+
+
+useEffect(() => {
+  setIsSpeaking(Boolean(isNpcTurn && currentAudioUrl));
+}, [
+  currentNodeId,
+  isNpcTurn,
+  currentAudioUrl,
+  lang,
+]);
+
   // ── Effet machine à écrire (uniquement pour les répliques PNJ) ──
   useEffect(() => {
     if (!currentNode) return;
@@ -352,16 +378,7 @@ export default function DialoguePlayer({
     );
   }
 
-  const isNpcTurn = currentNode.speaker_type === 'npc'; 
-
-    // ✅ Lancer l'audio + animation quand un nœud PNJ parle
-  useEffect(() => {
-    if (isNpcTurn && currentNode?.audio_url) {
-      setIsSpeaking(true);
-    } else {
-      setIsSpeaking(false);
-    }
-  }, [currentNodeId, isNpcTurn, currentNode?.audio_url]);
+ 
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
@@ -385,7 +402,7 @@ export default function DialoguePlayer({
               avatarUrl={speaker?.avatar_url}
               name={speaker ? (lang === "fr" ? speaker.name_fr : speaker.name_en || speaker.name_fr) : undefined}
               role={speaker?.role_fr}
-              audioUrl={currentNode?.audio_url}
+              audioUrl={currentAudioUrl}
               isSpeaking={isNpcTurn && isSpeaking}
             />
           ) : (

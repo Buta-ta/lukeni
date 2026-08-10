@@ -23,6 +23,9 @@ export interface DialogueNode {
   required_flag?: string | null;   // ✅ flag requis pour afficher CE nœud
   set_flag?: string | null;        // ✅ flag ajouté quand on passe par ce nœud
   audio_url?: string | null;
+
+  audio_url_fr?: string | null;
+audio_url_en?: string | null;
 }
 
 export interface DialogueChoice {
