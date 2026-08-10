@@ -1551,7 +1551,7 @@ export default function InvestigationGame(props: {
     }
   }, [showIntro, showCharacterSelect, isLoading, session, isSessionLoading, invId, showTutorial]);
 
-  
+
 
 
 
@@ -3349,6 +3349,7 @@ export default function InvestigationGame(props: {
           ambientAudioVolume={(currentScene as any).ambient_audio_volume ?? 0.5}
           visualFilter={currentScene.visual_filter || "none"}
           characters={characters}
+          isDialogueOpen={!!activeDialogueId}
         />
       ) : (
         <div className="absolute inset-0 bg-[#05050A] flex flex-col items-center justify-center">
@@ -4243,7 +4244,7 @@ export default function InvestigationGame(props: {
       </AnimatePresence>
 
 
-      
+
 
       {/* 🟢 TOAST D'ENCOURAGEMENT (PALIERS) 🟢 */}
       <AnimatePresence>

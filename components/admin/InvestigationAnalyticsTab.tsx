@@ -50,7 +50,7 @@ export default function InvestigationAnalyticsTab({ showMsg }: Props) {
     const [isProcessing, setIsProcessing] = useState(false);
 
     // Sous-onglets
-    const [subTab, setSubTab] = useState<"global" | "enigmas" | "wordsearch" | "players">("global");
+    const [subTab, setSubTab] = useState<"global" | "enigmas" | "wordsearch" | "players" | "judgments">("global");
 
     useEffect(() => {
         loadInvestigations();
@@ -99,9 +99,23 @@ export default function InvestigationAnalyticsTab({ showMsg }: Props) {
                     .select("id, title_fr, title_en, words_list_fr")
                     .eq("investigation_id", selectedInvId);
                 setCurrentWordSearches(wsData || []);
+
+                const { data: mgData } = await supabase
+                    .from("investigation_mini_games")
+                    .select("id, title_fr, title_en, type")
+                    .eq("investigation_id", selectedInvId);
+                setCurrentMiniGames(mgData || []);
+
+                const { data: spkData } = await supabase
+                    .from("investigation_dialogue_speakers")
+                    .select("id, name_fr, name_en, avatar_url, role_fr")
+                    .eq("investigation_id", selectedInvId);
+                setCurrentSpeakers(spkData || []);
             } else {
                 setCurrentEnigmas([]);
                 setCurrentWordSearches([]);
+                setCurrentMiniGames([]);
+                setCurrentSpeakers([]);
             }
         } catch (err) {
             console.error(err);
@@ -322,6 +336,7 @@ export default function InvestigationAnalyticsTab({ showMsg }: Props) {
                     { id: "enigmas", label: "Énigmes", disabled: selectedInvId === "all" },
                     { id: "wordsearch", label: "Mots Mêlés", disabled: selectedInvId === "all" },
                     { id: "players", label: "Joueurs & Modération" },
+                    { id: "judgments", label: "⚖️ Jugements", disabled: selectedInvId === "all" },
                 ].map((tab) => (
                     <button
                         key={tab.id}
@@ -400,6 +415,85 @@ export default function InvestigationAnalyticsTab({ showMsg }: Props) {
                             ))}
                         </tbody>
                     </table>
+                </div>
+            )}
+
+            {/* ── CONTENU : JUGEMENTS ── */}
+            {subTab === "judgments" && selectedInvId !== "all" && (
+                <div className="space-y-6">
+                    {/* TOP PERSONNAGES LES PLUS DÉSIGNÉS */}
+                    <div className="bg-black/20 border border-[#D4AF37]/20 rounded-xl p-4">
+                        <h3 className="text-sm font-bold text-[#D4AF37] mb-3">🏆 Personnages les plus désignés comme coupables</h3>
+                        {(() => {
+                            const countMap: Record<string, number> = {};
+                            sessions.forEach((s: any) => {
+                                (s.judgment_results || []).forEach((jr: any) => {
+                                    (jr.selected || []).forEach((id: string) => {
+                                        countMap[id] = (countMap[id] || 0) + 1;
+                                    });
+                                });
+                            });
+                            const sorted = Object.entries(countMap).sort((a, b) => b[1] - a[1]);
+                            if (sorted.length === 0) return <p className="text-gray-500 text-sm">Aucun jugement effectué pour cette enquête.</p>;
+                            return (
+                                <div className="space-y-2">
+                                    {sorted.map(([id, count]) => {
+                                        const spk = currentSpeakers.find((s: any) => s.id === id);
+                                        return (
+                                            <div key={id} className="flex items-center gap-3 bg-white/5 p-2 rounded-lg">
+                                                {spk?.avatar_url ? (
+                                                    <img src={spk.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+                                                ) : (
+                                                    <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-sm">👤</div>
+                                                )}
+                                                <span className="flex-1 text-sm text-white">{spk?.name_fr || "Personnage inconnu"}</span>
+                                                <span className="text-[#D4AF37] font-bold">{count}×</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })()}
+                    </div>
+
+                    {/* JUGEMENTS PAR JOUEUR */}
+                    <div className="overflow-x-auto border border-white/10 rounded-xl">
+                        <table className="w-full text-xs">
+                            <thead className="bg-white/5 text-gray-400 font-mono uppercase">
+                                <tr>
+                                    <th className="p-3 text-left">Joueur</th>
+                                    <th className="p-3 text-center">Personnages désignés</th>
+                                    <th className="p-3 text-center">Résultat</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                                {sessions.filter((s: any) => (s.judgment_results || []).length > 0).map((s: any) => {
+                                    const lastJudgment = (s.judgment_results || [])[s.judgment_results.length - 1];
+                                    const selectedNames = (lastJudgment.selected || [])
+                                        .map((id: string) => currentSpeakers.find((sp: any) => sp.id === id)?.name_fr)
+                                        .filter(Boolean)
+                                        .join(", ") || "—";
+                                    const result = lastJudgment.result;
+                                    return (
+                                        <tr key={s.id} className="hover:bg-white/[0.02]">
+                                            <td className="p-3 max-w-[150px] truncate">{s.profiles?.full_name || "Anonyme"}</td>
+                                            <td className="p-3 text-center max-w-[200px]">{selectedNames}</td>
+                                            <td className="p-3 text-center">
+                                                <span className={`px-2 py-1 rounded-full font-bold ${result === "exact" ? "bg-green-500/20 text-green-400" :
+                                                        result === "partial" ? "bg-yellow-500/20 text-yellow-400" :
+                                                            "bg-red-500/20 text-red-400"}`}>
+                                                    {result === "exact" ? "Exact ✓" : result === "partial" ? "Partiel ⚠" : "Faux ✗"}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {sessions.filter((s: any) => (s.judgment_results || []).length > 0).length === 0 && (
+                                    <tr><td colSpan={3} className="p-3 text-center text-gray-500">Aucun jugement pour cette enquête.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
 

@@ -476,6 +476,7 @@ interface PanoramaViewerProps {
   onSceneChange?: (sceneId: string) => void; // ✅ NOUVEAU
   onSceneTap?: () => void; // ✅ NOUVEAU : tap propre sur la scène (hors hotspot/UI)
   ambientAudioUrl?: string | null;
+  isDialogueOpen?: boolean;   // ✅ baisse l'ambiance pendant un dialogue
   ambientAudioVolume?: number;
   visualFilter?: string;
   isEditorPreview?: boolean;
@@ -615,7 +616,7 @@ function VirtualJoystick({
 export default function PanoramaViewer({
   panoramaUrl, hotspots, evidences, solvedEnigmas, completedWordSearches = [], validatedConditions = [], lang = 'fr',
   onHotspotActivate, onTransition, onSceneChange, onSceneTap,
-  ambientAudioUrl, ambientAudioVolume = 0.5, visualFilter = 'none', isEditorPreview = false, characters = [],
+  ambientAudioUrl, ambientAudioVolume = 0.5, visualFilter = 'none', isEditorPreview = false, characters = [], isDialogueOpen = false,
 }: PanoramaViewerProps) {
 
   const [proximities, setProximities] = useState<Record<string, 'FAR' | 'CLOSE' | 'VERY_CLOSE'>>({});
@@ -699,7 +700,8 @@ export default function PanoramaViewer({
       if (isMuted) {
         audioRef.current.pause(); // ✅ Coupe la lecture si muté
       } else {
-        const finalVolume = ambientAudioVolume * userVolume;
+        const duckFactor = isDialogueOpen ? 0.3 : 1;   // ✅ baisse à 30% pendant dialogue
+        const finalVolume = ambientAudioVolume * userVolume * duckFactor;
         audioRef.current.volume = Math.max(0, Math.min(1, finalVolume));
         // ✅ Reprend la lecture si unmute
         if (audioRef.current.paused && ambientAudioUrl) {
@@ -707,7 +709,7 @@ export default function PanoramaViewer({
         }
       }
     }
-  }, [ambientAudioVolume, userVolume, isMuted, ambientAudioUrl]);
+  }, [ambientAudioVolume, userVolume, isMuted, ambientAudioUrl, isDialogueOpen]);
 
   // ✅ Sauvegarder les préférences du joueur
   useEffect(() => {
@@ -739,7 +741,7 @@ export default function PanoramaViewer({
         });
 
         fadeInInterval = setInterval(() => {
-          const target = ambientAudioVolume * userVolume;
+          const target = ambientAudioVolume * userVolume * (isDialogueOpen ? 0.3 : 1);
           if (audioEl.volume < target - 0.05) {
             audioEl.volume = Math.min(target, audioEl.volume + 0.05);
           } else {
@@ -775,7 +777,7 @@ export default function PanoramaViewer({
         }, 37);
       }
     };
-  }, [panoramaUrl, ambientAudioUrl, ambientAudioVolume, userVolume, isMuted]);
+    }, [panoramaUrl, ambientAudioUrl, ambientAudioVolume, userVolume, isMuted, isDialogueOpen]);
 
   // 🔊 AUDIO DE PROXIMITÉ : gère les audios des hotspots selon la proximité
   const hotspotAudioRefs = useRef<Record<string, HTMLAudioElement>>({});
