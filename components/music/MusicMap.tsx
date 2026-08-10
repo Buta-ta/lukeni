@@ -819,11 +819,11 @@ const Legend = memo(function Legend({ lang, theme }: { lang: "fr" | "en"; theme:
   const items = [
     {
       dot: <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%", background: GOLD_COLOR, boxShadow: "0 0 6px rgba(212,175,55,.5)" }} />,
-      label: lang === "fr" ? "Musique disponible (Afrique)" : "Music available (Africa)",
+      label: lang === "fr" ? "Son disponible (Afrique)" : "Sound available (Africa)",
     },
     {
       dot: <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%", background: "#6478A0", boxShadow: "0 0 6px rgba(100,120,160,.5)" }} />,
-      label: lang === "fr" ? "Musique disponible (Diaspora)" : "Music available (Diaspora)",
+      label: lang === "fr" ? "Son disponible (Diaspora)" : "Sound available (Diaspora)",
     },
     {
       dot: <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#334155", border: "1px solid #475569" }} />,

@@ -13,7 +13,7 @@ import {
   Globe, Volume2, VolumeX, SkipForward,
   ChevronLeft, RefreshCw, Check,
   AlertCircle, Loader2, ArrowRight,
-  CheckCircle, Download, ExternalLink,
+  CheckCircle, Download, ExternalLink, Newspaper, BookOpen
 } from 'lucide-react';
 import ContributeModal from '@/components/ContributeModal';
 import { useAudio } from '@/lib/contexts/AudioContext';
@@ -70,6 +70,8 @@ interface Track {
   allow_download?: boolean;
   is_liked?: boolean;
   music_genres?: { id: string; nom_fr: string; nom_en: string };
+  linked_article_type?: 'press' | 'encyclopedia' | null;
+  linked_article_id?: string | null;
 }
 
 interface CountryMusicData {
@@ -189,8 +191,118 @@ function isYouTubeTrack(track: Track | null): boolean {
 }
 
 // ─── Panneau pays ─────────────────────────────────────────────────────────────
+// ─── Carte résumé article lié ─────────────────────────────────────────────────
 
-// Dans voyage-musical/page.tsx, remplace le CountryPanel existant par :
+const LinkedArticleCard = ({
+  trackId, articleType, articleId, lang,
+}: {
+  trackId: string;
+  articleType: 'press' | 'encyclopedia';
+  articleId: string;
+  lang: 'fr' | 'en';
+}) => {
+  const [article, setArticle] = useState<{
+    title: string; summary: string; image_url: string | null; slug: string | null;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    const table = articleType === 'press' ? 'press_articles' : 'articles';
+    const imgCol = articleType === 'press' ? 'cover_url' : 'image_url';
+    supabase
+      .from(table)
+      .select(`title_fr, title_en, summary_fr, summary_en, ${imgCol}, slug`)
+      .eq('id', articleId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!mounted || !data) { setLoading(false); return; }
+        setArticle({
+          title: lang === 'fr' ? (data.title_fr || data.title_en || '') : (data.title_en || data.title_fr || ''),
+          summary: lang === 'fr' ? (data.summary_fr || data.summary_en || '') : (data.summary_en || data.summary_fr || ''),
+          image_url: data[imgCol] || null,
+          slug: data.slug || null,
+        });
+        setLoading(false);
+      });
+    return () => { mounted = false; };
+  }, [articleType, articleId, lang]);
+
+  if (loading) return (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      exit={{ opacity: 0, height: 0 }}
+      className="mx-1 mb-2"
+    >
+      <div className="flex items-center gap-2 p-3 bg-white/[0.02] rounded-xl border border-white/5">
+        <Loader2 size={12} className="animate-spin text-white/20" />
+        <span className="text-[10px] text-white/20">{lang === 'fr' ? 'Chargement…' : 'Loading…'}</span>
+      </div>
+    </motion.div>
+  );
+
+  if (!article) return null;
+
+  const href = articleType === 'press'
+    ? `/presse?q=${encodeURIComponent(article.title)}`
+    : `/encyclopedie/${article.slug || articleId}`;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: 0.25 }}
+      className="mx-1 mb-2"
+    >
+      <Link href={href}>
+        <div className="flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer group
+          bg-gradient-to-r from-white/[0.02] to-white/[0.04] border-white/5 hover:border-[#D4AF37]/30 hover:from-[#D4AF37]/[0.03]">
+          {/* Image */}
+          {article.image_url ? (
+            <img src={article.image_url} alt=""
+              className="w-12 h-12 rounded-lg object-cover flex-shrink-0 border border-white/10" />
+          ) : (
+            <div className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0 border border-white/10">
+              {articleType === 'press'
+                ? <Newspaper size={16} className="text-blue-400/60" />
+                : <BookOpen size={16} className="text-purple-400/60" />}
+            </div>
+          )}
+
+          {/* Contenu */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider ${articleType === 'press'
+                  ? 'bg-blue-500/15 text-blue-400'
+                  : 'bg-purple-500/15 text-purple-400'
+                }`}>
+                {articleType === 'press' ? '📰 Presse' : '📖 Encyclopédie'}
+              </span>
+              <span className="text-[8px] text-white/20">
+                {lang === 'fr' ? 'Article lié' : 'Linked article'}
+              </span>
+            </div>
+            <p className="text-[11px] font-medium text-white/80 group-hover:text-[#D4AF37] transition-colors line-clamp-1">
+              {article.title}
+            </p>
+            {article.summary && (
+              <p className="text-[9px] text-white/30 leading-relaxed line-clamp-2 mt-0.5">
+                {article.summary}
+              </p>
+            )}
+          </div>
+
+          {/* Flèche */}
+          <ArrowRight size={12} className="text-white/10 group-hover:text-[#D4AF37] mt-3 flex-shrink-0 transition-colors" />
+        </div>
+      </Link>
+    </motion.div>
+  );
+};
+
+// ─── Panneau pays ─────────────────────────────────────────────────────────────
 
 const CountryPanel = ({
   countryCode, tracks, lang, onClose,
@@ -244,7 +356,7 @@ const CountryPanel = ({
       <div className="flex items-start justify-between p-6 border-b border-white/8 flex-shrink-0">
         <div>
           <p className="text-white/30 text-[9px] font-black uppercase tracking-[0.3em] mb-1">
-            {lang === 'fr' ? 'Voyage Musical' : 'Musical Journey'}
+            {lang === 'fr' ? 'Voyage culturel' : 'Cultural journey'}
           </p>
           <h2 className="text-2xl font-serif italic text-white">{countryName}</h2>
           <p className="text-white/40 text-xs mt-1">
@@ -321,125 +433,141 @@ const CountryPanel = ({
               const isYT = isYouTubeTrack(track);
               const genreColor = GOLD;
               return (
-                <motion.div
-                  key={track.id}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.04 }}
-                  className={`w-full flex items-center gap-3 p-3 rounded-2xl border transition-all ${isCurrentTrack
-                    ? 'bg-[#D4AF37]/10 border-[#D4AF37]/30'
-                    : 'bg-white/[0.02] border-white/5 hover:border-white/15 hover:bg-white/[0.04]'
-                    }`}
-                >
-                  {/* Cover / Play */}
-                  <div
-                    className="relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-white/5 cursor-pointer group"
-                    onClick={() => onPlayTrack(track)}
+                <React.Fragment key={track.id}>
+                  <motion.div
+                    key={`card-${track.id}`}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.04 }}
+                    className={`w-full flex items-center gap-3 p-3 rounded-2xl border transition-all ${isCurrentTrack
+                      ? 'bg-[#D4AF37]/10 border-[#D4AF37]/30'
+                      : 'bg-white/[0.02] border-white/5 hover:border-white/15 hover:bg-white/[0.04]'
+                      }`}
                   >
-                    {track.cover_url ? (
-                      <img src={track.cover_url} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center" style={{ background: `${genreColor}20` }}>
-                        {isYT ? (
-                          <svg viewBox="0 0 24 24" className="w-4 h-4" style={{ color: '#FF0000' }} fill="currentColor">
-                            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                          </svg>
+                    {/* Cover / Play */}
+                    <div
+                      className="relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-white/5 cursor-pointer group"
+                      onClick={() => onPlayTrack(track)}
+                    >
+                      {track.cover_url ? (
+                        <img src={track.cover_url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center" style={{ background: `${genreColor}20` }}>
+                          {isYT ? (
+                            <svg viewBox="0 0 24 24" className="w-4 h-4" style={{ color: '#FF0000' }} fill="currentColor">
+                              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                            </svg>
+                          ) : (
+                            <Music size={16} style={{ color: genreColor }} />
+                          )}
+                        </div>
+                      )}
+                      <div className={`absolute inset-0 flex items-center justify-center bg-black/50 transition-opacity ${isCurrentTrack && isPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                        }`}>
+                        {isCurrentTrack && isPlaying && !isYT ? (
+                          <span className="flex items-end gap-0.5 h-5">
+                            {[...Array(4)].map((_, j) => (
+                              <motion.span key={j} className="w-0.5 rounded-full" style={{ backgroundColor: genreColor }}
+                                animate={{ height: ['4px', '14px', '4px'] }}
+                                transition={{ duration: 0.6, delay: j * 0.12, repeat: Infinity }} />
+                            ))}
+                          </span>
                         ) : (
-                          <Music size={16} style={{ color: genreColor }} />
+                          <Play size={14} className="text-white ml-0.5" fill="white" />
                         )}
                       </div>
-                    )}
-                    <div className={`absolute inset-0 flex items-center justify-center bg-black/50 transition-opacity ${isCurrentTrack && isPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                      }`}>
-                      {isCurrentTrack && isPlaying && !isYT ? (
-                        <span className="flex items-end gap-0.5 h-5">
-                          {[...Array(4)].map((_, j) => (
-                            <motion.span key={j} className="w-0.5 rounded-full" style={{ backgroundColor: genreColor }}
-                              animate={{ height: ['4px', '14px', '4px'] }}
-                              transition={{ duration: 0.6, delay: j * 0.12, repeat: Infinity }} />
-                          ))}
-                        </span>
-                      ) : (
-                        <Play size={14} className="text-white ml-0.5" fill="white" />
-                      )}
                     </div>
-                  </div>
 
-                  {/* Infos */}
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium truncate transition-colors ${isCurrentTrack ? 'text-[#D4AF37]' : 'text-white group-hover:text-[#D4AF37]'}`}>
-                      {lang === 'fr' ? track.title_fr : track.title_en}
-                    </p>
-                    <p className="text-white/40 text-xs truncate">{artistLabel(track)}</p>
-                    {track.submitter_display_name && (
-                      <p className="text-[8px] text-white/20 mt-0.5">
-                        {lang === 'fr' ? 'Soumis par' : 'Submitted by'} @{track.submitter_display_name}
+                    {/* Infos */}
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium truncate transition-colors ${isCurrentTrack ? 'text-[#D4AF37]' : 'text-white group-hover:text-[#D4AF37]'}`}>
+                        {lang === 'fr' ? track.title_fr : track.title_en}
                       </p>
-                    )}
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      {track.era_decade && <span className="text-[8px] text-white/25 font-mono">{track.era_decade}s</span>}
-                      {track.city && (
-                        <span className="flex items-center gap-0.5 text-[8px] text-white/25">
-                          <MapPin size={7} />{track.city}
-                        </span>
+                      <p className="text-white/40 text-xs truncate">{artistLabel(track)}</p>
+                      {track.submitter_display_name && (
+                        <p className="text-[8px] text-white/20 mt-0.5">
+                          {lang === 'fr' ? 'Soumis par' : 'Submitted by'} @{track.submitter_display_name}
+                        </p>
                       )}
-                      {isYT && (
-                        <span className="flex items-center gap-0.5 text-[8px] text-red-400/60">
-                          <svg viewBox="0 0 24 24" className="w-2 h-2" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" /></svg>
-                          YouTube
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        {track.era_decade && <span className="text-[8px] text-white/25 font-mono">{track.era_decade}s</span>}
+                        {track.city && (
+                          <span className="flex items-center gap-0.5 text-[8px] text-white/25">
+                            <MapPin size={7} />{track.city}
+                          </span>
+                        )}
+                        {isYT && (
+                          <span className="flex items-center gap-0.5 text-[8px] text-red-400/60">
+                            <svg viewBox="0 0 24 24" className="w-2 h-2" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" /></svg>
+                            YouTube
+                          </span>
+                        )}
 
-                      {/* ✅ STATS : Likes + Plays */}
-                      <div className="flex items-center gap-2">
-                        {/* Likes */}
-                        <div
-                          onClick={(e) => { e.stopPropagation(); onToggleLike(track.id); }}
-                          className={`flex items-center gap-0.5 text-[8px] transition-colors cursor-pointer ${isLiked ? 'text-red-400' : 'text-white/20 hover:text-red-400'
-                            }`}
-                        >
-                          <Heart size={8} fill={isLiked ? 'currentColor' : 'none'} />
-                          {track.likes_count ?? 0}
+                        {/* ✅ STATS : Likes + Plays */}
+                        <div className="flex items-center gap-2">
+                          {/* Likes */}
+                          <div
+                            onClick={(e) => { e.stopPropagation(); onToggleLike(track.id); }}
+                            className={`flex items-center gap-0.5 text-[8px] transition-colors cursor-pointer ${isLiked ? 'text-red-400' : 'text-white/20 hover:text-red-400'
+                              }`}
+                          >
+                            <Heart size={8} fill={isLiked ? 'currentColor' : 'none'} />
+                            {track.likes_count ?? 0}
+                          </div>
+
+                          {/* Plays */}
+                          <div className="flex items-center gap-0.5 text-[8px] text-white/20">
+                            <Headphones size={8} />
+                            {track.play_count ?? 0}
+                          </div>
                         </div>
 
-                        {/* Plays */}
-                        <div className="flex items-center gap-0.5 text-[8px] text-white/20">
-                          <Headphones size={8} />
-                          {track.play_count ?? 0}
-                        </div>
+
+                        {/* Download — SEULEMENT si allow_download = true */}
+                        {!isYT && track.audio_url && track.allow_download === true && (
+                          <a
+                            href={track.audio_url}
+                            download
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center gap-0.5 text-[8px] text-white/20 hover:text-green-400 transition-colors"
+                            title={lang === 'fr' ? 'Télécharger' : 'Download'}
+                          >
+                            <Download size={8} />
+                            {lang === 'fr' ? 'DL' : 'DL'}
+                          </a>
+                        )}
+
+                        {/* Download button in AudioPlayer */}
+
+
                       </div>
-
-
-                      {/* Download — SEULEMENT si allow_download = true */}
-                      {!isYT && track.audio_url && track.allow_download === true && (
-                        <a
-                          href={track.audio_url}
-                          download
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex items-center gap-0.5 text-[8px] text-white/20 hover:text-green-400 transition-colors"
-                          title={lang === 'fr' ? 'Télécharger' : 'Download'}
-                        >
-                          <Download size={8} />
-                          {lang === 'fr' ? 'DL' : 'DL'}
-                        </a>
-                      )}
-
-                      {/* Download button in AudioPlayer */}
-
-
                     </div>
-                  </div>
 
-                  {/* Genre badge */}
-                  {track.music_genres && (
-                    <span className="text-[8px] font-black uppercase px-2 py-1 rounded-full flex-shrink-0"
-                      style={{ color: genreColor, backgroundColor: `${genreColor}20` }}>
-                      {lang === 'fr' ? track.music_genres.nom_fr : track.music_genres.nom_en}
-                    </span>
-                  )}
-                </motion.div>
+                    {/* Genre badge */}
+                    {track.music_genres && (
+                      <span className="text-[8px] font-black uppercase px-2 py-1 rounded-full flex-shrink-0"
+                        style={{ color: genreColor, backgroundColor: `${genreColor}20` }}>
+                        {lang === 'fr' ? track.music_genres.nom_fr : track.music_genres.nom_en}
+                      </span>
+                    )}
+                  </motion.div>
+
+                  {/* Carte article lié (visible uniquement pour le morceau en lecture) */}
+                  <AnimatePresence>
+                    {isCurrentTrack && isPlaying && track.linked_article_id && track.linked_article_type && (
+                      <LinkedArticleCard
+                        key={`article-${track.id}`}
+                        trackId={track.id}
+                        articleType={track.linked_article_type}
+                        articleId={track.linked_article_id}
+                        lang={lang}
+                      />
+                    )}
+                  </AnimatePresence>
+                </React.Fragment>
+
               );
             })}
 
@@ -560,7 +688,7 @@ const YouTubePlayer = ({
 // ─── Page principale ──────────────────────────────────────────────────────────
 
 export default function VoyageMusicalPage() {
-   const { lang, setLang, toggleLang } = useLanguage();
+  const { lang, setLang, toggleLang } = useLanguage();
   // ✅ Appliquer l'attribut data-landing-page au HTML
   useEffect(() => {
     document.documentElement.setAttribute('data-landing-page', 'true');
@@ -862,7 +990,7 @@ export default function VoyageMusicalPage() {
     } else {
       // Si on lance un MP3, on ferme la vidéo YouTube locale
       setCurrentYTTrack(null);
-            playGlobalTrack(track as any, countryTracks as any);
+      playGlobalTrack(track as any, countryTracks as any);
     }
   }, [countryTracks, playGlobalTrack, closeGlobalPlayer, currentYTTrack, trackPlayCount]);
 
@@ -912,7 +1040,7 @@ export default function VoyageMusicalPage() {
               <Headphones size={18} className="text-purple-400" />
             </motion.div>
             <span className="font-serif italic text-white text-base hidden sm:block">
-              {lang === 'fr' ? 'Voyage Musical' : 'Musical Journey'}
+              {lang === 'fr' ? 'Voyage culturel' : 'Cultural journey'}
             </span>
           </div>
         </div>

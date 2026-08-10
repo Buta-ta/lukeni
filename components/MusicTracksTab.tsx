@@ -12,6 +12,7 @@ import { supabase } from "@/lib/supabase";
 import { autoTranslate, autoCorrect } from "@/lib/lingua";
 import GeoSearch from "@/components/admin/shared/GeoSearch";
 import DeleteModal from "@/components/admin/shared/DeleteModal";
+import ArticleLinkSearch from "@/components/admin/shared/ArticleLinkSearch";
 import type { GeoResult } from "@/lib/geocoding";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -271,6 +272,10 @@ export default function MusicTracksTab({
   const [descEn,      setDescEn]      = useState("");
   const [allowDownload, setAllowDownload] = useState(false);
 
+    // Article lié
+  const [linkedArticleType, setLinkedArticleType] = useState<"press" | "encyclopedia" | null>(null);
+  const [linkedArticleId, setLinkedArticleId] = useState<string | null>(null);
+
   // Géo
   const [countryCode,   setCountryCode]   = useState("");
   const [countryNameFr, setCountryNameFr] = useState("");
@@ -416,6 +421,8 @@ export default function MusicTracksTab({
     setCountryCode(""); setCountryNameFr(""); setCountryNameEn("");
     setCityName(""); setGeoLat(""); setGeoLng("");
     setAllowDownload(false);
+    setLinkedArticleType(null);
+    setLinkedArticleId(null);
   }, []);
 
   // ── Édition ────────────────────────────────────────────────────────────────
@@ -462,6 +469,8 @@ export default function MusicTracksTab({
     setGeoLat(t.lat != null ? String(t.lat) : "");
     setGeoLng(t.lng != null ? String(t.lng) : "");
     setAllowDownload(t.allow_download ?? false);
+    setLinkedArticleType((t as any).linked_article_type ?? null);
+    setLinkedArticleId((t as any).linked_article_id ?? null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
@@ -634,6 +643,8 @@ export default function MusicTracksTab({
       lat:              finalLat,
       lng:              finalLng,
       allow_download:   audioSource === "upload" ? allowDownload : false,
+      linked_article_type: linkedArticleType,
+      linked_article_id:   linkedArticleId,
     };
 
     try {
@@ -1341,6 +1352,13 @@ export default function MusicTracksTab({
         {genreId && (
           <GenreConnectionsPanel genreId={genreId} genres={genres} />
         )}
+
+        {/* Article lié */}
+        <ArticleLinkSearch
+          linkedType={linkedArticleType}
+          linkedId={linkedArticleId}
+          onChange={(type, id) => { setLinkedArticleType(type); setLinkedArticleId(id); }}
+        />
 
         {/* Bouton save */}
         <div className="flex items-center justify-between pt-4 border-t border-white/5">
