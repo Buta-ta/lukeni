@@ -36,6 +36,8 @@ export default function InvestigationAnalyticsTab({ showMsg }: Props) {
     const [sessions, setSessions] = useState<any[]>([]);
     const [currentEnigmas, setCurrentEnigmas] = useState<any[]>([]);
     const [currentWordSearches, setCurrentWordSearches] = useState<any[]>([]);
+    const [currentMiniGames, setCurrentMiniGames] = useState<any[]>([]);
+    const [currentSpeakers, setCurrentSpeakers] = useState<any[]>([]);
 
     // Modération
     const [searchQuery, setSearchQuery] = useState("");

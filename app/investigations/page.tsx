@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { User as UserIcon } from "lucide-react";
 import PaywallModal from "@/components/PaywallModal";
+import FeedbackWidget from "@/components/FeedbackWidget";
 
 
 // --- LOGO LUKENI (CAURIS DORÉ) ---
@@ -281,7 +282,7 @@ export default function InvestigationsHub() {
   }, [userId]);
 
 
-    // ✅ Charger le défi du jour
+  // ✅ Charger le défi du jour
   useEffect(() => {
     const today = new Date().toISOString().slice(0, 10);
     supabase
@@ -727,7 +728,7 @@ export default function InvestigationsHub() {
       </nav>
 
 
-            {/* 🌟 DÉFI DU JOUR */}
+      {/* 🌟 DÉFI DU JOUR */}
       {dailyChallenge && (
         <section className="max-w-6xl mx-auto px-4 mt-6 relative z-10 w-full">
           <div className="bg-gradient-to-r from-[#D4AF37]/10 to-transparent border border-[#D4AF37]/40 rounded-2xl p-4 flex items-center gap-4">
@@ -1167,6 +1168,9 @@ export default function InvestigationsHub() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* 💬 Widget Feedback */}
+      <FeedbackWidget lang={lang} defaultSpace="investigations" />
     </div>
 
 

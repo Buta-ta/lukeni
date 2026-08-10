@@ -52,6 +52,7 @@ import AnnouncementsTab from "@/components/admin/AnnouncementsTab";
 import FeedbackTab from "@/components/admin/FeedbackTab";
 
 import LiveSpotsTab from '@/components/admin/LiveSpotsTab'; // 👈 AJOUT
+import DailyChallengeTab from "@/components/admin/DailyChallengeTab";
 
 import AwaleSoundsTab from "@/components/admin/AwaleSoundsTab";
 
@@ -89,6 +90,7 @@ type TabType =
   | "macro"
   | "announcements"
   | "live_spots"
+  | "daily_challenge"
   | "awale_sounds";
 
 const ALL_TABS: { id: TabType; label: string; icon: LucideIcon }[] = [
@@ -123,6 +125,7 @@ const ALL_TABS: { id: TabType; label: string; icon: LucideIcon }[] = [
   { id: "live_spots", label: "Live Spots 📊", icon: Activity },
   { id: "awale_sounds", label: "Sons Awalé 🔊", icon: Music },
   { id: "admins", label: "Admins 👑", icon: ShieldCheck },
+  { id: "daily_challenge", label: "Défi du jour 🌟", icon: Star },
   { id: "about", label: "À Propos 📖", icon: BookOpen },
 ];
 
@@ -274,12 +277,14 @@ export default function AdminDashboard() {
       case "reading_circles": return <ReadingCirclesAdminTab showMsg={showMsg} />;
       case "investigations": return <InvestigationsTab showMsg={showMsg} />;
       case "investigation_board": return <InvestigationBoardAdminTab showMsg={showMsg} />;
+      case "daily_challenge": return <DailyChallengeTab showMsg={showMsg} />;
       case "visitors": return <VisitorsTab showMsg={showMsg} />;
       case "investigation_analytics": return <InvestigationAnalyticsTab showMsg={showMsg} />;
       case "payments": return <PaymentManagementTab showMsg={showMsg} />;
       case "live_spots": return <LiveSpotsTab showMsg={showMsg} />;
       case "awale_sounds": return <AwaleSoundsTab showMsg={showMsg} />;
-      case "admins": return <AdminsTab showMsg={showMsg} />;
+      case "admins": return <AdminsTab showMsg={showMsg} />; 
+
       default: return null;
     }
   }
