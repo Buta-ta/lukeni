@@ -5,34 +5,69 @@ import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/supabase";
 
 /**
- * Dossiers généraux autorisés.
- * Ces valeurs doivent correspondre exactement
- * aux valeurs envoyées par les widgets Cloudinary.
+ * Tous les dossiers Cloudinary utilisés par l'application.
+ *
+ * Attention :
+ * cette whitelist ne protège que les uploads qui passent
+ * par /api/cloudinary-sign avec uploadSignature.
+ *
+ * Les uploads utilisant uploadPreset en mode unsigned
+ * contournent cette route.
  */
 const ALLOWED_FOLDERS = new Set([
+  // Dossiers généraux
   "avatars",
   "articles",
   "books",
-  "investigations",
   "press",
   "library",
-]);
 
-/**
- * Dossiers audio des dialogues bilingues.
- *
- * On accepte les deux formats afin d'éviter les erreurs
- * si le frontend utilise ou non le préfixe "lukeni/".
- */
-const ALLOWED_DIALOGUE_FOLDERS = new Set([
-  "dialogue-audio",
-  "dialogue-audio/fr",
-  "dialogue-audio/en",
+  // Articles et contenus audio
+  "articles/audio",
+
+  // Investigations
+  "lukeni/investigation_board",
+  "lukeni/investigations",
+  "lukeni/investigations/intro",
+  "lukeni/investigations/minigames",
+  "lukeni/investigations/minigames/documents",
+
+  // Personnages et dialogues
+  "lukeni/characters",
+  "lukeni/dialogue-speakers",
   "lukeni/dialogue-audio",
   "lukeni/dialogue-audio/fr",
   "lukeni/dialogue-audio/en",
+
+  // Format recommandé pour les nouveaux audios bilingues
+  "dialogue-audio",
+  "dialogue-audio/fr",
+  "dialogue-audio/en",
+
+  // Tableau d'enquête
+  "lukeni/board-nodes",
+
+  // Bibliothèque
+  "lukeni/library",
+  "lukeni/library/collage",
+  "lukeni/library/teaser",
+  "lukeni/library/submissions",
+
+  // Panoramas et scènes
+  "lukeni/hotspot-icons",
+  "lukeni/scene-media",
+  "lukeni/scenes",
+  "lukeni/intros",
+  "lukeni/judgments",
+  "lukeni/hotspot-audio",
+
+  // Rangs
+  "lukeni/ranks",
 ]);
 
+/**
+ * Paramètres que Cloudinary a le droit de faire signer.
+ */
 const ALLOWED_PARAMS = new Set([
   "timestamp",
   "folder",
@@ -40,17 +75,6 @@ const ALLOWED_PARAMS = new Set([
   "eager",
   "upload_preset",
 ]);
-
-function isAllowedFolder(folder: unknown): folder is string {
-  if (typeof folder !== "string") {
-    return false;
-  }
-
-  return (
-    ALLOWED_FOLDERS.has(folder) ||
-    ALLOWED_DIALOGUE_FOLDERS.has(folder)
-  );
-}
 
 export async function POST(request: Request) {
   try {
@@ -77,35 +101,49 @@ export async function POST(request: Request) {
 
     if (!user) {
       return NextResponse.json(
-        { error: "Non authentifié" },
-        { status: 401 }
+        {
+          error: "Non authentifié",
+        },
+        {
+          status: 401,
+        }
       );
     }
 
     /*
-     * 2. Vérifier la configuration Supabase serveur
+     * 2. Vérifier le client Supabase serveur
      */
     if (!supabaseAdmin) {
       return NextResponse.json(
-        { error: "Configuration Supabase serveur manquante" },
-        { status: 500 }
+        {
+          error: "Configuration Supabase serveur manquante",
+        },
+        {
+          status: 500,
+        }
       );
     }
 
     /*
-     * 3. Vérifier le rôle du compte
+     * 3. Vérifier le profil et le rôle
      */
-    const { data: profile, error: profileError } =
-      await supabaseAdmin
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
+    const {
+      data: profile,
+      error: profileError,
+    } = await supabaseAdmin
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
 
     if (profileError || !profile) {
       return NextResponse.json(
-        { error: "Profil utilisateur introuvable" },
-        { status: 403 }
+        {
+          error: "Profil utilisateur introuvable",
+        },
+        {
+          status: 403,
+        }
       );
     }
 
@@ -114,7 +152,7 @@ export async function POST(request: Request) {
       profile.role === "superadmin";
 
     /*
-     * 4. Lire les paramètres Cloudinary
+     * 4. Lire le corps JSON
      */
     let body: unknown;
 
@@ -122,8 +160,12 @@ export async function POST(request: Request) {
       body = await request.json();
     } catch {
       return NextResponse.json(
-        { error: "Corps de requête JSON invalide" },
-        { status: 400 }
+        {
+          error: "Corps de requête JSON invalide",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
@@ -131,7 +173,9 @@ export async function POST(request: Request) {
       typeof body === "object" &&
       body !== null &&
       "paramsToSign" in body
-        ? (body as { paramsToSign?: unknown }).paramsToSign
+        ? (body as {
+            paramsToSign?: unknown;
+          }).paramsToSign
         : undefined;
 
     if (
@@ -140,14 +184,18 @@ export async function POST(request: Request) {
       Array.isArray(paramsToSign)
     ) {
       return NextResponse.json(
-        { error: "paramsToSign manquant ou invalide" },
-        { status: 400 }
+        {
+          error: "paramsToSign manquant ou invalide",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
     /*
-     * Copie locale pour éviter de modifier directement
-     * l'objet reçu dans la requête.
+     * Copie locale des paramètres.
+     * On ne modifie pas directement l'objet reçu.
      */
     const params = {
       ...(paramsToSign as Record<string, unknown>),
@@ -164,8 +212,12 @@ export async function POST(request: Request) {
       Math.abs(nowInSeconds - timestamp) > 300
     ) {
       return NextResponse.json(
-        { error: "Timestamp invalide ou expiré" },
-        { status: 400 }
+        {
+          error: "Timestamp invalide ou expiré",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
@@ -178,7 +230,9 @@ export async function POST(request: Request) {
           {
             error: `Paramètre Cloudinary non autorisé: ${key}`,
           },
-          { status: 400 }
+          {
+            status: 400,
+          }
         );
       }
     }
@@ -188,26 +242,36 @@ export async function POST(request: Request) {
      */
     let folder = params.folder;
 
+    /*
+     * Si aucun dossier n'est fourni,
+     * on applique un dossier par défaut.
+     */
     if (!folder) {
       folder = isPrivileged ? "articles" : "avatars";
       params.folder = folder;
     }
 
-    if (!isAllowedFolder(folder)) {
+    if (
+      typeof folder !== "string" ||
+      !ALLOWED_FOLDERS.has(folder)
+    ) {
       return NextResponse.json(
         {
           error: `Dossier Cloudinary non autorisé: ${String(folder)}`,
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
     /*
-     * 8. Les comptes non privilégiés ne peuvent utiliser
-     * que le dossier avatars.
+     * 8. Les utilisateurs non privilégiés
+     * peuvent uniquement uploader dans avatars.
      *
-     * Les dialogues audio sont réservés aux admins
-     * et superadmins.
+     * Les dialogues audio, les articles,
+     * les investigations et les médias admin
+     * sont réservés aux admins et superadmins.
      */
     if (!isPrivileged && folder !== "avatars") {
       return NextResponse.json(
@@ -215,7 +279,9 @@ export async function POST(request: Request) {
           error:
             "Droits insuffisants pour ce dossier Cloudinary",
         },
-        { status: 403 }
+        {
+          status: 403,
+        }
       );
     }
 
@@ -235,31 +301,41 @@ export async function POST(request: Request) {
           error:
             "Clé secrète Cloudinary manquante côté serveur",
         },
-        { status: 500 }
+        {
+          status: 500,
+        }
       );
     }
 
     /*
-     * 10. Construire la signature Cloudinary
+     * 10. Construire la chaîne à signer
      */
     const sortedParams = Object.keys(params)
       .sort()
       .map((key) => `${key}=${params[key]}`)
       .join("&");
 
-    const stringToSign = `${sortedParams}${apiSecret}`;
+    const stringToSign =
+      `${sortedParams}${apiSecret}`;
 
+    /*
+     * 11. Générer la signature Cloudinary
+     */
     const signature = crypto
       .createHash("sha1")
       .update(stringToSign)
       .digest("hex");
 
     console.log(
-      `[CLOUDINARY] Signature générée pour ${user.id} ` +
-      `(role=${profile.role}, folder=${folder})`
+      `[CLOUDINARY] Signature générée - ` +
+      `user=${user.id} ` +
+      `role=${profile.role} ` +
+      `folder=${folder}`
     );
 
-    return NextResponse.json({ signature });
+    return NextResponse.json({
+      signature,
+    });
   } catch (error) {
     console.error(
       "Erreur interne de signature Cloudinary:",
@@ -267,8 +343,13 @@ export async function POST(request: Request) {
     );
 
     return NextResponse.json(
-      { error: "Erreur interne de signature Cloudinary" },
-      { status: 500 }
+      {
+        error:
+          "Erreur interne de signature Cloudinary",
+      },
+      {
+        status: 500,
+      }
     );
   }
 }
