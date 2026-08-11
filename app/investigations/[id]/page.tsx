@@ -3308,7 +3308,12 @@ export default function InvestigationGame(props: {
         <PanoramaViewer
           panoramaUrl={currentScene.panorama_url}
           hotspots={
-            activeUI || showAbortMenu || activeDialogueId || activeMiniGame
+            activeUI ||
+              showAbortMenu ||
+              activeDialogueId ||
+              activeMiniGame ||
+              showTutorial ||
+              isSavingSession
               ? []
               : hotspots
                 .filter((h) => h.id !== activeHotspot?.id)
