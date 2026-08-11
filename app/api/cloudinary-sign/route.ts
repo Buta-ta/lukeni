@@ -74,6 +74,7 @@ const ALLOWED_PARAMS = new Set([
   "public_id",
   "eager",
   "upload_preset",
+  "source",
 ]);
 
 export async function POST(request: Request) {

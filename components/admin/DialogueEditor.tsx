@@ -165,28 +165,116 @@ export default function DialogueEditor({ investigationId, dialogueSpeakers, evid
         language: "fr" | "en"
     ) => {
         const field: "audio_url_fr" | "audio_url_en" =
-            language === "fr" ? "audio_url_fr" : "audio_url_en";
+            language === "fr"
+                ? "audio_url_fr"
+                : "audio_url_en";
+
+        const folder = `dialogue-audio/${language}`;
 
         const createWidget = () => {
             // @ts-ignore
             const widget = window.cloudinary.createUploadWidget(
                 {
-                    cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-                    uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET,
+                    /*
+                     * Ces deux valeurs viennent de Vercel
+                     */
+                    cloudName:
+                        process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+
+                    apiKey:
+                        process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
+
+                    /*
+                     * uploadSignature n'est PAS une variable Vercel.
+                     * C'est une fonction appelée par Cloudinary.
+                     */
+                    uploadSignature: async (
+                        callback: (signature: string) => void,
+                        paramsToSign: Record<string, unknown>
+                    ) => {
+                        try {
+                            const response = await fetch(
+                                "/api/cloudinary-sign",
+                                {
+                                    method: "POST",
+                                    headers: {
+                                        "Content-Type": "application/json",
+                                    },
+                                    body: JSON.stringify({
+                                        paramsToSign,
+                                    }),
+                                }
+                            );
+
+                            const result = await response.json();
+
+                            if (!response.ok || !result.signature) {
+                                console.error(
+                                    "Erreur API /api/cloudinary-sign:",
+                                    response.status,
+                                    result
+                                );
+
+                                showMsg(
+                                    "error",
+                                    result.error ||
+                                    "Erreur lors de la signature Cloudinary"
+                                );
+
+                                return;
+                            }
+
+                            /*
+                             * Retourner la signature à Cloudinary
+                             */
+                            callback(result.signature);
+                        } catch (error) {
+                            console.error(
+                                "Erreur réseau de signature Cloudinary:",
+                                error
+                            );
+
+                            showMsg(
+                                "error",
+                                "Impossible de contacter le serveur Cloudinary"
+                            );
+                        }
+                    },
+
                     sources: ["local", "url"],
+
+                    /*
+                     * Cloudinary utilise "video" pour les fichiers audio
+                     */
                     resourceType: "video",
-                    folder: `lukeni/dialogue-audio/${language}`,
+
+                    /*
+                     * Ce dossier doit être présent dans
+                     * app/api/cloudinary-sign/route.ts
+                     */
+                    folder,
                 },
+
                 (error: any, result: any) => {
                     if (error) {
-                        console.error("Erreur upload audio dialogue :", error);
-                        showMsg("error", "Erreur lors de l'upload audio");
+                        console.error(
+                            "Erreur upload audio dialogue:",
+                            error
+                        );
+
+                        showMsg(
+                            "error",
+                            "Erreur lors de l'upload audio"
+                        );
+
                         return;
                     }
 
                     if (result?.event === "success") {
+                        const audioUrl = result.info.secure_url;
+
                         updateNodeLocal(dialogueId, nodeId, {
-                            [field]: result.info.secure_url,
+                            [field]: audioUrl,
                         });
 
                         showMsg(

@@ -720,17 +720,27 @@ export default function PanoramaHotspotEditor({
   // ✅ Charger les boards ET leurs connexions
   const [boardsWithConnectionsState, setBoardsWithConnectionsState] = useState<any[]>([]);
 
-  useEffect(() => {
-    if (!investigationId) return;
-    supabase
-      .from('investigation_deduction_boards')
-      .select('*')
-      .eq('investigation_id', investigationId)
-      .then(({ data }) => {
-        // Chaque board a déjà ses connexions dans le champ 'connections'
-        setBoardsWithConnectionsState(data || []);
-      });
-  }, [investigationId]);
+useEffect(() => {
+  if (!chapterId) return;
+
+  supabase
+    .from("investigation_deduction_boards")
+    .select("*")
+    .eq("chapter_id", chapterId)
+    .then(({ data, error }) => {
+      if (error) {
+        console.error(
+          "Erreur chargement deduction board:",
+          error
+        );
+
+        setBoardsWithConnectionsState([]);
+        return;
+      }
+
+      setBoardsWithConnectionsState(data || []);
+    });
+}, [chapterId]);
 
 
   // ✅ Charger les mini-jeux

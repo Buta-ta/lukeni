@@ -773,17 +773,53 @@ export default function InvestigationsTab({
         {
           cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
           apiKey: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
-          uploadSignature: async (callback: any, paramsToSign: any) => {
+          uploadSignature: async (
+            callback: (signature: string) => void,
+            paramsToSign: Record<string, unknown>
+          ) => {
             try {
               const res = await fetch("/api/cloudinary-sign", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ paramsToSign }),
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  paramsToSign,
+                }),
               });
-              const { signature } = await res.json();
-              callback(signature);
-            } catch (err) {
-              console.error("Erreur de signature", err);
+
+              const body = await res.json();
+
+              if (!res.ok || !body.signature) {
+                console.error(
+                  "Erreur détaillée Cloudinary:",
+                  {
+                    status: res.status,
+                    body,
+                    paramsToSign,
+                  }
+                );
+
+                showMsg(
+                  "error",
+                  body.error ||
+                  "Erreur lors de la signature Cloudinary"
+                );
+
+                return;
+              }
+
+              callback(body.signature);
+            } catch (error) {
+              console.error(
+                "Erreur réseau Cloudinary:",
+                error
+              );
+
+              showMsg(
+                "error",
+                "Impossible de contacter le serveur Cloudinary"
+              );
             }
           },
           sources: ["local", "url", "camera", "image_search"],
