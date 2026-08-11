@@ -2751,22 +2751,55 @@ export default function InvestigationGame(props: {
 
 
   const [notebookLocal, setNotebookLocal] = useState("");
+  const notebookHydratedSessionRef = useRef<string | null>(null);
+  const notesOpen = activeUI === "mission" && missionTab === "notes";
 
-  // Sauvegarde automatique du carnet (debounce ~800ms)
+  // Charger la note une seule fois à l'ouverture de l'onglet ou au changement
+  // de session. Les mises à jour ordinaires de session ne doivent pas écraser
+  // le texte local pendant que l'enquêteur écrit.
   useEffect(() => {
-    if (missionTab !== "notes") return;
-    const t = setTimeout(() => {
-      if (saveNotebook) saveNotebook(notebookLocal);
-    }, 800);
-    return () => clearTimeout(t);
-  }, [notebookLocal, missionTab, saveNotebook]);
-
-  // Charger le carnet existant quand le panneau s'ouvre
-  useEffect(() => {
-    if (activeUI === "mission" && missionTab === "notes") {
-      setNotebookLocal((session as any)?.notebook || "");
+    if (!notesOpen || !session?.id) {
+      notebookHydratedSessionRef.current = null;
+      return;
     }
-  }, [activeUI, missionTab, session]);
+
+    if (notebookHydratedSessionRef.current === session.id) {
+      return;
+    }
+
+    notebookHydratedSessionRef.current = session.id;
+    const notebookFromSession = session.notebook || "";
+    const timeoutId = window.setTimeout(() => {
+      setNotebookLocal(notebookFromSession);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [notesOpen, session?.id, session?.notebook]);
+
+  // Sauvegarde automatique différée. La valeur affichée reste locale et la
+  // requête Supabase se fait uniquement en arrière-plan.
+  useEffect(() => {
+    if (
+      !notesOpen ||
+      !session?.id ||
+      notebookLocal === (session.notebook || "")
+    ) {
+      return;
+    }
+
+    const textToSave = notebookLocal;
+    const timer = setTimeout(() => {
+      void saveNotebook(textToSave);
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [
+    notesOpen,
+    notebookLocal,
+    session?.id,
+    session?.notebook,
+    saveNotebook,
+  ]);
 
 
   // Le hook sélectionne déjà la configuration ciblée sur la scène actuelle,
@@ -4385,7 +4418,7 @@ export default function InvestigationGame(props: {
                 </div>
 
                 <textarea
-                  value={(session as any)?.notebook || ""}
+                  value={notebookLocal}
                   onChange={(e) => setNotebookLocal(e.target.value)}
                   placeholder={lang === "fr" ? "Écrivez vos hypothèses, suspects, indices à retenir..." : "Write your hypotheses, suspects, clues to remember..."}
                   className="w-full min-h-[160px] bg-[#1a1a1a] border border-[#D4AF37]/20 rounded-xl px-4 py-3 text-sm text-white leading-relaxed font-serif resize-none outline-none focus:border-[#D4AF37]/50"

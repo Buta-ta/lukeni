@@ -692,19 +692,34 @@ export function useInvestigationSession(
 
   const saveNotebook = useCallback(
     async (text: string) => {
-      if (!session) return;
+      const sessionId = session?.id;
+      const userId = user?.id;
+
+      if (!sessionId || !userId) return;
+
       try {
+        // La sauvegarde reste faite avec le client Supabase authentifié.
+        // Les deux filtres empêchent toute mise à jour d'une autre session,
+        // en complément des politiques RLS de la table.
         const { error: err } = await supabase
           .from('investigation_sessions')
           .update({ notebook: text })
-          .eq('id', session.id);
+          .eq('id', sessionId)
+          .eq('user_id', userId);
+
         if (err) throw err;
-        setSession(prev => prev ? serializeSession({ ...prev, notebook: text }) : null);
+
+        // Ne pas réinjecter une réponse ancienne dans une nouvelle session.
+        setSession(prev =>
+          prev && prev.id === sessionId
+            ? serializeSession({ ...prev, notebook: text })
+            : prev
+        );
       } catch (err: any) {
         console.error('Save notebook error:', err);
       }
     },
-    [session]
+    [session?.id, user?.id]
   );
 
 
