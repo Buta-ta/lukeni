@@ -45,6 +45,7 @@ export interface InvestigationSession {
   completed_word_searches?: string[];
   word_search_progress?: Record<string, string[]>;
   revealed_hotspot_ids?: string[];
+  visited_hotspot_ids?: string[];
   completed_mini_games?: string[];
   current_mini_game_id?: string | null;
   mini_game_progress?: Record<string, any>;
@@ -91,6 +92,7 @@ const serializeSession = (data: any): InvestigationSession | null => {
     current_timer_seconds: typeof data.current_timer_seconds === 'number' || data.current_timer_seconds === null ? data.current_timer_seconds : null,
     completed_word_searches: Array.isArray(data.completed_word_searches) ? data.completed_word_searches : [],
     revealed_hotspot_ids: Array.isArray(data.revealed_hotspot_ids) ? data.revealed_hotspot_ids : [],
+    visited_hotspot_ids: Array.isArray(data.visited_hotspot_ids) ? data.visited_hotspot_ids : [],
     word_search_progress: (data.word_search_progress && typeof data.word_search_progress === "object") ? data.word_search_progress : {},
     completed_mini_games: Array.isArray(data.completed_mini_games) ? data.completed_mini_games : [],
     completed_dialogues: Array.isArray(data.completed_dialogues) ? data.completed_dialogues : [],
@@ -173,6 +175,7 @@ export function useInvestigationSession(
               completed_word_searches: [],
               word_search_progress: {},
               revealed_hotspot_ids: [],
+              visited_hotspot_ids: [],
               completed_mini_games: [],
               current_mini_game_id: null,
               mini_game_progress: {},
@@ -649,6 +652,7 @@ export function useInvestigationSession(
         completed_word_searches: [],
         word_search_progress: {},
         revealed_hotspot_ids: [],
+        visited_hotspot_ids: [],
         completed_mini_games: [],
         current_mini_game_id: null,
         mini_game_progress: {},
@@ -658,7 +662,8 @@ export function useInvestigationSession(
       const { error: err } = await supabase
         .from('investigation_sessions')
         .update(resetPayload)
-        .eq('id', session.id);
+        .eq('id', session.id)
+        .eq('user_id', session.user_id);
 
       if (err) throw err;
 

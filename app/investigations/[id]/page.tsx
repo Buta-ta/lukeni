@@ -417,6 +417,7 @@ export default function InvestigationGame(props: {
   const [wrongEnigmaIds, setWrongEnigmaIds] = useState<string[]>([]); // Pour l'alerte visuelle
 
   const [revealedHotspotIds, setRevealedHotspotIds] = useState<string[]>([]);
+  const [visitedHotspotIds, setVisitedHotspotIds] = useState<string[]>([]);
 
   const [activeUI, setActiveUI] = useState<
     | "story"
@@ -1438,6 +1439,12 @@ export default function InvestigationGame(props: {
       setRevealedHotspotIds((session as any).revealed_hotspot_ids);
     }
 
+    // ✅ Charger les hotspots déjà ouverts
+    const visitedHotspots = (session as any)?.visited_hotspot_ids;
+    setVisitedHotspotIds(
+      Array.isArray(visitedHotspots) ? visitedHotspots : [],
+    );
+
     // ✅ Charger la progression des mots mêlés
     if ((session as any)?.word_search_progress) {
       setWordSearchProgress((session as any).word_search_progress || {});
@@ -2004,6 +2011,7 @@ export default function InvestigationGame(props: {
     setActiveEnigmaId(null);
     setWrongEnigmaIds([]);
     setRevealedHotspotIds([]);
+    setVisitedHotspotIds([]);
     setWordSearchProgress({});
     setWordSearchAttempts({});
 
@@ -2243,6 +2251,39 @@ export default function InvestigationGame(props: {
         console.log("🔓 Pas de condition - Hotspot toujours accessible");
       }
 
+      // ✅ Mémoriser l'ouverture du hotspot après validation de sa condition.
+      // Un hotspot verrouillé n'est donc pas marqué comme visité.
+      const sessionVisitedHotspots = Array.isArray(
+        (session as any)?.visited_hotspot_ids,
+      )
+        ? (session as any).visited_hotspot_ids
+        : [];
+      const newVisitedHotspots = Array.from(
+        new Set([
+          ...visitedHotspotIds,
+          ...sessionVisitedHotspots,
+          hotspot.id,
+        ]),
+      );
+
+      if (newVisitedHotspots.length !== visitedHotspotIds.length) {
+        setVisitedHotspotIds(newVisitedHotspots);
+
+        if (session?.id && user?.id) {
+          const { error: visitedHotspotError } = await supabase
+            .from("investigation_sessions")
+            .update({ visited_hotspot_ids: newVisitedHotspots })
+            .eq("id", session.id)
+            .eq("user_id", user.id);
+
+          if (visitedHotspotError) {
+            console.error(
+              "Erreur sauvegarde hotspots visités:",
+              visitedHotspotError,
+            );
+          }
+        }
+      }
 
       // ✅ JUGEMENT : si le hotspot doit déclencher le jugement de la scène
       if (hotspot.trigger_judgment && hotspot.condition && session) {
@@ -2448,6 +2489,7 @@ export default function InvestigationGame(props: {
       outroConfig,
       lang,
       revealedHotspotIds,
+      visitedHotspotIds,
       session,
       allDialogues,
     ],
@@ -2919,7 +2961,10 @@ export default function InvestigationGame(props: {
             type: 'dialogue',
             icon: '💬',
             name: lang === "fr" ? h.label_fr : h.label_en,
-            completed: false, // TODO: Tracker les dialogues faits dans la session
+            completed:
+              session?.completed_dialogues?.includes(
+                `dialogue_${h.dialogue_id}_completed`,
+              ) || false,
             action: () => {
               setDialogueNodes(dlg.nodes || []);
               setActiveDialogueId(h.dialogue_id);
@@ -3340,6 +3385,7 @@ export default function InvestigationGame(props: {
             // On les passe tels quels — DialoguePlayer écrit maintenant ce format
             ...((session as any)?.completed_dialogues || []),
           ]}
+          visitedHotspotIds={visitedHotspotIds}
           lang={lang}
           onHotspotActivate={handleHotspotActivate}
           onSceneTap={handleSceneTap}

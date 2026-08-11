@@ -305,8 +305,17 @@ function calculateHotspotProximity(cameraRotation: { x: number; y: number }, hot
 
 // ── Hotspot 3D ──
 function HotspotMarker({
-  hotspot, onActivate, solvedEnigmas, completedWordSearches, validatedConditions, lang, characters, proximityState, isTransitioning, scannerActive
-
+  hotspot,
+  onActivate,
+  solvedEnigmas,
+  completedWordSearches,
+  validatedConditions,
+  visitedHotspotIds = [],
+  lang,
+  characters,
+  proximityState,
+  isTransitioning,
+  scannerActive,
 }: any) {
   const { position } = flatToSpherical(hotspot.x_percent, hotspot.y_percent);
   const [hovered, setHovered] = useState(false);
@@ -315,6 +324,7 @@ function HotspotMarker({
   const isLocked = hotspot.condition
     ? !validatedConditions.includes(hotspot.condition)
     : false;
+  const isVisited = visitedHotspotIds.includes(hotspot.id);
   const isTransition = hotspot.type === 'transition';
 
 
@@ -325,11 +335,15 @@ function HotspotMarker({
   const isScanner = discoverMode === "scanner";
   // Révélé si : visible, OU proximité proche, OU scanner actif
   const isRevealed =
+    isVisited ||
     discoverMode === "none" ||
     (isProximity && proximityState === "VERY_CLOSE") ||
     (isScanner && scannerActive);
-  // hidden = non révélé et pas un halo de proximité
-  const effectivelyInvisible = !isRevealed && !(isProximity && proximityState === "CLOSE");
+  // Un hotspot déjà ouvert reste identifiable même s'il était caché avant.
+  const effectivelyInvisible =
+    !isVisited &&
+    !isRevealed &&
+    !(isProximity && proximityState === "CLOSE");
   // pour "hidden" et "proximity" non proche → quasi invisible
   const showMarker = isRevealed || isProximity; // proximité montre un léger halo même loin
   const state = isTransition ? (proximityState || 'FAR') : null;
@@ -366,7 +380,7 @@ function HotspotMarker({
         ) : (
           /* ── VISIBLE : rendu normal ── */
           <div data-hotspot-marker="true"
-            className={`relative w-20 h-20 rounded-full flex items-center justify-center cursor-pointer transition-all duration-300 ${isTransitioning ? 'pointer-events-none opacity-0 scale-50' : 'opacity-70 hover:opacity-100 scale-100 hover:scale-110'}`}
+            className={`relative w-20 h-20 rounded-full flex items-center justify-center cursor-pointer transition-all duration-300 ${isTransitioning ? 'pointer-events-none opacity-0 scale-50' : isVisited ? 'opacity-40 grayscale scale-100 hover:opacity-70' : 'opacity-70 hover:opacity-100 scale-100 hover:scale-110'}`}
             onClick={() => !isLocked && !isTransitioning && onActivate(hotspot)}
           >
             <div
@@ -410,23 +424,23 @@ function HotspotMarker({
       ) : (
         /* ── VISIBLE : rendu normal ── */
         <div data-hotspot-marker="true"
-          className={`relative select-none ${isTransitioning ? 'pointer-events-none opacity-0' : 'cursor-pointer transition-opacity duration-300'}`}
+          className={`relative select-none ${isTransitioning ? 'pointer-events-none opacity-0' : isVisited ? 'cursor-pointer opacity-60 grayscale transition-opacity duration-300' : 'cursor-pointer transition-opacity duration-300'}`}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
           onClick={() => !isLocked && !isTransitioning && onActivate(hotspot)}
         >
           <div
-            className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-200 overflow-hidden ${state === 'VERY_CLOSE' ? 'scale-150 opacity-100' :
+            className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all duration-200 overflow-hidden ${isVisited ? 'scale-100 opacity-60' : state === 'VERY_CLOSE' ? 'scale-150 opacity-100' :
               state === 'CLOSE' ? 'scale-125 opacity-75 animate-pulse' :
                 state === 'FAR' ? 'scale-100 opacity-40' :
                   isLocked ? 'opacity-50 grayscale' : 'hover:scale-125'
               }`}
             style={{
-              backgroundColor: activeColor + '33',
-              borderColor: isLocked ? '#6b7280' : activeColor,
-              boxShadow: hovered && !isLocked ? `0 0 20px ${activeColor}66` :
-                state === 'VERY_CLOSE' ? `0 0 30px ${activeColor}99` :
-                  state === 'CLOSE' ? `0 0 15px ${activeColor}66` : 'none',
+              backgroundColor: isVisited ? '#6b728033' : activeColor + '33',
+              borderColor: isVisited ? '#6b7280' : isLocked ? '#6b7280' : activeColor,
+              boxShadow: !isVisited && hovered && !isLocked ? `0 0 20px ${activeColor}66` :
+                !isVisited && state === 'VERY_CLOSE' ? `0 0 30px ${activeColor}99` :
+                  !isVisited && state === 'CLOSE' ? `0 0 15px ${activeColor}66` : 'none',
             }}
           >
             {characterAvatar && !isLocked ? (
@@ -438,7 +452,16 @@ function HotspotMarker({
             )}
           </div>
 
-          {!isLocked && <div className="absolute inset-0 rounded-full opacity-30 animate-ping" style={{ backgroundColor: activeColor }} />}
+          {isVisited && (
+            <span
+              className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-gray-500 text-white text-[10px] font-black flex items-center justify-center border border-black"
+              title={lang === 'fr' ? 'Hotspot déjà ouvert' : 'Hotspot already opened'}
+            >
+              ✓
+            </span>
+          )}
+
+          {!isLocked && !isVisited && <div className="absolute inset-0 rounded-full opacity-30 animate-ping" style={{ backgroundColor: activeColor }} />}
 
           <AnimatePresence>
             {state === 'VERY_CLOSE' && isTransition && !isTransitioning && (
@@ -470,6 +493,7 @@ interface PanoramaViewerProps {
   solvedEnigmas: string[];
   completedWordSearches?: string[];
   validatedConditions?: string[];
+  visitedHotspotIds?: string[];
   lang?: 'fr' | 'en';
   onHotspotActivate: (hotspot: Hotspot, evidence?: any) => void;
   onTransition?: (chapterId: string) => void;
@@ -614,7 +638,14 @@ function VirtualJoystick({
 }
 
 export default function PanoramaViewer({
-  panoramaUrl, hotspots, evidences, solvedEnigmas, completedWordSearches = [], validatedConditions = [], lang = 'fr',
+  panoramaUrl,
+  hotspots,
+  evidences,
+  solvedEnigmas,
+  completedWordSearches = [],
+  validatedConditions = [],
+  visitedHotspotIds = [],
+  lang = 'fr',
   onHotspotActivate, onTransition, onSceneChange, onSceneTap,
   ambientAudioUrl, ambientAudioVolume = 0.5, visualFilter = 'none', isEditorPreview = false, characters = [], isDialogueOpen = false,
 }: PanoramaViewerProps) {
@@ -1048,6 +1079,7 @@ export default function PanoramaViewer({
                 solvedEnigmas={solvedEnigmas}
                 completedWordSearches={completedWordSearches || []}
                 validatedConditions={validatedConditions}
+                visitedHotspotIds={visitedHotspotIds}
                 lang={lang}
                 characters={characters}
                 proximityState={proximities[hotspot.id]}
