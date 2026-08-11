@@ -33,6 +33,7 @@ export interface TimelineSlot {
 export interface Timeline {
   id: string;
   chapter_id: string;
+  scene_id?: string | null;
   title_fr: string;
   title_en: string;
   slots: TimelineSlot[];
@@ -61,6 +62,7 @@ export interface BoardConnection {
 export interface DeductionBoard {
   id: string;
   chapter_id: string;
+  scene_id?: string | null;
   title_fr: string;
   title_en: string;
   nodes: BoardNode[];
@@ -77,6 +79,7 @@ export interface DeductionNotification {
 // ── HOOK PRINCIPAL ─────────────────────────────────────────
 export function useDeduction(
   chapterId: string | null,
+  sceneId: string | null,
   sessionId: string | null,
   collectedEvidences: string[],
   lang: "fr" | "en",
@@ -94,44 +97,87 @@ export function useDeduction(
   // Récompenses débloquées (pour que page.tsx puisse réagir)
   const [pendingRewards, setPendingRewards] = useState<Reward[]>([]);
 
-  // ── Charger timeline + board + déductions validées ──
+  // ── Charger la configuration de la scène + déductions validées ──
   useEffect(() => {
+    let cancelled = false;
+
     if (!chapterId || !sessionId) return;
 
     const load = async () => {
       setIsLoading(true);
+      setTimeline(null);
+      setBoard(null);
 
-      // Timeline
-      const { data: tl } = await supabase
-        .from("investigation_timelines")
-        .select("*")
-        .eq("chapter_id", chapterId)
-        .maybeSingle();
-      setTimeline(tl || null);
+      const [timelineResult, boardResult, sessionResult] = await Promise.all([
+        supabase
+          .from("investigation_timelines")
+          .select("*")
+          .eq("chapter_id", chapterId),
+        supabase
+          .from("investigation_deduction_boards")
+          .select("*")
+          .eq("chapter_id", chapterId),
+        supabase
+          .from("investigation_sessions")
+          .select("validated_deductions")
+          .eq("id", sessionId)
+          .single(),
+      ]);
 
-      // Board
-      const { data: bd } = await supabase
-        .from("investigation_deduction_boards")
-        .select("*")
-        .eq("chapter_id", chapterId)
-        .maybeSingle();
-      setBoard(bd || null);
+      if (cancelled) return;
 
-      // Déductions déjà validées dans la session
-      const { data: sess } = await supabase
-        .from("investigation_sessions")
-        .select("validated_deductions")
-        .eq("id", sessionId)
-        .single();
-      if (sess?.validated_deductions) {
-        setValidatedDeductions(sess.validated_deductions);
+      if (timelineResult.error) {
+        console.error(
+          "Erreur chargement des timelines de déduction:",
+          timelineResult.error,
+        );
+      }
+      if (boardResult.error) {
+        console.error(
+          "Erreur chargement des tableaux de déduction:",
+          boardResult.error,
+        );
       }
 
+      // Une configuration ciblée sur la scène est prioritaire. À défaut,
+      // on utilise la configuration globale du chapitre (scene_id = null).
+      const selectForScene = <T extends { scene_id?: string | null }>(
+        rows: T[] | null,
+      ): T | null => {
+        return (
+          rows?.find((row) => row.scene_id === sceneId) ||
+          rows?.find((row) => !row.scene_id) ||
+          null
+        );
+      };
+
+      setTimeline(
+        selectForScene<Timeline>(
+          timelineResult.data as Timeline[] | null,
+        ),
+      );
+      setBoard(
+        selectForScene<DeductionBoard>(
+          boardResult.data as DeductionBoard[] | null,
+        ),
+      );
+
+      if (sessionResult.error) {
+        console.error(
+          "Erreur chargement des déductions validées:",
+          sessionResult.error,
+        );
+      }
+      setValidatedDeductions(sessionResult.data?.validated_deductions || []);
       setIsLoading(false);
     };
 
     load();
-  }, [chapterId, sessionId]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chapterId, sceneId, sessionId]);
 
   // ── Ajouter une notification ──
   const pushNotification = useCallback(

@@ -440,10 +440,6 @@ export default function InvestigationGame(props: {
   const [activeDialogueId, setActiveDialogueId] = useState<string | null>(null);
   const [dialogueNodes, setDialogueNodes] = useState<any[]>([]);
 
-  const [chapterTimeline, setChapterTimeline] = useState<any | null>(null);
-  const [chapterBoard, setChapterBoard] = useState<any | null>(null);
-
-
   // ✅ Vérifier si deux preuves sont liées (même énigme, scène ou chapitre)
   const checkEvidencesLinked = (ev1: any, ev2: any, chaps: any[]): boolean => {
     // Chercher dans quelle(s) énigme(s) ces preuves apparaissent
@@ -794,6 +790,7 @@ export default function InvestigationGame(props: {
     refreshDeductions,
   } = useDeduction(
     currentChapter?.id || null,
+    currentScene?.id || null,
     session?.id || null,
     session?.collected_evidences || [],
     lang,
@@ -1190,27 +1187,6 @@ export default function InvestigationGame(props: {
           .order("step_order", { ascending: true });
 
 
-        // ✅ NOUVEAU : Charger timeline et board du chapitre actuel
-        let chapterTimelineData: any = null;
-        let chapterBoardData: any = null;
-
-        if (chaps && chaps.length > 0) {
-          const firstChapterId = chaps[0].id;
-
-          const { data: tlData } = await supabase
-            .from("investigation_timelines")
-            .select("*")
-            .eq("chapter_id", firstChapterId)
-            .maybeSingle();
-          chapterTimelineData = tlData;
-
-          const { data: bdData } = await supabase
-            .from("investigation_deduction_boards")
-            .select("*")
-            .eq("chapter_id", firstChapterId)
-            .maybeSingle();
-          chapterBoardData = bdData;
-        }
         if (chaps) {
           setChapters(
             chaps.map((c) => ({
@@ -1335,12 +1311,6 @@ export default function InvestigationGame(props: {
           .eq("investigation_id", invId)
           .maybeSingle();
         if (introCfg) setGameIntroConfig(introCfg);
-        // ✅ Stocker timeline et board pour le bouton Déduction
-        setChapterTimeline(chapterTimelineData);
-        setChapterBoard(chapterBoardData);
-
-
-
         // ✅ Vérifier l'accès payant
         const { data: pricing } = await supabase
           .from('product_pricing')
@@ -2773,8 +2743,7 @@ export default function InvestigationGame(props: {
       if (ws.scene_id && ws.scene_id !== currentScene?.id) return false;
       return true;
     }) || null;
-
-
+  const hasCurrentWordSearch = !!currentWordSearch;
 
   const [showTaskReport, setShowTaskReport] = useState(false);
 
@@ -2800,27 +2769,44 @@ export default function InvestigationGame(props: {
   }, [activeUI, missionTab, session]);
 
 
-  const shouldShowDeductionButton = (() => {
-    // Si chapterTimeline ou chapterBoard sont null, les recharger à la demande
-    // (mais on va les obtenir des states qui existent déjà)
+  // Le hook sélectionne déjà la configuration ciblée sur la scène actuelle,
+  // avec repli sur une configuration globale du chapitre.
+  const shouldShowDeductionButton =
+    !isDeductionLoading && !!currentScene && (!!timeline || !!board);
 
-    const hasTimeline = !!chapterTimeline;
-    const hasBoard = !!chapterBoard;
+  // Fermer automatiquement un panneau devenu indisponible après un changement
+  // de scène, afin qu'il ne reste pas ouvert sans bouton correspondant.
+  useEffect(() => {
+    const featureIsAvailable =
+      (activeUI === "enigmas" && allChapterEnigmas.length > 0) ||
+      (activeUI === "wordsearch" && hasCurrentWordSearch) ||
+      (activeUI === "deduction" && shouldShowDeductionButton);
 
-    if (!hasTimeline && !hasBoard) {
-      return false;
+    if (
+      (activeUI === "enigmas" ||
+        activeUI === "wordsearch" ||
+        activeUI === "deduction") &&
+      !featureIsAvailable
+    ) {
+      const timeoutId = window.setTimeout(() => {
+        if (activeUI === "enigmas") {
+          setEnigmaTimerActive(false);
+          setActiveEnigmaId(null);
+          setEnigmaTimerSeconds(null);
+        }
+        setActiveUI(null);
+      }, 0);
+
+      return () => window.clearTimeout(timeoutId);
     }
 
-    if (chapterTimeline?.scene_id && chapterTimeline.scene_id !== currentScene?.id) {
-      return false;
-    }
-
-    if (chapterBoard?.scene_id && chapterBoard.scene_id !== currentScene?.id) {
-      return false;
-    }
-
-    return true;
-  })();
+    return undefined;
+  }, [
+    activeUI,
+    allChapterEnigmas.length,
+    hasCurrentWordSearch,
+    shouldShowDeductionButton,
+  ]);
 
   // ── CALCUL DES TÂCHES DE LA SCÈNE (Rapport d'Investigation) ──
   const sceneTasks = useMemo(() => {
@@ -3034,24 +3020,6 @@ export default function InvestigationGame(props: {
     }
   }, [outroConfig, lang]);
 
-
-  const reloadDeductionConfig = async () => {
-    if (!currentChapter?.id) return;
-
-    const { data: tlData } = await supabase
-      .from("investigation_timelines")
-      .select("*")
-      .eq("chapter_id", currentChapter.id)
-      .maybeSingle();
-    setChapterTimeline(tlData);
-
-    const { data: bdData } = await supabase
-      .from("investigation_deduction_boards")
-      .select("*")
-      .eq("chapter_id", currentChapter.id)
-      .maybeSingle();
-    setChapterBoard(bdData);
-  };
 
   if (!isMounted) return null;
   if (!invId)
@@ -3278,7 +3246,9 @@ export default function InvestigationGame(props: {
   const validatedDeductionCount =
     (session as any)?.validated_deductions?.length || 0;
   const hasDeductionNotif =
-    totalDeductionItems > 0 && validatedDeductionCount < totalDeductionItems;
+    shouldShowDeductionButton &&
+    totalDeductionItems > 0 &&
+    validatedDeductionCount < totalDeductionItems;
   const hasCockpitNotification =
     hasUnreadMemory ||
     !allSolved ||
@@ -3632,34 +3602,38 @@ export default function InvestigationGame(props: {
                 })()}
               </button>
 
-              <div className="w-px h-6 bg-white/20" />
-              <button
-                onClick={() => {
-                  if (activeUI === "enigmas") {
-                    setActiveUI(null);
-                    setEnigmaTimerActive(false); // ✅ Pause en fermant
-                  } else {
-                    setActiveUI("enigmas");
-                    // ✅ Redémarrer le timer s'il était en pause
-                    if (
-                      enigmaTimerSeconds !== null &&
-                      enigmaTimerSeconds > 0 &&
-                      !enigmaTimerActive
-                    ) {
-                      setEnigmaTimerActive(true);
-                    }
-                  }
-                }}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors relative ${activeUI === "enigmas" ? "bg-[#D4AF37] text-black" : "hover:bg-white/10 text-gray-300"}`}
-              >
-                <Target size={18} />
-                <span className="hidden md:block font-mono text-xs font-bold tracking-widest">
-                  {lang === "fr" ? "ÉNIGMES" : "ENIGMAS"}
-                </span>
-                {!allSolved && (
-                  <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
-                )}
-              </button>
+              {allChapterEnigmas.length > 0 && (
+                <>
+                  <div className="w-px h-6 bg-white/20" />
+                  <button
+                    onClick={() => {
+                      if (activeUI === "enigmas") {
+                        setActiveUI(null);
+                        setEnigmaTimerActive(false); // ✅ Pause en fermant
+                      } else {
+                        setActiveUI("enigmas");
+                        // ✅ Redémarrer le timer s'il était en pause
+                        if (
+                          enigmaTimerSeconds !== null &&
+                          enigmaTimerSeconds > 0 &&
+                          !enigmaTimerActive
+                        ) {
+                          setEnigmaTimerActive(true);
+                        }
+                      }
+                    }}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors relative ${activeUI === "enigmas" ? "bg-[#D4AF37] text-black" : "hover:bg-white/10 text-gray-300"}`}
+                  >
+                    <Target size={18} />
+                    <span className="hidden md:block font-mono text-xs font-bold tracking-widest">
+                      {lang === "fr" ? "ÉNIGMES" : "ENIGMAS"}
+                    </span>
+                    {!allSolved && (
+                      <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
+                    )}
+                  </button>
+                </>
+              )}
               <div className="w-px h-6 bg-white/20" />
               <button
                 onClick={() =>
@@ -3678,7 +3652,7 @@ export default function InvestigationGame(props: {
                 )}
               </button>
 
-              {/* Bouton Déduction — visible si timeline ou board existe */}
+              {/* Bouton Déduction — configuration de la scène actuelle uniquement */}
               {shouldShowDeductionButton && (
                 <>
                   <div className="w-px h-6 bg-white/20" />
@@ -3713,34 +3687,38 @@ export default function InvestigationGame(props: {
                 </>
               )}
 
-              <div className="w-px h-6 bg-white/20" />
-              <button
-                onClick={() =>
-                  setActiveUI(activeUI === "wordsearch" ? null : "wordsearch")
-                }
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors relative ${activeUI === "wordsearch"
-                  ? "bg-pink-600 text-white"
-                  : "hover:bg-white/10 text-gray-300"
-                  }`}
-              >
-                <span className="text-lg">🧩</span>
-                <span className="hidden md:block font-mono text-xs font-bold tracking-widest">
-                  {lang === "fr" ? "MOTS MÊLÉS" : "WORD SEARCH"}
-                </span>
-                {/* ✅ BADGE DE NOTIFICATION SI MOTS MÊLÉS DISPONIBLES */}
-                {currentWordSearch && activeUI !== "wordsearch" && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="absolute -top-2 -right-2 w-3.5 h-3.5 bg-pink-500 rounded-full animate-pulse shadow-[0_0_12px_rgba(236,72,153,0.8)]"
-                    title={
-                      lang === "fr"
-                        ? "Un mots mêlés vous attend !"
-                        : "A word search awaits you!"
+              {currentWordSearch && (
+                <>
+                  <div className="w-px h-6 bg-white/20" />
+                  <button
+                    onClick={() =>
+                      setActiveUI(activeUI === "wordsearch" ? null : "wordsearch")
                     }
-                  />
-                )}
-              </button>
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-full transition-colors relative ${activeUI === "wordsearch"
+                      ? "bg-pink-600 text-white"
+                      : "hover:bg-white/10 text-gray-300"
+                      }`}
+                  >
+                    <span className="text-lg">🧩</span>
+                    <span className="hidden md:block font-mono text-xs font-bold tracking-widest">
+                      {lang === "fr" ? "MOTS MÊLÉS" : "WORD SEARCH"}
+                    </span>
+                    {/* ✅ BADGE DE NOTIFICATION SI MOTS MÊLÉS DISPONIBLES */}
+                    {activeUI !== "wordsearch" && (
+                      <motion.span
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="absolute -top-2 -right-2 w-3.5 h-3.5 bg-pink-500 rounded-full animate-pulse shadow-[0_0_12px_rgba(236,72,153,0.8)]"
+                        title={
+                          lang === "fr"
+                            ? "Un mots mêlés vous attend !"
+                            : "A word search awaits you!"
+                        }
+                      />
+                    )}
+                  </button>
+                </>
+              )}
 
               {/* Mini-Jeux disponibles (Filtrage Contextuel) */}
               {(() => {
@@ -4483,7 +4461,7 @@ export default function InvestigationGame(props: {
           </motion.div>
         )}
 
-        {activeUI === "enigmas" && (
+        {activeUI === "enigmas" && allChapterEnigmas.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 100 }}
             animate={{ opacity: 1, y: 0 }}
@@ -5764,7 +5742,7 @@ export default function InvestigationGame(props: {
           </motion.div>
         )}
 
-        {activeUI === "deduction" && (
+        {activeUI === "deduction" && shouldShowDeductionButton && (
           <DeductionPanel
             timeline={timeline}
             board={board}
