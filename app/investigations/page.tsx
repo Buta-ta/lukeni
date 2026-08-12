@@ -406,8 +406,20 @@ export default function InvestigationsHub() {
         }
       }
 
-      // ✅ DÉCLARER invIds AVANT LE Promise.all
-      const invRes = await supabase.from("investigations").select("*").order("created_at", { ascending: false });
+      // Les utilisateurs ne voient que les enquêtes publiées.
+      // Un admin authentifié peut aussi charger les brouillons et les enquêtes en pause
+      // afin de les tester depuis le parcours utilisateur.
+      const canPreviewUnpublished =
+        profileData?.role === "admin" || profileData?.role === "superadmin";
+      let investigationsQuery = supabase
+        .from("investigations")
+        .select("*");
+
+      if (!canPreviewUnpublished) {
+        investigationsQuery = investigationsQuery.eq("status", "published");
+      }
+
+      const invRes = await investigationsQuery.order("created_at", { ascending: false });
       const invIds = invRes.data?.map((i: any) => i.id) || [];
 
       const [boardRes, trialConfigRes, trialRes] = await Promise.all([
@@ -903,6 +915,11 @@ export default function InvestigationsHub() {
               <div key={inv.id} className="group relative bg-[#1E1C1A] border border-white/5 hover:border-[#D4AF37]/50 transition-all duration-300 flex flex-col shadow-xl rounded-b-md rounded-tr-md">
                 <div className="absolute -top-[18px] left-[-1px] bg-[#1E1C1A] border-t border-l border-r border-white/5 px-4 py-0.5 rounded-t-md text-[9px] font-mono text-gray-500 group-hover:border-[#D4AF37]/50 group-hover:text-[#D4AF37] transition-colors flex items-center gap-2">
                   ID: {inv.id.slice(0, 6).toUpperCase()}
+                  {(userProfile?.role === "admin" || userProfile?.role === "superadmin") && inv.status !== "published" && (
+                    <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${inv.status === "paused" ? "bg-orange-500/20 text-orange-400" : "bg-yellow-500/20 text-yellow-400"}`}>
+                      {inv.status === "paused" ? "⏸️ EN PAUSE" : "📝 BROUILLON"}
+                    </span>
+                  )}
                   {hasFullAccess && (
                     <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-[8px] font-bold flex items-center gap-1">
                       <ShieldCheck size={8} /> {lang === "fr" ? "PREMIUM" : "PREMIUM"}

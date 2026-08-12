@@ -773,53 +773,17 @@ export default function InvestigationsTab({
         {
           cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
           apiKey: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
-          uploadSignature: async (
-            callback: (signature: string) => void,
-            paramsToSign: Record<string, unknown>
-          ) => {
+          uploadSignature: async (callback: any, paramsToSign: any) => {
             try {
               const res = await fetch("/api/cloudinary-sign", {
                 method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  paramsToSign,
-                }),
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ paramsToSign }),
               });
-
-              const body = await res.json();
-
-              if (!res.ok || !body.signature) {
-                console.error(
-                  "Erreur détaillée Cloudinary:",
-                  {
-                    status: res.status,
-                    body,
-                    paramsToSign,
-                  }
-                );
-
-                showMsg(
-                  "error",
-                  body.error ||
-                  "Erreur lors de la signature Cloudinary"
-                );
-
-                return;
-              }
-
-              callback(body.signature);
-            } catch (error) {
-              console.error(
-                "Erreur réseau Cloudinary:",
-                error
-              );
-
-              showMsg(
-                "error",
-                "Impossible de contacter le serveur Cloudinary"
-              );
+              const { signature } = await res.json();
+              callback(signature);
+            } catch (err) {
+              console.error("Erreur de signature", err);
             }
           },
           sources: ["local", "url", "camera", "image_search"],
@@ -1423,6 +1387,7 @@ export default function InvestigationsTab({
                   className="w-full bg-[#1a1a1a] border border-white/10 rounded px-3 py-2 text-sm text-white outline-none focus:border-red-500"
                 >
                   <option value="draft">📝 Brouillon</option>
+                  <option value="paused">⏸️ En pause</option>
                   <option value="published">✅ Publié</option>
                 </select>
               </div>
@@ -5204,12 +5169,16 @@ export default function InvestigationsTab({
                     <span
                       className={`text-[10px] px-2 py-0.5 rounded font-bold ${inv.status === "published"
                         ? "bg-green-500/20 text-green-400"
-                        : "bg-yellow-500/20 text-yellow-400"
+                        : inv.status === "paused"
+                          ? "bg-orange-500/20 text-orange-400"
+                          : "bg-yellow-500/20 text-yellow-400"
                         }`}
                     >
                       {inv.status === "published"
                         ? "✅ Publié"
-                        : "📝 Brouillon"}
+                        : inv.status === "paused"
+                          ? "⏸️ En pause"
+                          : "📝 Brouillon"}
                     </span>
                     <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-white/10 text-gray-300">
                       {inv.difficulty}
@@ -5220,16 +5189,29 @@ export default function InvestigationsTab({
                   </p>
                 </div>
               </div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setItemToDelete({ id: inv.id, table: "investigations" });
-                  setDeleteModalOpen(true);
-                }}
-                className="p-2 text-gray-500 hover:text-red-500 flex-shrink-0"
-              >
-                <Trash2 size={16} />
-              </button>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(`/investigations/${inv.id}`, "_blank", "noopener,noreferrer");
+                  }}
+                  className="p-2 text-gray-500 hover:text-green-400"
+                  title="Tester côté joueur"
+                >
+                  <Eye size={16} />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setItemToDelete({ id: inv.id, table: "investigations" });
+                    setDeleteModalOpen(true);
+                  }}
+                  className="p-2 text-gray-500 hover:text-red-500"
+                  title="Supprimer"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
           ))}
           {investigations.length === 0 && (

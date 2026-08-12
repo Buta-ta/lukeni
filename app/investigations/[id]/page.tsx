@@ -229,6 +229,7 @@ interface Investigation {
   difficulty: string;
   reward_cauris: number;
   starting_cauris: number;
+  status?: "draft" | "paused" | "published" | string | null;
 }
 
 // ── NORMALISATION DES RÉPONSES (accents, casse, ponctuation) ──
@@ -398,6 +399,8 @@ export default function InvestigationGame(props: {
 
   const [hasPaymentAccess, setHasPaymentAccess] = useState(false);
   const [showPaywall, setShowPaywall] = useState(true);
+  const [isAdminPreview, setIsAdminPreview] = useState(false);
+  const [isInvestigationUnavailable, setIsInvestigationUnavailable] = useState(false);
 
 
 
@@ -621,7 +624,7 @@ export default function InvestigationGame(props: {
   // ✅ TRIAL SESSION HOOK - Désactivé si enquête gratuite (pricing = null)
   const { timeRemaining, isExpired, trial, startTrial, pauseTimer } = useTrialSession(
     user?.id || null,
-    pricing ? invId : null, // ← null si enquête gratuite → hook inactif
+    pricing && !isAdminPreview ? invId : null, // ← pas de trial dans la prévisualisation admin
     'investigation'
   );
 
@@ -1164,6 +1167,8 @@ export default function InvestigationGame(props: {
     if (!invId || !user) return;
     const loadData = async () => {
       try {
+        setIsInvestigationUnavailable(false);
+
         const { data: inv, error: invError } = await supabase
           .from("investigations")
           .select("*")
@@ -1173,7 +1178,25 @@ export default function InvestigationGame(props: {
           router.push("/investigations");
           return;
         }
+
+        // Le rôle est vérifié depuis le profil authentifié. Le paramètre URL
+        // ne peut pas accorder de prévisualisation à un utilisateur normal.
+        const { data: viewerProfile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .maybeSingle();
+        const adminPreview =
+          viewerProfile?.role === "admin" ||
+          viewerProfile?.role === "superadmin";
+
+        setIsAdminPreview(adminPreview);
         setInvestigation(inv);
+
+        if (inv.status !== "published" && !adminPreview) {
+          setIsInvestigationUnavailable(true);
+          return;
+        }
 
         const { data: chaps } = await supabase
           .from("investigation_chapters")
@@ -3106,6 +3129,31 @@ export default function InvestigationGame(props: {
         <CaurisIcon className="w-12 h-12 text-[#D4AF37] animate-pulse" />
       </div>
     );
+
+  if (isInvestigationUnavailable) {
+    return (
+      <div className="min-h-[100dvh] w-screen bg-[#05050A] text-white flex items-center justify-center p-6">
+        <div className="max-w-md w-full text-center bg-black/60 border border-[#D4AF37]/30 rounded-2xl p-8 shadow-2xl">
+          <div className="text-4xl mb-4">🔒</div>
+          <h1 className="text-xl font-serif font-bold text-[#D4AF37] mb-3">
+            {lang === "fr" ? "Enquête indisponible" : "Investigation unavailable"}
+          </h1>
+          <p className="text-sm text-gray-400 leading-relaxed mb-6">
+            {lang === "fr"
+              ? "Ce dossier est encore en préparation ou temporairement suspendu."
+              : "This case is still in preparation or temporarily paused."}
+          </p>
+          <button
+            onClick={() => router.push("/investigations")}
+            className="px-5 py-2.5 rounded-xl bg-[#D4AF37] hover:bg-white text-black text-xs font-bold font-mono transition-colors"
+          >
+            {lang === "fr" ? "Retour aux enquêtes" : "Back to investigations"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (showIntro && !isLoading && investigation)
     return (
       <InvestigationIntro
@@ -3134,7 +3182,7 @@ export default function InvestigationGame(props: {
 
 
 
-  if (showPaywall && pricingData && !hasPaymentAccess) {
+  if (showPaywall && pricingData && !hasPaymentAccess && !isAdminPreview) {
     return (
       <InvestigationPaywall
         investigationId={invId}
@@ -3465,6 +3513,11 @@ export default function InvestigationGame(props: {
             <p className="text-gray-500 text-xs flex items-center gap-2">
               <MapPin size={12} /> {sceneTitle}
             </p>
+            {isAdminPreview && (
+              <span className="inline-flex w-fit items-center gap-1 px-2 py-0.5 rounded border border-orange-400/30 bg-orange-500/10 text-orange-300 text-[9px] font-mono font-bold tracking-wider">
+                🛠️ PRÉVISUALISATION ADMIN
+              </span>
+            )}
           </div>
           <div className="flex flex-col items-end gap-2">
             <div className="relative flex items-center gap-1.5 px-3 py-1 bg-black/50 border border-[#D4AF37]/30 rounded-full">

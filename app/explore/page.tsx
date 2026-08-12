@@ -645,6 +645,7 @@ const SearchBar = memo(({ lang }: { lang: 'fr' | 'en' }) => {
       supabase
         .from('investigations')
         .select('id, title_fr, title_en, cover_url, description_fr, description_en')
+        .eq('status', 'published')
         .or(`title_fr.ilike.${q},title_en.ilike.${q},description_fr.ilike.${q}`)
         .limit(2),
 
@@ -2508,6 +2509,7 @@ export default function ExplorePage() {
       const { data: investigations } = await supabase
         .from('investigations')
         .select('*')
+        .eq('status', 'published')
         .order('created_at', { ascending: false })
         .limit(6);
 
