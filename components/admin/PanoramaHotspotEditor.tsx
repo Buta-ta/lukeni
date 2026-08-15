@@ -25,6 +25,48 @@ const MiniPanoramaViewer = dynamic(
 
 const HOTSPOT_TYPES: HotspotType[] = ['evidence', 'audio', 'document', 'enigma', 'image', 'info', 'transition', 'locked', 'character', 'ending', 'dialogue_bubble', 'dialogue'];
 
+
+// ── Uploads Cloudinary signés pour toutes les ressources de scène ───────────
+// Ne pas utiliser uploadPreset ici : un preset unsigned rendrait ces uploads
+// utilisables sans le contrôle d'accès admin côté serveur.
+function createSignedCloudinaryWidget(
+  options: Record<string, any>,
+  onResult: (error: any, result: any) => void,
+) {
+  // @ts-ignore
+  return window.cloudinary.createUploadWidget(
+    {
+      cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+      apiKey: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
+      ...options,
+      uploadSignature: async (callback: (signature: string) => void, paramsToSign: any) => {
+        try {
+          const response = await fetch("/api/cloudinary-sign", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ paramsToSign }),
+          });
+          const body = await response.json().catch(() => ({}));
+
+          if (!response.ok || !body.signature) {
+            console.error("Cloudinary signature error:", {
+              status: response.status,
+              body,
+              paramsToSign,
+            });
+            return;
+          }
+
+          callback(body.signature);
+        } catch (error) {
+          console.error("Cloudinary signature request error:", error);
+        }
+      },
+    },
+    onResult,
+  );
+}
+
 interface Props {
   investigationId: string;
   chapterId: string;
@@ -53,9 +95,8 @@ function IconPicker({ currentIcon, currentIconUrl, onSelectEmoji, onSelectCustom
     setIsUploading(true);
     const createWidget = () => {
       // @ts-ignore
-      const widget = window.cloudinary.createUploadWidget({
+      const widget = createSignedCloudinaryWidget({
         cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-        uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET,
         sources: ['local', 'url'], resourceType: 'image', folder: 'lukeni/hotspot-icons', croppingAspectRatio: 1,
       }, (error: any, result: any) => {
         setIsUploading(false);
@@ -158,10 +199,9 @@ function HotspotContentForm({
     setIsUploadingMedia(true);
     const createWidget = () => {
       // @ts-ignore
-      const widget = window.cloudinary.createUploadWidget(
+      const widget = createSignedCloudinaryWidget(
         {
           cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-          uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET,
           sources: ['local', 'url'],
           resourceType: resourceType,
           folder: 'lukeni/scene-media'
@@ -720,27 +760,17 @@ export default function PanoramaHotspotEditor({
   // ✅ Charger les boards ET leurs connexions
   const [boardsWithConnectionsState, setBoardsWithConnectionsState] = useState<any[]>([]);
 
-useEffect(() => {
-  if (!chapterId) return;
-
-  supabase
-    .from("investigation_deduction_boards")
-    .select("*")
-    .eq("chapter_id", chapterId)
-    .then(({ data, error }) => {
-      if (error) {
-        console.error(
-          "Erreur chargement deduction board:",
-          error
-        );
-
-        setBoardsWithConnectionsState([]);
-        return;
-      }
-
-      setBoardsWithConnectionsState(data || []);
-    });
-}, [chapterId]);
+  useEffect(() => {
+    if (!investigationId) return;
+    supabase
+      .from('investigation_deduction_boards')
+      .select('*')
+      .eq('investigation_id', investigationId)
+      .then(({ data }) => {
+        // Chaque board a déjà ses connexions dans le champ 'connections'
+        setBoardsWithConnectionsState(data || []);
+      });
+  }, [investigationId]);
 
 
   // ✅ Charger les mini-jeux
@@ -987,9 +1017,8 @@ useEffect(() => {
     setIsUploadingScene(true);
     const createWidget = () => {
       // @ts-ignore
-      const widget = window.cloudinary.createUploadWidget({
+      const widget = createSignedCloudinaryWidget({
         cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-        uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET,
         sources: ['local', 'url'],
         resourceType: isAudio ? 'video' : 'image',
         folder: 'lukeni/scenes'
@@ -1030,9 +1059,8 @@ useEffect(() => {
   const uploadIntroMedia = (kind: 'video' | 'image') => {
     const createWidget = () => {
       // @ts-ignore
-      const widget = window.cloudinary.createUploadWidget({
+      const widget = createSignedCloudinaryWidget({
         cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-        uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET,
         sources: ['local', 'url'],
         resourceType: kind === 'video' ? 'video' : 'image',
         folder: 'lukeni/intros'
@@ -1062,9 +1090,8 @@ useEffect(() => {
   const uploadJudgmentBackground = () => {
     const createWidget = () => {
       // @ts-ignore
-      const widget = window.cloudinary.createUploadWidget({
+      const widget = createSignedCloudinaryWidget({
         cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-        uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET,
         sources: ['local', 'url'], resourceType: 'image', folder: 'lukeni/judgments'
       }, (error: any, result: any) => {
         if (result?.event === 'success') {
@@ -1090,9 +1117,8 @@ useEffect(() => {
   const uploadHotspotAmbientAudio = () => {
     const createWidget = () => {
       // @ts-ignore
-      const widget = window.cloudinary.createUploadWidget({
+      const widget = createSignedCloudinaryWidget({
         cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-        uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET,
         sources: ['local', 'url'], resourceType: 'video', folder: 'lukeni/hotspot-audio'
       }, (error: any, result: any) => {
         if (result?.event === 'success') {
@@ -1113,9 +1139,8 @@ useEffect(() => {
   const uploadIntroAudio = () => {
     const createWidget = () => {
       // @ts-ignore
-      const widget = window.cloudinary.createUploadWidget({
+      const widget = createSignedCloudinaryWidget({
         cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-        uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET,
         sources: ['local', 'url'],
         resourceType: 'video',
         folder: 'lukeni/intros'
