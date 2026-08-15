@@ -654,8 +654,22 @@ export default function PanoramaViewer({
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   const [scannerActive, setScannerActive] = useState(false);
+  const [scannerHintDismissed, setScannerHintDismissed] = useState(false);
 
   const [scannerCooldown, setScannerCooldown] = useState(false);
+
+  const hasScannerHotspots = hotspots.some((hotspot) => {
+    const mode = hotspot.discover_mode || (hotspot.invisible ? "hidden" : "none");
+    return mode === "scanner";
+  });
+  const hasHiddenHotspots = hotspots.some((hotspot) => {
+    const mode = hotspot.discover_mode || (hotspot.invisible ? "hidden" : "none");
+    return mode === "hidden";
+  });
+
+  useEffect(() => {
+    setScannerHintDismissed(false);
+  }, [panoramaUrl]);
 
 
 
@@ -724,21 +738,32 @@ export default function PanoramaViewer({
   const [joystickVisible, setJoystickVisible] = useState(true);
   const joystickDeltaRef = useRef({ x: 0, y: 0 });
 
-  // ✅ Gestion du volume effectif (combinaison admin + user)
-  // ✅ Gestion du volume effectif et du mute en temps réel
+  // ✅ Gestion du volume effectif (combinaison admin + utilisateur)
+  // Ce ref permet au cycle de vie de la scène de faire son fade-in sans
+  // redémarrer/re-nettoyer l'audio à chaque ouverture d'un dialogue.
+  const targetAmbientVolumeRef = useRef(0);
+  const fadeOutIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
-    if (audioRef.current) {
-      if (isMuted) {
-        audioRef.current.pause(); // ✅ Coupe la lecture si muté
-      } else {
-        const duckFactor = isDialogueOpen ? 0.3 : 1;   // ✅ baisse à 30% pendant dialogue
-        const finalVolume = ambientAudioVolume * userVolume * duckFactor;
-        audioRef.current.volume = Math.max(0, Math.min(1, finalVolume));
-        // ✅ Reprend la lecture si unmute
-        if (audioRef.current.paused && ambientAudioUrl) {
-          audioRef.current.play().catch(() => { });
-        }
-      }
+    const audioEl = audioRef.current;
+    if (!audioEl) return;
+
+    const duckFactor = isDialogueOpen ? 0.3 : 1;
+    const target = isMuted
+      ? 0
+      : Math.max(0, Math.min(1, ambientAudioVolume * userVolume * duckFactor));
+
+    targetAmbientVolumeRef.current = target;
+    audioEl.muted = isMuted;
+
+    if (isMuted) {
+      audioEl.pause();
+      return;
+    }
+
+    audioEl.volume = target;
+    if (audioEl.paused && ambientAudioUrl) {
+      audioEl.play().catch(() => { });
     }
   }, [ambientAudioVolume, userVolume, isMuted, ambientAudioUrl, isDialogueOpen]);
 
@@ -750,48 +775,45 @@ export default function PanoramaViewer({
     }
   }, [userVolume, isMuted]);
 
-  // ✅ COUPURE PROPRE entre les scènes : Fade out → change → fade in
-  // ✅ COUPURE PROPRE entre les scènes : Fade out → change → fade in
+  // ✅ COUPURE PROPRE uniquement lors d'un changement de scène ou de piste
+  // Important : isDialogueOpen ne doit pas être dans les dépendances de cet
+  // effet. Ouvrir un dialogue doit seulement baisser le volume, pas supprimer
+  // la source audio et empêcher sa reprise.
   useEffect(() => {
+    if (fadeOutIntervalRef.current) {
+      clearInterval(fadeOutIntervalRef.current);
+      fadeOutIntervalRef.current = null;
+    }
+
     setIsTransitioning(false);
     const audioEl = audioRef.current;
 
     let fadeInInterval: NodeJS.Timeout | null = null;
 
     if (audioEl && ambientAudioUrl) {
-      if (isMuted) {
-        // ✅ Si muté, on s'assure que l'audio est en pause
-        audioEl.pause();
-      } else {
-        // ✅ Sinon, on lance la lecture avec un fade-in
-        audioEl.volume = 0;
+      audioEl.volume = 0;
+      audioEl.play().catch(() => {
+        console.warn("🔇 Autoplay bloqué par le navigateur.");
+        setAudioBlocked(true);
+      });
 
-        audioEl.play().catch((err) => {
-          console.warn("🔇 Autoplay bloqué par le navigateur.");
-          setAudioBlocked(true);
-        });
-
-        fadeInInterval = setInterval(() => {
-          const target = ambientAudioVolume * userVolume * (isDialogueOpen ? 0.3 : 1);
-          if (audioEl.volume < target - 0.05) {
-            audioEl.volume = Math.min(target, audioEl.volume + 0.05);
-          } else {
-            audioEl.volume = target;
-            if (fadeInInterval) clearInterval(fadeInInterval);
-          }
-        }, 80);
-      }
+      fadeInInterval = setInterval(() => {
+        const target = targetAmbientVolumeRef.current;
+        if (audioEl.volume < target - 0.05) {
+          audioEl.volume = Math.min(target, audioEl.volume + 0.05);
+        } else {
+          audioEl.volume = target;
+          if (fadeInInterval) clearInterval(fadeInInterval);
+        }
+      }, 80);
     }
 
-    // ✅ NETTOYAGE : Stopper l'audio à la fermeture/scene change
-    // ✅ NETTOYAGE : Stopper l'audio à la fermeture/scene change
-    // avec un FADE-OUT progressif pour éviter le "couic" net
     return () => {
       if (fadeInInterval) clearInterval(fadeInInterval);
       if (audioEl) {
-        // ✅ Fade-out rapide (~300ms) puis coupure propre
+        // ✅ Fade-out rapide uniquement lors d'un vrai changement de scène
         const startVol = audioEl.volume;
-        const fadeSteps = 8; // ~8 étapes de ~37ms
+        const fadeSteps = 8;
         let step = 0;
         const fadeOut = setInterval(() => {
           step++;
@@ -801,14 +823,14 @@ export default function PanoramaViewer({
             clearInterval(fadeOut);
             audioEl.pause();
             audioEl.currentTime = 0;
-            audioEl.src = '';
-            audioEl.load();
+            fadeOutIntervalRef.current = null;
             console.log('🔇 [PANORAMA] Audio stoppé et nettoyé');
           }
         }, 37);
+        fadeOutIntervalRef.current = fadeOut;
       }
     };
-    }, [panoramaUrl, ambientAudioUrl, ambientAudioVolume, userVolume, isMuted, isDialogueOpen]);
+  }, [panoramaUrl, ambientAudioUrl]);
 
   // 🔊 AUDIO DE PROXIMITÉ : gère les audios des hotspots selon la proximité
   const hotspotAudioRefs = useRef<Record<string, HTMLAudioElement>>({});
@@ -982,17 +1004,32 @@ export default function PanoramaViewer({
 
 
 
-      {/* 🔭 BOUTON SCANNER (flash 3s) - au-dessus du joystick */}
+      {/* 🔭 BOUTON SCANNER (flash 3s) - relevé pour ne pas gêner le joystick */}
+      {!isEditorPreview && (hasScannerHotspots || hasHiddenHotspots) && !scannerHintDismissed && (
+        <div className="absolute bottom-[17rem] left-4 z-40 max-w-[calc(100vw-6rem)] px-3 py-2 rounded-lg bg-black/80 border border-[#06b6d4]/40 text-[#d9faff] shadow-xl backdrop-blur-sm">
+          <p className="text-[10px] leading-relaxed font-mono">
+            🔭 {hasScannerHotspots
+              ? (lang === "fr"
+                ? "Des hotspots sont cachés. Utilisez les jumelles pour scanner la scène."
+                : "Some hotspots are hidden. Use the binoculars to scan the scene.")
+              : (lang === "fr"
+                ? "Un hotspot est caché dans cette scène. Cherchez attentivement."
+                : "A hotspot is hidden in this scene. Search carefully.")}
+          </p>
+        </div>
+      )}
+
       {!isEditorPreview && (
         <button
           onClick={() => {
             if (scannerCooldown) return;
+            setScannerHintDismissed(true);
             setScannerActive(true);
             setTimeout(() => setScannerActive(false), 3000);
             setScannerCooldown(true);
             setTimeout(() => setScannerCooldown(false), 5000);
           }}
-          className={`absolute bottom-56 left-5 z-50 w-11 h-11 rounded-full flex items-center justify-center border transition-colors ${scannerActive ? "bg-[#06b6d4] text-black border-[#06b6d4] animate-pulse" : "bg-black/60 text-white border-white/20 hover:bg-black/80"}`}
+          className={`absolute bottom-64 left-5 z-50 w-11 h-11 rounded-full flex items-center justify-center border transition-colors ${scannerActive ? "bg-[#06b6d4] text-black border-[#06b6d4] animate-pulse" : "bg-black/60 text-white border-white/20 hover:bg-black/80"}`}
           title={lang === "fr" ? "Scanner la zone" : "Scan the area"}
         >
           <Binoculars size={20} />

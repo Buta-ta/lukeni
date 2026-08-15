@@ -161,7 +161,13 @@ export default function SceneIntro({
       audioRef.current = a;
     }
     return () => {
-      audioRef.current?.pause();
+      const audio = audioRef.current;
+      if (audio) {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.removeAttribute("src");
+        audio.load();
+      }
       audioRef.current = null;
     };
   }, [audioUrl]);
@@ -181,8 +187,21 @@ export default function SceneIntro({
 
   const handleComplete = () => {
     if (typeTimer.current) clearTimeout(typeTimer.current);
+
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.removeAttribute("src");
+      audio.load();
+    }
+
     setDisplayedText(text || "");
-    audioRef.current?.pause();
     onComplete();
   };
 

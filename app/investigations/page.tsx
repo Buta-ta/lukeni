@@ -23,7 +23,7 @@ import {
   User,
   Clock,
   CreditCard,
-  ShieldCheck, Trophy
+  ShieldCheck, Trophy, Share2
 } from "lucide-react";
 import { User as UserIcon } from "lucide-react";
 import PaywallModal from "@/components/PaywallModal";
@@ -375,6 +375,8 @@ export default function InvestigationsHub() {
   const [isCopied, setIsCopied] = useState(false);
   const [isCreatingGroup, setIsCreatingGroup] = useState<string | null>(null);
   const [isDisablingGroup, setIsDisablingGroup] = useState(false);
+  const [shareMenuInvId, setShareMenuInvId] = useState<string | null>(null);
+  const [copiedInvestigationId, setCopiedInvestigationId] = useState<string | null>(null);
 
   // Modal suppression
   const [deleteModal, setDeleteModal] = useState<{
@@ -628,6 +630,56 @@ export default function InvestigationsHub() {
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
     });
+  };
+
+  const getInvestigationShareData = (inv: any) => {
+    const url = `${window.location.origin}/investigations/${inv.id}`;
+    const title = lang === "fr" ? inv.title_fr : inv.title_en || inv.title_fr;
+    const text = lang === "fr"
+      ? `Découvrez l'enquête ${title} sur Lukeni.`
+      : `Discover the investigation ${title} on Lukeni.`;
+
+    return { url, title, text };
+  };
+
+  const copyInvestigationLink = async (inv: any) => {
+    const { url } = getInvestigationShareData(inv);
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedInvestigationId(inv.id);
+      setTimeout(() => setCopiedInvestigationId(null), 2000);
+    } catch (error) {
+      console.error("Copy investigation link error:", error);
+    }
+  };
+
+  const shareInvestigation = async (inv: any) => {
+    if (typeof navigator === "undefined" || !navigator.share) return;
+
+    const { url, title, text } = getInvestigationShareData(inv);
+    try {
+      await navigator.share({ title, text, url });
+      setShareMenuInvId(null);
+    } catch (error: any) {
+      // L'annulation native du menu de partage n'est pas une erreur utilisateur.
+      if (error?.name !== "AbortError") {
+        console.error("Native share error:", error);
+      }
+    }
+  };
+
+  const openSocialShare = (inv: any, network: "whatsapp" | "facebook" | "x") => {
+    const { url, text } = getInvestigationShareData(inv);
+    const encodedUrl = encodeURIComponent(url);
+    const encodedText = encodeURIComponent(text);
+    const shareUrl = network === "whatsapp"
+      ? `https://wa.me/?text=${encodedText}%20${encodedUrl}`
+      : network === "facebook"
+        ? `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`
+        : `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`;
+
+    window.open(shareUrl, "_blank", "noopener,noreferrer");
+    setShareMenuInvId(null);
   };
 
   const handleDeleteSession = async () => {
@@ -1066,6 +1118,60 @@ export default function InvestigationsHub() {
                         {isCreatingGroup === inv.id ? <Loader2 size={10} className="animate-spin" /> : <UserPlus size={10} />}
                         {hasActiveGroup ? (lang === "fr" ? "GROUPE" : "GROUP") : (lang === "fr" ? "INVITER" : "INVITE")}
                       </button>
+
+                      <div className="relative flex-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShareMenuInvId((current) => current === inv.id ? null : inv.id);
+                          }}
+                          className="w-full flex items-center justify-center gap-1.5 py-2 bg-cyan-600/10 hover:bg-cyan-600/20 border border-cyan-500/20 hover:border-cyan-500/40 text-cyan-300 text-[10px] font-bold font-mono tracking-wider rounded transition-all"
+                        >
+                          <Share2 size={10} />
+                          {lang === "fr" ? "PARTAGER" : "SHARE"}
+                        </button>
+
+                        {shareMenuInvId === inv.id && (
+                          <div className="absolute bottom-full right-0 mb-2 z-50 w-48 p-2 bg-[#111] border border-cyan-500/30 rounded-xl shadow-2xl space-y-1">
+                            {typeof navigator !== "undefined" && navigator.share && (
+                              <button
+                                onClick={() => shareInvestigation(inv)}
+                                className="w-full text-left px-3 py-2 rounded-lg text-[10px] text-cyan-300 hover:bg-cyan-500/10 font-bold"
+                              >
+                                📤 {lang === "fr" ? "Partager…" : "Share…"}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => copyInvestigationLink(inv)}
+                              className="w-full text-left px-3 py-2 rounded-lg text-[10px] text-gray-300 hover:bg-white/10 font-bold"
+                            >
+                              {copiedInvestigationId === inv.id ? "✅ " : "🔗 "}
+                              {copiedInvestigationId === inv.id
+                                ? (lang === "fr" ? "Lien copié" : "Link copied")
+                                : (lang === "fr" ? "Copier le lien" : "Copy link")}
+                            </button>
+                            <button
+                              onClick={() => openSocialShare(inv, "whatsapp")}
+                              className="w-full text-left px-3 py-2 rounded-lg text-[10px] text-green-300 hover:bg-green-500/10 font-bold"
+                            >
+                              💬 WhatsApp
+                            </button>
+                            <button
+                              onClick={() => openSocialShare(inv, "facebook")}
+                              className="w-full text-left px-3 py-2 rounded-lg text-[10px] text-blue-300 hover:bg-blue-500/10 font-bold"
+                            >
+                              f&nbsp;&nbsp;Facebook
+                            </button>
+                            <button
+                              onClick={() => openSocialShare(inv, "x")}
+                              className="w-full text-left px-3 py-2 rounded-lg text-[10px] text-white hover:bg-white/10 font-bold"
+                            >
+                              𝕏&nbsp;&nbsp;X
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
                       {hasSession && (
                         <button onClick={() => setDeleteModal({ invId: inv.id, invTitle, sessionId: userSession.id })} className="flex items-center justify-center gap-1.5 py-2 px-3 bg-red-600/10 hover:bg-red-600/20 border border-red-500/20 hover:border-red-500/40 text-red-400 text-[10px] font-bold font-mono rounded transition-all" title={lang === "fr" ? "Supprimer ma partie" : "Delete my game"}>
                           <Trash2 size={10} />

@@ -1,7 +1,7 @@
 // components/game/InvestigationIntro.tsx
 "use client";
 
-import React, { useState, useEffect, useRef, memo } from "react";
+import React, { useState, useEffect, useRef, useCallback, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Volume2, VolumeX, SkipForward } from "lucide-react";
 
@@ -107,6 +107,7 @@ export default function InvestigationIntro({
 }: InvestigationIntroProps) {
   const [config, setConfig] = useState<IntroConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isMediaReady, setIsMediaReady] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [showEnableSound, setShowEnableSound] = useState(false);
 
@@ -171,16 +172,51 @@ export default function InvestigationIntro({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [investigationId, directConfig]);
 
+  // ── Préchargement du fond pour éviter un écran noir ─────────────────────
+  useEffect(() => {
+    if (!config) return;
+
+    const backgroundUrl = config.background_image_url;
+    if (!backgroundUrl) {
+      setIsMediaReady(true);
+      return;
+    }
+
+    setIsMediaReady(false);
+    const image = new Image();
+    let cancelled = false;
+
+    const markReady = () => {
+      if (!cancelled) setIsMediaReady(true);
+    };
+
+    image.onload = markReady;
+    image.onerror = markReady;
+    image.src = backgroundUrl;
+
+    return () => {
+      cancelled = true;
+      image.onload = null;
+      image.onerror = null;
+    };
+  }, [config]);
+
+  // ── Arrêt complet et propre du son ───────────────────────────────────────
+  const stopAudio = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    audio.pause();
+    audio.currentTime = 0;
+    audio.removeAttribute("src");
+    audio.load();
+    audioRef.current = null;
+  }, []);
+
   // ── Cleanup Audio au démontage du composant ──────────────────────────────
   useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = "";
-        audioRef.current = null;
-      }
-    };
-  }, []);
+    return stopAudio;
+  }, [stopAudio]);
 
   // ── Machine à états des textes ───────────────────────────────────────────
   useEffect(() => {
@@ -239,10 +275,7 @@ export default function InvestigationIntro({
 
   // ── Actions ──────────────────────────────────────────────────────────────
   const handleComplete = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
+    stopAudio();
     onComplete();
   };
 
@@ -303,12 +336,22 @@ export default function InvestigationIntro({
   };
 
   // ── Rendu chargement ─────────────────────────────────────────────────────
-  if (isLoading) {
+  if (isLoading || !isMediaReady) {
     return (
-      <div className="h-[100dvh] w-screen bg-black flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-12 h-12 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-[#D4AF37] font-mono text-sm tracking-widest">CHARGEMENT...</p>
+      <div className="h-[100dvh] w-screen bg-gradient-to-b from-[#12100d] via-black to-[#050505] flex items-center justify-center px-6">
+        <div className="text-center space-y-5 max-w-sm">
+          <LukeniLogo />
+          <div className="mx-auto w-14 h-14 border-2 border-[#D4AF37]/30 border-t-[#D4AF37] rounded-full animate-spin" />
+          <div>
+            <p className="text-[#D4AF37] font-mono text-sm tracking-[0.25em] uppercase">
+              {lang === "fr" ? "Préparation de l'introduction" : "Preparing introduction"}
+            </p>
+            <p className="text-gray-500 text-xs mt-2 font-serif">
+              {lang === "fr"
+                ? "Chargement des archives et de l'ambiance sonore…"
+                : "Loading archives and ambient sound…"}
+            </p>
+          </div>
         </div>
       </div>
     );
