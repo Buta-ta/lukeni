@@ -871,92 +871,88 @@ export default function InvestigationGame(props: {
   };
 
   const handleMiniGameComplete = async (score: number, caurisEarned: number) => {
-
-
     if (!miniGameSessionActive || !activeMiniGame) {
       console.log("⚠️ [2] Sortie précoce - données manquantes");
       return;
     }
 
-    console.log("🎮 [3] Début traitement - miniGameId:", activeMiniGame.id);
+    // Capturer les données avant de fermer le mini-jeu.
+    const completedMiniGame = activeMiniGame;
+    const completedMiniGameSession = miniGameSessionActive;
+    const successEventId = completedMiniGame.trigger_event_on_success_id;
+    const successEvent = successEventId
+      ? outroConfig?.narrative_events?.find(
+        (event: any) => event.id === successEventId,
+      )
+      : null;
+    const isTerminalSuccessEvent = ["rank", "victory", "game_over", "abandon"].includes(
+      successEvent?.source_type,
+    );
 
-    // 1. Ajouter les cauris gagnés au budget
+    console.log("🎮 [3] Début traitement - miniGameId:", completedMiniGame.id);
+
+    // 1. Ajouter les Cauris gagnés au budget
     const newBudget = budgetCauris + caurisEarned;
     setBudgetCauris(newBudget);
     setCaurisDelta(`+${caurisEarned}`);
     setTimeout(() => setCaurisDelta(null), 1200);
 
-    console.log("🎮 [4] Budget mis à jour:", newBudget);
-
-    // 2. Marquer le mini-jeu comme complété dans la session mini-jeu
-    console.log("🎮 [5] Appel completeMiniGame...");
-    const result = await completeMiniGame(miniGameSessionActive.id, score, caurisEarned, 0);
+    // 2. Marquer la session du mini-jeu comme complétée
+    const result = await completeMiniGame(
+      completedMiniGameSession.id,
+      score,
+      caurisEarned,
+      0,
+    );
     console.log("🎮 [6] completeMiniGame résultat:", result);
 
     // 3. Mettre à jour la session d'investigation
-    console.log("🎮 [7] Appel completeMiniGameInSession...");
-    await completeMiniGameInSession(activeMiniGame.id, newBudget);
-    console.log("🎮 [8] completeMiniGameInSession terminé");
+    await completeMiniGameInSession(completedMiniGame.id, newBudget);
 
     // 4. Fermer le mini-jeu
     setActiveMiniGame(null);
     setMiniGameSessionActive(null);
-    console.log("🎮 [9] Mini-jeu fermé");
 
+    // 5. Déclencher l'événement de succès configuré dans l'Outro.
+    // Avant cette étape, le champ était sauvegardé mais jamais exécuté.
+    if (successEventId) {
+      triggerNarrativeEvent(successEventId);
+    }
 
-    // ✅ Transition de scène après validation du mini-jeu
-    if (activeMiniGame?.success_target_scene_id && currentChapter) {
-      const sceneIdx = currentChapter.scenes?.findIndex(
-        (s) => s.id === activeMiniGame.success_target_scene_id,
-      );
-      if (sceneIdx !== undefined && sceneIdx !== -1) {
-        setTimeout(() => {
-          setCurrentSceneIndex(sceneIdx);
-          playTransitionSound();
-        }, 500);
-      }
-    } else if (activeMiniGame?.success_target_chapter_id) {
-      const chapIdx = chapters.findIndex(
-        (c) => c.id === activeMiniGame.success_target_chapter_id,
-      );
-      if (chapIdx !== -1) {
-        setTimeout(() => {
-          setCurrentChapterIndex(chapIdx);
-          setCurrentSceneIndex(0);
-          playTransitionSound();
-        }, 500);
+    // Une fin/rang configuré(e) doit arrêter l'enquête et prend priorité
+    // sur une éventuelle navigation vers une autre scène ou un autre chapitre.
+    if (!isTerminalSuccessEvent) {
+      if (completedMiniGame.success_target_scene_id && currentChapter) {
+        const sceneIdx = currentChapter.scenes?.findIndex(
+          (s) => s.id === completedMiniGame.success_target_scene_id,
+        );
+        if (sceneIdx !== undefined && sceneIdx !== -1) {
+          setTimeout(() => {
+            setCurrentSceneIndex(sceneIdx);
+            playTransitionSound();
+          }, 500);
+        }
+      } else if (completedMiniGame.success_target_chapter_id) {
+        const chapIdx = chapters.findIndex(
+          (c) => c.id === completedMiniGame.success_target_chapter_id,
+        );
+        if (chapIdx !== -1) {
+          setTimeout(() => {
+            setCurrentChapterIndex(chapIdx);
+            setCurrentSceneIndex(0);
+            playTransitionSound();
+          }, 500);
+        }
       }
     }
 
-    // 5. Toast de succès
-    setActiveMilestone({
-      fr: `🎉 Mini-jeu réussi ! +${caurisEarned} Cauris`,
-      en: `🎉 Mini-game completed! +${caurisEarned} Cauris`,
-    });
-    setTimeout(() => setActiveMilestone(null), 4000);
-
-    // ✅ Transition de scène après validation du mini-jeu
-    if (activeMiniGame?.success_target_scene_id && currentChapter) {
-      const sceneIdx = currentChapter.scenes?.findIndex(
-        (s) => s.id === activeMiniGame.success_target_scene_id,
-      );
-      if (sceneIdx !== undefined && sceneIdx !== -1) {
-        setTimeout(() => {
-          setCurrentSceneIndex(sceneIdx);
-          playTransitionSound();
-        }, 500);
-      }
-    } else if (activeMiniGame?.success_target_chapter_id) {
-      const chapIdx = chapters.findIndex(
-        (c) => c.id === activeMiniGame.success_target_chapter_id,
-      );
-      if (chapIdx !== -1) {
-        setTimeout(() => {
-          setCurrentChapterIndex(chapIdx);
-          setCurrentSceneIndex(0);
-          playTransitionSound();
-        }, 500);
-      }
+    // 6. Toast de succès uniquement si la fin n'est pas déjà en cours.
+    if (!isTerminalSuccessEvent) {
+      setActiveMilestone({
+        fr: `🎉 Mini-jeu réussi ! +${caurisEarned} Cauris`,
+        en: `🎉 Mini-game completed! +${caurisEarned} Cauris`,
+      });
+      setTimeout(() => setActiveMilestone(null), 4000);
     }
   };
 
@@ -3074,7 +3070,10 @@ export default function InvestigationGame(props: {
             type: "abandon",
           });
         }
-      } else if (event.source_type === "rank") {
+      } else if (
+        event.source_type === "rank" ||
+        event.source_type === "victory"
+      ) {
         // 🏆 TYPE VICTOIRE/RANG
         const rank = outroConfig.ranks?.find(
           (r: any) => r.id === event.source_id,
