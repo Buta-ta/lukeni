@@ -3443,6 +3443,10 @@ export default function InvestigationGame(props: {
               (s) => s.id === sceneId,
             );
             if (newSceneIdx !== undefined && newSceneIdx !== -1) {
+              const nextScene = currentChapter?.scenes?.[newSceneIdx];
+              // Monter l'intro avant de laisser la nouvelle ambiance de scène
+              // démarrer, afin d'éviter le chevauchement des deux sons.
+              setShowSceneIntro(!!nextScene?.intro_media_url);
               setCurrentSceneIndex(newSceneIdx);
               playTransitionSound();
             }

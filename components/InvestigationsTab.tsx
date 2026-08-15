@@ -2526,7 +2526,24 @@ export default function InvestigationsTab({
                                 // @ts-ignore
                                 const w = window.cloudinary.createUploadWidget({
                                   cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-                                  uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET,
+                                  apiKey: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
+                                  uploadSignature: async (callback: (signature: string) => void, paramsToSign: any) => {
+                                    const response = await fetch("/api/cloudinary-sign", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ paramsToSign }),
+                                    });
+                                    const body = await response.json().catch(() => ({}));
+                                    if (!response.ok || !body.signature) {
+                                      console.error("Erreur signature Cloudinary (rang):", {
+                                        status: response.status,
+                                        body,
+                                        paramsToSign,
+                                      });
+                                      return;
+                                    }
+                                    callback(body.signature);
+                                  },
                                   sources: ['local', 'url'], resourceType: 'image', folder: 'lukeni/ranks'
                                 }, (error: any, result: any) => {
                                   if (result?.event === 'success') {

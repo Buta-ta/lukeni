@@ -97,6 +97,7 @@ export default function SceneIntro({
   const [displayedText, setDisplayedText] = useState("");
   const [isMuted, setIsMuted] = useState(false);
   const [audioMuted, setAudioMuted] = useState(false);
+  const [showEnableSound, setShowEnableSound] = useState(false);
   const [videoReady, setVideoReady] = useState(mediaType === "image"); // image: prêt direct; vidéo: après buffering
   const [videoEnded, setVideoEnded] = useState(false);
   const [mediaError, setMediaError] = useState(false);
@@ -105,13 +106,11 @@ export default function SceneIntro({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const typeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ✅ FIX : Pour une IMAGE (pas de vidéo), on passe directement en phase "playing"
-  // au montage → le texte s'affiche immédiatement. Pour une vidéo, on garde
-  // l'écran d'accroche "Écouter l'archive" (phase "listen") jusqu'au clic.
+  // ✅ Démarrer directement l'intro dès la transition, pour les images comme
+  // pour les vidéos. Le navigateur peut encore bloquer le son : dans ce cas,
+  // le bouton "Activer le son" reste disponible.
   useEffect(() => {
-    if (mediaType === "image") {
-      setPhase("playing");
-    }
+    setPhase("playing");
   }, [mediaType]);
 
   // ── Effet typewriter (rapide, ~20ms/caractère) ──
@@ -133,12 +132,15 @@ export default function SceneIntro({
   useEffect(() => {
     if (phase === "playing" && mediaType === "video" && videoRef.current) {
       videoRef.current.muted = isMuted;
-      videoRef.current.play().catch(() => {});
+      videoRef.current.play().catch(() => {
+        if (audioUrl) setShowEnableSound(true);
+      });
     }
-    // Audio de fond (déclenché par le clic utilisateur → autorisé)
+    // L'audio démarre automatiquement après la transition. Si le navigateur
+    // refuse l'autoplay sonore, on propose immédiatement une activation manuelle.
     if (phase === "playing" && audioUrl && audioRef.current) {
       audioRef.current.muted = audioMuted;
-      audioRef.current.play().catch(() => {});
+      audioRef.current.play().catch(() => setShowEnableSound(true));
     }
   }, [phase, mediaType, isMuted, audioMuted, audioUrl]);
 
@@ -181,7 +183,22 @@ export default function SceneIntro({
     }
     if (audioRef.current) {
       audioRef.current.muted = audioMuted;
-      audioRef.current.play().catch(() => {});
+      audioRef.current.play().catch(() => setShowEnableSound(true));
+    }
+  };
+
+  const handleEnableSound = () => {
+    setShowEnableSound(false);
+    setIsMuted(false);
+    setAudioMuted(false);
+
+    if (videoRef.current) {
+      videoRef.current.muted = false;
+      videoRef.current.play().catch(() => setShowEnableSound(true));
+    }
+    if (audioRef.current) {
+      audioRef.current.muted = false;
+      audioRef.current.play().catch(() => setShowEnableSound(true));
     }
   };
 
@@ -217,6 +234,10 @@ export default function SceneIntro({
     setAudioMuted(muted);
     if (videoRef.current) videoRef.current.muted = muted;
     if (audioRef.current) audioRef.current.muted = muted;
+    if (!muted) {
+      videoRef.current?.play().catch(() => setShowEnableSound(true));
+      audioRef.current?.play().catch(() => setShowEnableSound(true));
+    }
   };
 
   // ── Image de fond ──
@@ -344,6 +365,16 @@ export default function SceneIntro({
           </button>
         )}
       </div>
+
+      {/* ── Fallback autoplay bloqué ── */}
+      {showEnableSound && (
+        <button
+          onClick={handleEnableSound}
+          className="absolute bottom-20 left-1/2 -translate-x-1/2 z-30 px-5 py-2.5 rounded-full bg-black/70 border border-[#D4AF37]/40 text-[#D4AF37] text-xs font-mono tracking-widest hover:bg-black transition-colors"
+        >
+          {lang === "fr" ? "🔊 ACTIVER LE SON" : "🔊 ENABLE SOUND"}
+        </button>
+      )}
 
       {/* ── Skip (toujours dispo si autorisé) ── */}
       {skipAllowed && phase !== "listen" && (
