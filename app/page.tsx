@@ -972,6 +972,11 @@ const PressArticleDrawer = ({
                 userProfile={userProfile}
                 announcements={announcements}
                 allCharts={allCharts}
+                activePolls={[]}
+                activeQuizzes={[]}
+                quizQuestions={[]}
+                handleVotePoll={async () => {}}
+                handleQuizSubmitScore={async () => {}}
               />
             </div>
           )}
@@ -1362,12 +1367,36 @@ export default function LandingPage() {
           )}
         </div>
 
-        <motion.button
-          whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => setLang(lang === 'fr' ? 'en' : 'fr')}
-          className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-3 md:px-4 py-1.5 md:py-2 rounded-full text-white hover:bg-[#D4AF37] hover:text-black transition-all font-bold text-xs backdrop-blur-sm"
-        >
-          <Globe size={13} /> {lang.toUpperCase()}
-        </motion.button>
+        <div className="flex items-center gap-2 md:gap-4">
+          <Link href="/presse">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-3 md:px-4 py-1.5 md:py-2 rounded-full bg-white/5 border border-white/10 text-[10px] md:text-xs font-bold text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black transition-all backdrop-blur-sm flex items-center gap-1.5"
+            >
+              <span>📰</span>
+              <span>{lang === 'fr' ? 'PRESSE' : 'PRESS'}</span>
+            </motion.button>
+          </Link>
+
+          <Link href="/encyclopedie">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-3 md:px-4 py-1.5 md:py-2 rounded-full bg-white/5 border border-white/10 text-[10px] md:text-xs font-bold text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black transition-all backdrop-blur-sm flex items-center gap-1.5"
+            >
+              <span>📖</span>
+              <span>{lang === 'fr' ? 'ENCYCLOPÉDIE' : 'ENCYCLOPEDIA'}</span>
+            </motion.button>
+          </Link>
+
+          <motion.button
+            whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => setLang(lang === 'fr' ? 'en' : 'fr')}
+            className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-3 md:px-4 py-1.5 md:py-2 rounded-full text-white hover:bg-[#D4AF37] hover:text-black transition-all font-bold text-[10px] md:text-xs backdrop-blur-sm"
+          >
+            <Globe size={13} /> {lang.toUpperCase()}
+          </motion.button>
+        </div>
       </div>
 
       {/* ── NÉBULEUSES ── */}

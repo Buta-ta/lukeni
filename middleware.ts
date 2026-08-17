@@ -7,7 +7,7 @@ const PUBLIC_PATHS = ['/', '/auth', '/admin/auth', '/qui-sommes-nous', '/visitor
 const PUBLIC_PREFIXES = ['/auth/', '/_next/', '/favicon.ico', '/manifest.json', '/sw.js', '/icon-', '/screenshot', '/apple-touch-icon'];
 // ✅ FIX SÉCURITÉ: On retire '/api/' qui rendait TOUTES les API publiques
 // On whitelist uniquement les API vraiment publiques
-const PUBLIC_API_PREFIXES = ['/api/auth/', '/api/geoip', '/api/track', '/api/proxy/', '/api/epub-proxy', '/api/lingua', '/api/investigation-intro'];
+const PUBLIC_API_PREFIXES = ['/api/auth/', '/api/geoip', '/api/track', '/api/proxy/', '/api/epub-proxy', '/api/lingua', '/api/investigation-intro', '/api/commodities', '/api/macro-globe'];
 const INACTIVITY_TIMEOUT = 60 * 60 * 1000; // 1 heure
 
 function isPublicPath(pathname: string): boolean {
@@ -86,10 +86,8 @@ export async function middleware(req: NextRequest) {
     const protectedPrefixes = [
       '/profil',
       '/bibliotheque',
-      '/presse',
       '/voyage-musical/contribuer',
       '/explore',
-      '/encyclopedie',
       '/voyage-musical',
       '/investigations',
       '/admin',
