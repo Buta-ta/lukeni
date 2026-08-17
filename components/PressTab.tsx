@@ -540,7 +540,7 @@ function ArticleTypeSelector({ value, onChange }: { value: 'written' | 'audio'; 
 }
 
 export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'error', text: string) => void }) {
-  const [view, setView] = useState<'articles' | 'archives' | 'suggestions' | 'comments' | 'moderation' | 'announcements' | 'settings' | 'live' | 'digest' | 'authors'>('articles');
+  const [view, setView] = useState<'articles' | 'archives' | 'suggestions' | 'comments' | 'moderation' | 'announcements' | 'settings' | 'live' | 'digest' | 'authors' | 'polls' | 'quizzes'>('articles');
 
   const [articles, setArticles] = useState<PressArticle[]>([]);
   const [archives, setArchives] = useState<PressArchive[]>([]);
@@ -721,6 +721,78 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
   const [newLiveAuthor, setNewLiveAuthor] = useState('Rédaction Le Continent');
   const [isPostingLive, setIsPostingLive] = useState(false);
 
+  // ============================================================================
+  // ÉTATS DES SONDAGES (BILINGUES & AUTO-TRADUISIBLES)
+  // ============================================================================
+  const [polls, setPolls] = useState<any[]>([]);
+  const [showPollForm, setShowPollForm] = useState(false);
+  const [pollEditingId, setPollEditingId] = useState<string | null>(null);
+  const [pollQuestionFr, setPollQuestionFr] = useState('');
+  const [pollQuestionEn, setPollQuestionEn] = useState('');
+  const [pollType, setPollType] = useState<'classic' | 'versus' | 'rating' | 'visual'>('classic');
+  const [pollPlacements, setPollPlacements] = useState<string[]>(['left_sidebar']); // Placements multiples !
+  const [pollImageUrl, setPollImageUrl] = useState(''); // Image d'illustration du sondage !
+  const [pollArticleId, setPollArticleId] = useState('');
+  const [pollIsActive, setPollIsActive] = useState(true);
+  const [pollOptions, setPollOptions] = useState<Array<{ id: string; text_fr: string; text_en: string; votes: number }>>([
+    { id: 'opt_1', text_fr: '', text_en: '', votes: 0 },
+    { id: 'opt_2', text_fr: '', text_en: '', votes: 0 }
+  ]);
+
+  // ============================================================================
+  // ÉTATS DES QUIZ (BILINGUES & AUTO-TRADUISIBLES)
+  // ============================================================================
+  const [quizzes, setQuizzes] = useState<any[]>([]);
+  const [showQuizForm, setShowQuizForm] = useState(false);
+  const [quizEditingId, setQuizEditingId] = useState<string | null>(null);
+  const [quizTitleFr, setQuizTitleFr] = useState('');
+  const [quizTitleEn, setQuizTitleEn] = useState('');
+  const [quizPlacements, setQuizPlacements] = useState<string[]>(['left_sidebar']); // Placements multiples !
+  const [quizArticleId, setQuizArticleId] = useState('');
+
+  // Questions du quiz en cours d'édition
+  const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
+  const [showQuestionForm, setShowQuestionForm] = useState(false);
+  const [questionEditingId, setQuestionEditingId] = useState<string | null>(null);
+  const [questionFr, setQuestionFr] = useState('');
+  const [questionEn, setQuestionEn] = useState('');
+  const [questionType, setQuestionType] = useState<'qcm' | 'swipe' | 'image' | 'chronology'>('qcm');
+  const [questionImageUrl, setQuestionImageUrl] = useState('');
+  const [questionExplanationFr, setQuestionExplanationFr] = useState('');
+  const [questionExplanationEn, setQuestionExplanationEn] = useState('');
+  const [questionOptions, setQuestionOptions] = useState<Array<{ id: string; text_fr: string; text_en: string; is_correct: boolean }>>([
+    { id: 'a', text_fr: '', text_en: '', is_correct: true },
+    { id: 'b', text_fr: '', text_en: '', is_correct: false }
+  ]);
+
+  const [quizAttempts, setQuizAttempts] = useState<any[]>([]);
+
+  // CONFIGURATION DU CATALOGUE MONDIAL DES MATIÈRES PREMIÈRES (2026)
+  const GLOBAL_COMMODITIES_CATALOG = [
+    { symbol: 'BZ=F', label: 'Pétrole Brent (Référence Afrique)', defaultEmoji: '🛢️' },
+    { symbol: 'CL=F', label: 'Pétrole WTI (Référence Américaine)', defaultEmoji: '🛢️' },
+    { symbol: 'NG=F', label: 'Gaz Naturel', defaultEmoji: '🔥' },
+    { symbol: 'GC=F', label: 'Or (Precious Metals)', defaultEmoji: '🟡' },
+    { symbol: 'SI=F', label: 'Argent', defaultEmoji: '🥈' },
+    { symbol: 'PL=F', label: 'Platine (Afrique du Sud)', defaultEmoji: '💍' },
+    { symbol: 'HG=F', label: 'Cuivre (Congo / RDC)', defaultEmoji: '🔌' },
+    { symbol: 'UR=F', label: 'Uranium (Niger)', defaultEmoji: '☢️' },
+    { symbol: 'COB=F', label: 'Cobalt (RDC)', defaultEmoji: '🔋' },
+    { symbol: 'MNG=F', label: 'Manganèse (Afrique du Sud)', defaultEmoji: '⚙️' },
+    { symbol: 'BAU=F', label: 'Bauxite (Guinée)', defaultEmoji: '🧱' },
+    { symbol: 'CC=F', label: 'Cacao (Côte d\'Ivoire / Ghana)', defaultEmoji: '🍫' },
+    { symbol: 'KC=F', label: 'Café Arabica', defaultEmoji: '☕' },
+    { symbol: 'CT=F', label: 'Coton', defaultEmoji: '☁️' },
+    { symbol: 'ZC=F', label: 'Maïs', defaultEmoji: '🌽' },
+    { symbol: 'ZW=F', label: 'Blé', defaultEmoji: '🌾' },
+    { symbol: 'ZS=F', label: 'Soja', defaultEmoji: '🌱' },
+    { symbol: 'TEA=F', label: 'Thé', defaultEmoji: '🍃' }
+  ];
+
+  const [tickerEnabled, setTickerEnabled] = useState(true);
+  const [selectedCommodities, setSelectedCommodities] = useState<any[]>([]);
+  const [showAllCommodities, setShowAllCommodities] = useState(false);
+
   useEffect(() => { fetchData(); }, []);
 
   async function fetchData() {
@@ -765,6 +837,43 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
       .order('priority', { ascending: true });
     if (digestData) setDigests(digestData as DigestItem[]);
 
+    // Charger les sondages et les quiz
+    const { data: pollsData } = await supabase.from('press_polls').select('*').order('created_at', { ascending: false });
+    if (pollsData) setPolls(pollsData);
+
+    const { data: quizzesData } = await supabase.from('press_quizzes').select('*').order('created_at', { ascending: false });
+    if (quizzesData) setQuizzes(quizzesData);
+
+    const { data: attemptsData } = await supabase.from('press_quiz_attempts').select('*').order('created_at', { ascending: false });
+    if (attemptsData) setQuizAttempts(attemptsData);
+
+    // Charger les configurations de matières premières
+    try {
+      const { data: siteSettings } = await supabase.from('site_settings').select('*').eq('id', 1).maybeSingle();
+      if (siteSettings) {
+        setTickerEnabled(siteSettings.press_ticker_enabled !== false);
+        
+        const raw = siteSettings.selected_commodities || ['BZ=F', 'GC=F', 'CC=F', 'KC=F', 'HG=F'];
+        if (raw === 'all' || (Array.isArray(raw) && raw.includes('all'))) {
+          setShowAllCommodities(true);
+          // Charger le catalogue complet par défaut
+          setSelectedCommodities(GLOBAL_COMMODITIES_CATALOG.map(c => ({ symbol: c.symbol, emoji: c.defaultEmoji })));
+        } else if (Array.isArray(raw)) {
+          setShowAllCommodities(false);
+          const formatted = raw.map((item: any) => {
+            if (typeof item === 'string') {
+              const found = GLOBAL_COMMODITIES_CATALOG.find(c => c.symbol === item);
+              return { symbol: item, emoji: found ? found.defaultEmoji : '🌍' };
+            }
+            return item; // Format objet
+          });
+          setSelectedCommodities(formatted);
+        }
+      }
+    } catch (e) {
+      console.warn('site_settings table or selected_commodities column not available yet.', e);
+    }
+
     setIsLoading(false);
   }
 
@@ -804,6 +913,319 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
     setLocationLongitude(undefined);
     setShowForm(false);
     setActiveTab('content');
+  };
+
+  // ============================================================================
+  // GESTION DU CYCLE DE VIE DES SONDAGES (BILINGUES & AUTO-TRADUISIBLES)
+  // ============================================================================
+  const resetPollForm = () => {
+    setPollEditingId(null);
+    setPollQuestionFr('');
+    setPollQuestionEn('');
+    setPollType('classic');
+    setPollPlacements(['left_sidebar']); // Tableau de placements par défaut
+    setPollImageUrl(''); // Reset de l&apos;image du sondage
+    setPollArticleId('');
+    setPollIsActive(true);
+    setPollOptions([
+      { id: 'opt_1', text_fr: '', text_en: '', votes: 0 },
+      { id: 'opt_2', text_fr: '', text_en: '', votes: 0 }
+    ]);
+    setShowPollForm(false);
+  };
+
+  const handleEditPoll = (p: any) => {
+    setPollEditingId(p.id);
+    setPollQuestionFr(p.question_fr);
+    setPollQuestionEn(p.question_en);
+    setPollType(p.poll_type);
+    setPollPlacements(p.placements || [p.placement] || ['left_sidebar']); // Remplissage rétrocompatible
+    setPollImageUrl(p.image_url || ''); // Remplissage de l&apos;image
+    setPollArticleId(p.article_id || '');
+    setPollIsActive(p.is_active);
+    setPollOptions(p.options || []);
+    setShowPollForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSavePoll = async () => {
+    if (!pollQuestionFr.trim()) return showMsg('error', 'La question en français est requise.');
+    if (pollPlacements.length === 0) return showMsg('error', 'Sélectionnez au moins un emplacement d\'affichage.');
+    if (pollType !== 'rating') {
+      const emptyOptions = pollOptions.filter(o => !o.text_fr.trim());
+      if (emptyOptions.length > 0) return showMsg('error', 'Toutes les options doivent avoir du texte en français.');
+    }
+    
+    setIsSaving(true);
+    const payload = {
+      question_fr: pollQuestionFr,
+      question_en: pollQuestionEn || pollQuestionFr,
+      poll_type: pollType,
+      placements: pollPlacements,
+      image_url: pollImageUrl || null,
+      article_id: pollArticleId || null,
+      is_active: pollIsActive,
+      options: pollOptions
+    };
+
+    try {
+      if (pollEditingId) {
+        const { error } = await supabase.from('press_polls').update(payload).eq('id', pollEditingId);
+        if (error) throw error;
+        showMsg('success', '✅ Sondage mis à jour !');
+      } else {
+        const { error } = await supabase.from('press_polls').insert(payload);
+        if (error) throw error;
+        showMsg('success', '🎉 Sondage créé avec succès !');
+      }
+      resetPollForm();
+      fetchData();
+    } catch (err: any) {
+      showMsg('error', `Erreur de sauvegarde : ${err.message}`);
+    }
+    setIsSaving(false);
+  };
+
+  const handleDeletePoll = async (id: string) => {
+    if (!confirm('Supprimer définitivement ce sondage et ses résultats ?')) return;
+    const { error } = await supabase.from('press_polls').delete().eq('id', id);
+    if (!error) {
+      setPolls(polls.filter(p => p.id !== id));
+      showMsg('success', '🗑️ Sondage supprimé.');
+    } else {
+      showMsg('error', error.message);
+    }
+  };
+
+  const handleTranslatePollQuestion = async () => {
+    if (!pollQuestionFr.trim()) return showMsg('error', 'Saisissez d\'abord la question en français.');
+    setIsProcessing('translate-poll-q');
+    try {
+      setPollQuestionEn(await autoTranslate(pollQuestionFr, 'fr'));
+      showMsg('success', '✨ Question traduite !');
+    } catch {
+      showMsg('error', 'Erreur de traduction.');
+    }
+    setIsProcessing(null);
+  };
+
+  const handleTranslatePollOption = async (index: number) => {
+    const textFr = pollOptions[index].text_fr;
+    if (!textFr.trim()) return showMsg('error', 'Saisissez d\'abord l\'option en français.');
+    setIsProcessing(`translate-poll-opt-${index}`);
+    try {
+      const translated = await autoTranslate(textFr, 'fr');
+      const updated = [...pollOptions];
+      updated[index] = { ...updated[index], text_en: translated };
+      setPollOptions(updated);
+      showMsg('success', '✨ Option traduite !');
+    } catch {
+      showMsg('error', 'Erreur de traduction.');
+    }
+    setIsProcessing(null);
+  };
+
+  // ============================================================================
+  // GESTION DU CYCLE DE VIE DES QUIZ (BILINGUES & AUTO-TRADUISIBLES)
+  // ============================================================================
+  const resetQuizForm = () => {
+    setQuizEditingId(null);
+    setQuizTitleFr('');
+    setQuizTitleEn('');
+    setQuizPlacements(['left_sidebar']); // Réinitialiser placements multiples
+    setQuizArticleId('');
+    setShowQuizForm(false);
+    setQuizQuestions([]);
+  };
+
+  const handleEditQuiz = async (q: any) => {
+    setQuizEditingId(q.id);
+    setQuizTitleFr(q.title_fr);
+    setQuizTitleEn(q.title_en);
+    setQuizPlacements(q.placements || ['left_sidebar']); // Chargement de placements multiples
+    setQuizArticleId(q.article_id || '');
+    setShowQuizForm(true);
+
+    // Charger les questions associées
+    const { data } = await supabase.from('press_quiz_questions').select('*').eq('quiz_id', q.id).order('created_at', { ascending: true });
+    if (data) setQuizQuestions(data);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSaveQuiz = async () => {
+    if (!quizTitleFr.trim()) return showMsg('error', 'Le titre en français est requis.');
+    if (quizPlacements.length === 0) return showMsg('error', 'Sélectionnez au moins un emplacement d\'affichage.');
+    setIsSaving(true);
+    const payload = {
+      title_fr: quizTitleFr,
+      title_en: quizTitleEn || quizTitleFr,
+      placements: quizPlacements,
+      article_id: quizArticleId || null
+    };
+
+    try {
+      if (quizEditingId) {
+        const { error } = await supabase.from('press_quizzes').update(payload).eq('id', quizEditingId);
+        if (error) throw error;
+        showMsg('success', '✅ Quiz mis à jour !');
+      } else {
+        const { error } = await supabase.from('press_quizzes').insert(payload);
+        if (error) throw error;
+        showMsg('success', '🎉 Quiz créé avec succès !');
+      }
+      resetQuizForm();
+      fetchData();
+    } catch (err: any) {
+      showMsg('error', err.message);
+    }
+    setIsSaving(false);
+  };
+
+  const handleDeleteQuiz = async (id: string) => {
+    if (!confirm('Supprimer ce quiz, ses questions et toutes les statistiques de participation ?')) return;
+    const { error } = await supabase.from('press_quizzes').delete().eq('id', id);
+    if (!error) {
+      setQuizzes(quizzes.filter(q => q.id !== id));
+      showMsg('success', '🗑️ Quiz supprimé.');
+      if (quizEditingId === id) resetQuizForm();
+    } else {
+      showMsg('error', error.message);
+    }
+  };
+
+  const handleTranslateQuizTitle = async () => {
+    if (!quizTitleFr.trim()) return showMsg('error', 'Saisissez d\'abord le titre en français.');
+    setIsProcessing('translate-quiz-title');
+    try {
+      setQuizTitleEn(await autoTranslate(quizTitleFr, 'fr'));
+      showMsg('success', '✨ Titre traduit !');
+    } catch {
+      showMsg('error', 'Erreur de traduction.');
+    }
+    setIsProcessing(null);
+  };
+
+  // --- FONCTIONS QUESTIONS QUIZ ---
+  const resetQuestionForm = () => {
+    setQuestionEditingId(null);
+    setQuestionFr('');
+    setQuestionEn('');
+    setQuestionType('qcm');
+    setQuestionImageUrl('');
+    setQuestionExplanationFr('');
+    setQuestionExplanationEn('');
+    setQuestionOptions([
+      { id: 'a', text_fr: '', text_en: '', is_correct: true },
+      { id: 'b', text_fr: '', text_en: '', is_correct: false }
+    ]);
+    setShowQuestionForm(false);
+  };
+
+  const handleEditQuestion = (q: any) => {
+    setQuestionEditingId(q.id);
+    setQuestionFr(q.question_fr);
+    setQuestionEn(q.question_en);
+    setQuestionType(q.type);
+    setQuestionImageUrl(q.image_url || '');
+    setQuestionExplanationFr(q.explanation_fr || '');
+    setQuestionExplanationEn(q.explanation_en || '');
+    setQuestionOptions(q.options || []);
+    setShowQuestionForm(true);
+  };
+
+  const handleSaveQuestion = async () => {
+    if (!questionFr.trim()) return showMsg('error', 'La question en français est requise.');
+    if (!quizEditingId) return showMsg('error', 'ID de quiz manquant.');
+    
+    // Vérifier les options
+    const emptyOptions = questionOptions.filter(o => !o.text_fr.trim());
+    if (emptyOptions.length > 0) return showMsg('error', 'Toutes les options doivent avoir du texte en français.');
+    const correctOptions = questionOptions.filter(o => o.is_correct);
+    if (correctOptions.length === 0) return showMsg('error', 'Sélectionnez au moins une bonne réponse.');
+
+    setIsSaving(true);
+    const payload = {
+      quiz_id: quizEditingId,
+      question_fr: questionFr,
+      question_en: questionEn || questionFr,
+      type: questionType,
+      image_url: questionImageUrl || null,
+      explanation_fr: questionExplanationFr || null,
+      explanation_en: questionExplanationEn || null,
+      options: questionOptions
+    };
+
+    try {
+      if (questionEditingId) {
+        const { error } = await supabase.from('press_quiz_questions').update(payload).eq('id', questionEditingId);
+        if (error) throw error;
+        showMsg('success', '✅ Question mise à jour !');
+      } else {
+        const { error } = await supabase.from('press_quiz_questions').insert(payload);
+        if (error) throw error;
+        showMsg('success', '🎉 Question ajoutée au quiz !');
+      }
+      resetQuestionForm();
+      
+      // Recharger les questions
+      const { data } = await supabase.from('press_quiz_questions').select('*').eq('quiz_id', quizEditingId).order('created_at', { ascending: true });
+      if (data) setQuizQuestions(data);
+    } catch (err: any) {
+      showMsg('error', err.message);
+    }
+    setIsSaving(false);
+  };
+
+  const handleDeleteQuestion = async (id: string) => {
+    if (!confirm('Supprimer cette question ?')) return;
+    const { error } = await supabase.from('press_quiz_questions').delete().eq('id', id);
+    if (!error) {
+      setQuizQuestions(quizQuestions.filter(q => q.id !== id));
+      showMsg('success', '🗑️ Question supprimée.');
+      if (questionEditingId === id) resetQuestionForm();
+    } else {
+      showMsg('error', error.message);
+    }
+  };
+
+  const handleTranslateQuestion = async () => {
+    if (!questionFr.trim()) return showMsg('error', 'Saisissez d\'abord la question en français.');
+    setIsProcessing('translate-question-text');
+    try {
+      setQuestionEn(await autoTranslate(questionFr, 'fr'));
+      showMsg('success', '✨ Question traduite !');
+    } catch {
+      showMsg('error', 'Erreur de traduction.');
+    }
+    setIsProcessing(null);
+  };
+
+  const handleTranslateQuestionExplanation = async () => {
+    if (!questionExplanationFr.trim()) return showMsg('error', 'Saisissez d\'abord l\'explication en français.');
+    setIsProcessing('translate-question-exp');
+    try {
+      setQuestionExplanationEn(await autoTranslate(questionExplanationFr, 'fr'));
+      showMsg('success', '✨ Explication traduite !');
+    } catch {
+      showMsg('error', 'Erreur de traduction.');
+    }
+    setIsProcessing(null);
+  };
+
+  const handleTranslateQuestionOption = async (index: number) => {
+    const textFr = questionOptions[index].text_fr;
+    if (!textFr.trim()) return showMsg('error', 'Saisissez d\'abord l\'option en français.');
+    setIsProcessing(`translate-qopt-${index}`);
+    try {
+      const translated = await autoTranslate(textFr, 'fr');
+      const updated = [...questionOptions];
+      updated[index] = { ...updated[index], text_en: translated };
+      setQuestionOptions(updated);
+      showMsg('success', '✨ Option traduite !');
+    } catch {
+      showMsg('error', 'Erreur de traduction.');
+    }
+    setIsProcessing(null);
   };
 
   const handleEdit = (a: PressArticle) => {
@@ -1098,10 +1520,36 @@ export default function PressTab({ showMsg }: { showMsg: (type: 'success' | 'err
   const openCloudinaryWidget = (resourceType: 'image' | 'video', onSuccess: (url: string) => void, uploadKey: string) => {
     setIsUploading(uploadKey);
     loadCloudinaryScript(() => {
+      // Déterminer le dossier de destination en fonction de l'usage (whitelisted dans /api/cloudinary-sign)
+      let folder = 'press';
+      if (uploadKey === 'cover' || uploadKey === 'cover-video') {
+        folder = 'articles';
+      } else if (uploadKey === 'reading-audio' || uploadKey === 'audio-content') {
+        folder = 'articles/audio';
+      }
+
       // @ts-ignore
       const w = window.cloudinary.createUploadWidget({
         cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-        uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET,
+        apiKey: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
+        uploadSignature: async (callback: any, paramsToSign: any) => {
+          try {
+            const res = await fetch('/api/cloudinary-sign', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ paramsToSign }),
+            });
+            const { signature, error } = await res.json();
+            if (error) {
+              showMsg('error', `Erreur de signature : ${error}`);
+              return;
+            }
+            callback(signature);
+          } catch (err) {
+            console.error('Erreur de signature Cloudinary', err);
+          }
+        },
+        folder: folder,
         sources: ['local', 'url'],
         resourceType,
         multiple: false
@@ -1428,9 +1876,20 @@ const insertMarkdown = (syntax: string, cursorField: 'fr' | 'en') => {
   const handleSaveSettings = async () => {
     setIsSaving(true);
     try {
+      // 1. Enregistrer les paramètres des réseaux sociaux
       const { error } = await supabase.from('social_settings').upsert({ id: 1, ...socialSettings });
       if (error) throw error;
-      showMsg('success', '⚙️ Paramètres mis à jour');
+
+      // 2. Enregistrer le ticker et les matières sélectionnées dans site_settings
+      const commoditiesPayload = showAllCommodities ? ['all'] : selectedCommodities;
+      const { error: tickerError } = await supabase.from('site_settings').upsert({
+        id: 1,
+        press_ticker_enabled: tickerEnabled, // Met à jour uniquement le ticker de la presse !
+        selected_commodities: commoditiesPayload
+      });
+      if (tickerError) throw tickerError;
+
+      showMsg('success', '⚙️ Paramètres (Réseaux & Bourse) mis à jour avec succès !');
     } catch (err: any) {
       showMsg('error', err.message);
     }
@@ -1685,6 +2144,14 @@ const insertMarkdown = (syntax: string, cursorField: 'fr' | 'en') => {
 
         <button onClick={() => setView('authors')} className={`group relative px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-300 whitespace-nowrap ${view === 'authors' ? 'bg-gradient-to-r from-teal-600 to-teal-500 text-white shadow-lg' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}`}>
           <div className="flex items-center gap-2"><User size={16} /> Auteurs</div>
+        </button>
+
+        <button onClick={() => setView('polls')} className={`group relative px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-300 whitespace-nowrap ${view === 'polls' ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}`}>
+          <div className="flex items-center gap-2"><BarChart3 size={16} /> Sondages</div>
+        </button>
+
+        <button onClick={() => setView('quizzes')} className={`group relative px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-300 whitespace-nowrap ${view === 'quizzes' ? 'bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-lg' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}`}>
+          <div className="flex items-center gap-2"><Lightbulb size={16} /> Quiz</div>
         </button>
 
         {view === 'articles' && !showForm && (
@@ -3885,10 +4352,997 @@ const insertMarkdown = (syntax: string, cursorField: 'fr' | 'en') => {
               </div>
               <input type="text" value={socialSettings.facebook_url} onChange={e => setSocialSettings({ ...socialSettings, facebook_url: e.target.value })} placeholder="https://facebook.com/..." className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm" />
             </div>
+
+            {/* CONFIGURATION DU COURS DES MATIÈRES PREMIÈRES */}
+            <div className="bg-white/[0.02] border border-white/10 rounded-xl p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <span>📈 Ticker Boursier — Cours des Matières Premières</span>
+                </h3>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <div
+                    onClick={() => setTickerEnabled(!tickerEnabled)}
+                    className={`relative w-10 h-5 rounded-full transition-all cursor-pointer ${tickerEnabled ? 'bg-green-500' : 'bg-white/10'}`}
+                  >
+                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${tickerEnabled ? 'left-5' : 'left-0.5'}`} />
+                  </div>
+                  <span className="text-xs text-gray-400 font-mono">{tickerEnabled ? 'ACTIVÉ' : 'DÉSACTIVÉ'}</span>
+                </label>
+              </div>
+
+              <div className="p-4 bg-[#161616] border border-white/10 rounded-xl space-y-3">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showAllCommodities}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setShowAllCommodities(checked);
+                      if (checked) {
+                        // Activer toutes les matières par défaut
+                        setSelectedCommodities(GLOBAL_COMMODITIES_CATALOG.map(c => ({ symbol: c.symbol, emoji: c.defaultEmoji })));
+                      }
+                    }}
+                    className="accent-blue-500"
+                  />
+                  <div>
+                    <p className="text-sm text-white font-bold">🌍 Afficher TOUTES les matières du monde entier (Flux total)</p>
+                    <p className="text-[10px] text-gray-500 font-sans">Active le défilement complet en continu de l&apos;intégralité de notre catalogue mondial de 18 matières boursières.</p>
+                  </div>
+                </label>
+              </div>
+
+              {!showAllCommodities && (
+                <div className="space-y-3">
+                  <p className="text-xs text-gray-400 leading-relaxed font-sans">
+                    Sélectionnez les matières premières boursières mondiales que vous souhaitez faire défiler pour vos lecteurs et **personnalisez leurs émojis/drapeaux** en direct :
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                    {GLOBAL_COMMODITIES_CATALOG.map((item) => {
+                      const existing = selectedCommodities.find(c => c.symbol === item.symbol);
+                      const isChecked = !!existing;
+                      const emojiValue = existing ? existing.emoji : item.defaultEmoji;
+
+                      return (
+                        <div key={item.symbol} className="flex items-center justify-between gap-2 bg-[#161616] p-3 rounded-lg border border-white/5 hover:border-white/10 transition-colors">
+                          <label className="flex items-center gap-2 text-xs text-white cursor-pointer select-none flex-1 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                if (isChecked) {
+                                  setSelectedCommodities(selectedCommodities.filter(c => c.symbol !== item.symbol));
+                                } else {
+                                  setSelectedCommodities([...selectedCommodities, { symbol: item.symbol, emoji: item.defaultEmoji }]);
+                                }
+                              }}
+                              className="accent-blue-500"
+                            />
+                            <span className="truncate">{item.label}</span>
+                          </label>
+
+                          {isChecked && (
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              <span className="text-[10px] text-gray-500 font-mono">Émoji :</span>
+                              <input
+                                type="text"
+                                maxLength={4}
+                                value={emojiValue}
+                                onChange={(e) => {
+                                  const updated = selectedCommodities.map(c => 
+                                    c.symbol === item.symbol ? { ...c, emoji: e.target.value } : c
+                                  );
+                                  setSelectedCommodities(updated);
+                                }}
+                                className="w-10 bg-black/40 border border-white/10 rounded px-1.5 py-0.5 text-center text-xs text-white outline-none focus:border-blue-500"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center bg-blue-500/5 p-3 rounded-xl border border-blue-500/20 text-[11px] text-blue-300 mt-2 font-sans">
+                <span>💡 <strong>Astuce :</strong> Le cours est extrait en direct depuis les marchés boursiers via Yahoo Finance et mis en cache (30 min) pour des performances d&apos;affichage maximales sur Vercel.</span>
+              </div>
+            </div>
           </div>
           <button onClick={handleSaveSettings} disabled={isSaving} className="mt-6 px-8 py-3 bg-blue-600 text-white rounded-xl font-bold flex items-center gap-2 ml-auto">
             {isSaving ? <Loader2 className="animate-spin" /> : <Save />} Enregistrer
           </button>
+        </div>
+      )}
+
+      {/* ============================================================================
+          VUE SONDAGES (POLLS) - ADMIN DE SONDAGES BILINGUES
+          ============================================================================ */}
+      {view === 'polls' && (
+        <div className="space-y-6">
+          {/* Header de la vue */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-bold text-white font-serif">Sondages Bilingues</h3>
+              <p className="text-gray-400 text-sm">Créez et gérez vos sondages d&apos;opinion dans les barres latérales ou sur l&apos;accueil.</p>
+            </div>
+            {!showPollForm && (
+              <button
+                onClick={() => {
+                  resetPollForm();
+                  setShowPollForm(true);
+                }}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold text-sm flex items-center gap-2 transition-all"
+              >
+                <PlusCircle size={16} /> Nouveau Sondage
+              </button>
+            )}
+          </div>
+
+          {showPollForm ? (
+            <div className="bg-gradient-to-br from-[#0f0f0f] to-[#1a1a1a] rounded-2xl border border-white/10 p-6 space-y-6">
+              <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                <h4 className="text-white font-bold text-lg flex items-center gap-2">
+                  <BarChart3 size={18} className="text-blue-400" />
+                  {pollEditingId ? 'Modifier le Sondage' : 'Créer un Nouveau Sondage'}
+                </h4>
+                <button onClick={resetPollForm} className="p-2 hover:bg-white/10 rounded-lg"><X size={18} className="text-gray-400" /></button>
+              </div>
+
+              {/* Formulaire Sondage */}
+              <div className="space-y-4">
+                
+                {/* ── Question Bilingue ── */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="block text-xs text-gray-400 font-mono">🇫🇷 Question en Français *</label>
+                    <input
+                      type="text"
+                      value={pollQuestionFr}
+                      onChange={e => setPollQuestionFr(e.target.value)}
+                      placeholder="Ex: Le Franc CFA est-il un frein au développement ?"
+                      className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-blue-500"
+                    />
+                    <div className="flex gap-1.5 pt-1">
+                      <button
+                        onClick={handleTranslatePollQuestion}
+                        disabled={isProcessing === 'translate-poll-q' || !pollQuestionFr.trim()}
+                        className="text-[10px] bg-white/5 text-gray-400 px-2 py-1 rounded hover:bg-white/10 flex items-center gap-1 disabled:opacity-30"
+                      >
+                        {isProcessing === 'translate-poll-q' ? <Loader2 size={10} className="animate-spin" /> : <Languages size={10} />} Traduire vers l&apos;Anglais
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-xs text-gray-400 font-mono">🇬🇧 Question en Anglais *</label>
+                    <input
+                      type="text"
+                      value={pollQuestionEn}
+                      onChange={e => setPollQuestionEn(e.target.value)}
+                      placeholder="Ex: Is the CFA Franc a barrier to development?"
+                      className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
+                {/* ── Type, Positionnements Multiples & Image ── */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-[#161616] rounded-xl border border-white/5">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-2 font-mono">📊 Type de Sondage</label>
+                      <select
+                        value={pollType}
+                        onChange={e => setPollType(e.target.value as any)}
+                        className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 outline-none"
+                      >
+                        <option value="classic">Sondage Classique</option>
+                        <option value="versus">Versus (Duel A vs B)</option>
+                        <option value="rating">Échelle d&apos;Opinion (1-10)</option>
+                        <option value="visual">Sondage Visuel (Grille d&apos;Images)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-2 font-mono">🔗 Lier à un Article (Optionnel)</label>
+                      <select
+                        value={pollArticleId}
+                        onChange={e => setPollArticleId(e.target.value)}
+                        className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 outline-none"
+                      >
+                        <option value="">Aucun article lié</option>
+                        {articles.map(a => (
+                          <option key={a.id} value={a.id}>{a.title_fr}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-xs text-gray-400 font-mono">📍 Emplacement(s) d&apos;Affichage (Plusieurs choix possibles)</label>
+                      <div className="flex flex-col gap-2 bg-[#1a1a1a] p-3 rounded-xl border border-white/10">
+                        {([
+                          { key: 'left_sidebar', label: '👈 Barre Latérale Gauche (Articles)' },
+                          { key: 'right_sidebar', label: '👉 Barre Latérale Droite (Articles / Ticker)' },
+                          { key: 'press_intro', label: '📰 Accueil de la Presse / Intro' }
+                        ]).map(item => {
+                          const checked = pollPlacements.includes(item.key);
+                          return (
+                            <label key={item.key} className="flex items-center gap-2 text-xs text-white cursor-pointer hover:text-blue-400 transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => {
+                                  if (checked) {
+                                    setPollPlacements(pollPlacements.filter(p => p !== item.key));
+                                  } else {
+                                    setPollPlacements([...pollPlacements, item.key]);
+                                  }
+                                }}
+                                className="accent-blue-500"
+                              />
+                              {item.label}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-2 font-mono">🖼️ Image d&apos;Illustration du Sondage</label>
+                      <div className="flex gap-2 mb-2">
+                        <input
+                          type="text"
+                          value={pollImageUrl}
+                          onChange={e => setPollImageUrl(e.target.value)}
+                          placeholder="https://..."
+                          className="flex-1 bg-[#1a1a1a] border border-white/20 rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-blue-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => openCloudinaryWidget('image', setPollImageUrl, 'poll-cover')}
+                          className="px-3 bg-white/5 border border-white/15 rounded hover:bg-white/10 text-xs text-white transition-all whitespace-nowrap"
+                        >
+                          Upload
+                        </button>
+                      </div>
+                      {pollImageUrl ? (
+                        <div className="relative w-full h-32 rounded-xl overflow-hidden border border-white/10">
+                          <img src={pollImageUrl} className="w-full h-full object-cover" alt="" />
+                          <button
+                            type="button"
+                            onClick={() => setPollImageUrl('')}
+                            className="absolute top-2 right-2 p-1 bg-red-600 rounded-full hover:bg-red-500"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="w-full h-32 bg-white/[0.01] border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center text-gray-600 text-xs">
+                          Aucune image d&apos;illustration (sondage standard)
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col justify-end pt-2">
+                      <label className="flex items-center gap-3 cursor-pointer p-3 bg-[#1a1a1a] border border-white/10 rounded-xl">
+                        <div
+                          onClick={() => setPollIsActive(!pollIsActive)}
+                          className={`relative w-10 h-5 rounded-full transition-all cursor-pointer ${pollIsActive ? 'bg-green-500' : 'bg-white/10'}`}
+                        >
+                          <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${pollIsActive ? 'left-5' : 'left-0.5'}`} />
+                        </div>
+                        <div>
+                          <p className="text-xs text-white font-semibold">Sondage Actif</p>
+                          <p className="text-[10px] text-gray-500">Accepte les votes en direct</p>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Éditeur d&apos;Options (Seulement pour les sondages non rating) ── */}
+                {pollType !== 'rating' && (
+                  <div className="p-4 bg-[#161616] rounded-xl border border-white/5 space-y-4">
+                    <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                      <p className="text-xs font-bold text-[#D4AF37] font-mono">📋 Options de Réponse (Bilingues)</p>
+                      <button
+                        type="button"
+                        onClick={() => setPollOptions([...pollOptions, { id: `opt_${Date.now()}`, text_fr: '', text_en: '', votes: 0 }])}
+                        className="text-xs bg-[#D4AF37]/15 border border-[#D4AF37]/30 text-[#D4AF37] px-3 py-1 rounded hover:bg-white hover:text-black transition-all"
+                      >
+                        + Ajouter une Option
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      {pollOptions.map((opt, i) => (
+                        <div key={opt.id} className="flex flex-col md:flex-row gap-3 items-start md:items-center bg-[#1e1e1e] p-3 rounded-lg border border-white/5">
+                          <span className="text-xs font-bold text-gray-500 font-mono w-5">#{i + 1}</span>
+                          
+                          {/* Option FR */}
+                          <div className="flex-1 min-w-0 w-full space-y-1">
+                            <input
+                              type="text"
+                              value={opt.text_fr}
+                              onChange={e => {
+                                const updated = [...pollOptions];
+                                updated[i] = { ...updated[i], text_fr: e.target.value };
+                                setPollOptions(updated);
+                              }}
+                              placeholder="Texte en Français..."
+                              className="w-full bg-[#121212] border border-white/10 rounded px-3 py-2 text-xs text-white"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleTranslatePollOption(i)}
+                              disabled={isProcessing === `translate-poll-opt-${i}` || !opt.text_fr.trim()}
+                              className="text-[9px] text-blue-400 hover:underline flex items-center gap-1 disabled:opacity-30"
+                            >
+                              {isProcessing === `translate-poll-opt-${i}` ? <Loader2 size={8} className="animate-spin" /> : '🌐'} Auto-Traduire
+                            </button>
+                          </div>
+
+                          {/* Option EN */}
+                          <div className="flex-1 min-w-0 w-full">
+                            <input
+                              type="text"
+                              value={opt.text_en}
+                              onChange={e => {
+                                const updated = [...pollOptions];
+                                updated[i] = { ...updated[i], text_en: e.target.value };
+                                setPollOptions(updated);
+                              }}
+                              placeholder="Texte en Anglais..."
+                              className="w-full bg-[#121212] border border-white/10 rounded px-3 py-2 text-xs text-white"
+                            />
+                          </div>
+
+                          {/* Stats de vote informatives */}
+                          <div className="text-center px-2">
+                            <span className="text-[10px] text-gray-500 font-mono">Votes :</span>
+                            <p className="text-xs text-white font-mono font-bold">{opt.votes || 0}</p>
+                          </div>
+
+                          {/* Supprimer l&apos;option */}
+                          {pollOptions.length > 2 && (
+                            <button
+                              type="button"
+                              onClick={() => setPollOptions(pollOptions.filter(o => o.id !== opt.id))}
+                              className="p-2 text-red-500 bg-red-500/10 hover:bg-red-500 hover:text-white rounded"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Pied de formulaire */}
+              <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
+                <button onClick={resetPollForm} className="px-5 py-2.5 bg-white/5 text-gray-400 rounded-xl text-sm hover:bg-white/10">
+                  Annuler
+                </button>
+                <button
+                  onClick={handleSavePoll}
+                  disabled={isSaving}
+                  className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-500 flex items-center gap-2"
+                >
+                  {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                  Enregistrer le Sondage
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Liste des Sondages */
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {polls.map(poll => {
+                const totalVotes = (poll.options || []).reduce((sum: number, o: any) => sum + (o.votes || 0), 0);
+                const relatedArticle = articles.find(a => a.id === poll.article_id);
+
+                return (
+                  <div key={poll.id} className="bg-white/[0.02] border border-white/10 rounded-2xl p-5 hover:border-[#D4AF37]/30 transition-all flex flex-col justify-between">
+                    <div className="space-y-3">
+                      {/* Image d&apos;illustration du sondage */}
+                      {poll.image_url && (
+                        <div className="w-full h-24 rounded-xl overflow-hidden border border-white/10 mb-2">
+                          <img src={poll.image_url} className="w-full h-full object-cover" alt="" />
+                        </div>
+                      )}
+
+                      {/* Badges et statut */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${poll.is_active ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}`}>
+                          {poll.is_active ? '🔴 ACTIF' : '⏸️ CLOS'}
+                        </span>
+                        
+                        {/* Affichage des placements multiples */}
+                        {(poll.placements || [poll.placement] || []).map((pl: string) => (
+                          <span key={pl} className="px-2 py-0.5 bg-white/5 text-gray-400 text-[9px] rounded-full uppercase border border-white/10">
+                            📍 {pl}
+                          </span>
+                        ))}
+
+                        <span className="px-2 py-0.5 bg-white/5 text-gray-400 text-[9px] rounded-full uppercase border border-white/10">
+                          📊 {poll.poll_type}
+                        </span>
+                        {relatedArticle && (
+                          <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[9px] rounded-full truncate max-w-xs border border-blue-500/15">
+                            📖 Art: {relatedArticle.title_fr}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Question Bilingue */}
+                      <div>
+                        <h4 className="text-white font-bold text-base font-serif">{poll.question_fr}</h4>
+                        <p className="text-gray-500 text-xs italic mt-0.5">{poll.question_en}</p>
+                      </div>
+
+                      {/* Options & Résultats en Bar-Chart Tailwind */}
+                      <div className="space-y-2 pt-2">
+                        {(poll.options || []).map((opt: any) => {
+                          const percentage = totalVotes > 0 ? Math.round((opt.votes / totalVotes) * 100) : 0;
+                          return (
+                            <div key={opt.id} className="space-y-1">
+                              <div className="flex justify-between text-xs">
+                                <span className="text-gray-300 font-medium">{opt.text_fr}</span>
+                                <span className="text-gray-500 font-mono font-bold">{percentage}% ({opt.votes || 0} votes)</span>
+                              </div>
+                              <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
+                                <div
+                                  className="bg-blue-500 h-full rounded-full transition-all duration-500"
+                                  style={{ width: `${percentage}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Stats et Actions */}
+                    <div className="flex items-center justify-between pt-4 mt-4 border-t border-white/5">
+                      <p className="text-xs text-gray-500 font-mono font-bold">
+                        🗳️ Total : {totalVotes} votants
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEditPoll(poll)}
+                          className="p-2 bg-white/5 text-gray-400 hover:text-[#D4AF37] rounded-lg transition-all"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button
+                          onClick={() => handleDeletePoll(poll.id)}
+                          className="p-2 bg-white/5 text-gray-400 hover:text-red-500 rounded-lg transition-all"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {polls.length === 0 && (
+                <div className="col-span-2 text-center py-20 bg-white/[0.02] rounded-2xl border border-white/10">
+                  <BarChart3 className="mx-auto mb-4 text-gray-600" size={48} />
+                  <p className="text-gray-500 font-medium text-base">Aucun sondage disponible</p>
+                  <p className="text-gray-600 text-xs mt-1">Cliquez sur &quot;Nouveau Sondage&quot; pour lancer votre première enquête d&apos;opinion.</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============================================================================
+          VUE QUIZ & QUESTIONS (QUIZZES) - ESPACE GAMIFICATION
+          ============================================================================ */}
+      {view === 'quizzes' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-bold text-white font-serif">Quiz & Évaluations</h3>
+              <p className="text-gray-400 text-sm">Gérez les évaluations interactives bilingues pour tester les connaissances des lecteurs.</p>
+            </div>
+            {!showQuizForm && (
+              <button
+                onClick={() => {
+                  resetQuizForm();
+                  setShowQuizForm(true);
+                }}
+                className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-semibold text-sm flex items-center gap-2 transition-all"
+              >
+                <PlusCircle size={16} /> Nouveau Quiz
+              </button>
+            )}
+          </div>
+
+          {showQuizForm ? (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              
+              {/* COLONNE GAUCHE : INFOS GÉNÉRALES DU QUIZ */}
+              <div className="lg:col-span-1 bg-gradient-to-br from-[#0f0f0f] to-[#1a1a1a] rounded-2xl border border-white/10 p-5 space-y-4 h-fit">
+                <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                  <h4 className="text-white font-bold text-sm flex items-center gap-1.5">
+                    <Lightbulb size={16} className="text-purple-400" />
+                    Détails du Quiz
+                  </h4>
+                  {quizEditingId && <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 text-[9px] font-bold rounded">ENREGISTRÉ</span>}
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-1 font-mono">🇫🇷 Titre en Français *</label>
+                    <input
+                      type="text"
+                      value={quizTitleFr}
+                      onChange={e => setQuizTitleFr(e.target.value)}
+                      placeholder="Ex: Le Quiz du Franc CFA"
+                      className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-3 py-2 text-white text-xs outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleTranslateQuizTitle}
+                      disabled={isProcessing === 'translate-quiz-title' || !quizTitleFr.trim()}
+                      className="text-[9px] text-blue-400 hover:underline flex items-center gap-1 pt-1.5 disabled:opacity-30"
+                    >
+                      {isProcessing === 'translate-quiz-title' ? <Loader2 size={8} className="animate-spin" /> : '🌐'} Auto-Traduire
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-1 font-mono">🇬🇧 Titre en Anglais *</label>
+                    <input
+                      type="text"
+                      value={quizTitleEn}
+                      onChange={e => setQuizTitleEn(e.target.value)}
+                      placeholder="Ex: The CFA Franc Quiz"
+                      className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-3 py-2 text-white text-xs outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-gray-400 mb-1 font-mono">📖 Lier à un Article</label>
+                    <select
+                      value={quizArticleId}
+                      onChange={e => setQuizArticleId(e.target.value)}
+                      className="w-full bg-[#1a1a1a] border border-white/20 rounded-xl px-3 py-2 text-white text-xs outline-none"
+                    >
+                      <option value="">Aucun article lié</option>
+                      {articles.map(a => (
+                        <option key={a.id} value={a.id}>{a.title_fr}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] text-gray-400 font-mono">📍 Emplacement(s) d&apos;Affichage</label>
+                    <div className="flex flex-col gap-1.5 bg-[#161616] p-2.5 rounded-lg border border-white/5">
+                      {([
+                        { key: 'left_sidebar', label: '👈 Sidebar Gauche' },
+                        { key: 'right_sidebar', label: '👉 Sidebar Droite' },
+                        { key: 'press_intro', label: '📰 Accueil Presse' }
+                      ]).map(item => {
+                        const checked = quizPlacements.includes(item.key);
+                        return (
+                          <label key={item.key} className="flex items-center gap-1.5 text-[10px] text-white cursor-pointer hover:text-purple-400 transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => {
+                                if (checked) {
+                                  setQuizPlacements(quizPlacements.filter(p => p !== item.key));
+                                } else {
+                                  setQuizPlacements([...quizPlacements, item.key]);
+                                }
+                              }}
+                              className="accent-purple-500"
+                            />
+                            {item.label}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2 border-t border-white/5">
+                  <button onClick={resetQuizForm} className="flex-1 py-2 bg-white/5 text-gray-400 rounded-lg text-xs">
+                    Retour
+                  </button>
+                  <button onClick={handleSaveQuiz} disabled={isSaving} className="flex-1 py-2 bg-purple-600 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1">
+                    {isSaving ? <Loader2 className="animate-spin" size={12} /> : <Save size={12} />}
+                    Sauvegarder
+                  </button>
+                </div>
+              </div>
+
+              {/* COLONNE DROITE : QUESTIONS DE CE QUIZ */}
+              <div className="lg:col-span-2 space-y-4">
+                {!quizEditingId ? (
+                  <div className="bg-white/[0.01] border border-white/10 rounded-2xl p-12 text-center text-gray-500">
+                    <AlertTriangle className="mx-auto mb-3 text-gray-600" size={32} />
+                    <p className="text-sm">Enregistrez d&apos;abord le titre du Quiz à gauche pour pouvoir lui ajouter des questions bilingues.</p>
+                  </div>
+                ) : (
+                  <div className="bg-gradient-to-br from-[#0f0f0f] to-[#1a1a1a] rounded-2xl border border-white/10 p-6 space-y-4">
+                    <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                      <h4 className="text-white font-bold text-sm">
+                        Questions du Quiz ({quizQuestions.length})
+                      </h4>
+                      {!showQuestionForm && (
+                        <button
+                          onClick={() => {
+                            resetQuestionForm();
+                            setShowQuestionForm(true);
+                          }}
+                          className="px-3 py-1.5 bg-[#D4AF37]/15 border border-[#D4AF37]/30 text-[#D4AF37] text-xs font-mono rounded hover:bg-[#D4AF37] hover:text-black transition-all"
+                        >
+                          + Ajouter une Question
+                        </button>
+                      )}
+                    </div>
+
+                    {showQuestionForm ? (
+                      /* FORMULAIRE DE QUESTION */
+                      <div className="bg-black/40 border border-white/5 p-4 rounded-xl space-y-4">
+                        <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                          <p className="text-xs font-bold text-[#D4AF37] font-mono">
+                            {questionEditingId ? 'Modifier la Question' : 'Nouvelle Question'}
+                          </p>
+                          <button onClick={resetQuestionForm} className="text-gray-500 hover:text-white"><X size={14} /></button>
+                        </div>
+
+                        {/* Questions */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[10px] text-gray-400 mb-1 font-mono">🇫🇷 Question (FR) *</label>
+                            <input
+                              type="text"
+                              value={questionFr}
+                              onChange={e => setQuestionFr(e.target.value)}
+                              className="w-full bg-[#161616] border border-white/15 rounded p-2.5 text-xs text-white"
+                              placeholder="Ex: En quelle année a été dévalué le CFA ?"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleTranslateQuestion}
+                              disabled={isProcessing === 'translate-question-text' || !questionFr.trim()}
+                              className="text-[9px] text-blue-400 hover:underline flex items-center gap-1 pt-1.5 disabled:opacity-30"
+                            >
+                              {isProcessing === 'translate-question-text' ? <Loader2 size={8} className="animate-spin" /> : '🌐'} Auto-Traduire la Question
+                            </button>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-gray-400 mb-1 font-mono">🇬🇧 Question (EN) *</label>
+                            <input
+                              type="text"
+                              value={questionEn}
+                              onChange={e => setQuestionEn(e.target.value)}
+                              className="w-full bg-[#161616] border border-white/15 rounded p-2.5 text-xs text-white"
+                              placeholder="Ex: In what year was the CFA devalued?"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Type & Image optionnelle */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div>
+                            <label className="block text-[10px] text-gray-400 mb-1 font-mono">⚙️ Type d&apos;Évaluation</label>
+                            <select
+                              value={questionType}
+                              onChange={e => setQuestionType(e.target.value as any)}
+                              className="w-full bg-[#161616] border border-white/15 rounded p-2 text-xs text-white outline-none"
+                            >
+                              <option value="qcm">QCM Classique</option>
+                              <option value="swipe">Vrai / Faux (Swipe)</option>
+                              <option value="image">Question Visuelle (sur Image)</option>
+                              <option value="chronology">Chronologie</option>
+                            </select>
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <label className="block text-[10px] text-gray-400 mb-1 font-mono">🖼️ URL de l&apos;Image (requis si type Image)</label>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={questionImageUrl}
+                                onChange={e => setQuestionImageUrl(e.target.value)}
+                                placeholder="https://"
+                                className="flex-1 bg-[#161616] border border-white/15 rounded p-2 text-xs text-white"
+                              />
+                              <button
+                                onClick={() => openCloudinaryWidget('image', setQuestionImageUrl, 'quiz-question-img')}
+                                className="px-3 bg-white/5 border border-white/10 rounded hover:bg-white/10 text-xs text-white"
+                              >
+                                Upload
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Options de QCM */}
+                        {questionType !== 'swipe' && (
+                          <div className="bg-[#121212] p-3 rounded-lg border border-white/5 space-y-3">
+                            <div className="flex items-center justify-between border-b border-white/5 pb-1">
+                              <p className="text-[10px] text-gray-500 font-bold font-mono">Options de Réponses</p>
+                              <button
+                                type="button"
+                                onClick={() => setQuestionOptions([...questionOptions, { id: String.fromCharCode(97 + questionOptions.length), text_fr: '', text_en: '', is_correct: false }])}
+                                className="text-[9px] text-[#D4AF37] hover:underline"
+                              >
+                                + Ajouter Option
+                              </button>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              {questionOptions.map((opt, idx) => (
+                                <div key={opt.id} className="flex gap-2 items-center bg-black/30 p-2 rounded">
+                                  <label className="flex items-center gap-1 flex-shrink-0 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={opt.is_correct}
+                                      onChange={e => {
+                                        const updated = questionOptions.map((o, k) =>
+                                          k === idx ? { ...o, is_correct: e.target.checked } : (questionType === 'qcm' ? { ...o, is_correct: false } : o)
+                                        );
+                                        setQuestionOptions(updated);
+                                      }}
+                                      className="accent-purple-500"
+                                    />
+                                    <span className="text-[10px] font-mono text-gray-500 uppercase">{opt.id}</span>
+                                  </label>
+                                  
+                                  <input
+                                    type="text"
+                                    value={opt.text_fr}
+                                    onChange={e => {
+                                      const updated = [...questionOptions];
+                                      updated[idx] = { ...updated[idx], text_fr: e.target.value };
+                                      setQuestionOptions(updated);
+                                    }}
+                                    placeholder="Français..."
+                                    className="flex-1 bg-[#161616] border border-white/10 rounded px-2 py-1 text-xs text-white"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={opt.text_en}
+                                    onChange={e => {
+                                      const updated = [...questionOptions];
+                                      updated[idx] = { ...updated[idx], text_en: e.target.value };
+                                      setQuestionOptions(updated);
+                                    }}
+                                    placeholder="English..."
+                                    className="flex-1 bg-[#161616] border border-white/10 rounded px-2 py-1 text-xs text-white"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleTranslateQuestionOption(idx)}
+                                    disabled={!opt.text_fr.trim()}
+                                    className="text-[9px] text-blue-400 hover:underline"
+                                  >
+                                    🌐
+                                  </button>
+                                  {questionOptions.length > 2 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setQuestionOptions(questionOptions.filter(o => o.id !== opt.id))}
+                                      className="text-red-500 hover:text-red-300"
+                                    >
+                                      ✕
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Swipe correct setting */}
+                        {questionType === 'swipe' && (
+                          <div className="flex gap-4 items-center bg-[#121212] p-3 rounded-lg border border-white/5">
+                            <span className="text-xs text-gray-400">Sélectionnez l&apos;affirmation correcte :</span>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setQuestionOptions([
+                                  { id: 'vrai', text_fr: 'Vrai', text_en: 'True', is_correct: true },
+                                  { id: 'faux', text_fr: 'Faux', text_en: 'False', is_correct: false }
+                                ])}
+                                className={`px-3 py-1 text-xs font-bold rounded ${questionOptions[0]?.is_correct ? 'bg-green-500 text-white' : 'bg-white/5 text-gray-400'}`}
+                              >
+                                Vrai est correct
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setQuestionOptions([
+                                  { id: 'vrai', text_fr: 'Vrai', text_en: 'True', is_correct: false },
+                                  { id: 'faux', text_fr: 'Faux', text_en: 'False', is_correct: true }
+                                ])}
+                                className={`px-3 py-1 text-xs font-bold rounded ${questionOptions[1]?.is_correct ? 'bg-green-500 text-white' : 'bg-white/5 text-gray-400'}`}
+                              >
+                                Faux est correct
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Explications pédagogiques post-réponse */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-[10px] text-gray-400 mb-1 font-mono">🇫🇷 Explication Pédagogique (FR)</label>
+                            <textarea
+                              value={questionExplanationFr}
+                              onChange={e => setQuestionExplanationFr(e.target.value)}
+                              rows={2}
+                              className="w-full bg-[#161616] border border-white/15 rounded p-2.5 text-xs text-white"
+                              placeholder="Expliquez brièvement pourquoi c'est la bonne réponse..."
+                            />
+                            <button
+                              type="button"
+                              onClick={handleTranslateQuestionExplanation}
+                              disabled={isProcessing === 'translate-question-exp' || !questionExplanationFr.trim()}
+                              className="text-[9px] text-blue-400 hover:underline flex items-center gap-1 pt-1 disabled:opacity-30"
+                            >
+                              {isProcessing === 'translate-question-exp' ? <Loader2 size={8} className="animate-spin" /> : '🌐'} Auto-Traduire l&apos;Explication
+                            </button>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-gray-400 mb-1 font-mono">🇬🇧 Explanation (EN)</label>
+                            <textarea
+                              value={questionExplanationEn}
+                              onChange={e => setQuestionExplanationEn(e.target.value)}
+                              rows={2}
+                              className="w-full bg-[#161616] border border-white/15 rounded p-2.5 text-xs text-white"
+                              placeholder="Briefly explain why this is the correct answer..."
+                            />
+                          </div>
+                        </div>
+
+                        {/* Validation de la question */}
+                        <div className="flex justify-end gap-2 pt-2">
+                          <button onClick={resetQuestionForm} className="px-4 py-1.5 bg-white/5 hover:bg-white/10 text-gray-400 rounded text-xs">Annuler</button>
+                          <button onClick={handleSaveQuestion} className="px-5 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs font-bold">Sauvegarder la Question</button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Liste des questions du quiz */
+                      <div className="space-y-3">
+                        {quizQuestions.map((q, idx) => (
+                          <div key={q.id} className="bg-black/30 p-4 rounded-xl border border-white/5 space-y-2 group">
+                            <div className="flex items-start justify-between">
+                              <div className="min-w-0">
+                                <span className="text-[10px] text-purple-400 font-mono font-bold uppercase">{q.type} • Question #{idx + 1}</span>
+                                <h5 className="text-white text-sm font-bold mt-0.5">{q.question_fr}</h5>
+                                <p className="text-gray-500 text-xs italic">{q.question_en}</p>
+                              </div>
+                              <div className="flex gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all flex-shrink-0">
+                                <button onClick={() => handleEditQuestion(q)} className="p-1.5 bg-white/5 text-gray-400 hover:text-purple-400 rounded"><Edit2 size={12} /></button>
+                                <button onClick={() => handleDeleteQuestion(q.id)} className="p-1.5 bg-white/5 text-red-400 hover:bg-red-500 hover:text-white rounded"><Trash2 size={12} /></button>
+                              </div>
+                            </div>
+
+                            {/* Options et indications de correction */}
+                            <div className="flex flex-wrap gap-2 pt-1">
+                              {(q.options || []).map((o: any) => (
+                                <span
+                                  key={o.id}
+                                  className={`text-[10px] px-2.5 py-1 rounded-full font-bold ${o.is_correct
+                                    ? 'bg-green-500/10 border border-green-500/30 text-green-400'
+                                    : 'bg-white/5 border border-white/5 text-gray-400'
+                                  }`}
+                                >
+                                  {o.text_fr} {o.is_correct && '✓'}
+                                </span>
+                              ))}
+                            </div>
+
+                            {/* Explication */}
+                            {q.explanation_fr && (
+                              <div className="text-[10px] text-gray-500 bg-white/[0.01] border-l-2 border-purple-500/30 pl-2 py-1 mt-2">
+                                💡 <strong>Explication :</strong> {q.explanation_fr}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+
+                        {quizQuestions.length === 0 && (
+                          <p className="text-gray-600 text-xs text-center py-8">Aucune question ajoutée pour l&apos;instant. Cliquez sur &quot;Ajouter une Question&quot; pour commencer.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* Liste des Quiz */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {quizzes.map(quiz => {
+                const quizAttemptsList = quizAttempts.filter(a => a.quiz_id === quiz.id);
+                const totalAttempts = quizAttemptsList.length;
+                const avgScore = totalAttempts > 0 
+                  ? (quizAttemptsList.reduce((sum, a) => sum + a.score, 0) / totalAttempts).toFixed(1)
+                  : '0.0';
+
+                return (
+                  <div key={quiz.id} className="bg-white/[0.02] border border-white/10 rounded-2xl p-5 hover:border-purple-500/30 transition-all flex flex-col justify-between">
+                    <div className="space-y-3">
+                      
+                      {/* En-tête de carte */}
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="px-2 py-0.5 bg-purple-500/15 border border-purple-500/30 text-purple-400 text-[10px] font-bold rounded">
+                            🎯 QUIZ
+                          </span>
+                          {/* Affichage des placements multiples */}
+                          {(quiz.placements || ['left_sidebar']).map((pl: string) => (
+                            <span key={pl} className="px-2 py-0.5 bg-white/5 text-gray-400 text-[9px] rounded-full uppercase border border-white/10 font-mono">
+                              📍 {pl}
+                            </span>
+                          ))}
+                        </div>
+                        <p className="text-[10px] text-gray-500 font-mono">
+                          ID: {quiz.id.substring(0, 8)}...
+                        </p>
+                      </div>
+
+                      {/* Titres */}
+                      <div>
+                        <h4 className="text-white font-bold text-base font-serif">{quiz.title_fr}</h4>
+                        <p className="text-gray-500 text-xs italic mt-0.5">{quiz.title_en}</p>
+                      </div>
+
+                      {/* Statistiques pédagogiques */}
+                      <div className="grid grid-cols-2 gap-2 bg-[#141414] p-3 rounded-xl border border-white/5">
+                        <div className="text-center border-r border-white/5">
+                          <p className="text-[10px] text-gray-500 font-mono uppercase">Participants</p>
+                          <p className="text-lg font-bold text-white font-mono mt-0.5">{totalAttempts}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[10px] text-gray-500 font-mono uppercase">Score Moyen</p>
+                          <p className="text-lg font-bold text-purple-400 font-mono mt-0.5">{avgScore}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions de la carte */}
+                    <div className="flex items-center justify-end gap-2 pt-4 mt-4 border-t border-white/5">
+                      <button
+                        onClick={() => handleEditQuiz(quiz)}
+                        className="px-3 py-1.5 bg-white/5 text-gray-300 hover:text-[#D4AF37] hover:bg-white/10 rounded-lg text-xs font-bold transition-all flex items-center gap-1"
+                      >
+                        <Edit2 size={12} /> Gérer / Questions
+                      </button>
+                      <button
+                        onClick={() => handleDeleteQuiz(quiz.id)}
+                        className="p-2 bg-white/5 text-gray-400 hover:text-red-500 rounded-lg transition-all"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {quizzes.length === 0 && (
+                <div className="col-span-3 text-center py-20 bg-white/[0.02] rounded-2xl border border-white/10">
+                  <Lightbulb className="mx-auto mb-4 text-gray-600" size={48} />
+                  <p className="text-gray-500 font-medium text-base">Aucun quiz disponible</p>
+                  <p className="text-gray-600 text-xs mt-1">Créez votre premier quiz d&apos;évaluation bilingue dès maintenant !</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

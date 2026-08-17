@@ -215,6 +215,115 @@ export default function ArticlesTab({ showMsg }: {
   const [editTimelineDescFr, setEditTimelineDescFr] = useState('');
   const [editTimelineDescEn, setEditTimelineDescEn] = useState('');
 
+  // ============================================================================
+  // ASSISTANT D'ÉCRITURE IA (CLOUD & CONFIGURATION EN DIRECT)
+  // ============================================================================
+  const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiProvider, setAiProvider] = useState<'gemini' | 'nvidia' | 'openrouter' | 'ollama'>('gemini');
+  const [aiModel, setAiModel] = useState('gemini-3.5-flash');
+  const [aiOllamaUrl, setAiOllamaUrl] = useState('http://localhost:11434');
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [aiError, setAiError] = useState('');
+  
+  // Clés API éditables par l'admin sans toucher au code (sauvegardées localement)
+  const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [nvidiaApiKey, setNvidiaApiKey] = useState('');
+  const [openrouterApiKey, setOpenrouterApiKey] = useState('');
+
+  const [generatedPreview, setGeneratedPreview] = useState<{
+    title_fr: string;
+    title_en: string;
+    summary_fr: string;
+    summary_en: string;
+    content_fr: string;
+    content_en: string;
+    reading_time: number;
+  } | null>(null);
+
+  // Charger les clés API sauvegardées au démarrage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setGeminiApiKey(localStorage.getItem('lukeni_gemini_api_key') || '');
+      setNvidiaApiKey(localStorage.getItem('lukeni_nvidia_api_key') || '');
+      setOpenrouterApiKey(localStorage.getItem('lukeni_openrouter_api_key') || '');
+    }
+  }, []);
+
+  const handleSaveApiKeys = () => {
+    localStorage.setItem('lukeni_gemini_api_key', geminiApiKey);
+    localStorage.setItem('lukeni_nvidia_api_key', nvidiaApiKey);
+    localStorage.setItem('lukeni_openrouter_api_key', openrouterApiKey);
+    showMsg('success', '🔑 Clés API enregistrées dans ce navigateur !');
+    setIsConfigOpen(false);
+  };
+
+  const handleAiGenerate = async () => {
+    if (!aiPrompt.trim()) {
+      setAiError('Veuillez saisir un sujet ou une description pour l\'article.');
+      return;
+    }
+    setIsAiGenerating(true);
+    setAiError('');
+    setGeneratedPreview(null);
+
+    // Sélectionner la clé API personnalisée correspondante
+    let customApiKey = '';
+    if (aiProvider === 'gemini') customApiKey = geminiApiKey;
+    else if (aiProvider === 'nvidia') customApiKey = nvidiaApiKey;
+    else if (aiProvider === 'openrouter') customApiKey = openrouterApiKey;
+
+    try {
+      const response = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: aiPrompt,
+          provider: aiProvider,
+          model: aiModel || undefined,
+          ollamaUrl: aiOllamaUrl,
+          customApiKey: customApiKey || undefined,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Une erreur est survenue lors de la génération.');
+      }
+
+      if (data.result) {
+        setGeneratedPreview(data.result);
+        showMsg('success', '✨ Article généré avec succès !');
+      } else {
+        throw new Error('Aucun résultat n\'a été retourné par l\'IA.');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setAiError(err.message || 'Erreur inconnue.');
+      showMsg('error', 'Échec de la génération IA.');
+    } finally {
+      setIsAiGenerating(false);
+    }
+  };
+
+  const handleInjectAiArticle = () => {
+    if (!generatedPreview) return;
+    setTitleFr(generatedPreview.title_fr || '');
+    setTitleEn(generatedPreview.title_en || '');
+    setSummaryFr(generatedPreview.summary_fr || '');
+    setSummaryEn(generatedPreview.summary_en || '');
+    setContentFr(generatedPreview.content_fr || '');
+    setContentEn(generatedPreview.content_en || '');
+    if (generatedPreview.reading_time) {
+      setReadingTime(String(generatedPreview.reading_time));
+    }
+    setIsAiPanelOpen(false);
+    setGeneratedPreview(null);
+    setAiPrompt('');
+    showMsg('success', '📝 Article injecté dans le formulaire. Vous pouvez le relire avant de le créer.');
+  };
+
   useEffect(() => {
     async function fetchData() {
       setIsLoading(true);
@@ -422,6 +531,272 @@ export default function ArticlesTab({ showMsg }: {
           <h2 className="text-lg sm:text-xl md:text-2xl font-serif truncate">Articles (Encyclopédie)</h2>
           <p className="text-gray-400 text-xs">{articles.length} articles</p>
         </div>
+      </div>
+
+      {/* ASSISTANT DE RÉDACTION IA (GEMINI / NVIDIA / OPENROUTER) */}
+      <div className="bg-[#111] border border-[#D4AF37]/30 rounded-xl overflow-hidden shadow-[0_0_15px_rgba(212,175,55,0.1)] w-full">
+        <button
+          onClick={() => setIsAiPanelOpen(!isAiPanelOpen)}
+          className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-[#D4AF37]/10 via-black to-[#D4AF37]/10 hover:from-[#D4AF37]/20 hover:to-[#D4AF37]/20 transition-all text-left outline-none"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-[#D4AF37] animate-pulse">✨</span>
+            <div>
+              <h3 className="text-white text-sm sm:text-base font-bold font-serif">Assistant de Rédaction IA (Cloud & Local)</h3>
+              <p className="text-gray-400 text-xs font-sans">Générez des articles d&apos;encyclopédie complets en français & anglais en direct</p>
+            </div>
+          </div>
+          <span className="text-[#D4AF37] text-xs font-mono border border-[#D4AF37]/30 rounded-full px-3 py-0.5">
+            {isAiPanelOpen ? 'Fermer' : 'Ouvrir l\'assistant'}
+          </span>
+        </button>
+
+        {isAiPanelOpen && (
+          <div className="p-4 sm:p-6 border-t border-white/5 space-y-4 font-sans bg-black/60">
+            
+            {/* EN-TÊTE DE CONFIGURATION DES CLÉS (ÉVITE DE TOUCHER AU CODE) */}
+            <div className="bg-white/[0.02] border border-white/10 rounded-lg p-3 sm:p-4">
+              <button
+                onClick={() => setIsConfigOpen(!isConfigOpen)}
+                className="w-full flex items-center justify-between text-left outline-none"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xs">🔑</span>
+                  <span className="text-xs font-bold text-gray-300 font-mono">Configuration des Clés API (Production/Local)</span>
+                </div>
+                <span className="text-[10px] text-[#D4AF37] font-mono">
+                  {isConfigOpen ? '[ Masquer la config ]' : '[ Gérer / Remplacer mes clés API ]'}
+                </span>
+              </button>
+
+              {isConfigOpen && (
+                <div className="mt-4 space-y-3 pt-3 border-t border-white/5">
+                  <p className="text-[10px] text-gray-400 leading-relaxed">
+                    💡 <strong>Zéro modification de code :</strong> Saisissez vos clés API ci-dessous. Elles sont sauvegardées de façon 100% sécurisée directement dans <strong>votre navigateur</strong> (LocalStorage). Elles ne transitent jamais en clair sur notre base de données générale et vous permettent de remplacer une clé expirée instantanément.
+                  </p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[10px] text-gray-400 mb-1 font-mono">🔺 Google Gemini API Key</label>
+                      <input
+                        type="password"
+                        value={geminiApiKey}
+                        onChange={(e) => setGeminiApiKey(e.target.value)}
+                        placeholder={geminiApiKey ? "••••••••••••" : "Coller la clé AI Studio..."}
+                        className="w-full bg-[#161616] border border-white/10 rounded px-2.5 py-1.5 text-xs text-white outline-none focus:border-[#D4AF37] font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-gray-400 mb-1 font-mono">🟢 NVIDIA API Key</label>
+                      <input
+                        type="password"
+                        value={nvidiaApiKey}
+                        onChange={(e) => setNvidiaApiKey(e.target.value)}
+                        placeholder={nvidiaApiKey ? "••••••••••••" : "Coller la clé nvapi-..."}
+                        className="w-full bg-[#161616] border border-white/10 rounded px-2.5 py-1.5 text-xs text-white outline-none focus:border-[#D4AF37] font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] text-gray-400 mb-1 font-mono">🔵 OpenRouter API Key</label>
+                      <input
+                        type="password"
+                        value={openrouterApiKey}
+                        onChange={(e) => setOpenrouterApiKey(e.target.value)}
+                        placeholder={openrouterApiKey ? "••••••••••••" : "Coller la clé sk-or-..."}
+                        className="w-full bg-[#161616] border border-white/10 rounded px-2.5 py-1.5 text-xs text-white outline-none focus:border-[#D4AF37] font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-1">
+                    <button
+                      onClick={handleSaveApiKeys}
+                      className="bg-white/10 hover:bg-[#D4AF37] hover:text-black text-white text-[11px] font-bold font-mono px-4 py-1.5 rounded transition-all"
+                    >
+                      💾 Enregistrer mes clés dans ce navigateur
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Options de choix du moteur d'IA */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-[11px] text-gray-400 mb-1 font-mono">🤖 Fournisseur d&apos;IA</label>
+                <select
+                  value={aiProvider}
+                  onChange={(e) => {
+                    const prov = e.target.value as 'gemini' | 'nvidia' | 'openrouter' | 'ollama';
+                    setAiProvider(prov);
+                    if (prov === 'gemini') setAiModel('gemini-3.5-flash');
+                    else if (prov === 'nvidia') setAiModel('meta/llama-3.1-70b-instruct');
+                    else if (prov === 'openrouter') setAiModel('openrouter/auto');
+                    else setAiModel('llama3.2');
+                  }}
+                  className="w-full bg-[#161616] border border-white/10 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37]"
+                >
+                  <option value="gemini">Google Gemini (Cloud Gratuit & Généreux)</option>
+                  <option value="nvidia">NVIDIA NIM (Cloud Crédits Gratuits & Puissant)</option>
+                  <option value="openrouter">OpenRouter AI (Forfait de Modèles Gratuits)</option>
+                  <option value="ollama">Ollama Local (MacBook Pro - 100% Hors-Ligne)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] text-gray-400 mb-1 font-mono">🧠 Modèle d&apos;IA (Sélectionner ou Saisir)</label>
+                <input
+                  type="text"
+                  list="ai-models-list"
+                  value={aiModel}
+                  onChange={(e) => setAiModel(e.target.value)}
+                  placeholder="Sélectionner ou saisir un modèle..."
+                  className="w-full bg-[#161616] border border-white/10 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37]"
+                />
+                <datalist id="ai-models-list">
+                  {aiProvider === 'gemini' && (
+                    <>
+                      <option value="gemini-3.5-flash">gemini-3.5-flash (Nouveau standard 2026 - Recommandé)</option>
+                      <option value="gemini-3.7-flash">gemini-3.7-flash (Dernier modèle ultra-intelligent)</option>
+                      <option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview (Raisonnement lourd 2026)</option>
+                      <option value="gemini-2.5-flash">gemini-2.5-flash (Réservé anciens comptes)</option>
+                      <option value="gemini-1.5-flash">gemini-1.5-flash (Déprécié)</option>
+                    </>
+                  )}
+                  {aiProvider === 'nvidia' && (
+                    <>
+                      <option value="meta/llama-3.1-70b-instruct">meta/llama-3.1-70b-instruct</option>
+                      <option value="meta/llama-3.3-70b-instruct">meta/llama-3.3-70b-instruct</option>
+                      <option value="meta/llama-3.1-8b-instruct">meta/llama-3.1-8b-instruct</option>
+                    </>
+                  )}
+                  {aiProvider === 'openrouter' && (
+                    <>
+                      <option value="openrouter/auto">openrouter/auto</option>
+                      <option value="meta-llama/llama-3.1-8b-instruct:free">meta-llama/llama-3.1-8b-instruct:free</option>
+                      <option value="google/gemini-2.5-pro-exp-03-25:free">google/gemini-2.5-pro-exp-03-25:free</option>
+                      <option value="deepseek/deepseek-chat-v3-0324:free">deepseek/deepseek-chat-v3-0324:free</option>
+                    </>
+                  )}
+                  {aiProvider === 'ollama' && (
+                    <>
+                      <option value="llama3.2">llama3.2</option>
+                      <option value="qwen2.5:7b">qwen2.5:7b</option>
+                      <option value="llama3.1">llama3.1</option>
+                    </>
+                  )}
+                </datalist>
+              </div>
+
+              {aiProvider === 'ollama' ? (
+                <div>
+                  <label className="block text-[11px] text-gray-400 mb-1 font-mono">🔌 URL Ollama Locale</label>
+                  <input
+                    type="text"
+                    value={aiOllamaUrl}
+                    onChange={(e) => setAiOllamaUrl(e.target.value)}
+                    className="w-full bg-[#161616] border border-white/10 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37] font-mono"
+                  />
+                </div>
+              ) : (
+                <div className="flex items-end pb-2">
+                  <p className="text-[10px] text-gray-400 italic">
+                    🔑 Statut clé : {
+                      aiProvider === 'gemini' && geminiApiKey ? "✅ Renseignée localement" :
+                      aiProvider === 'nvidia' && nvidiaApiKey ? "✅ Renseignée localement" :
+                      aiProvider === 'openrouter' && openrouterApiKey ? "✅ Renseignée localement" :
+                      "⚠️ Clé manquante (Saisissez-la dans l'onglet ci-dessus ou utilisez les variables d'environnement de production)"
+                    }
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Sujet / Prompt */}
+            <div className="flex flex-col">
+              <label className="block text-xs text-gray-400 mb-1 font-mono">✍️ Sujet de l&apos;article ou notes de recherche à développer</label>
+              <textarea
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder="Exemple : Rédige un article détaillé sur la monnaie de la CEMAC (Franc CFA XAF) en s'appuyant sur les tensions de réserves de change de fin 2025/2026. Parle aussi de la viabilité économique de cette monnaie."
+                rows={4}
+                className="w-full bg-[#161616] border border-white/10 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[#D4AF37] resize-none"
+              />
+            </div>
+
+            {/* Erreur */}
+            {aiError && (
+              <div className="p-3 bg-red-950/20 border border-red-500/30 rounded-lg text-red-400 text-xs font-mono">
+                ⚠️ {aiError}
+              </div>
+            )}
+
+            {/* Bouton de génération */}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={handleAiGenerate}
+                disabled={isAiGenerating || !aiPrompt.trim()}
+                className="flex items-center gap-2 bg-[#D4AF37] hover:bg-white text-black font-bold text-xs px-5 py-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isAiGenerating ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin text-black" />
+                    <span>Génération en cours (cela peut prendre de 10s à 1 min)...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>✨ Générer l&apos;article</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Aperçu de la génération */}
+            {generatedPreview && (
+              <div className="border border-[#D4AF37]/30 rounded-lg overflow-hidden bg-black/85 space-y-4 p-4">
+                <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                  <h4 className="text-xs font-bold text-[#D4AF37] uppercase font-mono">✨ Aperçu de l&apos;article généré par l&apos;IA</h4>
+                  <button
+                    onClick={handleInjectAiArticle}
+                    className="bg-[#D4AF37] hover:bg-white text-black font-bold text-xs px-4 py-1.5 rounded transition-all"
+                  >
+                    🚀 Injecter dans le formulaire
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto pr-1">
+                  {/* FR Preview */}
+                  <div className="space-y-2 p-3 bg-white/5 rounded border border-white/5 font-sans">
+                    <p className="text-[10px] text-gray-500 uppercase font-mono">Français</p>
+                    <h5 className="text-white text-sm font-bold font-serif">{generatedPreview.title_fr}</h5>
+                    <p className="text-gray-400 text-xs italic">{generatedPreview.summary_fr}</p>
+                    <div className="text-gray-300 text-[11px] leading-relaxed whitespace-pre-line font-serif pt-1 border-t border-white/5 font-sans whitespace-pre-wrap font-serif">
+                      {generatedPreview.content_fr}
+                    </div>
+                  </div>
+
+                  {/* EN Preview */}
+                  <div className="space-y-2 p-3 bg-white/5 rounded border border-white/5 font-sans">
+                    <p className="text-[10px] text-gray-500 uppercase font-mono">English</p>
+                    <h5 className="text-white text-sm font-bold font-serif">{generatedPreview.title_en}</h5>
+                    <p className="text-gray-400 text-xs italic">{generatedPreview.summary_en}</p>
+                    <div className="text-gray-300 text-[11px] leading-relaxed whitespace-pre-line font-serif pt-1 border-t border-white/5 font-sans whitespace-pre-wrap font-serif">
+                      {generatedPreview.content_en}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2 border-t border-white/5">
+                  <p className="text-[10px] text-gray-500 font-mono">
+                    ⏱️ Temps de lecture : <strong>{generatedPreview.reading_time || 5} min</strong>
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* FORMULAIRE PRINCIPAL */}

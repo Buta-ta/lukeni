@@ -3058,6 +3058,346 @@ const DigestWidget = ({
   );
 };
 
+// ─── PollWidget (Sondages bilingues interactifs public) ──────────────────────
+const PollWidget = ({
+  poll,
+  lang,
+  onVote,
+}: {
+  poll: any;
+  lang: 'fr' | 'en';
+  onVote: (pollId: string, optionId: string) => Promise<void>;
+}) => {
+  const [votedOptionId, setVotedOptionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setVotedOptionId(localStorage.getItem(`lukeni_poll_voted_${poll.id}`));
+    }
+  }, [poll.id]);
+
+  const totalVotes = (poll.options || []).reduce((sum: number, o: any) => sum + (o.votes || 0), 0);
+  const question = lang === 'fr' ? poll.question_fr : (poll.question_en || poll.question_fr);
+
+  const handleVoteClick = async (optionId: string) => {
+    if (votedOptionId) return;
+    setVotedOptionId(optionId);
+    await onVote(poll.id, optionId);
+  };
+
+  return (
+    <div className="bg-[#000d1a] border border-[#D4AF37]/30 rounded-2xl overflow-hidden shadow-lg p-4 space-y-4" style={{ fontFamily: 'inherit' }}>
+      {/* Image d&apos;illustration du sondage */}
+      {poll.image_url && (
+        <div className="relative w-full h-32 rounded-xl overflow-hidden border border-white/10 mb-2">
+          <img src={poll.image_url} className="w-full h-full object-cover" alt="" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+        </div>
+      )}
+
+      <div>
+        <h4 className="text-white font-serif font-bold text-sm leading-snug">{question}</h4>
+      </div>
+
+      <div className="space-y-2">
+        {poll.poll_type === 'rating' ? (
+          /* Sondage d&apos;évaluation 1-10 */
+          votedOptionId ? (
+            <div className="space-y-2">
+              <p className="text-[10px] text-[#D4AF37] font-mono uppercase">Résultats de l&apos;opinion :</p>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400">Moyenne :</span>
+                <span className="text-sm font-bold text-white font-mono">
+                  {totalVotes > 0 
+                    ? ((poll.options || []).reduce((sum: number, o: any) => sum + (parseInt(o.id) * (o.votes || 0)), 0) / totalVotes).toFixed(1)
+                    : '0.0'} / 10
+                </span>
+              </div>
+              <p className="text-[10px] text-gray-500 font-mono">Vous avez voté : {votedOptionId} / 10</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-5 gap-1">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(val => (
+                <button
+                  key={val}
+                  onClick={() => handleVoteClick(String(val))}
+                  className="py-1.5 bg-white/5 border border-white/10 text-white font-bold rounded-lg text-xs hover:bg-[#D4AF37] hover:text-black transition-all"
+                >
+                  {val}
+                </button>
+              ))}
+            </div>
+          )
+        ) : poll.poll_type === 'versus' ? (
+          /* Sondage Versus (Duel A vs B) */
+          <div className="grid grid-cols-2 gap-2">
+            {(poll.options || []).slice(0, 2).map((opt: any) => {
+              const isSelected = votedOptionId === opt.id;
+              const percentage = totalVotes > 0 ? Math.round((opt.votes / totalVotes) * 100) : 0;
+              const text = lang === 'fr' ? opt.text_fr : (opt.text_en || opt.text_fr);
+
+              return (
+                <button
+                  key={opt.id}
+                  disabled={!!votedOptionId}
+                  onClick={() => handleVoteClick(opt.id)}
+                  className={`p-3 rounded-xl border flex flex-col items-center justify-center text-center gap-1 transition-all ${
+                    votedOptionId 
+                      ? isSelected 
+                        ? 'border-[#D4AF37] bg-[#D4AF37]/10 text-white'
+                        : 'border-white/5 bg-black/40 text-gray-500'
+                      : 'border-white/10 bg-white/5 hover:border-[#D4AF37]/50 text-white'
+                  }`}
+                >
+                  <span className="text-xs font-bold leading-tight line-clamp-2">{text}</span>
+                  {votedOptionId && (
+                    <span className="text-sm font-mono font-black text-[#D4AF37]">{percentage}%</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          /* Sondage classique */
+          <div className="space-y-2">
+            {(poll.options || []).map((opt: any) => {
+              const isSelected = votedOptionId === opt.id;
+              const percentage = totalVotes > 0 ? Math.round((opt.votes / totalVotes) * 100) : 0;
+              const text = lang === 'fr' ? opt.text_fr : (opt.text_en || opt.text_fr);
+
+              return votedOptionId ? (
+                <div key={opt.id} className="space-y-1">
+                  <div className="flex justify-between text-[11px] gap-2">
+                    <span className={`font-medium ${isSelected ? 'text-[#D4AF37]' : 'text-gray-400'}`}>
+                      {text} {isSelected && '•'}
+                    </span>
+                    <span className="text-gray-500 font-mono font-bold">{percentage}%</span>
+                  </div>
+                  <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${isSelected ? 'bg-[#D4AF37]' : 'bg-blue-500/50'}`}
+                      style={{ width: `${percentage}%` }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <button
+                  key={opt.id}
+                  onClick={() => handleVoteClick(opt.id)}
+                  className="w-full text-left bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-white hover:border-[#D4AF37]/50 hover:bg-white/10 transition-colors"
+                >
+                  {text}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="flex justify-between items-center text-[9px] text-gray-500 font-mono pt-1">
+        <span>🗳️ {totalVotes} {lang === 'fr' ? 'votes' : 'votes'}</span>
+        {votedOptionId && <span className="text-[#D4AF37]">✓ {lang === 'fr' ? 'Vote enregistré' : 'Vote registered'}</span>}
+      </div>
+    </div>
+  );
+};
+
+// ─── QuizWidget (Quiz bilingues interactifs public) ──────────────────────────
+const QuizWidget = ({
+  quiz,
+  questions,
+  lang,
+  onSubmitScore,
+}: {
+  quiz: any;
+  questions: any[];
+  lang: 'fr' | 'en';
+  onSubmitScore: (quizId: string, score: number, total: number) => Promise<void>;
+}) => {
+  const [started, setStarted] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedOpt, setSelectedOpt] = useState<string | null>(null);
+  const [isAnswered, setIsAnswered] = useState(false);
+  const [score, setScore] = useState(0);
+  const [finished, setFinished] = useState(false);
+
+  const quizQuestions = questions.filter(q => q.quiz_id === quiz.id);
+
+  if (quizQuestions.length === 0) return null;
+
+  const currentQ = quizQuestions[currentIndex];
+  const questionText = currentQ ? (lang === 'fr' ? currentQ.question_fr : (currentQ.question_en || currentQ.question_fr)) : '';
+  const explanation = currentQ ? (lang === 'fr' ? currentQ.explanation_fr : (currentQ.explanation_en || currentQ.explanation_fr)) : '';
+
+  const handleOptionClick = (optId: string) => {
+    if (isAnswered) return;
+    setSelectedOpt(optId);
+    setIsAnswered(true);
+
+    const option = currentQ.options.find((o: any) => o.id === optId);
+    if (option?.is_correct) {
+      setScore(s => s + 1);
+    }
+  };
+
+  const handleNext = async () => {
+    if (currentIndex >= quizQuestions.length - 1) {
+      setFinished(true);
+      await onSubmitScore(quiz.id, score + (currentQ.options.find((o: any) => o.id === selectedOpt)?.is_correct ? 1 : 0), quizQuestions.length);
+    } else {
+      setCurrentIndex(c => c + 1);
+      setSelectedOpt(null);
+      setIsAnswered(false);
+    }
+  };
+
+  const title = lang === 'fr' ? quiz.title_fr : (quiz.title_en || quiz.title_fr);
+
+  const firstQuestionImage = quizQuestions[0]?.image_url;
+
+  return (
+    <div className="bg-[#000d1a] border border-purple-500/30 rounded-2xl overflow-hidden shadow-lg p-5 space-y-4" style={{ fontFamily: 'inherit' }}>
+      {!started ? (
+        /* Écran de démarrage */
+        <div className="text-center space-y-3 py-1">
+          {firstQuestionImage ? (
+            <div className="relative w-full h-32 rounded-xl overflow-hidden border border-purple-500/20 mb-2">
+              <img src={firstQuestionImage} className="w-full h-full object-cover" alt="" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent" />
+            </div>
+          ) : (
+            <div className="w-12 h-12 rounded-full bg-purple-500/10 border border-purple-500/30 flex items-center justify-center mx-auto text-purple-400 font-bold text-xs font-mono">
+              QUIZ
+            </div>
+          )}
+          <div className="space-y-1">
+            <h4 className="text-white font-serif font-bold text-sm leading-snug">{title}</h4>
+            <p className="text-[10px] text-gray-500 font-mono uppercase font-bold">{quizQuestions.length} {lang === 'fr' ? 'questions' : 'questions'}</p>
+          </div>
+          <button
+            onClick={() => setStarted(true)}
+            className="w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs rounded-xl transition-all"
+            style={{ boxShadow: '0 0 15px rgba(168,85,247,0.3)' }}
+          >
+            {lang === 'fr' ? 'Lancer le défi' : 'Start the Quiz'}
+          </button>
+        </div>
+      ) : finished ? (
+        /* Écran de fin / résultats */
+        <div className="text-center space-y-4 py-2">
+          <div className="text-3xl animate-bounce">🏆</div>
+          <div>
+            <h5 className="text-white text-xs uppercase tracking-wider font-mono font-bold">{lang === 'fr' ? 'Défi terminé !' : 'Quiz completed!'}</h5>
+            <p className="text-2xl font-serif font-bold text-purple-400 mt-1">
+              {score} / {quizQuestions.length}
+            </p>
+          </div>
+          <p className="text-xs text-gray-400 leading-relaxed font-sans px-2">
+            {score === quizQuestions.length 
+              ? (lang === 'fr' ? 'Félicitations, un sans-faute !' : 'Excellent, perfect score!')
+              : score >= quizQuestions.length / 2 
+                ? (lang === 'fr' ? 'Bien joué, vous avez de solides connaissances.' : 'Good job, solid knowledge!')
+                : (lang === 'fr' ? 'Continuez à vous informer en lisant nos enquêtes !' : 'Keep reading our articles to learn more!')}
+          </p>
+          <button
+            onClick={() => {
+              setStarted(false);
+              setCurrentIndex(0);
+              setSelectedOpt(null);
+              setIsAnswered(false);
+              setScore(0);
+              setFinished(false);
+            }}
+            className="w-full py-2 bg-white/5 border border-white/10 hover:bg-white/10 text-white text-xs font-bold rounded-xl transition-all"
+          >
+            {lang === 'fr' ? 'Recommencer' : 'Play again'}
+          </button>
+        </div>
+      ) : (
+        /* Écran de question */
+        <div className="space-y-4">
+          {/* Progrès */}
+          <div className="space-y-1">
+            <div className="flex justify-between text-[10px] font-mono text-gray-500 uppercase font-bold">
+              <span>Question {currentIndex + 1} / {quizQuestions.length}</span>
+              <span>Score : {score}</span>
+            </div>
+            <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+              <div className="h-full bg-purple-500 transition-all" style={{ width: `${((currentIndex + 1) / quizQuestions.length) * 100}%` }} />
+            </div>
+          </div>
+
+          {/* Image d&apos;illustration de la question */}
+          {currentQ.image_url && (
+            <div className="w-full h-28 rounded-xl overflow-hidden border border-white/15 mb-2">
+              <img src={currentQ.image_url} className="w-full h-full object-cover" alt="" />
+            </div>
+          )}
+
+          {/* Texte de la question */}
+          <h5 className="text-white text-sm font-bold font-serif leading-snug">{questionText}</h5>
+
+          {/* Choix de réponses */}
+          <div className="space-y-2">
+            {(currentQ.options || []).map((o: any) => {
+              const isSelected = selectedOpt === o.id;
+              const isCorrect = o.is_correct;
+
+              let btnStyle = 'border-white/10 bg-white/5 hover:border-purple-500/50 hover:bg-white/10 text-white';
+              if (isAnswered) {
+                if (isCorrect) {
+                  btnStyle = 'border-green-500 bg-green-500/10 text-green-400 font-bold';
+                } else if (isSelected) {
+                  btnStyle = 'border-red-500 bg-red-500/10 text-red-400 font-bold';
+                } else {
+                  btnStyle = 'border-white/5 bg-black/40 text-gray-500 opacity-50';
+                }
+              }
+
+              return (
+                <button
+                  key={o.id}
+                  disabled={isAnswered}
+                  onClick={() => handleOptionClick(o.id)}
+                  className={`w-full text-left p-3 rounded-xl border text-xs transition-all flex items-center justify-between gap-2 ${btnStyle}`}
+                >
+                  <span>{lang === 'fr' ? o.text_fr : (o.text_en || o.text_fr)}</span>
+                  {isAnswered && isCorrect && <span className="text-green-400 font-bold">✓</span>}
+                  {isAnswered && isSelected && !isCorrect && <span className="text-red-400 font-bold">✕</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Explication pédagogique post-réponse */}
+          <AnimatePresence>
+            {isAnswered && explanation && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="p-3 bg-purple-500/5 border border-purple-500/20 rounded-xl text-[10px] text-purple-300 leading-relaxed font-sans"
+              >
+                💡 <strong>{lang === 'fr' ? 'Le Saviez-Vous ?' : 'Did You Know?'}</strong> {explanation}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Bouton question suivante */}
+          {isAnswered && (
+            <button
+              onClick={handleNext}
+              className="w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1"
+            >
+              <span>{currentIndex >= quizQuestions.length - 1 ? (lang === 'fr' ? 'Voir le score' : 'Show results') : (lang === 'fr' ? 'Question suivante' : 'Next question')}</span>
+              <ChevronRight size={12} />
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Sidebar Article ──────────────────────────────────────────────────────────
 
 const ArticleSidebar = ({
@@ -3336,6 +3676,11 @@ export const ArticleView = ({
   userProfile,
   announcements,
   allCharts,
+  activePolls,
+  activeQuizzes,
+  quizQuestions,
+  handleVotePoll,
+  handleQuizSubmitScore,
 }: {
   article: UnifiedItem;
   lang: "fr" | "en";
@@ -3346,6 +3691,11 @@ export const ArticleView = ({
   userProfile: UserProfile | null;
   announcements: PressAnnouncement[];
   allCharts: MacroChart[];
+  activePolls: any[];
+  activeQuizzes: any[];
+  quizQuestions: any[];
+  handleVotePoll: (pollId: string, optionId: string) => Promise<void>;
+  handleQuizSubmitScore: (quizId: string, score: number, total: number) => Promise<void>;
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
@@ -3811,8 +4161,26 @@ export const ArticleView = ({
         <div className="max-w-7xl mx-auto px-4 md:px-6">
           <div className="xl:grid xl:grid-cols-[1fr_minmax(0,680px)_320px] xl:gap-8">
 
-            {/* Colonne gauche — marge décorative (desktop uniquement) */}
-            <div className="hidden xl:block" aria-hidden="true" />
+            {/* Colonne gauche — Sidebar Gauche (Sondages / Quiz) */}
+            <div className="hidden xl:block">
+              <div className="sticky top-24 space-y-6 w-[280px] ml-auto max-h-[calc(100vh-120px)] overflow-y-auto scrollbar-hide">
+                {/* Rendu des sondages à gauche */}
+                {activePolls
+                  .filter(p => p.placements?.includes('left_sidebar') && (p.article_id === article.id || !p.article_id))
+                  .map(poll => (
+                    <PollWidget key={poll.id} poll={poll} lang={lang} onVote={handleVotePoll} />
+                  ))
+                }
+
+                {/* Rendu des quiz à gauche */}
+                {activeQuizzes
+                  .filter(q => q.placements?.includes('left_sidebar') && (q.article_id === article.id || !q.article_id))
+                  .map(quiz => (
+                    <QuizWidget key={quiz.id} quiz={quiz} questions={quizQuestions} lang={lang} onSubmitScore={handleQuizSubmitScore} />
+                  ))
+                }
+              </div>
+            </div>
 
             {/* Colonne centrale — corps de l'article */}
             <div
@@ -4186,7 +4554,23 @@ export const ArticleView = ({
 
             {/* Colonne droite — Sidebar sticky (desktop uniquement) */}
             <div className="hidden xl:block">
-              <div className="sticky top-24">
+              <div className="sticky top-24 space-y-6 max-h-[calc(100vh-120px)] overflow-y-auto scrollbar-hide">
+                {/* Rendu des sondages à droite */}
+                {activePolls
+                  .filter(p => p.placements?.includes('right_sidebar') && (p.article_id === article.id || !p.article_id))
+                  .map(poll => (
+                    <PollWidget key={poll.id} poll={poll} lang={lang} onVote={handleVotePoll} />
+                  ))
+                }
+
+                {/* Rendu des quiz à droite */}
+                {activeQuizzes
+                  .filter(q => q.placements?.includes('right_sidebar') && (q.article_id === article.id || !q.article_id))
+                  .map(quiz => (
+                    <QuizWidget key={quiz.id} quiz={quiz} questions={quizQuestions} lang={lang} onSubmitScore={handleQuizSubmitScore} />
+                  ))
+                }
+
                 <ArticleSidebar
                   sidebarSearchTerm={sidebarSearchTerm}
                   setSidebarSearchTerm={setSidebarSearchTerm}
@@ -4387,6 +4771,45 @@ export default function PressePage() {
   );
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
+  // ÉTATS PUBLICS POUR LES SONDAGES & QUIZ EN PRODUCTION
+  const [activePolls, setActivePolls] = useState<any[]>([]);
+  const [activeQuizzes, setActiveQuizzes] = useState<any[]>([]);
+  const [quizQuestions, setQuizQuestions] = useState<any[]>([]);
+
+  const handleVotePoll = async (pollId: string, optionId: string) => {
+    try {
+      const { error } = await supabase.rpc('increment_poll_vote', { poll_id: pollId, option_id: optionId });
+      if (error) throw error;
+      
+      // Enregistrer le vote en local
+      localStorage.setItem(`lukeni_poll_voted_${pollId}`, optionId);
+      
+      // Mettre à jour l'état local pour re-rendre les statistiques immédiatement
+      setActivePolls(prev => prev.map(p => {
+        if (p.id !== pollId) return p;
+        return {
+          ...p,
+          options: p.options.map((o: any) => o.id === optionId ? { ...o, votes: (o.votes || 0) + 1 } : o)
+        };
+      }));
+    } catch (err: any) {
+      console.error('Erreur lors du vote :', err);
+    }
+  };
+
+  const handleQuizSubmitScore = async (quizId: string, score: number, total: number) => {
+    try {
+      await supabase.from('press_quiz_attempts').insert({
+        quiz_id: quizId,
+        score,
+        total_questions: total,
+        user_email: user?.email || null
+      });
+    } catch (err) {
+      console.error('Erreur d\'enregistrement de tentative :', err);
+    }
+  };
+
   const fetchUserProfile = useCallback(async (userId: string) => {
     const { data } = await supabase
       .from("profiles")
@@ -4503,6 +4926,9 @@ export default function PressePage() {
       chartSeriesRes,
       chartAnnotRes,
       digestRes,
+      pollsRes,
+      quizzesRes,
+      questionsRes,
     ] = await Promise.all([
       supabase
         .from("press_articles")
@@ -4536,6 +4962,9 @@ export default function PressePage() {
       supabase.from("macro_chart_series").select("*"), // ✅ NOUVEAU
       supabase.from("macro_chart_annotations").select("*"), // ✅ NOUVEAU
       supabase.from("press_digest").select("*").eq("is_active", true).order("priority", { ascending: true }),
+      supabase.from("press_polls").select("*").eq("is_active", true),
+      supabase.from("press_quizzes").select("*"),
+      supabase.from("press_quiz_questions").select("*").order("created_at", { ascending: true }),
     ]);
 
     if (
@@ -4670,6 +5099,11 @@ export default function PressePage() {
 
     if (digestRes.data) setDigests(digestRes.data as DigestItem[]);
 
+    // Assigner les résultats pour les sondages et les quiz publics
+    if (pollsRes.data) setActivePolls(pollsRes.data);
+    if (quizzesRes.data) setActiveQuizzes(quizzesRes.data);
+    if (questionsRes.data) setQuizQuestions(questionsRes.data);
+
     setTimeout(() => setIsLoading(false), 800);
   }
 
@@ -4718,7 +5152,7 @@ export default function PressePage() {
 
   return (
     <div
-      className="min-h-screen text-white selection:bg-[#0466c8]/30 overflow-x-hidden relative"
+      className="min-h-screen text-white selection:bg-[#0466c8]/30 overflow-x-clip relative"
       style={{ background: "#020B1A" }}
     >
       {/* Fond noir avec accents bleu minimal aux coins */}
@@ -5325,6 +5759,63 @@ export default function PressePage() {
                   )}
                 </>
               )}
+
+              {/* SÉPARATEUR DE TRIBUNE ÉLÉGANT & PRO */}
+              {(activePolls.filter(p => p.placements?.includes('press_intro')).length > 0 || 
+                activeQuizzes.filter(q => q.placements?.includes('press_intro')).length > 0) && (
+                <div className="my-16 flex items-center justify-center gap-4 max-w-4xl mx-auto px-4" aria-hidden="true">
+                  <div className="flex-1 h-[1px] bg-gradient-to-r from-transparent via-[#D4AF37]/30 to-[#D4AF37]/10" />
+                  <div className="flex items-center gap-1.5 px-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]/30" />
+                    <CaurisIcon className="w-6 h-6 text-[#D4AF37]/60" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]/30" />
+                  </div>
+                  <div className="flex-1 h-[1px] bg-gradient-to-l from-transparent via-[#D4AF37]/30 to-[#D4AF37]/10" />
+                </div>
+              )}
+
+              {/* SONDAGES ET QUIZ DE LA PAGE D'ACCUEIL (PLACEMENT: press_intro, RENDERED AFTER DIGESTS / CONTENT) */}
+              {(activePolls.filter(p => p.placements?.includes('press_intro')).length > 0 || 
+                activeQuizzes.filter(q => q.placements?.includes('press_intro')).length > 0) && (
+                <div className="mt-16 max-w-4xl mx-auto space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {activePolls
+                      .filter(p => p.placements?.includes('press_intro'))
+                      .map(poll => {
+                        const relatedArticle = feedItems.find(a => a.id === poll.article_id);
+                        const articleTitle = relatedArticle 
+                          ? (lang === 'fr' ? relatedArticle.title_fr : (relatedArticle.title_en || relatedArticle.title_fr))
+                          : (lang === 'fr' ? 'Lukeni Opinion' : 'Lukeni Opinion');
+                        return (
+                          <div key={poll.id} className="space-y-3 bg-[#001233]/40 border border-[#D4AF37]/20 p-5 rounded-2xl shadow-lg">
+                            <p className="text-[10px] text-[#D4AF37] font-mono uppercase font-bold tracking-wider">
+                              Sondage • {articleTitle}
+                            </p>
+                            <PollWidget poll={poll} lang={lang} onVote={handleVotePoll} />
+                          </div>
+                        );
+                      })
+                    }
+                    {activeQuizzes
+                      .filter(q => q.placements?.includes('press_intro'))
+                      .map(quiz => {
+                        const relatedArticle = feedItems.find(a => a.id === quiz.article_id);
+                        const articleTitle = relatedArticle 
+                          ? (lang === 'fr' ? relatedArticle.title_fr : (relatedArticle.title_en || relatedArticle.title_fr))
+                          : (lang === 'fr' ? 'Lukeni Défi' : 'Lukeni Challenge');
+                        return (
+                          <div key={quiz.id} className="space-y-3 bg-[#001233]/40 border border-purple-500/20 p-5 rounded-2xl shadow-lg">
+                            <p className="text-[10px] text-purple-400 font-mono uppercase font-bold tracking-wider">
+                              Quiz • {articleTitle}
+                            </p>
+                            <QuizWidget quiz={quiz} questions={quizQuestions} lang={lang} onSubmitScore={handleQuizSubmitScore} />
+                          </div>
+                        );
+                      })
+                    }
+                  </div>
+                </div>
+              )}
             </main>
 
             <footer className="py-20 text-center relative z-10">
@@ -5374,6 +5865,11 @@ export default function PressePage() {
                   userProfile={userProfile}
                   announcements={announcements}
                   allCharts={allMacroCharts}
+                  activePolls={activePolls}
+                  activeQuizzes={activeQuizzes}
+                  quizQuestions={quizQuestions}
+                  handleVotePoll={handleVotePoll}
+                  handleQuizSubmitScore={handleQuizSubmitScore}
                 />
               </div>
             </NotesplitContainer>

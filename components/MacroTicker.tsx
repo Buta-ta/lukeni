@@ -17,13 +17,15 @@ interface TickerItem {
   unit_fr?: string;
   unit_en?: string;
   trend?: 'up' | 'down' | 'stable';
+  change_percentage?: number;
   source_url?: string;
   category?: {
     color: string;
   };
+  isCommodity?: boolean; // Flag pour identifier les matières premières
 }
 
-// Mapping drapeaux (codes ISO → emoji)
+// Mapping drapeaux pour le ticker macro standard
 const FLAG_EMOJIS: Record<string, string> = {
   BJ: '🇧🇯', BF: '🇧🇫', CI: '🇨🇮', GH: '🇬🇭', GN: '🇬🇳',
   ML: '🇲🇱', NE: '🇳🇪', NG: '🇳🇬', SN: '🇸🇳', TG: '🇹🇬',
@@ -56,15 +58,23 @@ export default function MacroTicker() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const isInvestigationRoute = 
-    pathname?.startsWith('/investigations/') && pathname !== '/investigations';
+  // EXCLUSIONS : Pas de ticker sur les pages d'investigations ni d'Awalé
+  const isExcludedRoute = 
+    pathname === '/investigations' ||
+    pathname?.startsWith('/investigations/') ||
+    pathname === '/jeux/awale' ||
+    pathname?.includes('/awale');
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (!isExcludedRoute) {
+      loadData();
+    }
+  }, [pathname]);
 
-  // 🔴 TEMPS RÉEL : Écouter les changements sur macro_globe_data
+  // Écoute temps réel des changements de configuration
   useEffect(() => {
+    if (isExcludedRoute) return;
+
     const channel = supabase
       .channel('macro-ticker-changes')
       .on(
@@ -72,10 +82,10 @@ export default function MacroTicker() {
         { 
           event: '*', 
           schema: 'public', 
-          table: 'macro_globe_data' 
+          table: 'site_settings' 
         },
-        (payload) => {
-          console.log('🔄 Ticker data changed:', payload.eventType);
+        () => {
+          console.log('🔄 Ticker configuration updated:');
           setIsUpdating(true);
           loadData().finally(() => {
             setTimeout(() => setIsUpdating(false), 500);
@@ -87,28 +97,65 @@ export default function MacroTicker() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase]);
+  }, [supabase, isExcludedRoute]);
 
   const loadData = async () => {
     setIsLoading(true);
     try {
+      // 1. Charger les interrupteurs d'activation depuis la table site_settings
       const { data: settings } = await supabase
         .from('site_settings')
-        .select('macro_ticker_enabled')
+        .select('macro_ticker_enabled, press_ticker_enabled')
         .eq('id', 1)
-        .single();
+        .maybeSingle();
 
-      if (settings && settings.macro_ticker_enabled === false) {
+      const macroEnabled = settings ? settings.macro_ticker_enabled !== false : true;
+      const pressEnabled = settings ? settings.press_ticker_enabled !== false : true;
+
+      // Si les deux sont désactivés globalement, on n'affiche rien
+      if (!macroEnabled && !pressEnabled) {
         setEnabled(false);
         setIsLoading(false);
         return;
       }
 
-      const response = await fetch('/api/macro-globe?limit=50');
-      if (response.ok) {
-        const data = await response.json();
-        setItems(data);
+      setEnabled(true);
+
+      // 2. Charger les flux en parallèle selon l'activation
+      const fetchPromises: Promise<any[]>[] = [];
+      
+      if (pressEnabled) {
+        fetchPromises.push(
+          fetch('/api/commodities')
+            .then(res => res.ok ? res.json() : [])
+            .then(data => data.map((item: any) => ({ ...item, isCommodity: true })))
+            .catch(() => [])
+        );
       }
+      
+      if (macroEnabled) {
+        fetchPromises.push(
+          fetch('/api/macro-globe?limit=50')
+            .then(res => res.ok ? res.json() : [])
+            .then(data => data.map((item: any) => ({ ...item, isCommodity: false })))
+            .catch(() => [])
+        );
+      }
+
+      const results = await Promise.all(fetchPromises);
+      
+      // Fusionner les matières premières et les indicateurs macro pour un défilement continu combiné
+      // On alterne ou on fusionne simplement les tableaux
+      let mergedItems: TickerItem[] = [];
+      const maxLength = Math.max(...results.map(r => r.length));
+      
+      for (let i = 0; i < maxLength; i++) {
+        results.forEach(res => {
+          if (res[i]) mergedItems.push(res[i]);
+        });
+      }
+
+      setItems(mergedItems);
     } catch (err) {
       console.error('Error loading ticker data:', err);
     }
@@ -120,26 +167,25 @@ export default function MacroTicker() {
   };
 
   const handleItemClick = (item: TickerItem) => {
+    if (item.isCommodity) return; // Pas de lien pour les matières premières
     if (!item.source_url) return;
 
     const url = item.source_url;
-    
     if (url.startsWith('http://') || url.startsWith('https://')) {
       window.open(url, '_blank', 'noopener,noreferrer');
-    } 
-    else if (url.startsWith('/')) {
+    } else if (url.startsWith('/')) {
       router.push(url);
     }
   };
 
-  // Si pas de données ou conditions de masquage → ne rien afficher
-  if (!enabled || isInvestigationRoute || dismissed || isLoading || items.length === 0) {
+  // Si exclu, désactivé ou vidé → masquer
+  if (isExcludedRoute || !enabled || dismissed || isLoading || items.length === 0) {
     return null;
   }
 
   return (
     <>
-      {/* Spacer qui pousse le contenu vers le bas (en position normale dans le flow) */}
+      {/* Spacer pour compenser le ticker fixe */}
       <div className="h-10 w-full" />
       
       {/* Ticker fixé en haut */}
@@ -150,7 +196,7 @@ export default function MacroTicker() {
             100% { transform: translateX(-50%); }
           }
           .ticker-track {
-            animation: ticker-scroll 60s linear infinite;
+            animation: ticker-scroll 50s linear infinite;
           }
           .ticker-track:hover {
             animation-play-state: paused;
@@ -181,24 +227,24 @@ export default function MacroTicker() {
           <button
             onClick={handleDismiss}
             className="absolute left-2 z-10 p-1 text-white/40 hover:text-white hover:bg-white/10 rounded transition-colors"
-            title="Masquer temporairement"
+            title="Masquer"
           >
             <X size={12} />
           </button>
 
           <div className="flex-1 ml-8 overflow-hidden">
             <div className="ticker-track flex items-center gap-6 whitespace-nowrap">
-              {items.map((item) => (
+              {items.map((item, idx) => (
                 <TickerItemComponent
-                  key={item.id}
+                  key={`${item.id}-${idx}`}
                   item={item}
                   lang={lang}
                   onClick={() => handleItemClick(item)}
                 />
               ))}
-              {items.map((item) => (
+              {items.map((item, idx) => (
                 <TickerItemComponent
-                  key={`dup-${item.id}`}
+                  key={`dup-${item.id}-${idx}`}
                   item={item}
                   lang={lang}
                   onClick={() => handleItemClick(item)}
@@ -228,13 +274,12 @@ function TickerItemComponent({
   lang: 'fr' | 'en';
   onClick: () => void;
 }) {
-  const flag = getFlag(item.country_code);
-  const hasUrl = !!item.source_url;
-
-  // Choisir le bon texte selon la langue
-  const countryName = lang === 'fr' ? item.country_name_fr : (item.country_name_en || item.country_name_fr);
+  const isComm = item.isCommodity;
+  const flag = isComm ? item.country_name_fr : getFlag(item.country_code);
+  const countryName = isComm ? "" : (lang === 'fr' ? item.country_name_fr : (item.country_name_en || item.country_name_fr));
   const indicator = lang === 'fr' ? item.indicator_fr : (item.indicator_en || item.indicator_fr);
   const unit = lang === 'fr' ? item.unit_fr : (item.unit_en || item.unit_fr);
+  const hasUrl = !isComm && !!item.source_url;
 
   return (
     <button
@@ -248,11 +293,13 @@ function TickerItemComponent({
     >
       <span className="text-sm">{flag}</span>
 
-      <span className="text-white/70 text-xs font-medium">
-        {countryName}
-      </span>
+      {countryName && (
+        <span className="text-white/70 text-xs font-medium">
+          {countryName}
+        </span>
+      )}
 
-      <span className="text-white/20">•</span>
+      {countryName && <span className="text-white/20">•</span>}
 
       <span 
         className="text-xs font-bold"
@@ -271,7 +318,7 @@ function TickerItemComponent({
         <Minus size={12} className="text-gray-400" />
       )}
 
-      <span className="text-white font-bold text-xs">
+      <span className="text-white font-bold text-xs font-mono">
         {formatValue(item.value, lang)}
       </span>
 
@@ -281,7 +328,13 @@ function TickerItemComponent({
         </span>
       )}
 
-      <span className="text-[#D4AF37]/30 ml-2">│</span>
+      {isComm && item.change_percentage !== undefined && (
+        <span className={`text-[10px] font-bold font-mono ${item.trend === 'up' ? 'text-green-400' : item.trend === 'down' ? 'text-red-400' : 'text-gray-400'}`}>
+          ({item.trend === 'up' ? '+' : ''}{item.change_percentage.toFixed(2)}%)
+        </span>
+      )}
+
+      <span className="text-white/10 ml-2">│</span>
     </button>
   );
 }
