@@ -2796,9 +2796,18 @@ export const ShareButton = ({
   const [isOpen, setIsOpen] = useState(false);
 
   const title = lang === "fr" ? article.title_fr : article.title_en;
+  
+  // Générer un slug d'article lisible à partir du titre
+  const slug = title
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+
   const url =
     typeof window !== "undefined"
-      ? `${window.location.origin}/presse?article=${article.id}`
+      ? `${window.location.origin}/presse?article=${article.id}-${slug}`
       : "";
   const tweetText = `${title} - Le Continent`;
   const emailSubject = `À lire : ${title}`;
@@ -3676,11 +3685,11 @@ export const ArticleView = ({
   userProfile,
   announcements,
   allCharts,
-  activePolls,
-  activeQuizzes,
-  quizQuestions,
-  handleVotePoll,
-  handleQuizSubmitScore,
+  activePolls = [],
+  activeQuizzes = [],
+  quizQuestions = [],
+  handleVotePoll = async () => {},
+  handleQuizSubmitScore = async () => {},
 }: {
   article: UnifiedItem;
   lang: "fr" | "en";
@@ -3691,11 +3700,11 @@ export const ArticleView = ({
   userProfile: UserProfile | null;
   announcements: PressAnnouncement[];
   allCharts: MacroChart[];
-  activePolls: any[];
-  activeQuizzes: any[];
-  quizQuestions: any[];
-  handleVotePoll: (pollId: string, optionId: string) => Promise<void>;
-  handleQuizSubmitScore: (quizId: string, score: number, total: number) => Promise<void>;
+  activePolls?: any[];
+  activeQuizzes?: any[];
+  quizQuestions?: any[];
+  handleVotePoll?: (pollId: string, optionId: string) => Promise<void>;
+  handleQuizSubmitScore?: (quizId: string, score: number, total: number) => Promise<void>;
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
@@ -4904,6 +4913,18 @@ export default function PressePage() {
     };
   }, [fetchUserProfile]);
 
+  // Synchroniser l'URL de l'article lu en direct dans la barre d'adresse
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (selectedArticle) {
+        const newUrl = `${window.location.pathname}?article=${selectedArticle.id}`;
+        window.history.pushState({}, '', newUrl);
+      } else {
+        window.history.pushState({}, '', window.location.pathname);
+      }
+    }
+  }, [selectedArticle]);
+
   useEffect(() => {
     if (searchTerm || isFocused || !smartSuggestions.length) return;
     const id = setInterval(
@@ -5103,6 +5124,18 @@ export default function PressePage() {
     if (pollsRes.data) setActivePolls(pollsRes.data);
     if (quizzesRes.data) setActiveQuizzes(quizzesRes.data);
     if (questionsRes.data) setQuizQuestions(questionsRes.data);
+
+    // ✅ Charger automatiquement l'article partagé via l'URL (?article=ID)
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const articleId = params.get("article");
+      if (articleId) {
+        const found = items.find(a => a.id === articleId);
+        if (found) {
+          setSelectedArticle(found);
+        }
+      }
+    }
 
     setTimeout(() => setIsLoading(false), 800);
   }
